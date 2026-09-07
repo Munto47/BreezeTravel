@@ -9,6 +9,8 @@ GET  /api/itinerary/{itinerary_id}/export — 导出路线为 HTML（需登录�
 """
 
 import json
+import math
+from collections.abc import Mapping
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -29,27 +31,133 @@ router = APIRouter()
 
 class PlaceSyncRequest(BaseModel):
     places: list[dict]
-    voted_by_map: Optional[dict[str, list[str]]] = None  # { place_id: [user_id, ...] }
+    # Compatibility-only. Yjs is not an account identity authority, so these
+    # claimed user ids are intentionally ignored by the persistence layer.
+    voted_by_map: Optional[dict[str, list[str]]] = None
+
+
+def _sanitize_shared_place(place: dict) -> dict:
+    """Project untrusted CRDT JSON onto public place facts only."""
+
+    def text(key: str, limit: int) -> str:
+        value = place.get(key)
+        if not isinstance(value, str):
+            return ""
+        return " ".join(value.split())[:limit]
+
+    def number(key: str, minimum: float, maximum: float) -> float | None:
+        value = place.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        numeric = float(value)
+        return numeric if math.isfinite(numeric) and minimum <= numeric <= maximum else None
+
+    place_id = text("place_id", 200) or text("id", 200)
+    name = text("name", 120)
+    category = text("category", 40)
+    coords = place.get("coords")
+    if (
+        not place_id
+        or not name
+        or category not in {"attraction", "food", "hotel", "transport"}
+        or not isinstance(coords, Mapping)
+    ):
+        return {}
+    lng = coords.get("lng")
+    lat = coords.get("lat")
+    if (
+        isinstance(lng, bool)
+        or isinstance(lat, bool)
+        or not isinstance(lng, (int, float))
+        or not isinstance(lat, (int, float))
+        or not math.isfinite(float(lng))
+        or not math.isfinite(float(lat))
+        or abs(float(lng)) > 180
+        or abs(float(lat)) > 90
+    ):
+        return {}
+    source = text("source", 40)
+    if source not in {"amap_poi", "rag", "synthesized"}:
+        source = "synthesized"
+    photos = place.get("amap_photos")
+    tags = place.get("tags")
+    selected = place.get("room_selected") is True or (
+        isinstance(place.get("votedBy"), list) and bool(place["votedBy"])
+    ) or (
+        isinstance(place.get("voted_by"), list) and bool(place["voted_by"])
+    )
+    projected = {
+        "place_id": place_id,
+        "name": name,
+        "category": category,
+        "address": text("address", 240),
+        "coords": {"lng": float(lng), "lat": float(lat)},
+        "city": text("city", 80),
+        "district": text("district", 80) or None,
+        "source": source,
+        "amap_rating": number("amap_rating", 0, 5),
+        "amap_price": number("amap_price", 0, 1_000_000),
+        "opening_hours": text("opening_hours", 160) or None,
+        "phone": text("phone", 80) or None,
+        "amap_photos": [
+            " ".join(item.split())[:2048]
+            for item in photos[:5]
+            if isinstance(item, str) and item.startswith(("https://", "http://"))
+        ]
+        if isinstance(photos, list)
+        else [],
+        "description": text("description", 1_000) or None,
+        "tags": [
+            " ".join(item.split())[:40]
+            for item in tags[:12]
+            if isinstance(item, str) and item.strip()
+        ]
+        if isinstance(tags, list)
+        else [],
+        "constraint_evidence": [],
+        "geo_evidence": [],
+        "confirmation_actions": [],
+        "estimated_duration": number("estimated_duration", 0, 24 * 60),
+        "room_selected": selected,
+    }
+    return projected
 
 
 @router.post("/room/{room_id}/places/sync")
 async def sync_places(room_id: str, body: PlaceSyncRequest, user_id: Optional[str] = Depends(get_optional_user)):
     """把 Yjs 内存景点批量 UPSERT 到 DB（仅房间成员）。"""
-    if not body.places:
-        return {"ok": True, "synced": 0}
-
     pool = await get_pool()
-    if not get_settings().demo_mode:
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="请先登录")
-        await require_room_member(room_id, user_id, pool=pool)
-    async with pool.acquire() as conn:
+    async with pool.acquire() as conn, conn.transaction():
+        if not get_settings().demo_mode:
+            if user_id is None:
+                raise HTTPException(status_code=401, detail="请先登录")
+            member = await conn.fetchval(
+                """
+                SELECT 1
+                FROM room_members
+                WHERE room_id = $1 AND user_id = $2
+                FOR KEY SHARE
+                """,
+                room_id,
+                user_id,
+            )
+            if member is None:
+                raise HTTPException(status_code=403, detail="不是该房间成员")
+        sanitized_places = [
+            sanitized
+            for place in body.places
+            if (sanitized := _sanitize_shared_place(place))
+        ]
+        if body.places and not sanitized_places:
+            raise HTTPException(status_code=422, detail="地点数据不可用")
         synced = 0
-        for place in body.places:
-            place_id = place.get("place_id") or place.get("id")
+        retained_place_ids: list[str] = []
+        for sanitized in sanitized_places:
+            place_id = sanitized.get("place_id") or sanitized.get("id")
             if not place_id:
                 continue
-            voted_by = (body.voted_by_map or {}).get(place_id, [])
+            place_id = str(place_id)
+            retained_place_ids.append(place_id)
             await conn.execute(
                 """
                 INSERT INTO room_places (room_id, place_id, place_data, voted_by, updated_at)
@@ -61,10 +169,24 @@ async def sync_places(room_id: str, body: PlaceSyncRequest, user_id: Optional[st
                 """,
                 room_id,
                 place_id,
-                json.dumps(place, ensure_ascii=False),
-                voted_by,
+                json.dumps(sanitized, ensure_ascii=False),
+                [],
             )
             synced += 1
+        if retained_place_ids:
+            await conn.execute(
+                """
+                DELETE FROM room_places
+                WHERE room_id = $1 AND NOT (place_id = ANY($2::text[]))
+                """,
+                room_id,
+                retained_place_ids,
+            )
+        else:
+            await conn.execute(
+                "DELETE FROM room_places WHERE room_id = $1",
+                room_id,
+            )
     return {"ok": True, "synced": synced}
 
 
@@ -79,7 +201,7 @@ async def get_room_places(room_id: str, user_id: Optional[str] = Depends(get_opt
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT place_id, place_data, voted_by, added_at
+            SELECT place_id, place_data, added_at
             FROM room_places
             WHERE room_id = $1
             ORDER BY added_at ASC
@@ -88,8 +210,8 @@ async def get_room_places(room_id: str, user_id: Optional[str] = Depends(get_opt
         )
     return [
         {
-            **json.loads(r["place_data"]),
-            "voted_by": list(r["voted_by"] or []),
+            **_sanitize_shared_place(json.loads(r["place_data"])),
+            "voted_by": [],
         }
         for r in rows
     ]
@@ -137,7 +259,7 @@ async def get_room_itinerary(room_id: str, user_id: str = Depends(get_current_us
             SELECT id, city, trip_days, itinerary_data, created_at
             FROM saved_itineraries
             WHERE room_id = $1 AND user_id = $2
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC NULLS LAST, id DESC
             LIMIT 1
             """,
             room_id,

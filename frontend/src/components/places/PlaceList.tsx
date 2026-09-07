@@ -17,7 +17,7 @@ interface PlaceListProps {
   onClickPlace?: (placeId: string) => void
 }
 
-const CLUSTER_COLORS = ['#FF5A5F', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4']
+const CLUSTER_COLORS = ['#0C789D', '#5C7CFA', '#10B981', '#B7791F', '#8B5CF6', '#06B6D4']
 
 // 三大板块定义
 type CategoryFilter = 'sights' | 'food' | 'hotel'
@@ -75,8 +75,8 @@ export default function PlaceList({
 }: PlaceListProps) {
   const { rightTab, setRightTab } = useRoomStore()
 
-  // 当前用户已心形的总数
-  const myVoteCount = places.filter((p) => p.votedBy.includes(currentUserId)).length
+  // Yjs 只保存房间共享选择，不宣称成员级投票归属。
+  const myVoteCount = places.filter((p) => p.votedBy.length > 0).length
 
   // 每个分类的地点数量（用于徽章）
   const countByFilter = (filter: CategoryFilter) =>
@@ -139,7 +139,7 @@ type SortOrder = 'default' | 'rating' | 'votes'
 const SORT_OPTIONS: { key: SortOrder; label: string; icon: React.ReactNode }[] = [
   { key: 'default', label: 'AI 推荐', icon: <ArrowUpDown className="w-3 h-3" /> },
   { key: 'rating',  label: '评分最高', icon: <Star className="w-3 h-3" /> },
-  { key: 'votes',   label: '心愿最多', icon: <Heart className="w-3 h-3" /> },
+  { key: 'votes',   label: '已选优先', icon: <Heart className="w-3 h-3" /> },
 ]
 
 function CandidatesPanel({
@@ -169,9 +169,9 @@ function CandidatesPanel({
       if (sortOrder === 'votes') {
         return b.votedBy.length - a.votedBy.length
       }
-      // default：当前用户已心形的排前面
-      const aV = a.votedBy.includes(currentUserId) ? 1 : 0
-      const bV = b.votedBy.includes(currentUserId) ? 1 : 0
+      // default：房间共享选择排前面
+      const aV = a.votedBy.length > 0 ? 1 : 0
+      const bV = b.votedBy.length > 0 ? 1 : 0
       return bV - aV
     })
 
@@ -201,7 +201,7 @@ function CandidatesPanel({
         <div className="px-4 py-2 flex items-center justify-between flex-shrink-0 gap-2">
           <div className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0">
             <Heart className="w-3 h-3 text-coral-400" />
-            <span>心愿 <span className="text-coral-500 font-semibold">{myVoteCount}</span></span>
+            <span>房间已选 <span className="text-coral-500 font-semibold">{myVoteCount}</span></span>
           </div>
           <div className="flex items-center gap-1">
             {SORT_OPTIONS.map(opt => (

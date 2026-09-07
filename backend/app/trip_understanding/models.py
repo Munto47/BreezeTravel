@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.trip_understanding.timing import ActivityTiming
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -32,7 +34,7 @@ class ResolutionStatus(str, Enum):
     NEEDS_CONFIRMATION = "NEEDS_CONFIRMATION"
 
 
-class ProposedMention(StrictModel):
+class ProposedMention(ActivityTiming):
     mention_id: str
     raw_text: str = Field(min_length=1)
     span_start: int = Field(ge=0)
@@ -43,6 +45,8 @@ class ProposedMention(StrictModel):
     atomic_place_name: str | None = None
     category_hint: str | None = None
     time_hint: str | None = None
+    city_hint: str | None = None
+    city_evidence: str | None = None
 
     @model_validator(mode="after")
     def valid_span(self) -> "ProposedMention":
@@ -58,6 +62,9 @@ class InferenceProposal(StrictModel):
     destination_basis: DestinationBasis = DestinationBasis.EXPLICIT
     mentions: list[ProposedMention]
     binding: dict[str, object]
+    day_labels: dict[int, str] = Field(default_factory=dict)
+    day_count: int = Field(default=0, ge=0, le=14)
+    unprocessed_count: int = Field(default=0, ge=0)
 
 
 class CompiledActivity(StrictModel):
@@ -67,12 +74,39 @@ class CompiledActivity(StrictModel):
     eligible_for_place_search: bool
 
 
+def safe_poi_photo_url(value: object) -> str | None:
+    """Only POI image CDNs, no credentials, query secrets or arbitrary origins."""
+    if not isinstance(value, str) or not value or len(value) > 1000:
+        return None
+    if any(ord(char) < 33 for char in value) or "\\" in value:
+        return None
+    try:
+        parsed = urlparse(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.hostname not in {"store.is.autonavi.com", "aos-cdn-image.amap.com", "aos-comment.amap.com", "vdata.amap.com"}
+            or parsed.username is not None or parsed.password is not None
+            or parsed.port is not None or parsed.query or parsed.fragment
+            or not parsed.path.startswith("/") or parsed.path == "/"
+        ):
+            return None
+        return parsed._replace(scheme="https").geturl()
+    except ValueError:
+        return None
+
+
 class ResolvedPlace(StrictModel):
     canonical_place_id: str
     name: str
     category: str
     area_or_address: str
     provider_binding: dict[str, object]
+    photo_url: str | None = None
+
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def valid_photo(cls, value: object) -> str | None:
+        return safe_poi_photo_url(value)
 
 
 class PlaceResolutionOutcome(StrictModel):
@@ -146,7 +180,15 @@ class KnowledgeSuggestionView(StrictModel):
         return value
 
 
-class ActivityCardView(StrictModel):
+class ActivityCardView(ActivityTiming):
+    photo_url: str | None = None
+    city: str | None = None
+
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def valid_photo(cls, value: object) -> str | None:
+        return safe_poi_photo_url(value)
+
     activity_token: str = Field(min_length=20, max_length=80)
     name: str
     category: str
@@ -160,9 +202,16 @@ class ActivityCardView(StrictModel):
     )
 
 
+class ActivityAlternativeView(StrictModel):
+    name: str = Field(min_length=1, max_length=40)
+    category: str = Field(min_length=1, max_length=40)
+    city: str | None = None
+
+
 class TripDayView(StrictModel):
     label: str
     activities: list[ActivityCardView]
+    alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
 
 
 class MapReadinessView(StrictModel):
@@ -172,15 +221,14 @@ class MapReadinessView(StrictModel):
 
 
 class StayCandidateView(StrictModel):
+    max_single_leg_minutes: int | None = Field(default=None, ge=0)
     candidate_token: str = Field(min_length=20, max_length=100)
     name: str
     brand: str
     category: str
     area_or_address: str
     commute_summary: str
-    max_single_leg_minutes: int = Field(ge=0)
     transfer_count: int = Field(ge=0)
-    evidence_gap: str | None = None
     reason: str
     available_actions: list[Literal["CHOOSE_STAY"]]
     selected: bool = False
@@ -219,6 +267,11 @@ class UserFacingTripResult(StrictModel):
     map: MapReadinessView
     stay: StaySuggestionView
     available_actions: list[Literal["EDIT_ASSUMPTIONS", "EDIT_CARDS"]]
+    can_undo: bool = False
+    ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
+    expires_at: datetime | None = None
+    is_demo: bool = False
+    updated_at: datetime | None = None
 
 
 class MaterializedTripView(StrictModel):
@@ -235,7 +288,10 @@ class PublicTripCheckItem(StrictModel):
     title: str
     message: str
     affected_days: list[str] = Field(default_factory=list)
+    affected_activity_tokens: list[str] = Field(default_factory=list)
     can_preview: bool = False
+    depends_on_routes: bool = False
+    basis_status: Literal["CURRENT", "NEEDS_RECHECK"] = "CURRENT"
 
 
 class PublicTripChecksView(StrictModel):
@@ -250,6 +306,14 @@ class ChangePreviewRequest(StrictModel):
     check_token: str = Field(min_length=20, max_length=100)
 
 
+class PublicTimingChange(StrictModel):
+    activity_token: str
+    day_label: str
+    name: str
+    before: ActivityTiming
+    after: ActivityTiming
+
+
 class PublicChangePreview(StrictModel):
     change_token: str = Field(min_length=20, max_length=100)
     title: str
@@ -257,6 +321,7 @@ class PublicChangePreview(StrictModel):
     affected_days: list[str] = Field(default_factory=list)
     before: list[str] = Field(default_factory=list)
     after: list[str] = Field(default_factory=list)
+    changes: list[PublicTimingChange] = Field(default_factory=list)
     available_actions: list[Literal["ADOPT_CHANGE"]] = Field(
         default_factory=lambda: ["ADOPT_CHANGE"]
     )
@@ -311,10 +376,7 @@ class ScreenshotBatchSourceRequest(StrictModel):
     batch_ref: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
 
 
-FullSourceRequest = Annotated[
-    TextSourceRequest | ScreenshotBatchSourceRequest,
-    Field(discriminator="type"),
-]
+FullSourceRequest = TextSourceRequest
 
 
 class CreateFullRequest(StrictModel):
@@ -420,15 +482,49 @@ class ConfirmationSourceSpan(StrictModel):
         return self
 
 
+class TripUnderstandingProgressMetrics(StrictModel):
+    day_count: int = Field(default=0, ge=0, le=14)
+    card_count: int = Field(default=0, ge=0)
+    places_checked: int = Field(default=0, ge=0)
+    places_total: int = Field(default=0, ge=0)
+
+
 class TripUnderstandingProgressView(StrictModel):
     status: Literal["PROCESSING"] = "PROCESSING"
     message: str
     retry_after_ms: int = Field(default=500, ge=100, le=5000)
+    phase: Literal["RECEIVED", "CARDS_AVAILABLE", "CHECKING_PLACES"] = "RECEIVED"
+    event_cursor: int = Field(default=0, ge=0)
+    progress: TripUnderstandingProgressMetrics = Field(
+        default_factory=TripUnderstandingProgressMetrics
+    )
+    snapshot: UserFacingTripResult | None = None
+
+
+class PipelineProgressUpdate(StrictModel):
+    phase: Literal["CARDS_AVAILABLE", "CHECKING_PLACES"]
+    message: Literal["日期和卡片已整理", "正在核对地点"]
+    progress: TripUnderstandingProgressMetrics
+    snapshot: UserFacingTripResult
+    internal_binding: dict[str, object] = Field(default_factory=dict)
 
 
 class PublicEventPayload(StrictModel):
-    status: Literal["PROCESSING", "READY"]
-    message: Literal["正在整理每天行程", "正在核对地点", "卡片已可用"]
+    status: Literal["PROCESSING", "READY", "PARTIAL", "CANCELLED", "FAILED"]
+    message: Literal[
+        "正在整理每天行程",
+        "日期和卡片已整理",
+        "正在核对地点",
+        "卡片已可用",
+        "已停止整理，保留当前卡片",
+        "已停止整理，没有可保留的卡片",
+        "这次没有整理完成，可以重新尝试",
+    ]
+    phase: Literal["RECEIVED", "CARDS_AVAILABLE", "CHECKING_PLACES"] | None = None
+    progress: TripUnderstandingProgressMetrics = Field(
+        default_factory=TripUnderstandingProgressMetrics
+    )
+    snapshot: UserFacingTripResult | None = None
 
 
 class PublicEventRecord(StrictModel):
@@ -440,8 +536,10 @@ class PublicEventRecord(StrictModel):
 class PublicResourceRecord(StrictModel):
     understanding_id: str
     public_resource_id: str
-    state: Literal["PROCESSING", "READY", "PARTIAL", "FAILED", "DELETED"]
+    state: Literal["PROCESSING", "READY", "PARTIAL", "CANCELLED", "FAILED", "DELETED"]
     current_result_id: str | None = None
+    ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
+    expires_at: datetime | None = None
 
 
 class StoredResult(StrictModel):
@@ -449,12 +547,25 @@ class StoredResult(StrictModel):
     opaque_etag: str
 
 
+class TripUnderstandingCancelView(StrictModel):
+    status: Literal["STOPPED_WITH_DRAFT", "STOPPED_EMPTY", "ALREADY_FINISHED"]
+    message: str
+    has_editable_result: bool
+
+
+class TripUnderstandingCancelOutcome(StrictModel):
+    cancelled: TripUnderstandingCancelView
+    opaque_etag: str | None = None
+    replayed: bool = False
+
+
 class CreateOutcome(StrictModel):
     accepted: TripUnderstandingAcceptedView
     replayed: bool = False
 
 
-class ActivityInsertCommand(StrictModel):
+class ActivityInsertCommand(ActivityTiming):
+    city: str | None = Field(default=None, max_length=40)
     command_type: Literal["ACTIVITY_INSERT"]
     day_index: int = Field(ge=1, le=14)
     position: int = Field(ge=0, le=80)
@@ -507,12 +618,56 @@ class AssumptionSetCommand(StrictModel):
     value: str = Field(min_length=1, max_length=100)
 
 
+class ActivityTimeSetCommand(ActivityTiming):
+    command_type: Literal["ACTIVITY_TIME_SET"]
+    activity_token: str = Field(min_length=20, max_length=80)
+
+
+class ActivityTimesShiftCommand(StrictModel):
+    command_type: Literal["ACTIVITY_TIMES_SHIFT"]
+    activity_tokens: list[str] = Field(min_length=1, max_length=80)
+    minutes: int = Field(gt=0, le=1440)
+
+
+class ActivityTimingUpdate(StrictModel):
+    activity_token: str = Field(min_length=20, max_length=80)
+    start_time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    end_time: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+
+class ActivityTimesApplyCommand(StrictModel):
+    command_type: Literal["ACTIVITY_TIMES_APPLY"]
+    changes: list[ActivityTimingUpdate] = Field(min_length=1, max_length=80)
+
+
+class PlaceConfirmCommand(StrictModel):
+    command_type: Literal["PLACE_CONFIRM"]
+    activity_token: str = Field(min_length=20, max_length=80)
+    candidate_token: str = Field(min_length=40, max_length=6000)
+
+
+class UndoCommand(StrictModel):
+    command_type: Literal["UNDO"]
+
+
+class DiningInsertCommand(StrictModel):
+    command_type: Literal["DINING_INSERT"]
+    after_activity_token: str = Field(min_length=20, max_length=80)
+    candidate_token: str = Field(min_length=40, max_length=6000)
+
+
 TripUnderstandingCommand = Annotated[
     ActivityInsertCommand
+    | DiningInsertCommand
     | ActivityDeleteCommand
     | ActivityMoveCommand
     | ActivityTextEditCommand
     | PlaceReplaceCommand
+    | PlaceConfirmCommand
+    | ActivityTimeSetCommand
+    | ActivityTimesShiftCommand
+    | ActivityTimesApplyCommand
+    | UndoCommand
     | AssumptionSetCommand,
     Field(discriminator="command_type"),
 ]
@@ -577,6 +732,7 @@ class TripUnderstandingSourcePayload(StrictModel):
     text: str
     requires_confirmation_spans: tuple[ConfirmationSourceSpan, ...] = ()
     partial_source: bool = False
+    internal_binding: dict[str, object] = Field(default_factory=dict)
 
 
 class PipelineOutput(StrictModel):

@@ -1,0 +1,169 @@
+{
+  "schema_version": "product-delivery-gates-v1",
+  "program_id": "TC-VNEXT-2026",
+  "bootstrap_owner_approval": "OWNER_APPROVED_MAINLINE_CORRECTION_2026-08-29",
+  "contract_status": "LOCKED",
+  "max_repair_review_cycles": 2,
+  "g03_completion_state": "CORE_MVP_OWNER_REVIEW_PENDING",
+  "safety_floor": [
+    "错城、错类别、描述句或 URL 被当成地点时失败",
+    "越权访问、原文或内部信息泄漏时失败",
+    "用户要求删除的数据无法确认删除时失败",
+    "卡片编辑后自动调用路线 Provider 时失败",
+    "UNKNOWN 或 UNAVAILABLE 被计为成功时失败"
+  ],
+  "allowed_g01_g03_work_kinds": [
+    "PRODUCT",
+    "BLOCKING_DEFECT",
+    "GOAL_TRANSITION"
+  ],
+  "goals": [
+    {
+      "goal_sequence": 1,
+      "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+      "gate_profile": "PRODUCT_DELIVERY_GATE",
+      "delivery_question": "用户能否把长文本变成可信、可编辑卡片？",
+      "fixed_case_ids": [
+        "G01-TC-001",
+        "G01-TC-013",
+        "G01-TC-025",
+        "G01-TC-037",
+        "G01-TC-046"
+      ],
+      "required_checks": [
+        "core_mainline_contract",
+        "g01_fixed_samples_and_v3",
+        "g01_postgresql",
+        "frontend_build",
+        "g01_browser_e2e"
+      ]
+    },
+    {
+      "goal_sequence": 2,
+      "goal_id": "TC-VNEXT-G02-MAP-STAY",
+      "gate_profile": "PRODUCT_DELIVERY_GATE",
+      "delivery_question": "用户能否查看和手动更新地图、选择整程住宿？",
+      "required_checks": [
+        "core_mainline_contract",
+        "g02_map_stay_targeted",
+        "g02_postgresql",
+        "frontend_build",
+        "g02_browser_e2e"
+      ]
+    },
+    {
+      "goal_sequence": 3,
+      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+      "gate_profile": "PRODUCT_DELIVERY_GATE",
+      "delivery_question": "用户能否看到最重要的三个问题并完成最小修复？",
+      "required_checks": [
+        "core_mainline_contract",
+        "g03_top3_targeted",
+        "g03_postgresql",
+        "frontend_build",
+        "g03_browser_e2e"
+      ]
+    },
+    {
+      "goal_sequence": 4,
+      "goal_id": "TC-VNEXT-G04-SCREENSHOT",
+      "gate_profile": "PRODUCT_DELIVERY_GATE",
+      "delivery_question": "用户能否从截图得到与文本一致的卡片？",
+      "required_checks": [
+        "core_mainline_contract",
+        "g04_screenshot_targeted",
+        "g04_postgresql",
+        "frontend_build",
+        "g04_browser_e2e"
+      ]
+    },
+    {
+      "goal_sequence": 5,
+      "goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
+      "gate_profile": "PRODUCT_DELIVERY_GATE",
+      "delivery_question": "用户能否获得有来源、有时效且措辞可靠的三城建议？",
+      "required_checks": [
+        "core_mainline_contract",
+        "g05_knowledge_targeted",
+        "g05_postgresql",
+        "frontend_build",
+        "g05_browser_e2e"
+      ]
+    },
+    {
+      "goal_sequence": 6,
+      "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+      "gate_profile": "PRODUCT_DELIVERY_GATE",
+      "delivery_question": "用户能否控制记忆并分享脱敏行程？",
+      "required_checks": [
+        "core_mainline_contract",
+        "g06_memory_share_targeted",
+        "g06_postgresql",
+        "frontend_build",
+        "g06_browser_e2e"
+      ]
+    },
+    {
+      "goal_sequence": 7,
+      "goal_id": "TC-VNEXT-G07-CANDIDATE",
+      "gate_profile": "HARDENED_CANDIDATE_GATE",
+      "delivery_question": "候选版是否完成质量、性能、盲测、复审、供应链与可靠性收口？",
+      "required_checks": [
+        "full_quality_statistics",
+        "fifty_live_chains",
+        "three_role_review_and_ultra_adjudication",
+        "sealed_blind",
+        "exact_candidate_bindings",
+        "performance_reliability_privacy_accessibility",
+        "supply_chain_hardening_decision",
+        "fresh_checkout_readback"
+      ]
+    }
+  ],
+  "frozen_g07_asset_patterns": [
+    "backend/eval_data/agent_gate_v1/**",
+    "backend/eval_data/trip_text_cards_agent_v2/**",
+    "backend/evals/agent_gate_v1/**",
+    "backend/evals/trip_text_cards_agent_v2/**",
+    "backend/scripts/*agent_gate*",
+    "backend/scripts/*authority*",
+    "backend/scripts/*broker*",
+    "backend/scripts/*custody*",
+    "backend/scripts/*sealed*blind*",
+    "docs/adr/ADR-014-*",
+    "docs/governance/AGENT_GATE_PROTOCOL.md"
+  ],
+  "deferred_work_patterns": [
+    "backend/eval_data/**",
+    "backend/evals/**",
+    "backend/scripts/*benchmark*",
+    "backend/scripts/*performance*",
+    "backend/scripts/*reliability*",
+    "backend/tests/*benchmark*",
+    "backend/tests/*performance*",
+    "backend/tests/*reliability*"
+  ],
+  "owner_protected_patterns": [
+    ".github/CODEOWNERS",
+    ".github/workflows/**",
+    "AGENTS.md",
+    "backend/evals/agent_gate_v1/contracts.py",
+    "backend/governance/**",
+    "backend/scripts/validate_core_mainline.py",
+    "docs/governance/AGENT_GATE_PROTOCOL.md",
+    "docs/governance/PROGRAM.md",
+    "docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md",
+    "docs/governance/RELEASE_GATES.md",
+    "docs/governance/current_goal_binding.json",
+    "docs/governance/current_work_packages.json",
+    "docs/governance/product_delivery_gates.json"
+  ],
+  "candidate_requirements_deferred_until_g07": [
+    "90 条完整统计门槛和最小分母",
+    "50 次真实性能链",
+    "三角色复审和 ultra 裁决",
+    "sealed blind",
+    "exact commit 全证据绑定",
+    "完整可靠性、供应链和候选加固"
+  ]
+}

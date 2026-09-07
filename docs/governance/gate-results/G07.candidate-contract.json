@@ -1,0 +1,66 @@
+{
+  "schema_version": "g07-candidate-contract-result-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "subject_commit": "91fee72ea7f892b12e3100dafeaf5d50ea1b4e96",
+  "subject_tree": "1727eee3fd52ec45848617931016ecb1f7144e47",
+  "baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
+  "remote_ref": "refs/heads/codex/g07-candidate",
+  "remote_subject": "91fee72ea7f892b12e3100dafeaf5d50ea1b4e96",
+  "artifact_sha256": {
+    "backend/eval_data/g07_candidate/run_spec_v1.json": "1bd048361ee49864a35c35f419c37b6d93cd67a4f6d848985818c392998b5f0f",
+    "backend/eval_data/g07_candidate/verification_matrix_v1.json": "96f76038c599a2df9e39fa2663211eb4d6a17cf6e58558bc7d89945248b14b60",
+    "backend/eval_data/g07_candidate/threat_model_v1.json": "31dd413fd83fdd8fb6727ab44b4109921bbf6636b7e185d233a05590472bf77f",
+    "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json": "9500bbac2e931a71fe96c6ec8b296ce0d312f6ad9715e170f33eb1342d1dfba6",
+    "backend/eval_data/agent_gate_v1/current_goal_binding.schema.json": "717b9842e8480073991831bafa6ac206c4afd4de5ad1c57797e4ba0cb4cda513",
+    "backend/eval_data/agent_gate_v1/protocol_contract.json": "15845295564624c96608cee762a665aca737bb85bab0cef0056fa1171f9ff188",
+    "backend/eval_data/agent_gate_v1/authority_policy.json": "a0d82e09502f3d2262885e9e72a408c533f512919b20034be5f033e2bc12d75f",
+    "docs/governance/current_goal_binding.json": "3a9353552565a48178936c371bfc92a41b0c505884f3bdd54d46c68d8e5fd98e",
+    "docs/governance/current_work_packages.json": "59be06cf82add7de929ae47518e74dac748d0b82c62cfe912e2a7efbd8c1f2c4"
+  },
+  "verification": {
+    "candidate_contract_targeted": {
+      "status": "PASS",
+      "passed": 95,
+      "failed": 0
+    },
+    "ruff_changed_python": "PASS",
+    "work_package_scope": "PASS",
+    "core_mainline": "PASS",
+    "g01_s0_frozen_diff": "PASS_ZERO",
+    "frontend_candidate_test_discovery": {
+      "status": "PASS",
+      "test_count": 46,
+      "file_count": 7
+    },
+    "frontend_production_build": "PASS",
+    "g07_manifest_fail_closed_generation": "PASS"
+  },
+  "contract_results": {
+    "historical_pytest_ignore_removed": true,
+    "candidate_browser_command_exists": true,
+    "v2_binding_compatibility": "PASS",
+    "v3_binding_candidate_contract_separation": "PASS",
+    "g0_g8_default_status": "NOT_RUN",
+    "manifest_can_promote_from_editable_matrix": false,
+    "hardening_default_controls_enabled": []
+  },
+  "evidence_boundaries": {
+    "local_automated": "PASS",
+    "postgresql": "NOT_RUN_FOR_THIS_SUBJECT",
+    "fixed_snapshot": "NOT_RUN_FOR_THIS_SUBJECT",
+    "live_provider": "NOT_RUN",
+    "browser_execution": "NOT_RUN_FOR_THIS_SUBJECT",
+    "performance_50_chains": "NOT_RUN",
+    "multi_agent_panel": "NOT_RUN",
+    "sealed_blind": "NOT_RUN",
+    "hardening_decision_receipt": "NOT_RUN",
+    "h1": "NOT_RUN",
+    "public_network": "NOT_RUN",
+    "production": "NOT_RUN",
+    "commercial": "NOT_RUN",
+    "release": "NOT_REQUESTED",
+    "deployment": "NOT_REQUESTED",
+    "main_merge": "NOT_REQUESTED"
+  },
+  "verdict": "G07_CANDIDATE_CONTRACT_FROZEN"
+}

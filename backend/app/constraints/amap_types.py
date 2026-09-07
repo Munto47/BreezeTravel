@@ -16,6 +16,7 @@ _TYPECODE_PREFIXES = {
     "1402": PlaceCategory.ATTRACTION,  # exhibition hall
     "1404": PlaceCategory.ATTRACTION,  # art museum/gallery
     "1405": PlaceCategory.ATTRACTION,  # library
+    "140600": PlaceCategory.ATTRACTION,  # science and technology museum
     "15": PlaceCategory.TRANSPORT,
 }
 
@@ -31,6 +32,7 @@ _TYPE_LABELS = {
     "展览馆": PlaceCategory.ATTRACTION,
     "美术馆": PlaceCategory.ATTRACTION,
     "图书馆": PlaceCategory.ATTRACTION,
+    "科技馆": PlaceCategory.ATTRACTION,
     "交通": PlaceCategory.TRANSPORT,
 }
 
@@ -43,6 +45,7 @@ _CATEGORY_TYPECODES = {
         "140200",
         "140400",
         "140500",
+        "140600",
     ),
     PlaceCategory.TRANSPORT: ("150000",),
 }

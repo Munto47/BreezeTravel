@@ -83,10 +83,19 @@
       "type": "boolean"
     },
     "schema_version": {
-      "const": "candidate-gate-component-receipt-v1",
-      "default": "candidate-gate-component-receipt-v1",
+      "const": "candidate-gate-component-receipt-v2",
+      "default": "candidate-gate-component-receipt-v2",
       "title": "Schema Version",
       "type": "string"
+    },
+    "upstream_artifact_path": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 100,
+      "minProperties": 1,
+      "title": "Upstream Artifact Path",
+      "type": "object"
     },
     "upstream_artifact_sha256": {
       "additionalProperties": {
@@ -103,6 +112,17 @@
       "title": "Verdict",
       "type": "string"
     },
+    "verification_summary_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verification Summary Sha256",
+      "type": "string"
+    },
+    "verifier_path": {
+      "const": "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
+      "default": "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
+      "title": "Verifier Path",
+      "type": "string"
+    },
     "verifier_sha256": {
       "pattern": "^[0-9a-f]{64}$",
       "title": "Verifier Sha256",
@@ -117,8 +137,10 @@
     "automated_gate_contract_sha256",
     "component",
     "evidence_level",
+    "upstream_artifact_path",
     "upstream_artifact_sha256",
-    "verifier_sha256"
+    "verifier_sha256",
+    "verification_summary_sha256"
   ],
   "title": "CandidateGateComponentReceipt",
   "type": "object"

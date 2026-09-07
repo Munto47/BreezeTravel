@@ -1,0 +1,73 @@
+{
+  "schema_version": "g07-postgresql-checkpoint-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "gate_id": "G2",
+  "checkpoint_status": "PASS",
+  "final_candidate_admissible": false,
+  "subject": {
+    "commit": "34fc08d2677ffda42cd8560a01880b17d28da5e6",
+    "tree": "86ecb3e4c4aae97040149e1ba540a0a38dc7feda",
+    "remote_ref": "refs/heads/codex/g07-candidate",
+    "remote_commit_readback": "34fc08d2677ffda42cd8560a01880b17d28da5e6"
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "version": "16.12",
+    "container_name": "breezetravel-g07-postgres-34fc08d",
+    "container_image": "pgvector/pgvector:0.8.1-pg16",
+    "container_image_id": "sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337",
+    "host_endpoint": "127.0.0.1:55433",
+    "persistent_volume": false,
+    "existing_project_containers_modified": false,
+    "temporary_container_removed_after_readback": true
+  },
+  "migration_binding": {
+    "git_tree": "6709319c8378a9ce327b58d418944dd1164c572b",
+    "file_count": 34,
+    "first": "001_add_bm25.sql",
+    "last": "034_trip_understanding_screenshot_batches.sql"
+  },
+  "checks": [
+    {
+      "command": "python -m pytest -q tests/test_*_postgres.py tests/test_screenshot_postgres_integration.py --timeout=180",
+      "windows_execution_note": "PowerShell expanded the frozen test_*_postgres.py pattern to 16 sorted files before invoking pytest",
+      "result": "21 passed, 0 skipped, 0 failed in 41.60s",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m pytest -q tests/test_migrations_integration.py --timeout=180",
+      "result": "2 passed, 0 skipped, 0 failed in 2.87s",
+      "proof": "fresh database plus seeded pre-013 upgrade and second idempotent migration readback",
+      "exit_code": 0
+    }
+  ],
+  "coverage": [
+    "fresh_and_existing_migrations_001_through_034",
+    "transaction_and_rollback",
+    "compare_and_set",
+    "idempotent_replay",
+    "concurrency_and_lease_takeover",
+    "repository_restart_readback",
+    "legacy_compatibility",
+    "screenshot_cleanup",
+    "knowledge_version_conflict_and_withdrawal",
+    "memory_consent_share_revoke_and_clear"
+  ],
+  "evidence_level": "LOCAL_CONTROLLED_POSTGRESQL_EXACT_TIP",
+  "not_run": [
+    "G3_FIXED_SNAPSHOT",
+    "G4_LIVE_PROVIDER",
+    "G5_BROWSER_PERFORMANCE",
+    "G6_MANIFEST",
+    "G7_AGENT_GATE",
+    "G8_HUMAN_STOP",
+    "H1",
+    "PUBLIC_NETWORK",
+    "PRODUCTION",
+    "COMMERCIAL",
+    "RELEASE",
+    "DEPLOYMENT",
+    "MAIN_MERGE"
+  ],
+  "completed_at": "2026-09-01T01:17:13.9434360+08:00"
+}

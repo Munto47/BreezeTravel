@@ -1,0 +1,193 @@
+{
+  "scope": "Three individually verified synthetic local browser journeys using real existing services. Not human or production evidence.",
+  "note": "The dining journey precedes the final independent stay query fix; its UNAVAILABLE stay result is preserved and does not count as accommodation success. Accommodation success belongs only to the final dedicated journey.",
+  "journeys": [
+    {
+      "scenario": "beijing_dining",
+      "local_summary": ".local-artifacts/quality-live-beijing-final-20260906-165941/itinerary-quality-live-Bei-67ee0-n-and-one-manual-map-update/summary.json",
+      "observations": {
+        "scenario": "beijing",
+        "created": 1,
+        "diningRequests": 1,
+        "mapPosts": 1,
+        "placeSearches": 0,
+        "staySelections": 0,
+        "commandTypes": [
+          "DINING_INSERT",
+          "UNDO"
+        ],
+        "quotedCommandValidators": [
+          true,
+          true
+        ],
+        "apiFailureStatuses": [],
+        "cleanup": "DELETED_AND_GONE",
+        "generation": "READY",
+        "days": 2,
+        "cardsPerDay": [
+          2,
+          2
+        ],
+        "alternativesPerDay": [
+          1,
+          0
+        ],
+        "confirmedPerDay": [
+          2,
+          2
+        ],
+        "citiesPerDay": [
+          [
+            "北京"
+          ],
+          [
+            "北京"
+          ]
+        ],
+        "alternativeCitiesPerDay": [
+          [
+            null
+          ],
+          []
+        ],
+        "initialMapStatus": "AVAILABLE",
+        "confirmedMapPoints": 4,
+        "stayStatus": "UNAVAILABLE",
+        "stayCandidates": 0,
+        "stayUnknownMinutes": 0,
+        "stayReported120Count": 0,
+        "diningStatus": "AVAILABLE",
+        "diningCandidates": 3,
+        "diningAppliedAndReadBack": true,
+        "undoReadBack": true,
+        "finalMapStatus": "AVAILABLE",
+        "availableRouteEdges": 2,
+        "pngExported": true,
+        "pngBytes": 435161,
+        "cleanupStatuses": [
+          204,
+          410
+        ],
+        "outcome": "passed"
+      }
+    },
+    {
+      "scenario": "cross_city",
+      "local_summary": ".local-artifacts/quality-live-browser/itinerary-quality-live-Sha-99e0f-nd-optional-place-on-mobile/summary.json",
+      "observations": {
+        "scenario": "shanghai_hangzhou",
+        "created": 1,
+        "diningRequests": 0,
+        "mapPosts": 0,
+        "placeSearches": 0,
+        "commandTypes": [],
+        "quotedCommandValidators": [],
+        "apiFailureStatuses": [],
+        "cleanup": "DELETED_AND_GONE",
+        "generation": "READY",
+        "days": 3,
+        "cardsPerDay": [
+          2,
+          0,
+          2
+        ],
+        "alternativesPerDay": [
+          0,
+          1,
+          0
+        ],
+        "confirmedPerDay": [
+          2,
+          0,
+          2
+        ],
+        "citiesPerDay": [
+          [
+            "上海"
+          ],
+          [],
+          [
+            "杭州"
+          ]
+        ],
+        "alternativeCitiesPerDay": [
+          [],
+          [
+            null
+          ],
+          []
+        ],
+        "mapStatus": "AVAILABLE",
+        "confirmedMapPoints": 4,
+        "mobileChecksAndMapOperable": true,
+        "cleanupStatuses": [
+          204,
+          410
+        ],
+        "outcome": "passed"
+      }
+    },
+    {
+      "scenario": "beijing_accommodation",
+      "local_summary": ".local-artifacts/quality-live-stay-final-20260906-171035/itinerary-quality-live-Bei-da2f2-nd-no-automatic-map-request/summary.json",
+      "observations": {
+        "scenario": "beijing_accommodation",
+        "created": 1,
+        "diningRequests": 0,
+        "mapPosts": 0,
+        "placeSearches": 0,
+        "staySelections": 1,
+        "commandTypes": [],
+        "quotedCommandValidators": [],
+        "apiFailureStatuses": [],
+        "cleanup": "DELETED_AND_GONE",
+        "generation": "READY",
+        "days": 2,
+        "cardsPerDay": [
+          2,
+          2
+        ],
+        "alternativesPerDay": [
+          1,
+          0
+        ],
+        "confirmedPerDay": [
+          2,
+          2
+        ],
+        "citiesPerDay": [
+          [
+            "北京"
+          ],
+          [
+            "北京"
+          ]
+        ],
+        "alternativeCitiesPerDay": [
+          [
+            null
+          ],
+          []
+        ],
+        "stayStatus": "AVAILABLE",
+        "stayCandidates": 3,
+        "stayUnknownMinutes": 0,
+        "stayReported120Count": 0,
+        "stayQuotedValidator": true,
+        "stayIdempotencyPresent": true,
+        "overnightDays": [
+          "Day 1"
+        ],
+        "stayAppliedAndReadBack": true,
+        "overnightStartAnchorObserved": true,
+        "mapPostsAfterSelection": 0,
+        "selectedStaySurvivedReload": true,
+        "cleanupStatuses": [
+          204,
+          410
+        ],
+        "outcome": "passed"
+      }
+    }
+  ]
+}

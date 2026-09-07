@@ -2,6 +2,12 @@
  * 统一 API 客户端，自动附加 Authorization header，401 时跳转登录页。
  */
 
+import {
+  fetchWithDeadline,
+  recoverExpiredLogin,
+  runWithDeadline,
+} from './request-safety'
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 export interface ApiErrorContext {
@@ -49,29 +55,34 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!isFormData) headers['Content-Type'] = 'application/json'
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
+  return runWithDeadline(async (signal) => {
+    const res = await fetch(`${API_BASE}${path}`, { ...init, headers, signal })
 
-  if (res.status === 401) {
-    if (typeof window !== 'undefined') window.location.href = '/login'
-    throw new Error('Unauthorized')
-  }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as {
-      detail?: string | ApiErrorContext
+    if (res.status === 401) {
+      recoverExpiredLogin()
+      throw new ApiRequestError('登录状态已失效', {
+        status: 401,
+        context: { code: 'AUTH_EXPIRED' },
+      })
     }
-    const detail = body.detail
-    const message = typeof detail === 'string'
-      ? detail
-      : detail?.message || detail?.code || `HTTP ${res.status}`
-    throw new ApiRequestError(message, {
-      status: res.status,
-      context: typeof detail === 'object' && detail !== null ? detail : {},
-    })
-  }
 
-  if (res.status === 204) return undefined as T
-  return res.json() as Promise<T>
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as {
+        detail?: string | ApiErrorContext
+      }
+      const detail = body.detail
+      const message = typeof detail === 'string'
+        ? detail
+        : detail?.message || detail?.code || `HTTP ${res.status}`
+      throw new ApiRequestError(message, {
+        status: res.status,
+        context: typeof detail === 'object' && detail !== null ? detail : {},
+      })
+    }
+
+    if (res.status === 204) return undefined as T
+    return await res.json() as T
+  }, 15000, init.signal)
 }
 
 async function streamEvents<T>(
@@ -86,10 +97,16 @@ async function streamEvents<T>(
   const headers: Record<string, string> = { Accept: 'text/event-stream' }
   if (token) headers.Authorization = `Bearer ${token}`
   if (options.lastEventId) headers['Last-Event-ID'] = options.lastEventId
-  const response = await fetch(`${API_BASE}${path}`, { headers, signal: options.signal })
+  const response = await fetchWithDeadline(
+    `${API_BASE}${path}`,
+    { headers, signal: options.signal },
+  )
   if (response.status === 401) {
-    if (typeof window !== 'undefined') window.location.href = '/login'
-    throw new Error('Unauthorized')
+    recoverExpiredLogin()
+    throw new ApiRequestError('登录状态已失效', {
+      status: 401,
+      context: { code: 'AUTH_EXPIRED' },
+    })
   }
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as {
@@ -158,11 +175,21 @@ export const api = {
   /** 下载文件（带 Auth header） */
   download: async (path: string, filename: string) => {
     const token = getToken()
-    const res = await fetch(`${API_BASE}${path}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const blob = await runWithDeadline(async (signal) => {
+      const res = await fetch(`${API_BASE}${path}`, {
+        signal,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.status === 401) {
+        recoverExpiredLogin()
+        throw new ApiRequestError('登录状态已失效', {
+          status: 401,
+          context: { code: 'AUTH_EXPIRED' },
+        })
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return await res.blob()
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

@@ -6,15 +6,17 @@ import json
 import math
 import time
 import unicodedata
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Callable, Literal, Protocol
 
 import httpx
 from pydantic import Field
 
-from app.constraints.amap_types import classify_amap_type, typecodes_for_category
+from app.constraints.amap_types import classify_amap_type_signals, typecodes_for_category
 from app.schemas.place import PlaceCategory
+from app.trip_understanding.candidates import _CITY_BOUNDS
 from app.trip_understanding.errors import PlaceProviderUnavailableError, RouteProviderUnavailableError
 from app.trip_understanding.map_render import (
     InternalRouteModeFact,
@@ -26,7 +28,7 @@ from app.trip_understanding.map_render import (
     choose_route_mode,
 )
 from app.trip_understanding.models import StrictModel
-from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.pipeline import atomic_place_rejection_reason, canonical_sha256
 
 
 _ROOT = Path(__file__).resolve().parent
@@ -36,15 +38,18 @@ _BRAND_BYTES = _BRAND_PATH.read_bytes()
 _BRAND_PAYLOAD = json.loads(_BRAND_BYTES.decode("utf-8"))
 HOTEL_BRAND_REGISTRY_SHA256 = hashlib.sha256(_BRAND_BYTES).hexdigest()
 
-STAY_POLICY_VERSION = "stay-scoring-v1"
+STAY_POLICY_VERSION = "stay-scoring-v2"
 STAY_POLICY_SHA256 = canonical_sha256(
     {
         "version": STAY_POLICY_VERSION,
+        "candidate_query_keyword": "连锁酒店",
         "search_radii_m": [2000, 4000, 8000, None],
         "candidate_cap": 12,
         "public_cap": 3,
         "single_mode_penalty": 8,
-        "double_mode_minutes": 120,
+        "missing_leg_ranking_penalty": 120,
+        "public_maximum": "verified_unexpired_legs_only",
+        "city_scope": "single_city_only",
         "double_mode_penalty": 90,
         "evidence_penalty_cap": 240,
         "score": "sum_best+0.5*max_single+8*transfers+evidence_penalty",
@@ -70,6 +75,10 @@ def _normalized(value: str) -> str:
 def _city(value: str) -> str:
     normalized = _normalized(value)
     return normalized[:-1] if normalized.endswith("市") else normalized
+
+
+def stay_plan_spans_cities(plan: MapRenderPlan) -> bool:
+    return len({_city(stop.city) for stop in plan.stops if stop.city and _city(stop.city)}) > 1
 
 
 def haversine_meters(
@@ -197,6 +206,71 @@ class ScoredStayCandidate(StrictModel):
     missing_leg_count: int = Field(ge=0)
     evidence_penalty: int = Field(ge=0)
     legs: list[StayCommuteLeg]
+
+
+@dataclass(frozen=True)
+class StayCommuteAssessment:
+    maximum_minutes: int | None
+    transfer_count: int
+    missing_leg_count: int
+    leg_count: int
+    observed_at: datetime | None
+    valid_until: datetime | None
+
+    @property
+    def complete(self) -> bool:
+        return self.leg_count > 0 and self.missing_leg_count == 0
+
+
+def assess_stay_commute(legs: list, *, now: datetime, expected_missing: int = 0) -> StayCommuteAssessment:
+    """Rebuild display/check values from legs, including historical scored rows."""
+    minutes, observations, expirations = [], [], []
+    transfers = 0
+    for leg in legs:
+        data = leg.model_dump() if hasattr(leg, "model_dump") else dict(leg)
+        mode = data.get("selected_mode")
+        fact = data.get(mode) if isinstance(mode, str) and mode in {"walking", "transit"} else None
+        if not isinstance(fact, dict):
+            continue
+        duration = fact.get("duration_minutes")
+        observed, expires = fact.get("observed_at"), fact.get("expires_at")
+        if (
+            fact.get("mode") != mode or fact.get("status") != "AVAILABLE"
+            or type(duration) is not int or duration <= 0
+            or not isinstance(observed, datetime) or not isinstance(expires, datetime)
+            or observed.tzinfo is None or expires.tzinfo is None
+            or observed > now or expires <= now
+        ):
+            continue
+        minutes.append(duration)
+        observations.append(observed)
+        expirations.append(expires)
+        count = fact.get("transfer_count")
+        transfers += count if type(count) is int and count >= 0 else 0
+    missing = max(expected_missing, len(legs) - len(minutes), 1 if not legs else 0)
+    return StayCommuteAssessment(
+        maximum_minutes=max(minutes) if minutes else None,
+        transfer_count=transfers, missing_leg_count=missing, leg_count=len(legs),
+        observed_at=max(observations) if observations else None,
+        valid_until=min(expirations) if expirations else None,
+    )
+
+
+async def load_stay_commute_assessment(conn, candidate_id: str, *, now: datetime, expected_missing: int = 0) -> StayCommuteAssessment:
+    rows = await conn.fetch(
+        """
+        SELECT l.selected_mode, f.mode, f.status, f.duration_minutes,
+               f.transfer_count, f.observed_at, f.expires_at
+        FROM trip_stay_commute_legs l
+        LEFT JOIN trip_stay_commute_mode_facts f
+          ON f.leg_id = l.leg_id AND f.mode = l.selected_mode
+        WHERE l.candidate_id = $1
+        ORDER BY l.day_index, l.direction
+        """,
+        candidate_id,
+    )
+    legs = [{"selected_mode": row["selected_mode"], row["selected_mode"] or "missing": dict(row)} for row in rows]
+    return assess_stay_commute(legs, now=now, expected_missing=expected_missing)
 
 
 class StayRecommendationOutput(StrictModel):
@@ -330,20 +404,25 @@ class AmapStayCandidateProvider:
         latitude: float,
         radius_m: int | None,
     ) -> list[StayCandidate]:
+        bounds = _CITY_BOUNDS.get(_city(city))
+        if bounds is None:
+            return []
+        west, east, south, north = bounds
+        if not (west <= longitude <= east and south <= latitude <= north):
+            return []
         endpoint = AMAP_AROUND_ENDPOINT if radius_m is not None else AMAP_TEXT_ENDPOINT
         typecodes = typecodes_for_category(PlaceCategory.HOTEL)
         params: dict[str, object] = {
             "key": self.api_key,
             "types": "|".join(typecodes),
+            "keywords": "连锁酒店",
             "region": city,
             "city_limit": "true",
             "page_size": 25,
             "page_num": 1,
             "output": "json",
         }
-        if radius_m is None:
-            params["keywords"] = "酒店"
-        else:
+        if radius_m is not None:
             params.update(
                 {
                     "location": f"{longitude:.6f},{latitude:.6f}",
@@ -386,11 +465,18 @@ class AmapStayCandidateProvider:
         for item in pois if isinstance(pois, list) else []:
             if not isinstance(item, dict):
                 continue
-            category = classify_amap_type(str(item.get("typecode") or ""), str(item.get("type") or ""))
+            signals = classify_amap_type_signals(str(item.get("typecode") or ""), str(item.get("type") or ""))
             coordinates = _coordinates(item.get("location"))
             provider_id = str(item.get("id") or "").strip()
             provider_city = str(item.get("cityname") or item.get("pname") or "")
-            if category != PlaceCategory.HOTEL or coordinates is None or not provider_id or _city(provider_city) != _city(city):
+            name = str(item.get("name") or "").strip()
+            if (not signals.complete or signals.conflict or signals.category != PlaceCategory.HOTEL
+                or coordinates is None or not provider_id or _city(provider_city) != _city(city)
+                or atomic_place_rejection_reason("".join(name.split())) is not None):
+                continue
+            if not (west <= coordinates[0] <= east and south <= coordinates[1] <= north):
+                continue
+            if radius_m is not None and haversine_meters(longitude, latitude, *coordinates) > radius_m:
                 continue
             address = item.get("address")
             if isinstance(address, list):
@@ -398,7 +484,7 @@ class AmapStayCandidateProvider:
             result.append(
                 StayCandidate(
                     canonical_place_id=provider_id,
-                    name=str(item.get("name") or "酒店"),
+                    name=name,
                     category="住宿",
                     area_or_address=str(address or item.get("adname") or "区域待确认"),
                     city=city,
@@ -522,9 +608,19 @@ class StayRecommendationEngine:
         destination: MapStop,
         mode: Literal["walking", "transit"],
         observed_at: datetime,
+        now_provider: Callable[[], datetime],
     ) -> InternalRouteModeFact:
         try:
-            return await self.route_provider.route(origin, destination, mode, observed_at=observed_at)
+            fact = await self.route_provider.route(origin, destination, mode, observed_at=observed_at)
+            checked_at = now_provider()
+            if (
+                fact.mode != mode or fact.status != "AVAILABLE"
+                or type(fact.duration_minutes) is not int or fact.duration_minutes <= 0
+                or fact.observed_at > checked_at or fact.expires_at <= checked_at
+            ):
+                return _unavailable_route_fact(mode, category="ROUTE_FACT_NOT_USABLE", observed_at=observed_at,
+                    provider_binding=fact.provider_binding, external_calls=fact.external_call_count)
+            return fact
         except RouteProviderUnavailableError as exc:
             return _unavailable_route_fact(
                 mode,
@@ -539,6 +635,7 @@ class StayRecommendationEngine:
         plan: StayRecommendationPlan,
         candidate: StayCandidate,
         observed_at: datetime,
+        now_provider: Callable[[], datetime],
     ) -> ScoredStayCandidate | None:
         hotel = MapStop(
             day_index=1,
@@ -553,6 +650,7 @@ class StayRecommendationEngine:
         )
         legs: list[StayCommuteLeg] = []
         selected_minutes: list[int] = []
+        ranking_minutes: list[int] = []
         transfer_count = 0
         missing_legs = 0
         evidence_penalty = 0
@@ -563,18 +661,19 @@ class StayRecommendationEngine:
                 else (anchor.stop, hotel)
             )
             walking, transit = await asyncio.gather(
-                self._mode(origin, destination, "walking", observed_at),
-                self._mode(origin, destination, "transit", observed_at),
+                self._mode(origin, destination, "walking", observed_at, now_provider),
+                self._mode(origin, destination, "transit", observed_at, now_provider),
             )
             selected_mode = choose_route_mode(walking, transit)
             if selected_mode is None:
                 missing_legs += 1
-                selected_minutes.append(120)
+                ranking_minutes.append(120)
                 evidence_penalty += 90
             else:
                 selected = walking if selected_mode == "walking" else transit
                 assert selected.duration_minutes is not None
                 selected_minutes.append(selected.duration_minutes)
+                ranking_minutes.append(selected.duration_minutes)
                 transfer_count += selected.transfer_count or 0
                 if walking.status == "UNAVAILABLE" or transit.status == "UNAVAILABLE":
                     evidence_penalty += 8
@@ -588,11 +687,11 @@ class StayRecommendationEngine:
                     transit=transit,
                 )
             )
-        if not selected_minutes or missing_legs == len(selected_minutes):
+        if not selected_minutes:
             return None
         evidence_penalty = min(240, evidence_penalty)
         maximum = max(selected_minutes)
-        total_score = sum(selected_minutes) + 0.5 * maximum + 8 * transfer_count + evidence_penalty
+        total_score = sum(ranking_minutes) + 0.5 * max(ranking_minutes) + 8 * transfer_count + evidence_penalty
         return ScoredStayCandidate(
             candidate=candidate,
             total_score=round(total_score, 3),
@@ -609,7 +708,20 @@ class StayRecommendationEngine:
         *,
         observed_at: datetime | None = None,
     ) -> StayRecommendationOutput:
+        if any(anchor.stop.city and _city(anchor.stop.city) != _city(plan.city) for anchor in plan.anchors):
+            raise ValueError("a single stay recommendation cannot span cities")
+        monotonic_started = time.perf_counter()
         started = observed_at or datetime.now(UTC)
+
+        def operation_now() -> datetime:
+            # Real providers timestamp responses with the wall clock, whose
+            # ticks need not match a performance counter on every platform.
+            if observed_at is None:
+                return datetime.now(UTC)
+            # Only injected logical dates advance by an invocation-owned
+            # monotonic duration; they must not be compared to today's date.
+            return started + timedelta(seconds=time.perf_counter() - monotonic_started)
+
         searched_scopes: list[str] = []
         candidates_by_id: dict[str, StayCandidate] = {}
         search_failures: list[str] = []
@@ -655,7 +767,7 @@ class StayRecommendationEngine:
             ),
         )[:12]
         scored_raw = await asyncio.gather(
-            *(self._score_candidate(plan, candidate, started) for candidate in evaluation_set)
+            *(self._score_candidate(plan, candidate, started, operation_now) for candidate in evaluation_set)
         )
         scored = sorted(
             (item for item in scored_raw if item is not None),
@@ -679,7 +791,7 @@ class StayRecommendationEngine:
             "searched_scopes": searched_scopes,
             "candidates": [item.model_dump(mode="json") for item in scored],
         }
-        finished = started if observed_at is not None else datetime.now(UTC)
+        finished = operation_now()
         return StayRecommendationOutput(
             plan_ref=plan.plan_ref,
             policy_hash=STAY_POLICY_SHA256,
@@ -708,6 +820,8 @@ class StayRecommendationEngine:
 
 
 def stay_plan_from_map(plan: MapRenderPlan) -> StayRecommendationPlan | None:
+    if stay_plan_spans_cities(plan):
+        return None
     by_day: dict[int, list[MapStop]] = {}
     for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
         by_day.setdefault(stop.day_index, []).append(stop)

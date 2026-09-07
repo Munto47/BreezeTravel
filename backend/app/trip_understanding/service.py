@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import asyncpg
+
 from app.trip_understanding.models import (
     ChangeAdoptOutcome,
     ChangePreviewOutcome,
@@ -17,15 +19,16 @@ from app.trip_understanding.models import (
     ScreenshotBatchClaimInput,
     ScreenshotBatchFailurePersistenceInput,
     ScreenshotBatchPersistenceInput,
-    ScreenshotBatchSourceRequest,
     ScreenshotCleanupPersistenceInput,
     StaySelectionOutcome,
+    TripUnderstandingCancelOutcome,
     TripUnderstandingCommand,
     TravelDataDeletionOutcome,
     TravelDataDeletionStatusView,
 )
 from app.trip_understanding.map_render import MapRenderRequestOutcome
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.collaboration_import import CollaborationImportSource
 from app.trip_understanding.repository import TripUnderstandingRepository
 
 
@@ -63,19 +66,22 @@ class TripUnderstandingApplicationService:
         self,
         body: CreateFullRequest,
         *,
-        owner_user_id: str,
+        owner_user_id: str | None,
         idempotency_key: str,
         now: datetime | None = None,
+        capability_hash: str | None = None,
     ) -> CreateOutcome:
         request_hash = canonical_sha256(body.model_dump(mode="json"))
-        if isinstance(body.source, ScreenshotBatchSourceRequest):
-            return await self.repository.create_full_from_screenshot(
-                owner_user_id=owner_user_id,
-                batch_ref=body.source.batch_ref,
+        if owner_user_id is None:
+            if capability_hash is None:
+                raise ValueError("anonymous capability is required")
+            return await self.repository.create_demo(
+                capability_hash=capability_hash,
+                source_text=body.source.text,
                 idempotency_key=idempotency_key,
                 request_hash=request_hash,
                 now=now or datetime.now(timezone.utc),
-                retention_days=self.full_retention_days,
+                ttl_hours=24,
             )
         return await self.repository.create_full(
             owner_user_id=owner_user_id,
@@ -84,6 +90,23 @@ class TripUnderstandingApplicationService:
             request_hash=request_hash,
             now=now or datetime.now(timezone.utc),
             retention_days=self.full_retention_days,
+        )
+
+    async def create_from_collaboration(
+        self,
+        source: CollaborationImportSource,
+        *,
+        owner_user_id: str,
+        now: datetime | None = None,
+    ) -> CreateOutcome:
+        return await self.repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=source.source_text,
+            idempotency_key=source.internal_idempotency_key,
+            request_hash=source.request_hash,
+            now=now or datetime.now(timezone.utc),
+            retention_days=self.full_retention_days,
+            initial_inference_binding=source.internal_binding,
         )
 
     async def store_screenshot_batch(
@@ -190,6 +213,26 @@ class TripUnderstandingApplicationService:
             resource,
             command,
             expected_etag=expected_etag,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def cancel_understanding(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> TripUnderstandingCancelOutcome:
+        request_hash = canonical_sha256(
+            {
+                "action": "CANCEL_UNDERSTANDING",
+                "understanding_id": resource.understanding_id,
+            }
+        )
+        return await self.repository.cancel_understanding(
+            resource,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
             now=now or datetime.now(timezone.utc),
@@ -334,7 +377,7 @@ class TripUnderstandingApplicationService:
         self,
         resource: PublicResourceRecord,
         *,
-        user_id: str,
+        user_id: str | None,
         idempotency_key: str,
         now: datetime | None = None,
     ) -> DeletionOutcome:
@@ -361,14 +404,23 @@ class TripUnderstandingApplicationService:
         request_hash = canonical_sha256(
             {"public_resource_id": resource.public_resource_id, "action": "DELETE_TRIP"}
         )
-        return await self.repository.delete_trip(
-            resource,
-            capability_hash=capability_hash,
-            user_id=user_id,
-            idempotency_key=idempotency_key,
-            request_hash=request_hash,
-            now=now or datetime.now(timezone.utc),
-        )
+        attempted_at = now or datetime.now(timezone.utc)
+        # PostgreSQL rolls back the entire losing transaction. A map worker
+        # finishing concurrently can conflict with cascading privacy deletion;
+        # replay the same authorized, idempotent operation after that rollback.
+        for attempt in range(3):
+            try:
+                return await self.repository.delete_trip(
+                    resource,
+                    capability_hash=capability_hash,
+                    user_id=user_id,
+                    idempotency_key=idempotency_key,
+                    request_hash=request_hash,
+                    now=attempted_at,
+                )
+            except asyncpg.DeadlockDetectedError:
+                if attempt == 2:
+                    raise
 
     async def replay_trip_deletion(
         self,

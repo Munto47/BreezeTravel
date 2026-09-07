@@ -1,0 +1,100 @@
+{
+  "schema_version": "g07-final-panel-stop-checkpoint-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "checkpoint_status": "STOP_CONDITION_TRIGGERED",
+  "final_candidate_admissible": false,
+  "subject": {
+    "commit": "252f43d758761edcd131ba651d8275f09b7f3791",
+    "tree": "d08b6d303de48a8adf7475679ce785b14c06628c",
+    "remote_ref": "refs/heads/codex/g07-candidate",
+    "remote_commit_readback": "252f43d758761edcd131ba651d8275f09b7f3791"
+  },
+  "exact_subject_verification": {
+    "backend_isolated_full": "2595 passed, 44 skipped, 0 failed",
+    "backend_concurrent_first_run": "2594 passed, 44 skipped, 1 Windows CP-SAT process-timeout failure; preserved and not counted as PASS",
+    "backend_isolated_failure_rerun": "1 passed",
+    "postgresql_repair_paths": "2 passed; no dedicated database residue",
+    "frontend_typecheck": "PASS after npm ci from the committed lockfile",
+    "frontend_build": "PASS",
+    "client_typecheck": "PASS",
+    "client_build": "PASS",
+    "ruff": "PASS"
+  },
+  "pass_components_before_panel": {
+    "automated_product_gate": {
+      "status": "PASS",
+      "receipt_sha256": "25604a7a1197514b54dd624d84737bda8ef8e8d689d983cfea06d1f9d939a829"
+    },
+    "live_provider_gate": {
+      "status": "PASS",
+      "receipt_sha256": "bf6b5f78ca2b420b59a33a3dbc5c214302111ee76c7ac7d73f996841ded4e645",
+      "map_weather_call_count": 18,
+      "qwen_case_count": 72,
+      "browser_test_count": 46,
+      "performance_sample_count": 50,
+      "create_to_progress_p95_ms": 24.586,
+      "create_to_editable_cards_p95_ms": 5499.14
+    }
+  },
+  "final_fresh_panel": {
+    "repair_review_cycle": 3,
+    "review_count": 3,
+    "review_sha256": {
+      "product_ux": "6db2874474ee399393f8b17c57d49eee91f42397b2f7c64c88d171938473e7ff",
+      "semantic_domain": "772c888b083372aaed34a05222b74fffd0b99cb094a65bb3f40ce6db78059e94",
+      "reliability_security": "5876a9b5d75236350398c894ab5d7eedbe967d05b205299f12e6135efa755a10"
+    },
+    "review_verdicts": {
+      "product_ux": "PASS",
+      "semantic_domain": "FAIL",
+      "reliability_security": "FAIL"
+    },
+    "adjudication_sha256": "2c881962d87617824607cd20767f4947d99b895c6e682fabf1da5b990b4acc39",
+    "adjudication_verdict": "FAIL",
+    "accepted_p0_count": 0,
+    "accepted_p1_count": 4,
+    "accepted_in_scope_p2_count": 3,
+    "accepted_p3_count": 1,
+    "source_finding_count": 8,
+    "adjudicated_finding_count": 8,
+    "all_source_findings_adjudicated_exactly_once": true,
+    "required_scenario_union_complete": true,
+    "checks_not_run_count": 0,
+    "human_evidence": false,
+    "evidence_level": "MULTI_AGENT_SIMULATED_REVIEW"
+  },
+  "fail_closed_component_result": {
+    "component": "MULTI_AGENT_PANEL",
+    "builder_exit_code": 2,
+    "output_created": false,
+    "reason": "multi-agent panel does not recompute to PASS"
+  },
+  "stop_enforcement": {
+    "trigger": "third fresh affected review accepted current-scope P1 findings",
+    "fourth_review": "NOT_RUN",
+    "sealed_agent_blind": "NOT_RUN",
+    "final_candidate_gate": "NOT_RUN",
+    "further_product_repair_under_current_slice": "NOT_AUTHORIZED"
+  },
+  "evidence_storage": {
+    "raw_artifacts": "REPOSITORY_EXTERNAL_WRITE_ONCE_SUBJECT_ROOT",
+    "repository_contains_only": "HASHES_AND_AGGREGATE_STOP_CHECKPOINT",
+    "credentials_committed": false,
+    "raw_provider_payload_committed": false,
+    "blind_input_or_truth_read": false
+  },
+  "claim_boundary": "AUTOMATED_AND_LIVE_COMPONENTS_PASS_BUT_FINAL_MULTI_AGENT_PANEL_FAILS; CANDIDATE_REJECTED_BY_RECORDED_STOP_CONDITION",
+  "not_run": [
+    "FOURTH_REPAIR_REVIEW",
+    "SEALED_AGENT_BLIND",
+    "FINAL_HARDENED_CANDIDATE_GATE",
+    "H1",
+    "PUBLIC_NETWORK",
+    "PRODUCTION",
+    "COMMERCIAL",
+    "RELEASE",
+    "DEPLOYMENT",
+    "MAIN_MERGE"
+  ],
+  "completed_at": "2026-09-02T05:03:55.4428349+08:00"
+}

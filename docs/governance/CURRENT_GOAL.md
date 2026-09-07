@@ -1,192 +1,157 @@
-# APPROVED GOAL：V0.9 候选版收口
+# 当前状态：最新体验分支合入 develop
 
-Goal ID: TC-VNEXT-G07-CANDIDATE
-Status: APPROVED
-Goal type: CANDIDATE_HARDENING
+2026-09-07 所有者要求将最新任务分支整体合入 develop，后续从 develop 开发。源分支为 `codex/itinerary-quality-20260906`，产品检查点为 `65ed455`，已包含远端 develop 的 `ff36a10` 全部历史；通过 [PR #22](https://github.com/Munto47/BreezeTravel/pull/22) 保留提交历史合入，不覆盖、强推、合入 main 或部署。实际开发目录仍为 `D:/CODEX/BreezeTravel-enhancement`，合并后跟踪远端 develop；原始工作树及未提交文件保留。
 
-<!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
-{
-  "schema_version": "product-delivery-current-goal-state-v1",
-  "program_id": "TC-VNEXT-2026",
-  "goal_id": "TC-VNEXT-G07-CANDIDATE",
-  "goal_status": "APPROVED",
-  "gate_profile": "HARDENED_CANDIDATE_GATE",
-  "required_gate": "Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS",
-  "completion_status": "NOT_RUN",
-  "gate_result": "HARDENED_CANDIDATE_GATE_NOT_RUN",
-  "goal_archived": false,
-  "last_completed_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
-  "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
-  "next_activated": false,
-  "h1_status": "NOT_RUN",
-  "public_network_status": "NOT_RUN",
-  "production_status": "NOT_RUN",
-  "commercial_status": "NOT_RUN",
-  "release_status": "NOT_REQUESTED",
-  "deployment_status": "NOT_REQUESTED",
-  "main_merge_status": "NOT_REQUESTED"
-}
--->
+首次 PR 检查暴露旧回归与新版交互不一致：住宿仍假设超过30分钟步行可采纳；Windows 模拟直接修改全局 os.name，使 Linux 测试报告崩溃；浏览器仍操作已退出主界面的纵向时间编辑器。现按既有用户合同维护回归：短步行/长步行缺失分别核对，Windows 模拟限定到被测模块；浏览器通过真实卡片重排验证保存、刷新、撤销和丢失响应重试，通过当前检查与建议验证预览/采纳。时间冲突用既有 API 显式构造，未冒充现有卡片提供时间输入；未匹配备选按用户要求隐藏，但核对补充记录中的 OPTIONAL/EXCLUDED 角色仍保留。账号、隐私删除、请求身份、地图失败、窄屏和键盘保护继续验证，没有改动运行时来迎合旧测试。
 
-## Metadata
+本次后端289项本地检查和Ruff通过；首次远端前端构建、类型及隔离PostgreSQL检查通过。浏览器回归已迁移，最终合并必须以 PR 最新提交的 core-mainline 成功为准；首次失败记录保留在 PR Actions。测试为固定示例和明确模拟的错误场景，不替代真实模型效果、真人或生产证据。下述普通城市召回、地点服务波动、备选/园内明细边界继续保留，合并不代表它们已解决。
 
-- Goal ID：`TC-VNEXT-G07-CANDIDATE`
-- Program ID：`TC-VNEXT-2026`
-- Product version：`V0.9`
-- Mainline phase：`CANDIDATE_HARDENING`
-- Gate profile：`HARDENED_CANDIDATE_GATE`
-- Status：`APPROVED`
-- Activation：G06 Consent & Share Gate与`PRODUCT_DELIVERY_PASS`已通过并归档
-- Governance transition baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`
-- Activation branch / worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`
-- Canonical implementation branch / worktree：`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，仅在本过渡PR合并并fresh readback后创建
-- Upstream / remote readback：`origin/develop` / `9994be151923b9c349fc1129605777032a0b8ebe`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
-- Predecessor：G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`、交付回执`215770f2ad975ed89271047fa40780fdddbd02a0`、PR #20 integration `9994be151923b9c349fc1129605777032a0b8ebe`；develop exact-tip GitHub Actions `33402780730 PASS`
-- Required gate：`Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS`
-- Next Goal：`TC-H1-G01-HUMAN-USABILITY`（仅人工批准后）
+---
 
-## Dependencies
+# 上一轮状态：普通城市可搜索，整体稳定性部分完成（本地）
 
-- 唯一激活依赖是G06归档且Consent & Share Gate与`PRODUCT_DELIVERY_PASS`通过；该依赖已由耐久回执、PR #20、`develop@9994be151923b9c349fc1129605777032a0b8ebe`远端readback和exact-tip CI满足。
-- 本治理过渡只完整归档G06并激活G07，不运行候选评测、Provider、性能、可靠性、blind、复审或产品代码。
-- 首个preflight填写branch/baseline、候选RunSpec、Provider绑定和全部required Gate矩阵；缺失项标记`NOT_RUN/NOT_READY`并自主修复，只有确需新授权或人工阶段时才按HITL处理，不能把缺失证据包装成PASS。
-- G04方案A恰好两个历史失败例外保持原样披露；G07首个阻断动作是修复并移除该例外，移除前不得接受exact-binding或宣称整仓pytest零失败。
+2026-09-07 所有者提供北京三日、新余两日攻略并询问兼容性根因。实际复现：新余 HTTP409，校验把加粗门票/游船票和菜品列表当作必需地点；模型修正仍不能通过。另有两层限制：模型后处理的短城市白名单，以及只允许北京/上海/杭州的高德解析器。此前“仅展示已确认”投影把所有未查询地点隐藏成空页面。北京本次基线7个地点已匹配，并非每次整份失败。
 
-## User Outcome
+已实施：取消这两层基本搜索限制，普通地级市先向既有高德查询行政区/省份与边界，城市范围经24小时有界缓存复用，随后城市限定查询并验证身份、类别、区县和坐标。新增行政查询的次数与摘要单列在内部 city_scope 回执；现有 external_calls 仍表示 POI 查询次数。公开候选搜索接受城市文字，前端沿用城市目录并保留当前城市。支持国家森林公园简称、地址明确的公园内纪念馆前缀，以及400米内同名同区县道路/游览街区双记录；大栅栏补充有官方来源的别名。票种/菜品不再触发并列地点完整性错误，原文明确的小吃说明不查询同名餐馆。
 
-用户可在候选环境稳定完成登录/体验、文本或截图输入、卡片编辑、地图查看与手动更新、住宿选择、Top-3核验、建议采纳、偏好和分享；每项能力有同一候选commit的可回读证据。
+验证与剩余边界：最终同版8次真实模型→高德→API→PostgreSQL提交全部HTTP200返回部分结果，8次刷新回读相同，8次自建匿名资源删除204/回读410。北京两次10个已确认地点，新余两次7个；新余缩进CRLF第一次仅3个且手动查询UNAVAILABLE，第二次7个并恢复查询。成都4/5，苏州2/5，不能当作召回全部通过。8次候选搜索7次AVAILABLE。最后候选分类小修改为依据候选自身名称，避免把小镇附属休闲店改标景点，生成逻辑未变；追加新余实测HTTP200、8个地点（7个主要地点及胜利北路），刷新相同、候选AVAILABLE、删除204/410。累计9次返回结果，8/9候选可查，但胜利北路的主线/备选归属仍有波动。用户原文只保留在忽略目录，没有提交成长期测试。具体匹配数不包括未选择长城分支、游船岛屿和无名用餐，园内明细与备选仍有模型波动，不声称全内容保真或任意城市支持。
 
-## Scope
+最终Chrome从首页提交新余原文，显示Day1两站/Day2五站、共7张已确认卡片及真实路线，小吃没有成为餐馆。真实更换到抱石公园、刷新保存、撤销恢复均核对，编辑仍提示手动更新路线；只清理本轮自建的两份中间结果，最终示例保留供体验。前端19项定向浏览器检查、TypeScript、生产构建通过；412项后端检查包含本地隔离PostgreSQL通过，Ruff及diff通过。广泛检查发现前一轮路线测试仍预期34/98分钟步行和一个冲突，依所有者30分钟规则修正为54/118分钟公交和两个准确绑定的冲突；没有改变运行时规则以迎合测试。新增名称测试曾因合成夹具重复参数失败，修正夹具后通过。
 
-- 只修复现有主链阻断和candidate regression；
-- 性能、无障碍、隐私、安全和恢复；
-- model/provider snapshot与live矩阵；
-- PostgreSQL、并发、幂等、lease和重启；
-- controlled public demo材料；
-- architecture/recovery diagrams；
-- model ablation；
-- release manifest与最终disclosure。
-- 将旧manifest生成器适配TC-VNEXT Goal/Gate、v3 OpenAPI、新数据集和同绑定receipts；旧360/三城测试只作历史兼容。
+本地基线5a22643，隔离目录 D:/CODEX/BreezeTravel-enhancement，分支 codex/itinerary-quality-20260906；本记录所在提交为可回退检查点。3137已运行修复构建。未推送、部署、改动原始工作树，未跑全仓库/真人/生产验证。县级市、自治州简称没有完成支持验证，POI服务波动尚未分离为确定根因；下步可自主为逐项服务失败保留重试证据并恢复遗漏分支/园内明细，无需所有者排查。整体稳定性保持部分完成，不能以412项自动检查覆盖真实波动。
 
-## Pre-approved actions
+---
 
-- 不预批准新产品功能、migration或Provider；
-- 允许在既有合同内修复候选阻断；
-- 允许当前已有零增量费用Provider Gate；
-- 允许受控demo artifact、视频脚本和manifest；
-- 公网部署本身仍需人工批准。
+# 历史状态：2.5秒提示与30分钟路线规则已完成（本地）
 
-## Parallel work packages
+2026-09-07 用户截图中已确认景点之间仍显示路线未确认。实际只读记录证明：Day2两站之间有隐藏的无名用餐，Day3存在隐藏用餐和未匹配地点；旧后台按原记录邻接计算，未连接实际显示的景点。前端另有“只要存在步行结果就强制步行”的旧规则。
 
-| Package | Owned paths（首个候选preflight精确化） | Dependencies | Acceptance | Activation state |
-|---|---|---|---|---|
-| `WP-G07-INTEGRATOR` | 当前仅限治理过渡；候选实现路径在fresh baseline preflight后精确化 | G06冻结候选 | 完整候选合同、exact baseline和第一阻断动作可回读 | `INTEGRATOR_ONLY / GOAL_TRANSITION` |
-| `WP-G07-PERFORMANCE` | 性能、资源预算和基准回执 | G01～G06冻结候选 | 主链P95与资源预算通过 | `NOT_STARTED` |
-| `WP-G07-RELIABILITY` | 并发、恢复、lease、幂等与故障矩阵 | 同commit候选 | 重复副作用0、恢复可回读 | `NOT_STARTED` |
-| `WP-G07-PRIVACY-DEMO` | 隐私/权限审查、manifest和演示材料 | 同commit公共投影 | 泄漏0、材料与边界一致 | `NOT_STARTED` |
+现已将旅途提示轮换由9秒改为2.5秒，保留悬停/键盘阅读/减少动画时暂停。路线计算只连接已确认可见地点，原始计划、隐藏记录和不可变计划绑定完整保留；更新路线配置版本，避免复用旧邻接结果。前后端统一步行≤30分钟选步行，否则选真实公交；公交不可用诚实显示暂不可用。本次选择所有者允许的公交方案，没有新增驾车接口或数据结构。
 
-当前registry只激活唯一集成者的治理过渡，不代表G07候选工作已开始。本过渡合并后，主对话从fresh `origin/develop`建立唯一实现分支，先移除G04方案A历史例外，再冻结候选RunSpec、全Gate矩阵和路径所有权。任何后续并行写入都需当时适用指令明确允许；否则由集成者串行执行可靠性/隐私材料→性能收口→同commit全量E2E/Gate→`HardeningDecision`、manifest和远端readback。
+实际Chrome用户截图对应行程已点击“更新路线”：6段全部有结果。Day1为公交71分钟、步行2分钟、步行19分钟；Day2为公交211分钟；Day3为公交98分钟、步行29分钟。数据来自本次现有高德查询与数据库保存，不是夹具结果。只更新地图，没有编辑地点或行程原文。时长是查询结果，不保证出发当时交通情况。
 
-## Decisions locked
+最终69项后端路线/API/任务测试、19项前端和浏览器定向检查通过，覆盖29/30/31分钟边界、单模式不可用、隐藏项目邻接、零编辑自动重算、2.5秒轮换及阅读暂停。生产构建、TypeScript、Ruff、diff检查通过，3137已运行本轮构建。新后台邻接测试首次因合成地名没有配置固定路线而失败，随后显式配置合成路线；未修改产品降级逻辑或削弱断言，完整69项复测通过。
 
-- 候选commit上重新运行G0～G7。
-- 历史证据不得拼接。
-- 自动/fixture/live/browser/public/human分层披露。
-- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产或商业。
-- 新功能请求进入未来Program，不在收口Goal扩展。
-- 所有`NOT_RUN`明确列出。
-- G04方案A两个精确历史失败例外必须在G07 exact-binding验收前移除；移除证据与候选commit绑定，不得扩大或重命名例外。
-- `HardeningDecision`只有两种：`NOT_REQUIRED_WITH_RATIONALE`记录威胁、替代控制和残余风险；`REQUIRED`只启用威胁模型点名的控制。不得因为旧代码存在默认恢复八角色签名、broker、远端anchor或OCI。
+本地基线dc4fba1，隔离工作树 D:/CODEX/BreezeTravel-enhancement，分支 codex/itinerary-quality-20260906，本记录所在提交为回退检查点；无推送、main合并或部署。此轮未重跑真实模型、全仓库、实体手机或生产验证；既有模型稳定性及地点匹配覆盖边界仍保留。新生成行程沿用自动首次地图任务，已有旧路线会提示更新，本次截图行程已更新。无需用户排查。
 
-## Non-goals
+---
 
-- 新城市深核验；
-- 新模型/Provider；
-- 一键登录；
-- 新知识来源；
-- 商业付费；
-- H1招募和consent；
-- 自动部署、release或`main`合并。
+# 当前状态：无角标与九类各十张照片已完成（本地）
 
-## Acceptance
+2026-09-07 按所有者新要求去掉“类型配图”角标与图片提示文字，保留装饰图片的空替代文本。九个细分类型各10张不同照片，共90张（新增81张，约11 MB总量），保存来源、许可和文件校验记录；所有候选按类别与卡片裁切逐张检查，不使用同图裁切凑数。
 
-完全继承Candidate Evidence Gate：
+同一行程按地点身份稳定分配：同类前10个不同地点使用10张不同照片，更多地点均匀复用；同地点重复访问保持同图，刷新和拖动顺序不改变分配。优先高德照片，缺失或加载失败才用本地照片。没有改变地点匹配、行程内容、地图调用与保存规则。
 
-- G0～G7同一subject全部PASS，并取得`HARDENED_CANDIDATE_GATE_PASS`；
-- 所有版本零容忍0；
-- browser主链、刷新、断线、并发、重启、partial和performance通过；
-- Provider许可与隐私无阻断；
-- 受控demo、90秒视频、5分钟脚本、架构图、恢复图、消融和manifest可回读；
-- final disclosure准确列出candidate、NOT_RUN和风险；
-- clean tree、push和远端readback。
-- `HardeningDecision`与候选commit绑定；所选控制全部实际验证，未选控制明确为`NOT_REQUIRED_WITH_RATIONALE`而非伪装PASS。
+最终16项定向测试通过，覆盖90个文件校验、四视口、10地点10图、刷新/重排、重复地点及21地点均匀复用、两级图片失败，以及既有显示/编辑行为。TypeScript、生产构建、diff检查通过；3137已重启为本轮版本。用户当前内置浏览器示例页面实际核对：天坛、颐和园、圆明园三张不同照片，无角标。测试首次1项失败因测试加载器按ES5转换Map迭代器，改用ES2020后完整16项通过，产品分配逻辑未因该失败更改。
 
-## Verification
+本地基线1188d74，交付位于 D:/CODEX/BreezeTravel-enhancement 的 codex/itinerary-quality-20260906，本记录所在本地提交为可回退检查点。无需用户操作，当前页面已刷新。未推送、部署或修改用户其他行程；本轮未重跑真实模型、后端或全仓库测试，因为只更改图片呈现。此前地点覆盖率及长攻略稳定性边界继续保留。下面为历史状态，其中旧角标要求由本次指示替代。
 
-- full backend pytest/Ruff；
-- frontend/miniapp适用build；
-- PostgreSQL fresh/existing migration；
-- snapshot/replay；
-- live Provider矩阵；
-- browser E2E和P95；
-- accessibility/security/privacy；
-- release manifest hash/readback；
-- 三角色Agent审查、fresh ultra裁决、全部所需sealed agent blind与clean checkout fresh readback；
-- H1、production、commercial：`NOT_RUN`。
+---
 
-## Authority
+# 当前状态：仅显示已匹配地点和分类配图已完成（本地）
 
-- `AGENTS.md`、全部Blueprint产品/架构/治理权威、Agent Gate Protocol、Product Mainline Execution Guide、ADR-007～ADR-012、ADR-013、ADR-014；
-- G01～G06 completed归档、当前候选RunSpec和同subject evidence；历史V1 manifest仅作baseline。
+2026-09-07 所有者新约束已实现：找不到可靠候选时不展示卡片，所有可见地点显示“已确认”并可随时搜索更换；生成过程、横链、列表、地图目录、图片导出及分享保持一致。未匹配原始记录与日期仍保留，整体部分结果不伪装为全部成功。新增地点选择真实候选后才出现，更换、拖动、撤销和刷新有效。
 
-## Baseline
+九类网络照片已按来源许可下载到项目：餐饮、酒店、古建筑、现代建筑、山岳、水景、公园、展馆、街道。优先高德图片，缺失或失败才用分类配图，并注明不是该地点实拍；无法可靠判别类型时保留中性图形。
 
-- 激活baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`；治理过渡branch/worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`；
-- 候选实现branch/worktree预登记为`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，只在过渡合并后的fresh baseline创建；候选依赖锁、OpenAPI/migration/provider/model/dataset版本由首个preflight冻结；
-- dirty tree或不同binding结果不得拼接；H1/production/commercial：`NOT_RUN`。
+最终验证：24项浏览器/客户端定向测试、6项后端分享投影与既有权限测试通过；生产构建、类型检查、diff检查通过。用户原文Chrome实际生成，另3项真实页面→模型→高德案例通过并清理自建数据（204/410）。Chrome验证真实更换、刷新、缺图配图、撤销及手动更新路线；测试行程已恢复原五个地点。最终版本运行于 http://127.0.0.1:3137 。
 
-## Invariants
+边界：这份北京攻略目前只有5个已匹配地点，Day1/2/3显示0/3/2；9个未匹配主线项隐藏。CBD简称、楼层露台及部分街区未可靠自动匹配，本轮不能代表全部地点召回或任意攻略整体稳定性已达标。类型配图不是真实地点照片；地点已确认也不等于开放、预约、票价已核验。全仓库、实体手机、Safari、真人及生产验证未运行，历史七份攻略失败仍保留。
 
-- 不新增产品功能、不降低Gate、不修改blind/oracle；
-- G0～G7同一subject/config/dataset/model/rule/provider重新运行；
-- fixture/snapshot/live/browser/public/human/commercial分层；UNKNOWN/NOT_RUN不算PASS；
-- Provider许可、隐私删除、内部字段和事实正确性均为阻断项；
-- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不自动授权H1、公网、生产、release或`main`。
+在 D:/CODEX/BreezeTravel-enhancement、codex/itinerary-quality-20260906 保存本地可回退检查点；以410b5c9为起点，无推送、部署、main合并或用户原始工作树修改。无需用户排查，后续可自主提升CBD等地点匹配覆盖；本次显示规则和配图交付已完成。详细实现、来源与验证见[本轮记录](CONFIRMED_CARDS_AND_PHOTOS_20260907.md)。以下为历史状态，不覆盖本次新合同。
 
-## Budget
+---
 
-- 只使用G01～G06已准入账号/Provider和现有无增量费用矩阵；候选RunSpec冻结并记录总调用/token/延迟/成本；
-- 失败策略最多两次，同一blocker两个切片无改善触发独立诊断；每切片checkpoint。
+# 当前状态：自动地点匹配已改善，整体稳定性尚未达标
 
-## HITL
+2026-09-07 所有者授权可靠候选自动采用、用户随时更换，并对附件多份攻略端到端验证。继续3137实际运行的隔离工作树，以16545dd为起点。本轮修复城市前缀误判、商业街/道路/桥梁和多类别景点兼容，补充官方名称提示，保留明确备选及同名午餐备选的正确引用，减少明确园内说明多拆；删除遇到事务死锁可有限重试。可靠地点显示“已匹配”，更换、改城、刷新、撤销、顺序调整和手动路线更新已验证。新的实际上海示例保留在Chrome，16个主站中13个自动匹配。
 
-新功能/schema/migration/依赖/Provider、费用、修改blind、公开demo部署、H1招募/consent、release/`main`需批准。
+**本轮为部分完成，不宣称整体稳定性达标。** 最终同版r8/r9各七份原文加排版/重复，18次实测中16次返回结果，15次主站名称、日期和顺序正确；16份结果的必需备选保留完整，刷新保持一致；18次幂等回放、删除及410回读通过。第二份上海长攻略两次生成失败，第二份北京攻略一次误拆3项，地点服务暂不可用也使自动匹配数波动。最终906项回归、15项持久化/地图/删除兼容及13项浏览器检查通过，不能替代上述真实失败结果。详细逐份数据与边界见[自动地点采用与多攻略验证](AUTOMATIC_PLACE_CANDIDATES_20260907.md)。
 
-## Checkpoint ledger
+本地checkpoint保存本轮产品代码与失败记录，无推送、合并或部署。旧core-mainline模块在当前重建分支不存在，已尝试但不记PASS；当前简化约定以产品测试为准。无需用户排查，可继续自主最小化复现长攻略修正后的引用错误，并处理内部眺望对象和菜名误拆，随后重新冻结代码执行完整多内容验证。当前切片保留IN_PROGRESS，原主工作树和用户旧行程不作批量改写。下方历史通过不能替代本轮结果。
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|---|---|
-| 2026-08-31 | G06显式记忆与分享已交付、并入`develop`并完整归档；G07候选收口合同原子激活，尚未运行候选工作 | G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`；回执`215770f2ad975ed89271047fa40780fdddbd02a0`；integration`9994be151923b9c349fc1129605777032a0b8ebe`；本治理过渡commit在提交后由远端readback记录 | G06首轮CI`33400646254 PASS`、回执tip CI`33402192501 PASS`、develop exact-tip CI`33402780730 PASS`；fresh fetch、`rev-parse`与`ls-remote`一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / G07_NOT_STARTED` | `Governance ratio=100% / atomic G06 archive and G07 activation only` | 合并本过渡PR；从新develop建立G07实现分支；首先修复并移除G04方案A两个历史失败例外，再冻结候选RunSpec和exact bindings | G07全Gate、live Provider、90条统计、50链、复审、blind、性能、可靠性、隐私、供应链均`NOT_RUN`；H1、公网、生产、商业、发布、部署和main仍未运行或未请求 | 校验归档/绑定/范围，提交push并通过过渡CI；合并后fresh readback再开始G07 preflight |
+# 上一轮：纯文字粘贴失败已修复（本地复现通过）
 
-## Auto-advance
+2026-09-07所有者反馈同一上海攻略纯文字粘贴仍失败。本轮已完成这条复现路径的修复和本地交付，仍在codex/itinerary-quality-20260906、D:/CODEX/BreezeTravel-enhancement隔离工作树。只读匹配现场765字输入的失败记录：原请求及初次重试各自两次模型输出均漏掉午餐备选的第二处安福路，整份校验拒绝。服务健康，不是先前依赖中断。按同名全局去重、匿名午餐引用覆盖两条街的保护逻辑共同阻止了备选恢复。上一轮Markdown两轮通过属实，但未覆盖纯文字排版变体，不能证明实际粘贴稳定。
 
-- Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
-- 不自动创建或激活H1 Goal，不自动部署、公网、release、商业或合并`main`；必须等待用户明确批准。
+现在按原文出现位置区分上午主站与午餐备选，受限保留两街备选和原餐次；补上晚上明确吃饭街道、CRLF区域说明边界与餐厅推荐列表角色，馆区限定缺失时向既有修复调用提供紧邻原文，不绕过完整校验。终态失败不再消耗匿名每日额度；仍只允许一份处理中请求、每日三份成功整理，删除成功结果不能重置额度。没有修改用户旧失败记录或扩张调用次数。
 
-## Completion record
+最终同版final-r5四次实际提交全部逐项一致：纯文字、缩进CRLF、Markdown、再一次纯文字，每次16个有名主站和13个备选，名称、天数、角色、顺序均正确。前三次各一次模型调用；第四次经既有一次修正保留日期和馆区，四次均无时间降级，代码前后未变。四份自建验证资源删除204、回读410。用户原页面已用最终版本重试成功并保留：Day1/2/3有名主站7/9/0，备选1/3/9；两份无名用餐另计。当前主站4个身份已确认、12个待确认，不能冒充全部坐标已核验。
 
-- Status / Subject commits / Remote branch：`APPROVED / G07候选subject尚未创建 / origin/codex/g07-candidate尚未创建`；
-- Verification / Evidence / Gate result / `structurally_valid`：`NOT_RUN / GOAL_TRANSITION_ONLY / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；结构有效不代表候选通过；
-- H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`G06已交付，G07仅完成可追溯激活 / G04两个历史例外移除、候选全Gate与全部候选证据均未运行 / false`；
-- Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
-- Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
+本轮最终1152项解析相关回归、46项内存/真实PostgreSQL/API与删除兼容测试通过；同一24份原创真实模型测量24/24、24调用0修正，不调用地点服务，不能作地点身份准确率。最终Ruff、diff通过；提交前核心脚本仅校验合同。实际浏览器逐日展开备选并核对，未改用户行程。上一轮完整七份原文、前端构建和12项浏览器套件本轮未重跑；真人、实体手机、Safari、全仓库和生产未运行。本轮仅本地保存checkpoint，没有推送、合并main或部署。
 
-## Stop conditions
+无需所有者排查或执行命令。此次报告的失败已关闭；任意新攻略准确率、12个待确认身份及实时开放/预约/价格不在本次通过声明内。可继续自主提升待确认地点覆盖和语义稳定性。原文与诊断仅留本次忽略目录，新增长期回归全部原创合成。详细原因、最终结果和边界见[纯文字粘贴修复记录](PLAIN_TEXT_GUIDE_FIX_20260907.md)。下方是历史证据，不能替代本轮验证。
 
-- 需要新增产品功能才能通过；
-- 需要降低任何Gate；
-- 需要拼接历史证据；
-- 需要新增Provider权限/费用，或隐私/事实矛盾只能通过改变Gate解决；
-- 需要公网部署、H1、付费、release或`main`；
-- 需要降低candidate blocker门槛而非继续技术诊断。
+# 上一轮：七份攻略的地点解析修复（本地样例通过）
+
+所有者报告3137首页提交“暂时没有收到整理结果”，并明确授权对本次提供的7份京沪原文逐一测试。以5472927为基线，沿用同一隔离工作树和简化开发约定。原文只存放本次忽略目录供授权复现，不提交或作长期训练数据；独立标注预期后核对真实返回的日归属、地点、顺序、备选和错误多拆。
+
+现场直接故障：API/Web进程存活，但PostgreSQL、Redis没有监听，8037/health返回503。已恢复既有依赖，保留数据和页面；退出触发原因尚不确定。首页区分暂不可用和请求结果未知，重试保留原文及同一请求身份。
+
+已修复原文限定、并列、跨天重复、主线和备选、街道类别及“前门”误确认为博物馆。随后封住描述短语进入地点搜索、无名描述被逗号误拒、修正下标与展开后活动错位、日期问题提前退出屏蔽其他错误。受限恢复保留原文明确的跨分支简称尾站，已选方案、取消和改期不自动多加。
+
+最终同一运行时代码after-r24、r25连续两轮，各7/7返回结果并独立逐项核对：每轮82个有名主站、46个备选，名称、日归属、顺序及角色均符合事先标注；49个主站真实身份已确认，33个有名主站仍待确认。备选页面读回一致，14份自建数据均删除并回读204/410。任一唯一已识别组员可恢复同组明确并列，原成员时间不转移给补出的前项。原始失败完整保留，没有拼接成功或降低预期。
+
+当前1204项去重解析/地点边界、141项数据库/API及12项桌面/手机浏览器验证通过。最终同一24份原创真实模型回归r21为24/24、24调用0修复，测量前后代码未变；拒绝确认地点的测量不充当真实身份核验。代码checkpoint为18138d0，后续记录提交不改变运行时；隔离分支codex/itinerary-quality-20260906，体验入口http://127.0.0.1:3137，API/Web/数据库/缓存及健康检查正常。没有推送、合并main或部署。
+
+边界：本轮完成地点语义与样例验收，不宣称任意新攻略100%准确或全部时间已正确保留。r24时间降级0项；r25第2份5项、第7份15项时间依据未通过，保留地点并返回部分结果。首稿恢复分支通过5项模拟SDK测试，最终两轮没有实际触发，不能写成真实模型恢复成功。33个有名待确认地点及46个备选不能冒充已确认身份；票价、预约、营业、交通时刻和房态未做实时核验。真人、实体手机、Safari、全仓库及生产未运行。
+
+无需所有者排查或执行命令。本轮可直接体验；后续可自主优先处理时间原文对齐和待确认地点覆盖，餐饮住宿扩展沿用之前版本边界。原文与逐次截图仅存本次忽略目录，不作长期训练数据。完整过程、逐份结果和验证方法见[七份实际攻略复现记录](OWNER_GUIDE_REPRODUCTION_20260906.md)。下面为历史状态，不替代本轮验收。
+
+---
+
+# 上一轮：地点名词与卡片稳定性强化已完成（本地）
+
+以已交付本地版本42be8b6为基线，在codex/itinerary-quality-20260906、D:/CODEX/BreezeTravel-enhancement隔离工作树完成本轮强化。体验入口：http://127.0.0.1:3137 ，已重建并启动最终代码。只使用原创合成文字和公开地点，没有使用存量用户原文、推送、合并main或上线；原第一版工作树与3118保持不动。
+
+所有者最新优先级：先保证原文地点名词到卡片的稳定对应，不漏地点、不多生卡片、不错误合并、不解错身份。本轮加强完整馆区/入口/分店名称、场馆类别、城市坐标、原文行政区与实际归属核对；分天漏字段有一次模型修正和受限的原文日期恢复，不借URL、相对日、多日范围或代词调整猜日期。仅无依据的时间字段可以局部清除，不能连带丢失已校验地点。无法确认身份时保留卡片待确认，用户可就地明确选择查询城市并保存/撤销。
+
+实际验证：
+
+- 最终语义代码24/24份、18类原创样本逐项一致，覆盖86个确定活动和3个备选；25次真实模型调用含1次修正，0错误。逐项核对数量、原文名称、顺序、日归属、角色和公开卡片。此前同版本重复24/24的记录和中间失败完整保留，不拼接成最终通过。
+- 同一50个真实地点查询，严格名称正确24→32，漏识别10→2；13个应拒绝反例均安全拒绝。3个名称表外返回单独按官方来源复核，仍保留原始WRONG、不算入32项；不能宣称50/50。
+- 440项解析与地点边界、47项数据库/API与相关兼容测试通过，无跳过；11项四视口浏览器测试通过。最终真实桌面三城8地点/1备选、手机矛盾地点纠正两项通过；手机一次确认、零自动地图请求，自建数据均删除并回读204/410。
+- 前端生产构建、客户端类型检查、OpenAPI、Ruff与diff通过；提交前核心校验只作合同一致性，不作产品证据。
+
+剩余边界：北京饭店、上海和平饭店当前服务返回混合类别，仍待确认；复杂日期两次未校验通过时可重试，不能冒充正确。对任意新攻略的总体准确率没有100%保证。真人、实体手机、Safari、全仓库与生产未运行；没有新增依赖或migration。餐饮住宿扩展在本轮暂停，原有功能通过相关兼容测试。
+
+本地checkpoint见本记录所在提交；无需用户排查或执行命令，可继续自主处理新增复现。详细改动、各轮实测、来源、运行方法和回退见[解析稳定性交付记录](PLACE_PARSING_STABILITY_DELIVERY_20260906.md)。本轮本地交付完成，不自动部署。
+
+上一轮完整交付见[行程质量强化交付记录](ITINERARY_QUALITY_DELIVERY_20260906.md)。下方为基线历史状态，不指挥当前切片。
+
+---
+
+# 当前状态：第一版行程质量强化已完成（本地）
+
+项目所有者于2026-09-06授权以今天第一版继续强化，并沿用新版简化开发约定。本轮本地交付完成；没有更新公网、推送或合并main。
+
+## 交付位置
+
+- 体验入口： http://127.0.0.1:3137 ，当前为最终代码的生产构建；API、Web、Yjs、PostgreSQL、Redis状态正常。
+- 隔离工作树：`D:/CODEX/BreezeTravel-enhancement`；分支：`codex/itinerary-quality-20260906`。
+- 第一版基线：`a6035de874948029aa593104626c1ac40081d986`。原工作区和 `BreezeTravel-soft-canvas` 保持不动，3118的第一版可独立保留。
+- 本地checkpoint见本记录所在提交；没有新增migration或生产依赖。完整范围、操作说明、失败记录和回退方式见 [交付记录](ITINERARY_QUALITY_DELIVERY_20260906.md)。
+
+## 现在可用
+
+1. 文字转卡片加强明确时间依据、跨城归属、表格／更正叙事、明确空日和备选；模糊时间不虚构钟点，备选明确加入后才成为待确认卡片。
+2. 检查明确时间重叠、时长矛盾、路线可用性与交通衔接、长路段、重复到访、餐休和住宿通勤。缺失日期／时间说明检查范围，不冒充全部通过。
+3. 当前结果页按需展开“检查与建议”，选择确认地点查询最多3家真实附近餐饮，原子采纳、撤销和旧候选保护可用。
+4. 连锁酒店检索修复最近第一页反复遮蔽有效候选的问题，保留城市／类别／坐标校验；住宿通勤只显示有效事实，真实3家推荐和一次选择回读已通过。
+5. 跨城不套用一家酒店全程住宿；编辑和选择都只提示地图需更新，必须明确手动更新。
+
+## 实际证据
+
+- AUTOMATED_TEST：相关后端509个不同测试通过、无跳过（分组串行且去重）；最后住宿82项通过。新增面板浏览器12/12通过，含四视口、重试、迟到结果、旧候选及一次写入。
+- LIVE_PROVIDER_EVIDENCE：最终语义代码24/24原创合成文本符合预设，24调用、0修复；基线也是24/24，不声称总体准确率提升。随后只有住宿查询修改，语义代码、配置和样本未变。四轮测量与中间失败均保留。
+- LIVE_PROVIDER_EVIDENCE：北京餐饮／撤销／手动地图／PNG、沪杭手机跨城／空日／备选、最终北京住宿选择三个真实旅程分别通过；测试数据均204删除／410回读。
+- 生产前端构建、客户端类型检查、OpenAPI一致性、Python Ruff、diff通过；核心脚本仅为合同一致性证据。
+- 短期子代理实现与复核不当作真人或外部独立验收。
+
+## 已知边界与后续
+
+北京、上海、杭州有深入地点和路线能力，其他国内城市保守整理。任意攻略100%准确没有保证；更正叙事依赖语义与原文校验，词法补漏不强制旧取消地点重现。营业、预约、天气、价格和房态未获得适用实时数据，明确不作已核验结论。跨城逐晚酒店组合尚不自动推荐，用户可分别添加确认。
+
+全仓库测试、完整协同回归、实体手机、Safari、真人与生产验证未运行；前端未配置ESLint，不声称lint通过。旧固定解析器已在基线复现的失败单独保留，没有拼接为本轮通过。
+
+本轮已完成，无需用户排查内部问题。可继续收集实际体验反馈并在隔离分支修复；公网更新需要所有者另行明确授权，不自动进入部署或旧候选流程。

@@ -1,303 +1,581 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Input, Picker, Radio, RadioGroup, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidHide, useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
+import { useRef, useState } from 'react'
+import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
+import { useDidHide, useDidShow, useRouter } from '@tarojs/taro'
 
-import {
-  controlledRunSpec,
-  type RepairOptionContract,
-  type TripCheckRunContract,
-  type WorkspaceResumeContract,
+import type {
+  ActivityCardView,
+  AssumptionChipView,
+  MapRenderView,
+  PublicChangePreview,
+  PublicTripChecksView,
+  StaySuggestionView,
+  TripUnderstandingProgressView,
+  TripUnderstandingCommand,
+  UserFacingTripResult,
 } from '@breezetravel/trip-check-client'
 
 import { tripCheckClient } from '@/lib/api'
 import { commandRegistry } from '@/lib/commands'
-import { pollDelay, shouldPollRun } from '@/lib/polling'
-import { readSession, saveLastWorkspaceId } from '@/lib/storage'
-import { canResumeRun, canStartTripCheck } from '@/lib/workflow'
 
 import './index.scss'
 
-const TRAVELER_OPTIONS = [2, 3, 4, 5]
+const MAX_ENHANCEMENT_POLL_ATTEMPTS = 30
+
+function statusLabel(status: string): string {
+  return {
+    PREPARING: '准备中',
+    AVAILABLE: '已准备',
+    NEEDS_UPDATE: '需要更新',
+    LIMITED: '信息有限',
+    UNAVAILABLE: '暂不可用',
+  }[status] || '处理中'
+}
+
+type EditorState =
+  | { mode: 'ASSUMPTION'; assumption: AssumptionChipView }
+  | { mode: 'INSERT'; dayIndex: number; position: number }
+  | { mode: 'EDIT' | 'REPLACE' | 'MOVE'; dayIndex: number; activity: ActivityCardView }
+
+function findingBadgeClass(label: string): string {
+  if (label === '必须调整') return 'failed'
+  if (label === '可以更好') return 'waiting'
+  return 'needs_confirmation'
+}
 
 export default function TripPage() {
   const router = useRouter()
-  const workspaceId = String(router.params.workspaceId || '')
-  const [resume, setResume] = useState<WorkspaceResumeContract | null>(null)
-  const [selections, setSelections] = useState<Record<string, string>>({})
-  const [queries, setQueries] = useState<Record<string, string>>({})
-  const [travelerCount, setTravelerCount] = useState(2)
+  const publicResourceId = String(router.params.publicResourceId || '')
+  const [progress, setProgress] = useState('正在整理攻略…')
+  const [result, setResult] = useState<UserFacingTripResult | null>(null)
+  const [map, setMap] = useState<MapRenderView | null>(null)
+  const [stay, setStay] = useState<StaySuggestionView | null>(null)
+  const [checks, setChecks] = useState<PublicTripChecksView | null>(null)
+  const [changePreview, setChangePreview] = useState<PublicChangePreview | null>(null)
+  const [editor, setEditor] = useState<EditorState | null>(null)
+  const [draftName, setDraftName] = useState('')
+  const [draftCategory, setDraftCategory] = useState('地点')
+  const [draftAddress, setDraftAddress] = useState('地点待确认')
+  const [draftTime, setDraftTime] = useState('')
+  const [draftDay, setDraftDay] = useState('1')
+  const [draftPosition, setDraftPosition] = useState('0')
+  const [expandedActivity, setExpandedActivity] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
-  const visible = useRef(false)
+  const [checksError, setChecksError] = useState('')
+  const [enhancementRetryAvailable, setEnhancementRetryAvailable] = useState(false)
+  const active = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const itineraryImport = resume?.current_import || null
-  const brief = resume?.current_brief || null
-  const run = resume?.current_trip_check_run || null
-  const report = resume?.current_report || null
-  const advice = resume?.current_advice || null
-  const repairs = useMemo(() => [
-    ...(resume?.proposed_repairs || []),
-    ...(resume?.applied_repair ? [resume.applied_repair] : []),
-  ], [resume])
-  const unresolved = useMemo(
-    () => (itineraryImport?.resolutions || []).filter(item => ['AMBIGUOUS', 'NOT_FOUND'].includes(item.resolution_status)),
-    [itineraryImport],
-  )
-
-  const stopName = (rawStopId: string) => (
-    itineraryImport?.raw_stops?.find(item => item.raw_stop_id === rawStopId)?.raw_name || rawStopId
-  )
+  const etag = useRef('')
+  const checksPrepared = useRef(false)
+  const enhancementPollAttempts = useRef(0)
 
   const clearTimer = () => {
     if (timer.current) clearTimeout(timer.current)
     timer.current = null
   }
 
-  const loadAuthoritative = async (): Promise<WorkspaceResumeContract> => {
-    if (!workspaceId) throw new Error('缺少 workspaceId')
-    const restored = await tripCheckClient.resumeWorkspace(workspaceId)
-    setResume(restored)
-    setTravelerCount(restored.current_brief?.traveler_count || 2)
-    saveLastWorkspaceId(workspaceId)
-    return restored
+  const loadEnhancements = async (): Promise<{
+    map: MapRenderView | null
+    stay: StaySuggestionView | null
+  }> => {
+    const [nextMap, nextStay] = await Promise.allSettled([
+      tripCheckClient.getTripUnderstandingMap(publicResourceId),
+      tripCheckClient.getTripUnderstandingStaySuggestions(publicResourceId),
+    ])
+    const loadedMap = nextMap.status === 'fulfilled' ? nextMap.value : null
+    const loadedStay = nextStay.status === 'fulfilled' ? nextStay.value : null
+    if (active.current) {
+      if (loadedMap) setMap(loadedMap)
+      if (loadedStay) setStay(loadedStay)
+    }
+    return { map: loadedMap, stay: loadedStay }
   }
 
-  const poll = (currentRun: TripCheckRunContract, failureCount = 0) => {
-    clearTimer()
-    if (!visible.current || !shouldPollRun(currentRun.status, currentRun.stage)) return
-    timer.current = setTimeout(async () => {
-      if (!visible.current) return
-      try {
-        const next = await tripCheckClient.getRun(currentRun.run_id)
-        setResume(current => current ? { ...current, current_trip_check_run: next } : current)
-        if (!shouldPollRun(next.status, next.stage)) {
-          const restored = await loadAuthoritative()
-          if (restored.current_trip_check_run) poll(restored.current_trip_check_run)
-          return
-        }
-        poll(next, 0)
-      } catch (caught) {
-        setError(`Run 状态读取失败，正在退避重试：${caught instanceof Error ? caught.message : String(caught)}`)
-        poll(currentRun, failureCount + 1)
-      }
-    }, pollDelay(failureCount))
-  }
-
-  const refresh = async () => {
-    setError('')
+  const prepareChecks = async () => {
+    if (checksPrepared.current || !etag.current) return
+    checksPrepared.current = true
+    setChecksError('')
     try {
-      const restored = await loadAuthoritative()
-      if (restored.current_trip_check_run) poll(restored.current_trip_check_run)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
+      const prepared = await tripCheckClient.materializeTripUnderstanding(
+        publicResourceId,
+        etag.current,
+        commandRegistry.acquire(`materialize:${publicResourceId}`, {}),
+      )
+      commandRegistry.complete(`materialize:${publicResourceId}`)
+      etag.current = prepared.headers.etag || prepared.headers.ETag || etag.current
+      const value = await tripCheckClient.getTripUnderstandingChecks(publicResourceId)
+      if (active.current) {
+        setChecks(value)
+        setChecksError('')
+      }
+    } catch {
+      checksPrepared.current = false
+      if (active.current) setChecksError('建议暂时没有准备好，可以在这里重试。')
     }
   }
 
-  useDidShow(() => {
-    visible.current = true
-    if (!readSession()) {
-      void Taro.reLaunch({ url: '/pages/login/index' })
+  const load = async () => {
+    clearTimer()
+    if (!publicResourceId) {
+      setError('这次行程链接不完整，请返回首页重新生成。')
       return
     }
-    void refresh()
-  })
-  useDidHide(() => {
-    visible.current = false
-    clearTimer()
-  })
-  usePullDownRefresh(() => {
-    void refresh().finally(() => Taro.stopPullDownRefresh())
-  })
-  useEffect(() => () => clearTimer(), [])
+    try {
+      const response = await tripCheckClient.getTripUnderstandingResult(publicResourceId)
+      if (!active.current) return
+      setError('')
+      if (response.status === 202) {
+        const value = response.data as TripUnderstandingProgressView
+        setProgress(value.message)
+        timer.current = setTimeout(() => void load(), Math.max(500, value.retry_after_ms))
+        return
+      }
+      etag.current = response.headers.etag || response.headers.ETag || ''
+      const loadedResult = response.data as UserFacingTripResult
+      setResult(loadedResult)
+      setProgress('')
+      const enhancements = await loadEnhancements()
+      const mapStatus = enhancements.map?.status || loadedResult.map.status
+      const stayStatus = enhancements.stay?.status || loadedResult.stay.status
+      if (mapStatus === 'PREPARING' || stayStatus === 'PREPARING') {
+        enhancementPollAttempts.current += 1
+        if (enhancementPollAttempts.current < MAX_ENHANCEMENT_POLL_ATTEMPTS) {
+          timer.current = setTimeout(() => void load(), 1000)
+          return
+        }
+        setEnhancementRetryAvailable(true)
+        setError('路线或住宿仍在准备，可以稍后再次检查。')
+        await prepareChecks()
+        return
+      }
+      enhancementPollAttempts.current = 0
+      setEnhancementRetryAvailable(false)
+      await prepareChecks()
+    } catch {
+      if (active.current) setError('暂时无法读取行程，请稍后重试。')
+    }
+  }
 
-  const act = async (label: string, action: () => Promise<void>) => {
-    setBusy(label)
+  const openEditor = (next: EditorState) => {
+    setEditor(next)
+    if (next.mode === 'ASSUMPTION') {
+      setDraftName(next.assumption.value)
+    } else if (next.mode === 'INSERT') {
+      setDraftName('')
+      setDraftCategory('地点')
+      setDraftAddress('地点待确认')
+      setDraftTime('')
+      setDraftDay(String(next.dayIndex))
+      setDraftPosition(String(next.position))
+    } else {
+      setDraftName(next.activity.name)
+      setDraftCategory(next.activity.category || '地点')
+      setDraftAddress(next.activity.area_or_address || '地点待确认')
+      setDraftTime(next.activity.time_hint || '')
+      setDraftDay(String(next.dayIndex))
+      setDraftPosition('1')
+    }
+    setError('')
+  }
+
+  const applyCommand = async (command: TripUnderstandingCommand, scope: string, failureMessage: string) => {
+    if (!etag.current) return false
+    setBusy(scope)
     setError('')
     try {
-      await action()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
+      const response = await tripCheckClient.applyTripUnderstandingCommand(
+        publicResourceId,
+        command,
+        etag.current,
+        commandRegistry.acquire(scope, command),
+      )
+      commandRegistry.complete(scope)
+      etag.current = response.headers.etag || response.headers.ETag || etag.current
+      checksPrepared.current = false
+      setChecks(null)
+      setChecksError('')
+      setChangePreview(null)
+      setEditor(null)
+      await load()
+      return true
+    } catch {
+      setError(failureMessage)
+      return false
     } finally {
       setBusy('')
     }
   }
 
-  const saveAndConfirmBrief = () => act('brief', async () => {
-    if (!brief) return
-    let target = brief
-    if (travelerCount !== brief.traveler_count) {
-      const scope = `patch-brief:${brief.brief_id}:${brief.revision}`
-      target = await tripCheckClient.patchBrief(
-        workspaceId,
-        brief.revision,
-        { traveler_count: travelerCount },
-        commandRegistry.acquire(scope, { traveler_count: travelerCount }),
+  const submitEditor = async () => {
+    if (!editor) return
+    const value = draftName.trim()
+    if (editor.mode !== 'MOVE' && !value) {
+      setError('请填写内容后再保存。')
+      return
+    }
+    if (editor.mode === 'ASSUMPTION') {
+      await applyCommand(
+        { command_type: 'ASSUMPTION_SET', key: editor.assumption.key, value },
+        `assumption:${editor.assumption.key}`,
+        '这项假设暂时无法修改。',
+      )
+    } else if (editor.mode === 'INSERT') {
+      await applyCommand(
+        {
+          command_type: 'ACTIVITY_INSERT',
+          day_index: editor.dayIndex,
+          position: editor.position,
+          name: value,
+          category: draftCategory.trim() || '地点',
+          area_or_address: draftAddress.trim() || '地点待确认',
+          time_hint: draftTime.trim() || null,
+        },
+        `insert:${editor.dayIndex}:${editor.position}`,
+        '暂时无法新增地点。',
+      )
+    } else if (editor.mode === 'EDIT') {
+      await applyCommand(
+        {
+          command_type: 'ACTIVITY_TEXT_EDIT',
+          activity_token: editor.activity.activity_token,
+          name: value,
+          time_hint: draftTime.trim() || null,
+        },
+        `edit:${editor.activity.activity_token}`,
+        '暂时无法保存卡片文字。',
+      )
+    } else if (editor.mode === 'REPLACE') {
+      await applyCommand(
+        {
+          command_type: 'PLACE_REPLACE',
+          activity_token: editor.activity.activity_token,
+          replacement: {
+            name: value,
+            category: draftCategory.trim() || '地点',
+            area_or_address: draftAddress.trim() || '地点待确认',
+          },
+        },
+        `replace:${editor.activity.activity_token}`,
+        '暂时无法替换地点。',
+      )
+    } else {
+      const targetDay = Number.parseInt(draftDay, 10)
+      const displayedPosition = Number.parseInt(draftPosition, 10)
+      if (!Number.isInteger(targetDay) || targetDay < 1 || !Number.isInteger(displayedPosition) || displayedPosition < 1) {
+        setError('请填写有效的目标天数和位置。')
+        return
+      }
+      await applyCommand(
+        {
+          command_type: 'ACTIVITY_MOVE',
+          activity_token: editor.activity.activity_token,
+          target_day_index: targetDay,
+          target_position: displayedPosition - 1,
+        },
+        `move:${editor.activity.activity_token}`,
+        '暂时无法移动地点。',
+      )
+    }
+  }
+
+  useDidShow(() => {
+    active.current = true
+    void load()
+  })
+
+  useDidHide(() => {
+    active.current = false
+    clearTimer()
+  })
+
+  const removeActivity = async (activityToken: string) => {
+    const scope = `delete:${activityToken}`
+    await applyCommand(
+      { command_type: 'ACTIVITY_DELETE', activity_token: activityToken },
+      scope,
+      '这张卡片暂时无法删除。',
+    )
+  }
+
+  const refreshMap = async () => {
+    if (!etag.current) return
+    const scope = `map:${publicResourceId}`
+    setBusy(scope)
+    setError('')
+    try {
+      const value = await tripCheckClient.requestTripUnderstandingMap(
+        publicResourceId,
+        etag.current,
+        commandRegistry.acquire(scope, {}),
       )
       commandRegistry.complete(scope)
+      setMap({ status: value.status, message: value.message, days: [], available_actions: [] })
+      enhancementPollAttempts.current = 0
+      setEnhancementRetryAvailable(false)
+      timer.current = setTimeout(() => void load(), 1000)
+    } catch {
+      setError('路线暂时无法更新，请稍后再试。')
+    } finally {
+      setBusy('')
     }
-    const scope = `confirm-brief:${target.brief_id}:${target.revision}`
-    await tripCheckClient.confirmBrief(workspaceId, target.revision, commandRegistry.acquire(scope, {}))
-    commandRegistry.complete(scope)
-    await loadAuthoritative()
-  })
+  }
 
-  const search = (rawStopId: string) => act(`search:${rawStopId}`, async () => {
-    if (!itineraryImport || !queries[rawStopId]?.trim()) return
-    await tripCheckClient.searchCandidates(
-      workspaceId,
-      itineraryImport.import_id,
-      rawStopId,
-      queries[rawStopId].trim(),
-      itineraryImport.state_version,
-    )
-    await loadAuthoritative()
-  })
-
-  const confirmPlaces = () => act('places', async () => {
-    if (!itineraryImport) return
-    const confirmations = unresolved.map(item => ({ raw_stop_id: item.raw_stop_id, place_id: selections[item.raw_stop_id] }))
-    if (confirmations.some(item => !item.place_id)) throw new Error('每个待消歧地点都必须明确选择，不能静默应用')
-    await tripCheckClient.confirmResolutions(
-      workspaceId,
-      itineraryImport.import_id,
-      { confirmations },
-      itineraryImport.state_version,
-    )
-    await loadAuthoritative()
-  })
-
-  const startRun = () => act('run', async () => {
-    if (!brief || brief.status !== 'CONFIRMED') throw new Error('TripBrief 尚未确认')
-    let revision = resume?.current_revision || null
-    if (!revision) {
-      if (!itineraryImport || itineraryImport.status !== 'READY') throw new Error('地点消歧尚未完成')
-      const scope = `apply-import:${itineraryImport.import_id}`
-      const applied = await tripCheckClient.applyImport(workspaceId, itineraryImport, commandRegistry.acquire(scope, { version: itineraryImport.state_version }))
+  const selectStay = async (candidateToken: string) => {
+    if (!etag.current) return
+    const scope = `stay:${candidateToken}`
+    setBusy(scope)
+    setError('')
+    try {
+      const response = await tripCheckClient.selectTripUnderstandingStay(
+        publicResourceId,
+        candidateToken,
+        etag.current,
+        commandRegistry.acquire(scope, { candidateToken }),
+      )
       commandRegistry.complete(scope)
-      revision = applied.revision
+      etag.current = response.headers.etag || response.headers.ETag || etag.current
+      checksPrepared.current = false
+      setChecks(null)
+      setChecksError('')
+      setChangePreview(null)
+      await loadEnhancements()
+    } catch {
+      setError('住宿暂时无法选择，请稍后再试。')
+    } finally {
+      setBusy('')
     }
-    const body = {
-      itinerary_revision: revision.revision,
-      brief_revision: brief.revision,
-      run_spec: controlledRunSpec(process.env.TARO_APP_TRIP_CHECK_COMMIT_SHA || 'miniapp-local'),
+  }
+
+  const previewChange = async (checkToken: string) => {
+    const scope = `preview:${checkToken}`
+    setBusy(scope)
+    setError('')
+    try {
+      const value = await tripCheckClient.previewTripUnderstandingChange(
+        publicResourceId,
+        checkToken,
+        commandRegistry.acquire(scope, { checkToken }),
+      )
+      commandRegistry.complete(scope)
+      setChangePreview(value)
+    } catch {
+      setError('暂时无法预览这项调整。')
+    } finally {
+      setBusy('')
     }
-    const scope = `create-run:${workspaceId}:${revision.revision}:${brief.revision}`
-    const created = await tripCheckClient.createRun(workspaceId, body, commandRegistry.acquire(scope, body))
-    commandRegistry.complete(scope)
-    const restored = await loadAuthoritative()
-    poll(restored.current_trip_check_run || created)
-  })
+  }
 
-  const resumeRun = () => act('resume-run', async () => {
-    if (!run) return
-    const scope = `resume-run:${run.run_id}:${run.version}`
-    const next = await tripCheckClient.resumeRun(run, commandRegistry.acquire(scope, { config_hash: run.config_hash }))
-    commandRegistry.complete(scope)
-    setResume(current => current ? { ...current, current_trip_check_run: next } : current)
-    poll(next)
-  })
+  const adoptChange = async () => {
+    if (!changePreview || !etag.current) return
+    const scope = `adopt:${changePreview.change_token}`
+    setBusy(scope)
+    setError('')
+    try {
+      const response = await tripCheckClient.adoptTripUnderstandingChange(
+        publicResourceId,
+        changePreview.change_token,
+        etag.current,
+        commandRegistry.acquire(scope, { changeToken: changePreview.change_token }),
+      )
+      commandRegistry.complete(scope)
+      etag.current = response.headers.etag || response.headers.ETag || etag.current
+      setChecks(response.data.checks)
+      setChangePreview(null)
+      checksPrepared.current = true
+      await load()
+    } catch {
+      setError('暂时无法采纳这项调整。')
+    } finally {
+      setBusy('')
+    }
+  }
 
-  const proposeRepairs = () => act('repairs', async () => {
-    if (!report) return
-    const scope = `propose-repairs:${report.report_id}`
-    await tripCheckClient.proposeRepairs(report.report_id, commandRegistry.acquire(scope, {}))
-    commandRegistry.complete(scope)
-    await loadAuthoritative()
-  })
-
-  const applyRepair = (option: RepairOptionContract) => act(option.repair_id, async () => {
-    const scope = `apply-repair:${option.repair_id}`
-    const result = await tripCheckClient.applyRepair(option, commandRegistry.acquire(scope, { base_revision: option.base_itinerary_revision }))
-    commandRegistry.complete(scope)
-    await tripCheckClient.getAudit(result.postcheck_report_id)
-    await loadAuthoritative()
-  })
-
-  const rejectRepair = (option: RepairOptionContract) => act(option.repair_id, async () => {
-    await tripCheckClient.rejectRepair(option, '小程序用户暂不采纳')
-    await loadAuthoritative()
-  })
-
-  if (!resume) return <View className='page loading'><Text>{error || '正在恢复权威状态…'}</Text></View>
+  if (!result) {
+    return <View className='loading'><Text>{error || progress || '正在读取每日行程…'}</Text></View>
+  }
 
   return (
-    <ScrollView scrollY className='page trip-page'>
+    <ScrollView scrollY className='trip-page'>
       <View className='hero'>
-        <Text className='eyebrow'>行程查 · {resume.workspace.city}</Text>
-        <Text className='heading'>{resume.workspace.trip_date_range.start} 至 {resume.workspace.trip_date_range.end}</Text>
-        <Text className='subtle'>Workspace {resume.workspace.workspace_id.slice(0, 8)}</Text>
+        <Text className='eyebrow'>BreezeTravel · 行程查</Text>
+        <Text className='heading'>你的每日行程</Text>
+        <Text className='subtle'>地点不确定时会明确标成“需要确认”，不会硬猜。</Text>
       </View>
-      {error ? <Text className='error'>{error}</Text> : null}
+      {error ? (
+        <View className='feedback-panel'>
+          <Text className='feedback'>{error}</Text>
+          {enhancementRetryAvailable ? (
+            <Button className='secondary compact' disabled={Boolean(busy)} onClick={() => {
+              enhancementPollAttempts.current = 0
+              setEnhancementRetryAvailable(false)
+              setError('')
+              void load()
+            }}>再次检查</Button>
+          ) : null}
+        </View>
+      ) : null}
 
-      {brief ? <View className='card section'>
-        <View className='section-head'><Text className='section-title'>1. Brief 确认</Text><Text className={`badge ${brief.status.toLowerCase()}`}>{brief.status}</Text></View>
-        <Text className='copy'>城市 {brief.city} · {brief.date_range.start} 至 {brief.date_range.end}</Text>
-        <Text className='label'>出行人数</Text>
-        <Picker disabled={brief.status === 'CONFIRMED'} mode='selector' range={TRAVELER_OPTIONS} value={Math.max(0, TRAVELER_OPTIONS.indexOf(travelerCount))} onChange={event => setTravelerCount(TRAVELER_OPTIONS[Number(event.detail.value)])}>
-          <View className='field'>{travelerCount} 人</View>
-        </Picker>
-        <Text className='copy'>节奏 {brief.daily_pace} · 强度 {brief.activity_intensity} · 交通 {(brief.transport_modes || []).join('、') || '未提供'}</Text>
-        {brief.status !== 'CONFIRMED' ? <Button className='primary' loading={busy === 'brief'} onClick={saveAndConfirmBrief}>保存并确认 Brief</Button> : null}
-      </View> : null}
-
-      {unresolved.length ? <View className='card section'>
-        <Text className='section-title'>2. 地点消歧</Text>
-        <Text className='copy'>低置信度地点必须逐项确认。</Text>
-        {unresolved.map(item => <View className='resolution' key={item.raw_stop_id}>
-          <Text className='resolution-name'>{stopName(item.raw_stop_id)}</Text>
-          <RadioGroup onChange={event => setSelections(current => ({ ...current, [item.raw_stop_id]: event.detail.value }))}>
-            {(item.candidates || []).map(candidate => <View className='candidate' key={candidate.place_id}>
-              <Radio value={candidate.place_id} checked={selections[item.raw_stop_id] === candidate.place_id} color='#f06f5f' />
-              <View className='candidate-copy'><Text>{candidate.name}</Text><Text className='subtle'>{candidate.address || candidate.district || candidate.city}</Text></View>
-            </View>)}
-          </RadioGroup>
-          <View className='search-row'>
-            <Input className='search-input' value={queries[item.raw_stop_id] || ''} placeholder='换一个检索词' onInput={event => setQueries(current => ({ ...current, [item.raw_stop_id]: event.detail.value }))} />
-            <Button className='small' onClick={() => search(item.raw_stop_id)}>搜索</Button>
+      <View className='card section'>
+        <Text className='section-title'>当前假设</Text>
+        {result.assumptions.map(item => (
+          <View className='assumption-row' key={item.key}>
+            <View className='assumption-copy'>
+              <Text className='label compact-label'>{item.label}</Text>
+              <Text className='copy compact-copy'>{item.value}</Text>
+            </View>
+            {item.editable ? <Button className='text-action' disabled={Boolean(busy)} onClick={() => openEditor({ mode: 'ASSUMPTION', assumption: item })}>修改</Button> : null}
           </View>
-        </View>)}
-        <Button className='primary' loading={busy === 'places'} onClick={confirmPlaces}>确认全部地点</Button>
-      </View> : null}
+        ))}
+      </View>
 
-      {canStartTripCheck(brief, itineraryImport, Boolean(resume.current_revision)) && !run ? <View className='card section'>
-        <Text className='section-title'>3. 开始权威核验</Text>
-        <Text className='copy'>将创建或复用当前 Itinerary Revision，并启动完整事实采集、Audit 与 Advice。</Text>
-        <Button className='primary' loading={busy === 'run'} onClick={startRun}>开始 Run</Button>
-      </View> : null}
+      {result.days.map((day, dayOffset) => (
+        <View className='card section' key={day.label}>
+          <View className='section-head'>
+            <Text className='section-title'>{day.label}</Text>
+            <Text className='badge'>{day.activities.length} 个地点</Text>
+          </View>
+          {day.activities.length === 0 ? <Text className='copy'>这一天还没有卡片。</Text> : null}
+          {day.activities.map(activity => (
+            <View className='resolution' key={activity.activity_token}>
+              <View className='section-head'>
+                <Text className='resolution-name'>{activity.name}</Text>
+                <Text className={`badge ${activity.status.toLowerCase()}`}>
+                  {activity.status === 'READY' ? '可查看' : '需要确认'}
+                </Text>
+              </View>
+              <Text className='copy'>{[activity.time_hint, activity.area_or_address].filter(Boolean).join(' · ')}</Text>
+              {expandedActivity === activity.activity_token ? (
+                <View className='details'>
+                  <Text className='copy compact-copy'>类别：{activity.category || '地点待确认'}</Text>
+                  <Text className='copy compact-copy'>区域或地址：{activity.area_or_address || '地点待确认'}</Text>
+                  <Text className='copy compact-copy'>时间：{activity.time_hint || '未指定'}</Text>
+                  {activity.knowledge_suggestions?.map((suggestion, index) => (
+                    <Text className='suggestion' key={`${activity.activity_token}-suggestion-${index}`}>{suggestion.text} · {suggestion.source_name}</Text>
+                  ))}
+                </View>
+              ) : null}
+              <View className='action-grid'>
+                {activity.available_actions.includes('VIEW_DETAILS') ? <Button className='text-action' disabled={Boolean(busy)} onClick={() => setExpandedActivity(expandedActivity === activity.activity_token ? '' : activity.activity_token)}>{expandedActivity === activity.activity_token ? '收起详情' : '查看详情'}</Button> : null}
+                <Button className='text-action' disabled={Boolean(busy)} onClick={() => openEditor({ mode: 'EDIT', dayIndex: dayOffset + 1, activity })}>编辑文字</Button>
+                {activity.available_actions.includes('REPLACE') ? <Button className='text-action' disabled={Boolean(busy)} onClick={() => openEditor({ mode: 'REPLACE', dayIndex: dayOffset + 1, activity })}>替换地点</Button> : null}
+                {activity.available_actions.includes('MOVE') ? <Button className='text-action' disabled={Boolean(busy)} onClick={() => openEditor({ mode: 'MOVE', dayIndex: dayOffset + 1, activity })}>移动位置</Button> : null}
+                {activity.available_actions.includes('DELETE') ? <Button className='text-action danger-action' disabled={Boolean(busy)} loading={busy === `delete:${activity.activity_token}`} onClick={() => void removeActivity(activity.activity_token)}>删除卡片</Button> : null}
+              </View>
+            </View>
+          ))}
+          <Button className='secondary compact' disabled={Boolean(busy)} onClick={() => openEditor({ mode: 'INSERT', dayIndex: dayOffset + 1, position: day.activities.length })}>新增地点</Button>
+        </View>
+      ))}
 
-      {run ? <View className='card section'>
-        <View className='section-head'><Text className='section-title'>Run 进度</Text><Text className={`badge ${run.status.toLowerCase()}`}>{run.status}</Text></View>
-        <Text className='copy'>阶段 {run.stage} · 版本 {run.version}</Text>
-        <View className='progress'><View className='progress-fill' style={{ width: `${Math.min(100, ((run.completed_stages?.length || 0) / 8) * 100)}%` }} /></View>
-        {(run.partial_failures || []).map((failure, index) => <Text className='warning' key={`${failure.stage}-${index}`}>PARTIAL · {failure.stage} · {failure.category}</Text>)}
-        {canResumeRun(run) ? <Button className='secondary compact' loading={busy === 'resume-run'} onClick={resumeRun}>从权威状态恢复 Run</Button> : null}
-      </View> : null}
+      {editor ? (
+        <View className='card section editor-panel'>
+          <View className='section-head'>
+            <Text className='section-title'>{{ ASSUMPTION: `修改${editor.mode === 'ASSUMPTION' ? editor.assumption.label : ''}`, INSERT: '新增地点', EDIT: '编辑卡片文字', REPLACE: '替换地点', MOVE: '移动位置' }[editor.mode]}</Text>
+            <Button className='text-action' disabled={Boolean(busy)} onClick={() => setEditor(null)}>关闭</Button>
+          </View>
+          {editor.mode === 'MOVE' ? (
+            <>
+              <Text className='label'>目标天数</Text>
+              <Input className='field' type='number' value={draftDay} onInput={event => setDraftDay(event.detail.value)} />
+              <Text className='label'>排在第几个（1 表示最前）</Text>
+              <Input className='field' type='number' value={draftPosition} onInput={event => setDraftPosition(event.detail.value)} />
+            </>
+          ) : (
+            <>
+              <Text className='label'>{editor.mode === 'ASSUMPTION' ? '新的值' : '地点名称'}</Text>
+              <Input className='field' maxlength={editor.mode === 'ASSUMPTION' ? 80 : 40} value={draftName} onInput={event => setDraftName(event.detail.value)} />
+              {editor.mode === 'INSERT' || editor.mode === 'REPLACE' ? (
+                <>
+                  <Text className='label'>类别</Text>
+                  <Input className='field' maxlength={40} value={draftCategory} onInput={event => setDraftCategory(event.detail.value)} />
+                  <Text className='label'>区域或地址</Text>
+                  <Input className='field' maxlength={120} value={draftAddress} onInput={event => setDraftAddress(event.detail.value)} />
+                </>
+              ) : null}
+              {editor.mode === 'INSERT' || editor.mode === 'EDIT' ? (
+                <>
+                  <Text className='label'>时间提示（可选）</Text>
+                  <Input className='field' maxlength={80} value={draftTime} onInput={event => setDraftTime(event.detail.value)} />
+                </>
+              ) : null}
+            </>
+          )}
+          <Button className='primary' disabled={Boolean(busy)} loading={busy.startsWith(editor.mode.toLowerCase())} onClick={() => void submitEditor()}>保存修改</Button>
+        </View>
+      ) : null}
 
-      {report ? <View className='card section'>
-        <View className='section-head'><Text className='section-title'>报告与 Advice</Text><Text className={`badge ${report.overall_status.toLowerCase()}`}>{report.overall_status}</Text></View>
-        {(report.findings || []).length ? (report.findings || []).map(finding => <View className='finding' key={finding.finding_id}>
-          <Text className='finding-title'>{finding.severity} · {finding.status}</Text>
-          <Text className='copy'>{finding.message}</Text>
-          {finding.confirmation_action ? <Text className='subtle'>建议动作：{finding.confirmation_action}</Text> : null}
-        </View>) : <Text className='copy'>当前报告没有发现项。</Text>}
-        {(advice?.actions || []).map(action => <View className='advice' key={action.advice_id}><Text className='finding-title'>建议</Text><Text className='copy'>{action.action}</Text><Text className='subtle'>{action.expected_impact} · {action.uncertainty}</Text></View>)}
-        {!repairs.length && run?.stage === 'WAIT_ADOPTION' ? <Button className='primary' loading={busy === 'repairs'} onClick={proposeRepairs}>生成 Repair 预览</Button> : null}
-      </View> : null}
+      <View className='card section'>
+        <View className='section-head'>
+          <Text className='section-title'>路线</Text>
+          <Text className='badge'>{statusLabel(map?.status || result.map.status)}</Text>
+        </View>
+        <Text className='copy'>{map?.message || result.map.message}</Text>
+        {map?.days.flatMap(day => day.routes).map((route, index) => (
+          <Text className='copy' key={`${route.from_name}-${route.to_name}-${index}`}>
+            {route.from_name} → {route.to_name} · {route.message}
+          </Text>
+        ))}
+        {(map?.status || result.map.status) === 'NEEDS_UPDATE' ? (
+          <Button className='primary' disabled={Boolean(busy)} loading={busy.startsWith('map:')} onClick={() => void refreshMap()}>
+            重新准备路线
+          </Button>
+        ) : null}
+      </View>
 
-      {repairs.length ? <View className='card section'>
-        <Text className='section-title'>Repair 预览与 postcheck</Text>
-        {repairs.map(option => <View className='repair' key={option.repair_id}>
-          <View className='section-head'><Text className='finding-title'>方案 {option.repair_id.slice(0, 8)}</Text><Text className='badge'>{option.status}</Text></View>
-          {(option.tradeoffs || []).map(item => <Text className='copy' key={item}>· {item}</Text>)}
-          <Text className='subtle'>编辑成本 {option.edit_cost} · 风险成本 {option.risk_cost} · 基于 r{option.base_itinerary_revision}</Text>
-          {option.status === 'PROPOSED' ? <View className='button-row'>
-            <Button className='primary half' loading={busy === option.repair_id} onClick={() => applyRepair(option)}>采纳并完整 postcheck</Button>
-            <Button className='secondary half' onClick={() => rejectRepair(option)}>暂不采纳</Button>
-          </View> : null}
-          {option.postcheck_report_id ? <Text className='success'>已绑定 postcheck {option.postcheck_report_id.slice(0, 10)}</Text> : null}
-        </View>)}
-      </View> : null}
+      <View className='card section'>
+        <View className='section-head'>
+          <Text className='section-title'>住宿建议</Text>
+          <Text className='badge'>{statusLabel(stay?.status || result.stay.status)}</Text>
+        </View>
+        <Text className='copy'>{stay?.message || result.stay.message}</Text>
+        {(stay?.candidates || result.stay.candidates).map(candidate => (
+          <View className='advice' key={candidate.candidate_token}>
+            <Text className='resolution-name'>{candidate.name}</Text>
+            <Text className='copy'>{candidate.commute_summary} · {candidate.reason}</Text>
+            {!candidate.selected ? (
+              <Button className='secondary compact' disabled={Boolean(busy)} loading={busy === `stay:${candidate.candidate_token}`} onClick={() => void selectStay(candidate.candidate_token)}>
+                选择这家住宿
+              </Button>
+            ) : <Text className='success'>已选择</Text>}
+          </View>
+        ))}
+      </View>
+
+      <View className='card section'>
+        <Text className='section-title'>优先看看这三项</Text>
+        <Text className='copy'>{checks?.message || checksError || '正在准备少量、可直接采纳的建议。'}</Text>
+        {checksError ? (
+          <Button className='secondary compact' disabled={Boolean(busy)} onClick={() => void prepareChecks()}>
+            重新准备建议
+          </Button>
+        ) : null}
+        {checks?.items.map(item => (
+          <View className='finding' key={item.check_token}>
+            <View className='section-head'>
+              <Text className='finding-title'>{item.title}</Text>
+              <Text className={`badge ${findingBadgeClass(item.label)}`}>{item.label}</Text>
+            </View>
+            <Text className='copy'>{item.message}</Text>
+            {item.can_preview ? (
+              <Button className='secondary compact' disabled={Boolean(busy)} loading={busy === `preview:${item.check_token}`} onClick={() => void previewChange(item.check_token)}>
+                预览调整
+              </Button>
+            ) : null}
+          </View>
+        ))}
+        {changePreview ? (
+          <View className='repair'>
+            <Text className='finding-title'>{changePreview.title}</Text>
+            <Text className='copy'>{changePreview.summary}</Text>
+            {changePreview.before.map((item, index) => <Text className='subtle' key={`before-${index}`}>调整前：{item}</Text>)}
+            {changePreview.after.map((item, index) => <Text className='copy' key={`after-${index}`}>调整后：{item}</Text>)}
+            <View className='button-row'>
+              <Button className='primary half' disabled={Boolean(busy)} loading={busy.startsWith('adopt:')} onClick={() => void adoptChange()}>采纳调整</Button>
+              <Button className='secondary half' disabled={Boolean(busy)} onClick={() => setChangePreview(null)}>暂不调整</Button>
+            </View>
+          </View>
+        ) : null}
+      </View>
       <View className='bottom-space' />
     </ScrollView>
   )

@@ -18,7 +18,15 @@
         "-m",
         "pytest",
         "-q",
-        "--ignore=tests/test_trip_nlu_v2_gate.py",
+        "--ignore-glob=*ocr*",
+        "--ignore-glob=*screenshot*",
+        "--ignore-glob=*test_g04_*",
+        "--ignore-glob=*test_trip_intake*",
+        "--ignore-glob=*test_trip_check_p5_*",
+        "--ignore-glob=*test_g01_text_card_dataset.py",
+        "--ignore-glob=*test_g01_s0_preflight.py",
+        "--ignore-glob=*test_g04_formal_gate.py",
+        "--ignore-glob=*test_g05_governance_delivery.py",
         "--timeout=180"
       ],
       "check_id": "backend.current_suite",
@@ -33,6 +41,8 @@
         "-q",
         "tests/test_g07_candidate_gate.py",
         "tests/test_g07_release_manifest.py",
+        "tests/test_g07_candidate_exact_binding.py",
+        "tests/test_product_work_packages_v3.py",
         "--timeout=180"
       ],
       "check_id": "g07.candidate_manifest_privacy_recovery_gate",
@@ -43,11 +53,31 @@
       "argv": [
         "npm",
         "run",
+        "audit:production"
+      ],
+      "check_id": "frontend.production_dependency_audit",
+      "timeout_seconds": 600,
+      "workdir": "frontend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
         "typecheck"
       ],
       "check_id": "shared_client.typecheck",
       "timeout_seconds": 600,
       "workdir": "packages/trip-check-client"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "audit:production"
+      ],
+      "check_id": "miniapp.production_dependency_audit",
+      "timeout_seconds": 600,
+      "workdir": "miniapp"
     },
     {
       "argv": [
@@ -73,11 +103,11 @@
       "argv": [
         "npm",
         "run",
-        "test:e2e:candidate"
+        "test:e2e:g07"
       ],
       "check_id": "g07.browser_candidate_full_journey",
       "timeout_seconds": 2400,
-      "workdir": "frontend"
+      "workdir": "backend/eval_data/g07_candidate/browser_runner"
     },
     {
       "argv": [

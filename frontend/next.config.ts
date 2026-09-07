@@ -1,10 +1,13 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  logging: { incomingRequests: false, fetches: { fullUrl: false } },
+  // Keep local development assets separate from the production build.
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   // Build a self-contained, content-addressable runtime directory. The
   // release process starts this directory before switching traffic, so an
   // existing process never observes a partially replaced `.next` tree.
-  output: 'standalone',
+  output: process.env.EXPERIENCE_WEB_RUNTIME === '1' ? undefined : 'standalone',
   // 允许高德地图图片域名
   images: {
     domains: ['aos-comment.amap.com', 'p1.meituan.net'],

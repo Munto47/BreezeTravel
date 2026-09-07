@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Sparkles, MessageSquare, Brain } from 'lucide-react'
+import { Send, Sparkles, MessageSquare } from 'lucide-react'
 
 import type { ChatMessage } from '@/types/chat'
 import MessageItem from './MessageItem'
-import ThinkingSteps from './ThinkingSteps'
 
 interface DayWeather {
   date: string
@@ -88,18 +87,11 @@ function WeatherBar({ weather }: { weather: WeatherData }) {
   )
 }
 
-/** 从消息的 thinkingSteps 中检测是否加载了长期偏好记忆 */
-function useMemoryActive(messages: ChatMessage[]): boolean {
-  return useMemo(() => {
-    for (const msg of messages) {
-      if (msg.role !== 'assistant') continue
-      for (const step of msg.thinkingSteps ?? []) {
-        if (step.summary?.includes('历史偏好')) return true
-      }
-    }
-    return false
-  }, [messages])
-}
+const PROGRESS_LABELS = {
+  UNDERSTANDING: '理解需求',
+  FINDING_PLACES: '查找地点',
+  ORGANIZING: '整理建议',
+} as const
 
 export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend, onClickPlace }: ChatPanelProps) {
   const [input, setInput] = useState('')
@@ -107,7 +99,6 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
   const bottomRef = useRef<HTMLDivElement>(null)
   // true once the user manually scrolls up — suppresses auto-scroll until they send again
   const userScrolledUpRef = useRef(false)
-  const memoryActive = useMemoryActive(messages)
 
   // Detect when user scrolls away from the bottom
   const handleScroll = useCallback(() => {
@@ -154,26 +145,11 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
           </div>
           <div>
             <h2 className="text-sm font-bold text-gray-900">AI 旅行顾问</h2>
-            <p className="text-[11px] text-gray-400 leading-tight">描述需求，AI 推荐适合的地点</p>
+            <p className="text-[11px] text-gray-400 leading-tight">
+              本设备会话 · 完成的地点会同步到房间
+            </p>
           </div>
 
-          {/* Memory 活跃徽章：检测到历史偏好加载时显示 */}
-          <AnimatePresence>
-            {memoryActive && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, x: 8 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.25 }}
-                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full
-                           bg-violet-50 border border-violet-200/70 text-violet-600"
-                title="已加载您的历史偏好，推荐将个性化匹配"
-              >
-                <Brain className="w-3 h-3" />
-                <span className="text-[10px] font-medium">记住你了</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
 
@@ -230,8 +206,10 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: i === messages.length - 1 ? 0.05 : 0 }}
           >
-            {msg.role === 'assistant' && msg.thinkingSteps && msg.thinkingSteps.length > 0 && (
-              <ThinkingSteps steps={msg.thinkingSteps} isStreaming={msg.status === 'streaming'} />
+            {msg.role === 'assistant' && msg.status === 'streaming' && msg.progressPhase && (
+              <p className="mb-2 inline-flex min-h-8 items-center rounded-full bg-sky-50 px-3 text-xs font-semibold text-[#0c789d]" role="status">
+                {PROGRESS_LABELS[msg.progressPhase]}
+              </p>
             )}
             <MessageItem message={msg} onClickPlace={onClickPlace} />
           </motion.div>

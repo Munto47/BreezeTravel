@@ -1,0 +1,149 @@
+.e-library {
+  width: min(100% - 64px, 1024px);
+  margin: 56px auto 96px;
+}
+.e-library-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 40px;
+}
+.e-library-heading h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin: 0 0 10px;
+}
+.e-library-heading p {
+  margin: 0;
+}
+.e-library-empty {
+  padding: 56px 0;
+  border-top: 1px solid var(--e-line, #dce3de);
+  line-height: 1.65;
+}
+.e-library-empty h2 {
+  margin: 0 0 12px;
+  font-size: 21px;
+  font-weight: 500;
+}
+.e-library-empty p {
+  margin-bottom: 24px;
+}
+.e-library-retention {
+  margin: 0 0 16px;
+}
+.e-trip-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--e-line, #dce3de);
+}
+.e-trip-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--e-line, #dce3de);
+}
+.e-trip-list-main {
+  min-width: 0;
+}
+.e-trip-list-main h2 {
+  margin: 0 0 8px;
+  font-weight: 600;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.e-trip-list-main h2 button {
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 44px;
+  cursor: pointer;
+  font: inherit;
+}
+.e-trip-list-main h2 button:hover {
+  color: var(--e-accent, #2f6558);
+}
+.e-trip-list-main p {
+  margin: 6px 0;
+}
+.e-trip-list-meta {
+  font-size: 15px;
+}
+.e-trip-list-expiry {
+  display: block;
+  margin-top: 4px;
+}
+.e-trip-list-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+}
+.e-library-more {
+  padding-top: 24px;
+  text-align: center;
+}
+.e-delete-dialog {
+  width: min(calc(100vw - 32px), 480px);
+  background: #fff;
+  color: #202a27;
+  border: 1px solid #dce3de;
+  border-radius: 12px;
+  padding: 28px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  font-family: inherit;
+}
+.e-delete-dialog::backdrop {
+  background: rgb(20 36 28 / 32%);
+}
+.e-delete-dialog h2 {
+  font-size: 21px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.e-delete-dialog p {
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0 0 24px;
+  overflow-wrap: anywhere;
+}
+.e-delete-dialog .e-actions {
+  flex-wrap: wrap;
+}
+.e-button-danger {
+  color: #a63632;
+  border-color: #d9adaa;
+}
+@media (max-width: 640px) {
+  .e-library {
+    width: calc(100% - 32px);
+    margin-top: 32px;
+  }
+  .e-library-heading {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .e-library-heading h1 {
+    font-size: 26px;
+  }
+  .e-trip-list-row {
+    display: block;
+    padding: 24px 0;
+  }
+  .e-trip-list-actions {
+    margin-top: 16px;
+  }
+  .e-delete-dialog {
+    padding: 24px 20px;
+  }
+}

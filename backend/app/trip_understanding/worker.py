@@ -21,7 +21,8 @@ from app.trip_understanding.repository import (
     PostgresTripUnderstandingRepository,
     TripUnderstandingRepository,
 )
-from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
+from app.trip_understanding.experience_inference import ExperienceQwenProvider
+from app.trip_understanding.pipeline import TripUnderstandingPipeline
 
 
 logger = logging.getLogger(__name__)
@@ -43,8 +44,10 @@ class _LeaseTakeoverInferenceProvider:
 
 def build_configured_full_pipeline(settings: Settings):
     if settings.trip_understanding_provider_mode != "live":
+        if settings.runtime_profile not in {"test", "local_fixture"}:
+            raise ValueError("custom text requires live providers")
         return build_full_text_pipeline()
-    qwen = QwenStructuredInferenceProvider(
+    qwen = ExperienceQwenProvider(
         api_key=settings.qwen_api_key,
         base_url=settings.qwen_api_url,
         model=settings.trip_understanding_qwen_model,
@@ -61,7 +64,7 @@ def build_configured_full_pipeline(settings: Settings):
         api_key=settings.amap_api_key,
         deadline_seconds=settings.trip_understanding_amap_place_deadline_seconds,
     )
-    return build_full_text_pipeline(
+    return TripUnderstandingPipeline(
         qwen,
         amap,
         max_place_concurrency=(
@@ -81,9 +84,9 @@ class TripUnderstandingWorker:
         self.repository = repository
         self.lease_seconds = lease_seconds
         self.demo_pipeline = build_demo_pipeline()
-        self.full_pipeline = full_pipeline or build_full_text_pipeline()
-        self.lease_takeover_pipeline = build_full_text_pipeline(
-            _LeaseTakeoverInferenceProvider()
+        self.full_pipeline = full_pipeline if full_pipeline is not None else build_configured_full_pipeline(get_settings())
+        self.lease_takeover_pipeline = TripUnderstandingPipeline(
+            _LeaseTakeoverInferenceProvider(), getattr(self.full_pipeline, "place_resolver", None),
         )
 
     async def _heartbeat(self, job, now_provider) -> None:
@@ -123,6 +126,8 @@ class TripUnderstandingWorker:
         monotonic_started = time.monotonic()
 
         def operation_now() -> datetime:
+            if now is None:
+                return datetime.now(timezone.utc)
             return observed_at + timedelta(seconds=time.monotonic() - monotonic_started)
 
         job = await self.repository.claim_next(
@@ -135,26 +140,90 @@ class TripUnderstandingWorker:
         try:
             async def execute_pipeline():
                 source = await self.repository.load_source(job, now=observed_at)
+                source_binding = dict(source.internal_binding)
+                collaboration_guard_active = (
+                    source_binding.get("source_origin") == "COLLABORATION"
+                )
+                raw_guard_tokens = source_binding.get(
+                    "collaboration_place_guard_tokens"
+                )
+                collaboration_guard_tokens = (
+                    tuple(
+                        token
+                        for token in raw_guard_tokens
+                        if isinstance(token, str)
+                    )
+                    if collaboration_guard_active
+                    and isinstance(raw_guard_tokens, list)
+                    else (() if collaboration_guard_active else None)
+                )
+                raw_city_guard = source_binding.get(
+                    "collaboration_city_guard_token"
+                )
+                collaboration_city_guard = (
+                    raw_city_guard if isinstance(raw_city_guard, str) else None
+                )
                 if source.source_type == "FIXED_DEMO":
                     pipeline = self.demo_pipeline
                 elif job.attempt > 1:
                     pipeline = self.lease_takeover_pipeline
                 else:
                     pipeline = self.full_pipeline
-                return await pipeline.run(
-                    source.text,
-                    requires_confirmation_spans=tuple(
+
+                async def persist_progress(update):
+                    if source_binding:
+                        update = update.model_copy(
+                            update={
+                                "internal_binding": {
+                                    **source_binding,
+                                    **update.internal_binding,
+                                }
+                            }
+                        )
+                    accepted = await self.repository.record_progress(
+                        job,
+                        update,
+                        now=operation_now(),
+                    )
+                    if not accepted:
+                        raise JobLeaseLostError(
+                            "understanding progress write was rejected"
+                        )
+
+                pipeline_options = {
+                    "requires_confirmation_spans": tuple(
                         (span.start, span.end)
                         for span in source.requires_confirmation_spans
                     ),
-                    partial_source=source.partial_source,
+                    "partial_source": source.partial_source,
+                    "progress_callback": persist_progress,
+                }
+                if collaboration_guard_active:
+                    pipeline_options.update(
+                        {
+                            "collaboration_guard_tokens": collaboration_guard_tokens,
+                            "collaboration_city_guard_token": collaboration_city_guard,
+                        }
+                    )
+                return (
+                    await pipeline.run(source.text, **pipeline_options),
+                    source_binding,
                 )
 
-            output = await self._run_with_heartbeat(
+            output, source_binding = await self._run_with_heartbeat(
                 job,
                 execute_pipeline(),
                 operation_now,
             )
+            if source_binding:
+                output = output.model_copy(
+                    update={
+                        "inference_binding": {
+                            **source_binding,
+                            **output.inference_binding,
+                        }
+                    }
+                )
             await self.repository.complete_job(
                 job,
                 output,
@@ -162,13 +231,26 @@ class TripUnderstandingWorker:
             )
         except asyncio.CancelledError:
             raise
+        except JobLeaseLostError:
+            # Cancellation or lease takeover already owns the durable outcome.
+            # A late worker must not turn it into a failure or write more facts.
+            logger.info("trip understanding worker stopped after losing its lease")
+        except InferenceProviderUnavailableError as exc:
+            await self.repository.fail_job(
+                job,
+                category=exc.category,
+                now=operation_now(),
+                allow_retry=False,
+                provider_binding=exc.provider_binding,
+            )
+            logger.warning("trip inference unavailable; a new user request can retry")
         except Exception:
             await self.repository.fail_job(
                 job,
                 category="PIPELINE_ERROR",
                 now=operation_now(),
             )
-            logger.exception("trip understanding job failed")
+            logger.warning("trip understanding job failed safely")
         return True
 
 
@@ -192,7 +274,7 @@ async def run_forever() -> None:
                         limit=settings.screenshot_maintenance_batch_size,
                     )
                 except Exception:
-                    logger.exception("private source maintenance failed")
+                    logger.warning("private source maintenance failed safely")
                 next_maintenance = (
                     time.monotonic()
                     + settings.screenshot_maintenance_interval_seconds
@@ -200,7 +282,10 @@ async def run_forever() -> None:
             if not processed:
                 await asyncio.sleep(settings.trip_understanding_worker_poll_seconds)
     finally:
-        await close_pool()
+        try:
+            await full_pipeline.aclose()
+        finally:
+            await close_pool()
 
 
 def main() -> None:

@@ -7,14 +7,94 @@ import { WebsocketProvider } from 'y-websocket'
 import type { YjsPlace, YjsRoomMeta, RoomMember, RoomPhase } from '@/types/room'
 import type { Place } from '@/types/place'
 import type { ChatMessage } from '@/types/chat'
+import { recoverExpiredLogin, runWithDeadline } from '@/lib/request-safety'
 
 const Y_WEBSOCKET_URL = process.env.NEXT_PUBLIC_Y_WEBSOCKET_URL || 'ws://localhost:1234'
 
-// 用户颜色池（多人协同时区分不同用户）
-const MEMBER_COLORS = [
-  '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
-  '#8B5CF6', '#06B6D4', '#F97316', '#EC4899',
-]
+const ROOM_SELECTION = 'room-selection'
+const ROOM_PHASES = new Set<RoomPhase>([
+  'exploring',
+  'selecting',
+  'optimizing',
+  'planned',
+])
+const PLACE_CATEGORIES = new Set<Place['category']>([
+  'attraction',
+  'food',
+  'hotel',
+  'transport',
+])
+
+function safeText(value: unknown, maxLength: number): string {
+  return typeof value === 'string'
+    ? value.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, maxLength)
+    : ''
+}
+
+/** Yjs is shared transport, not an identity authority. */
+export function parseSharedPlace(key: string, raw: unknown): YjsPlace | null {
+  if (!raw || typeof raw !== 'object') return null
+  const value = raw as Record<string, unknown>
+  const coords = value.coords as Record<string, unknown> | undefined
+  const placeId = safeText(key, 200)
+  const name = safeText(value.name, 120)
+  const category = value.category as Place['category']
+  const lng = Number(coords?.lng)
+  const lat = Number(coords?.lat)
+  if (
+    !placeId ||
+    !name ||
+    !PLACE_CATEGORIES.has(category) ||
+    !Number.isFinite(lng) ||
+    !Number.isFinite(lat) ||
+    Math.abs(lng) > 180 ||
+    Math.abs(lat) > 90
+  )
+    return null
+  const source = ['amap_poi', 'rag', 'synthesized'].includes(String(value.source))
+    ? (value.source as Place['source'])
+    : 'synthesized'
+  const finiteNumber = (candidate: unknown) => {
+    const number = Number(candidate)
+    return Number.isFinite(number) ? number : undefined
+  }
+  const selected = Array.isArray(value.votedBy) && value.votedBy.length > 0
+  return {
+    placeId,
+    name,
+    category,
+    address: safeText(value.address, 240),
+    coords: { lng, lat },
+    city: safeText(value.city, 80),
+    district: safeText(value.district, 80) || undefined,
+    source,
+    amapRating: finiteNumber(value.amapRating),
+    amapPrice: finiteNumber(value.amapPrice),
+    openingHours: safeText(value.openingHours, 160) || undefined,
+    phone: safeText(value.phone, 80) || undefined,
+    amapPhotos: Array.isArray(value.amapPhotos)
+      ? value.amapPhotos
+          .map((item) => safeText(item, 2048))
+          .filter((item) => /^https?:\/\//.test(item))
+          .slice(0, 5)
+      : [],
+    description: safeText(value.description, 1000) || undefined,
+    tags: Array.isArray(value.tags)
+      ? value.tags.map((item) => safeText(item, 40)).filter(Boolean).slice(0, 12)
+      : [],
+    constraintEvidence: [],
+    geoEvidence: [],
+    confirmationActions: [],
+    clusterId: finiteNumber(value.clusterId),
+    visitOrder: finiteNumber(value.visitOrder),
+    estimatedDuration: finiteNumber(value.estimatedDuration),
+    votedBy: selected ? [ROOM_SELECTION] : [],
+    addedBy: 'room',
+    addedAt: safeText(value.addedAt, 40),
+    note: safeText(value.note, 500),
+    isPinned: value.isPinned === true,
+  }
+}
 
 interface UseYjsRoomReturn {
   // 响应式数据
@@ -37,7 +117,8 @@ interface UseYjsRoomReturn {
 export function useYjsRoom(
   roomId: string,
   userId: string,
-  nickname: string,
+  _nickname: string,
+  enabled = true,
 ): UseYjsRoomReturn {
   const docRef = useRef<Y.Doc | null>(null)
   const providerRef = useRef<WebsocketProvider | null>(null)
@@ -48,13 +129,8 @@ export function useYjsRoom(
   const [isConnected, setIsConnected] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
-  // 用户颜色（基于 userId hash 确保稳定）
-  const userColor = MEMBER_COLORS[
-    Math.abs(userId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % MEMBER_COLORS.length
-  ]
-
   useEffect(() => {
-    if (!roomId) return
+    if (!roomId || !userId || !enabled) return
 
     // 初始化 YDoc
     const doc = new Y.Doc()
@@ -66,54 +142,110 @@ export function useYjsRoom(
     const chatArray = doc.getArray<ChatMessage>('chat')
 
     let provider: WebsocketProvider | null = null
+    let awareness: WebsocketProvider['awareness'] | null = null
     let cancelled = false
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    let connectionTimer: ReturnType<typeof setTimeout> | null = null
+    let tokenExpiresAt = 0
+    let connected = false
 
-    // 连接状态监听
-    const updateMembers = () => {
+    const destroyProvider = () => {
+      if (connectionTimer) clearTimeout(connectionTimer)
+      connectionTimer = null
+      connected = false
       if (!provider) return
-      const states = Array.from(provider.awareness.getStates().entries())
-      const seenIds = new Set<string>()
-      const onlineMembers: RoomMember[] = states
-        .filter(([, state]) => state.user)
-        .map(([, state]) => ({
-          userId: (state.user as Record<string, string>).userId,
-          nickname: (state.user as Record<string, string>).nickname,
-          color: (state.user as Record<string, string>).color,
-          isOnline: true,
-        }))
-        .filter((m) => {
-          if (seenIds.has(m.userId)) return false
-          seenIds.add(m.userId)
-          return true
-        })
-      setMembers(onlineMembers)
+      provider.destroy()
+      provider = null
+      providerRef.current = null
+      setIsConnected(false)
+      setMembers([])
+    }
+    const scheduleRefresh = (delayMs: number) => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => { void connect() }, delayMs)
     }
     const connect = async () => {
+      if (cancelled) return
       const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
       const authToken = localStorage.getItem('authToken')
-      if (!authToken) return
-      const response = await fetch(`${apiBase}/api/room/${encodeURIComponent(roomId)}/ws-token`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${authToken}` },
-      })
-      if (!response.ok || cancelled) return
-      const body = await response.json() as { token: string }
-      provider = new WebsocketProvider(Y_WEBSOCKET_URL, roomId, doc, {
-        params: { token: body.token },
-      })
-      providerRef.current = provider
-      provider.on('status', ({ status }: { status: string }) => {
-        setIsConnected(status === 'connected')
-      })
-      provider.awareness.setLocalStateField('user', { userId, nickname, color: userColor })
-      provider.awareness.on('change', updateMembers)
-      updateMembers()
+      if (!authToken) {
+        recoverExpiredLogin()
+        return
+      }
+      try {
+        const tokenResponse = await runWithDeadline(async (signal) => {
+          const response = await fetch(`${apiBase}/api/room/${encodeURIComponent(roomId)}/ws-token`, {
+            method: 'POST',
+            signal,
+            headers: { Authorization: `Bearer ${authToken}` },
+          })
+          return {
+            status: response.status,
+            ok: response.ok,
+            body: response.ok
+              ? await response.json() as {
+                  token?: string
+                  expires_in_seconds?: number
+                }
+              : null,
+          }
+        }, 10000)
+        if (tokenResponse.status === 401) {
+          destroyProvider()
+          recoverExpiredLogin()
+          return
+        }
+        if (tokenResponse.status === 403) {
+          destroyProvider()
+          return
+        }
+        if (!tokenResponse.ok || !tokenResponse.body)
+          throw new Error('TOKEN_UNAVAILABLE')
+        const body = tokenResponse.body
+        const expiresIn = Number(body.expires_in_seconds || 300)
+        if (!body.token || !Number.isFinite(expiresIn) || expiresIn <= 0) {
+          throw new Error('INVALID_TOKEN_RESPONSE')
+        }
+        if (cancelled) return
+
+        destroyProvider()
+        tokenExpiresAt = Date.now() + expiresIn * 1000
+        provider = new WebsocketProvider(Y_WEBSOCKET_URL, roomId, doc, {
+          params: { token: body.token },
+          ...(awareness ? { awareness } : {}),
+        })
+        awareness ??= provider.awareness
+        providerRef.current = provider
+        provider.on('status', ({ status }: { status: string }) => {
+          connected = status === 'connected'
+          setIsConnected(connected)
+          if (connected && connectionTimer) {
+            clearTimeout(connectionTimer)
+            connectionTimer = null
+          }
+        })
+        // Awareness is intentionally connection-only; it cannot assert account identity.
+        provider.awareness.setLocalStateField('connection', { active: true })
+        setMembers([])
+        connectionTimer = setTimeout(() => {
+          if (cancelled || connected) return
+          destroyProvider()
+          scheduleRefresh(5000)
+        }, 10000)
+        scheduleRefresh(Math.max(5000, (expiresIn - 60) * 1000))
+      } catch {
+        if (cancelled) return
+        if (provider && Date.now() >= tokenExpiresAt) destroyProvider()
+        scheduleRefresh(10000)
+      }
     }
     void connect()
 
     // 监听地点 Map 变化
     const updatePlaces = () => {
-      const allPlaces = Array.from(placesMap.values())
+      const allPlaces = Array.from(placesMap.entries())
+        .map(([key, value]) => parseSharedPlace(key, value))
+        .filter((place): place is YjsPlace => place !== null)
       setPlaces(allPlaces)
     }
     placesMap.observe(updatePlaces)
@@ -122,36 +254,31 @@ export function useYjsRoom(
     // 监听 phase 变化
     const updatePhase = () => {
       const p = roomMeta.get('phase') as RoomPhase | undefined
-      if (p) setPhaseState(p)
+      if (p && ROOM_PHASES.has(p)) setPhaseState(p)
     }
     roomMeta.observe(updatePhase)
     updatePhase()
 
     // Only finalized messages are appended to Yjs. SSE deltas remain local,
     // avoiding a CRDT update for every token while still surviving refresh.
-    const updateChat = () => {
-      const seen = new Set<string>()
-      setChatMessages(chatArray.toArray().filter((message) => {
-        if (!message?.messageId || seen.has(message.messageId)) return false
-        seen.add(message.messageId)
-        return true
-      }))
-    }
+    const updateChat = () => setChatMessages([])
     chatArray.observe(updateChat)
     updateChat()
 
     return () => {
       cancelled = true
-      provider?.awareness.off('change', updateMembers)
+      if (refreshTimer) clearTimeout(refreshTimer)
       placesMap.unobserve(updatePlaces)
       roomMeta.unobserve(updatePhase)
       chatArray.unobserve(updateChat)
-      provider?.destroy()
+      destroyProvider()
+      awareness?.destroy()
+      awareness = null
       doc.destroy()
       docRef.current = null
       providerRef.current = null
     }
-  }, [roomId, userId, nickname, userColor])
+  }, [roomId, userId, enabled])
 
   /** 初始化房间元数据（加入房间时调用，不覆盖已有的 phase）*/
   const initRoom = useCallback((meta: Partial<YjsRoomMeta>) => {
@@ -175,7 +302,7 @@ export function useYjsRoom(
     const yjsPlace: YjsPlace = {
       ...place,
       votedBy: [],      // AI 推荐进候选池，用户主动点心形才算"想去"
-      addedBy: userId,
+      addedBy: 'room',
       addedAt: new Date().toISOString(),
       note: '',
       isPinned: false,
@@ -183,7 +310,7 @@ export function useYjsRoom(
     doc.transact(() => {
       placesMap.set(place.placeId, yjsPlace)
     })
-  }, [userId])
+  }, [])
 
   /** 从协同工作台移除地点 */
   const removePlace = useCallback((placeId: string) => {
@@ -195,30 +322,27 @@ export function useYjsRoom(
     })
   }, [])
 
-  /** 切换当前用户对某地点的勾选状态 */
+  /** 切换房间共享选择；Yjs 不承载成员身份或个人投票归属。 */
   const toggleVote = useCallback((placeId: string) => {
     const doc = docRef.current
     if (!doc) return
     const placesMap = doc.getMap<YjsPlace>('places')
-    const place = placesMap.get(placeId)
+    const place = parseSharedPlace(placeId, placesMap.get(placeId))
     if (!place) return
 
-    const isVoted = place.votedBy.includes(userId)
-    const newVotedBy = isVoted
-      ? place.votedBy.filter((id) => id !== userId)
-      : [...place.votedBy, userId]
+    const newVotedBy = place.votedBy.length > 0 ? [] : [ROOM_SELECTION]
 
     doc.transact(() => {
       placesMap.set(placeId, { ...place, votedBy: newVotedBy })
     })
-  }, [userId])
+  }, [])
 
   /** 更新地点备注（实时协同编辑，调用方应 debounce 500ms）*/
   const updateNote = useCallback((placeId: string, note: string) => {
     const doc = docRef.current
     if (!doc) return
     const placesMap = doc.getMap<YjsPlace>('places')
-    const place = placesMap.get(placeId)
+    const place = parseSharedPlace(placeId, placesMap.get(placeId))
     if (!place) return
     doc.transact(() => {
       placesMap.set(placeId, { ...place, note })
@@ -235,16 +359,8 @@ export function useYjsRoom(
     })
   }, [])
 
-  const appendChatMessages = useCallback((messages: ChatMessage[]) => {
-    const doc = docRef.current
-    if (!doc || !messages.length) return
-    const chatArray = doc.getArray<ChatMessage>('chat')
-    const knownIds = new Set(chatArray.toArray().map((message) => message.messageId))
-    const newMessages = messages.filter(
-      (message) => message.status === 'done' && !knownIds.has(message.messageId),
-    )
-    if (!newMessages.length) return
-    doc.transact(() => chatArray.push(newMessages))
+  const appendChatMessages = useCallback((_messages: ChatMessage[]) => {
+    // Chat remains a local device session until server-authored message identity exists.
   }, [])
 
   return {

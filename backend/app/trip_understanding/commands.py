@@ -9,15 +9,23 @@ from app.trip_understanding.models import (
     ActivityCardView,
     ActivityDeleteCommand,
     ActivityInsertCommand,
+    DiningInsertCommand,
     ActivityMoveCommand,
     ActivityTextEditCommand,
+    ActivityTimeSetCommand,
+    ActivityTimesShiftCommand,
+    ActivityTimesApplyCommand,
     AssumptionSetCommand,
     MapReadinessView,
     PlaceReplaceCommand,
+    PlaceConfirmCommand,
+    UndoCommand,
     TripDayView,
     TripUnderstandingCommand,
     UserFacingTripResult,
 )
+from app.trip_understanding.timing import ActivityTiming, TIMING_FIELDS, clock_minutes, shift_clock, timing_values
+from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
 
 @dataclass(frozen=True)
@@ -65,20 +73,107 @@ def apply_public_command(
     command: TripUnderstandingCommand,
     *,
     token_factory: Callable[[], str] = _default_token,
+    undo_result: UserFacingTripResult | None = None,
+    confirmed_place=None,
 ) -> PublicCommandMutation:
     result = current.model_copy(deep=True)
     changed: set[str] = set()
     inserted_card: ActivityCardView | None = None
 
-    if isinstance(command, ActivityInsertCommand):
+    if isinstance(command, UndoCommand):
+        if not current.can_undo or undo_result is None:
+            raise CommandTargetChangedError("no edit is available to undo")
+        result = undo_result.model_copy(deep=True)
+        changed.update(day.label for day in current.days)
+        changed.update(day.label for day in result.days)
+    elif isinstance(command, ActivityTimeSetCommand):
+        day_index, _, card = _find_card(result.days, command.activity_token)
+        values = timing_values(card)
+        values.update({name: getattr(command, name) for name in TIMING_FIELDS if name in command.model_fields_set})
+        values["timing_source"] = "USER"
+        try:
+            validated = ActivityTiming.model_validate(values)
+        except ValueError as exc:
+            raise CommandTargetChangedError("activity timing is inconsistent") from exc
+        for name, value in timing_values(validated).items():
+            setattr(card, name, value)
+        card.time_hint = card.start_time
+        changed.add(result.days[day_index].label)
+    elif isinstance(command, ActivityTimesShiftCommand):
+        for token in dict.fromkeys(command.activity_tokens):
+            day_index, _, card = _find_card(result.days, token)
+            if card.locked or card.fixed_commitment or not card.start_time:
+                raise CommandTargetChangedError("a fixed activity cannot be shifted")
+            try:
+                card.start_time = shift_clock(card.start_time, command.minutes)
+                card.end_time = shift_clock(card.end_time, command.minutes)
+            except ValueError as exc:
+                raise CommandTargetChangedError("shift crosses a day boundary") from exc
+            card.timing_source = "USER"
+            card.time_hint = card.start_time
+            changed.add(result.days[day_index].label)
+    elif isinstance(command, ActivityTimesApplyCommand):
+        if len({item.activity_token for item in command.changes}) != len(command.changes):
+            raise CommandTargetChangedError("an activity cannot appear twice in one timing change")
+        updates = []
+        for item in command.changes:
+            day_index, _, card = _find_card(result.days, item.activity_token)
+            if card.locked or card.fixed_commitment or not card.start_time:
+                raise CommandTargetChangedError("a fixed activity cannot be shifted")
+            shift = clock_minutes(item.start_time) - clock_minutes(card.start_time)
+            try:
+                if shift <= 0 or item.end_time != shift_clock(card.end_time, shift):
+                    raise ValueError("a schedule shift must preserve the visit window")
+                if card.visit_duration_minutes is not None and clock_minutes(item.start_time) + card.visit_duration_minutes >= 1440:
+                    raise ValueError("the proposed shift crosses a day boundary")
+                timing = ActivityTiming.model_validate({**timing_values(card),
+                    "start_time": item.start_time, "end_time": item.end_time, "timing_source": "USER"})
+            except ValueError as exc:
+                raise CommandTargetChangedError("the proposed schedule is not a same-day shift") from exc
+            updates.append((day_index, card, timing))
+        # Validate every member before applying the transaction's visible changes.
+        for day_index, card, timing in updates:
+            for name, value in timing_values(timing).items():
+                setattr(card, name, value)
+            card.time_hint = card.start_time
+            changed.add(result.days[day_index].label)
+    elif isinstance(command, PlaceConfirmCommand):
+        if confirmed_place is None:
+            raise CommandTargetChangedError("a verified place selection is required")
+        day_index, _, card = _find_card(result.days, command.activity_token)
+        card.name = confirmed_place.name
+        card.category = confirmed_place.category
+        card.area_or_address = confirmed_place.area_or_address
+        card.city = confirmed_place.city
+        card.photo_url = None
+        card.status = "READY"
+        card.knowledge_suggestions = []
+        changed.add(result.days[day_index].label)
+    elif isinstance(command, DiningInsertCommand):
+        if confirmed_place is None or confirmed_place.category != "餐饮" or atomic_place_rejection_reason(confirmed_place.name):
+            raise CommandTargetChangedError("a verified dining selection is required")
+        day_index, position, anchor = _find_card(result.days, command.after_activity_token)
+        if anchor.status != "READY" or (anchor.city and anchor.city != confirmed_place.city):
+            raise CommandTargetChangedError("dining anchor needs confirmation")
+        day = result.days[day_index]
+        if any(card.name == confirmed_place.name and card.area_or_address == confirmed_place.area_or_address for card in day.activities):
+            raise CommandTargetChangedError("dining place is already in this day")
+        inserted_card = ActivityCardView(activity_token=token_factory(), name=confirmed_place.name,
+            category="餐饮", area_or_address=confirmed_place.area_or_address, city=confirmed_place.city,
+            status="READY", available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"])
+        day.activities.insert(position + 1, inserted_card)
+        changed.add(day.label)
+    elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
         day = result.days[command.day_index - 1]
         inserted_card = ActivityCardView(
             activity_token=token_factory(),
             name=command.name,
+            city=command.city,
             category=command.category,
             area_or_address=command.area_or_address,
             time_hint=command.time_hint,
+            **timing_values(command),
             status="NEEDS_CONFIRMATION",
             available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
         )
@@ -101,22 +196,38 @@ def apply_public_command(
         if command.name is not None:
             card.name = command.name
             card.area_or_address = "地点待确认"
+            card.photo_url = None
             card.status = "NEEDS_CONFIRMATION"
+            card.knowledge_suggestions = []
         if command.time_hint is not None:
             card.time_hint = command.time_hint
+            card.start_time = None
+            card.end_time = None
+            card.visit_duration_minutes = None
+            card.timing_source = "USER"
         changed.add(result.days[day_index].label)
     elif isinstance(command, PlaceReplaceCommand):
         day_index, _position, card = _find_card(result.days, command.activity_token)
         card.name = command.replacement.name
         card.category = command.replacement.category
         card.area_or_address = command.replacement.area_or_address
+        card.photo_url = None
         card.status = "NEEDS_CONFIRMATION"
+        card.knowledge_suggestions = []
         changed.add(result.days[day_index].label)
     elif isinstance(command, AssumptionSetCommand):
         assumption = next((item for item in result.assumptions if item.key == command.key), None)
         if assumption is None:
             raise CommandTargetChangedError("assumption is no longer present in the current result")
         assumption.value = command.value
+        if command.key == "destination":
+            for day in result.days:
+                for card in day.activities:
+                    card.status = "NEEDS_CONFIRMATION"
+                    card.area_or_address = "地点待确认"
+                    card.photo_url = None
+                    card.city = None
+                    card.knowledge_suggestions = []
         changed.update(day.label for day in result.days)
 
     token_map: dict[str, str] = {}
@@ -131,6 +242,7 @@ def apply_public_command(
             card.activity_token = new_token
 
     result.status = _result_status(result.days)
+    result.can_undo = not isinstance(command, UndoCommand)
     result.map = MapReadinessView(
         status="NEEDS_UPDATE",
         message="卡片已调整，路线地图需要手动更新",
@@ -138,7 +250,7 @@ def apply_public_command(
     )
     return PublicCommandMutation(
         result=result,
-        changed_days=sorted(changed, key=lambda label: int(label.removeprefix("Day "))),
+        changed_days=list(dict.fromkeys(day.label for day in [*current.days, *result.days] if day.label in changed)),
         token_map=token_map,
         inserted_token=inserted_token,
     )

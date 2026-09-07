@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Copy, Check, Route, Users, MessageCircle, Compass, ArrowLeft } from 'lucide-react'
+import { MapPin, Copy, Check, Route, Users, MessageCircle, Compass, ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { RoomMember } from '@/types/room'
@@ -20,6 +20,11 @@ interface TopNavProps {
   hasItinerary: boolean
   onOptimize: () => void
   onViewItinerary: () => void
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  canTransfer: boolean
+  isTransferring: boolean
+  onTransfer: () => void
+  onRetrySave: () => void
 }
 
 export default function TopNav({
@@ -27,7 +32,7 @@ export default function TopNav({
   tripCity,
   tripDays,
   isConnected,
-  members,
+  members: _members,
   isChatOpen,
   onToggleChat,
   selectedCount,
@@ -35,17 +40,19 @@ export default function TopNav({
   hasItinerary,
   onOptimize,
   onViewItinerary,
+  saveStatus,
+  canTransfer,
+  isTransferring,
+  onTransfer,
+  onRetrySave,
 }: TopNavProps) {
   const [copyTip, setCopyTip] = useState(false)
   const router = useRouter()
 
   const handleCopyLink = useCallback(async () => {
-    // 复制完整邀请链接（含城市/天数），好友点开即跳转
+    // Invitees confirm joining from the authenticated collaboration entry.
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const params = new URLSearchParams()
-    if (tripCity) params.set('city', tripCity)
-    if (tripDays) params.set('days', String(tripDays))
-    const url = `${origin}/room/${roomId}${params.toString() ? `?${params}` : ''}`
+    const url = `${origin}/collaborate?join=${encodeURIComponent(roomId)}`
     const shareText = `邀请你一起规划${tripCity || ''}${tripDays ? ` ${tripDays} 天` : ''}行程：${url}\n房间号：${roomId}`
 
     // 优先调用系统原生分享（移动端微信/iMessage 可直接转发）
@@ -83,26 +90,26 @@ export default function TopNav({
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="glass-panel overlay-interactive flex items-center gap-3 px-4 py-2.5 mx-4 mt-3 rounded-glass"
+      className="glass-panel overlay-interactive flex flex-col items-stretch gap-2 px-3 py-2.5 mx-3 mt-3 rounded-glass lg:mx-4 lg:flex-row lg:items-center lg:gap-3 lg:px-4"
     >
       {/* ===== 左区：返回 + Logo + 聊天切换 + 房间信息 ===== */}
-      <div className="flex items-center gap-3 flex-shrink-0">
+      <div className="flex w-full min-w-0 items-center gap-2 flex-shrink-0 lg:w-auto lg:gap-3">
         {/* 返回主界面按钮 */}
         <button
           onClick={() => router.push('/')}
           title="返回主界面"
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-coral-500 hover:bg-coral-50 px-2 py-1.5 rounded-lg transition-all duration-200 border border-transparent hover:border-coral-100"
+          className="flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg border border-transparent px-2 py-1.5 text-xs text-gray-400 transition-all duration-200 hover:border-sky-100 hover:bg-sky-50 hover:text-sky-700"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">主界面</span>
         </button>
 
         {/* 分割线 */}
-        <div className="w-px h-5 bg-gray-200/60" />
+        <div className="hidden w-px h-5 bg-gray-200/60 lg:block" />
 
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-coral-500 flex items-center justify-center shadow-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-700 shadow-sm">
             <Compass className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
           </div>
           <span className="font-bold text-gray-900 text-sm tracking-tight hidden lg:inline">
@@ -111,14 +118,14 @@ export default function TopNav({
         </div>
 
         {/* 分割线 */}
-        <div className="w-px h-5 bg-gray-200/60" />
+        <div className="hidden w-px h-5 bg-gray-200/60 lg:block" />
 
         {/* AI 聊天切换按钮 */}
         <button
           onClick={onToggleChat}
-          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all duration-200 ${
+          className={`flex min-h-11 items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all duration-200 ${
             isChatOpen
-              ? 'bg-coral-50 text-coral-600 border border-coral-100'
+              ? 'border border-sky-100 bg-sky-50 text-sky-700'
               : 'bg-white/50 text-gray-500 border border-gray-200/60 hover:bg-white/70'
           }`}
         >
@@ -127,20 +134,29 @@ export default function TopNav({
         </button>
 
         {/* 房间信息 */}
-        <div className="flex items-center gap-2">
-          <MapPin className="w-3.5 h-3.5 text-coral-500" />
-          <span className="font-semibold text-gray-900 text-sm">{tripCity}</span>
-          <span className="text-xs text-gray-400">{tripDays} 天</span>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 lg:flex-initial lg:gap-2">
+          <MapPin className="w-3.5 h-3.5 text-sky-700" />
+          <span className="truncate font-semibold text-gray-900 text-sm">{tripCity}</span>
+          <span className="whitespace-nowrap text-xs text-gray-400">{tripDays} 天</span>
           <span
             className={`w-1.5 h-1.5 rounded-full transition-colors ${
               isConnected ? 'bg-emerald-400' : 'bg-gray-300 animate-pulse'
             }`}
           />
         </div>
+
+        <button
+          type="button"
+          onClick={handleCopyLink}
+          aria-label={copyTip ? '邀请已复制' : '复制房间邀请'}
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-sky-100 bg-white/70 text-sky-700 transition-colors hover:bg-sky-50 lg:hidden"
+        >
+          {copyTip ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        </button>
       </div>
 
       {/* ===== 中区：房间号 + 复制 ===== */}
-      <div className="flex items-center gap-2 flex-1 justify-center">
+      <div className="hidden items-center gap-2 flex-1 justify-center lg:flex">
         <div className="flex items-center gap-1.5 bg-white/50 rounded-lg px-3 py-1 border border-gray-100/60">
           <span className="text-[11px] text-gray-400">房间</span>
           <code className="text-sm font-mono font-bold text-gray-700 tracking-wider">
@@ -149,7 +165,7 @@ export default function TopNav({
         </div>
         <button
           onClick={handleCopyLink}
-          className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-coral-500 transition-colors"
+          className="flex items-center gap-1 text-[11px] text-gray-400 transition-colors hover:text-sky-700"
         >
           <AnimatePresence mode="wait">
             {copyTip ? (
@@ -180,50 +196,64 @@ export default function TopNav({
       </div>
 
       {/* ===== 右区：在线成员 + 操作按钮 ===== */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        {/* 在线成员头像组 */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex -space-x-2">
-            {members.slice(0, 5).map((m, i) => (
-              <motion.div
-                key={m.userId}
-                initial={{ scale: 0, x: -10 }}
-                animate={{ scale: 1, x: 0 }}
-                transition={{ delay: i * 0.05, type: 'spring', stiffness: 300 }}
-                title={m.nickname}
-                className="avatar-ring w-7 h-7 text-[11px]"
-                style={{ backgroundColor: m.color, zIndex: 5 - i }}
-              >
-                {m.nickname[0]}
-              </motion.div>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 text-[11px] text-gray-400">
-            <Users className="w-3 h-3" />
-            {members.length}
-          </div>
+      <div className="grid w-full grid-cols-2 gap-2 flex-shrink-0 lg:flex lg:w-auto lg:items-center lg:gap-3">
+        {/* Awareness 只证明连接状态，不用于宣称具体在线身份。 */}
+        <div
+          className="hidden items-center gap-1.5 text-[11px] text-gray-500 lg:flex"
+          title="连接状态不代表具体在线人数"
+        >
+          <Users className="w-3 h-3" />
+          {isConnected ? '协同已连接' : '正在重连'}
         </div>
 
         {/* 分割线 */}
-        <div className="w-px h-5 bg-gray-200/60" />
+        <div className="hidden w-px h-5 bg-gray-200/60 lg:block" />
 
         {/* 查看行程按钮 */}
         {hasItinerary && (
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              onClick={onViewItinerary}
+              className="btn-glass flex min-h-11 w-full items-center justify-center gap-1.5 px-3 py-1.5 text-xs lg:w-auto"
+            >
+              <Route className="w-3.5 h-3.5 text-emerald-500" />
+              查看行程
+            </button>
+            {saveStatus === 'error' ? (
+              <button
+                type="button"
+                onClick={onRetrySave}
+                className="btn-glass text-xs px-3 py-1.5 flex items-center gap-1.5 min-h-11"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                重试保存
+              </button>
+            ) : (
+              <span className="hidden text-[11px] text-gray-500 lg:inline" aria-live="polite">
+                {saveStatus === 'saving' ? '正在保存…' : saveStatus === 'saved' ? '已保存' : '尚未保存'}
+              </span>
+            )}
+          </div>
+        )}
+
+        {canTransfer && (
           <button
-            onClick={onViewItinerary}
-            className="btn-glass text-xs px-3 py-1.5 flex items-center gap-1.5"
+            type="button"
+            onClick={onTransfer}
+            disabled={isTransferring}
+            className="btn-primary-sky flex min-h-11 w-full items-center justify-center gap-1.5 px-3 py-2 text-xs lg:w-auto"
           >
-            <Route className="w-3.5 h-3.5 text-emerald-500" />
-            查看行程
+            {isTransferring ? '正在转入…' : '转入行程查'}
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         )}
 
         {/* 智能排线主按钮 */}
-        <div className="relative group flex flex-col items-center">
+        <div className="relative group flex w-full flex-col items-center lg:w-auto">
           <button
             onClick={onOptimize}
             disabled={isOptimizing || selectedCount < 2}
-            className="btn-coral text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+            className="btn-coral flex min-h-11 w-full items-center justify-center gap-1.5 px-4 py-2 text-xs shadow-sm lg:w-auto"
           >
             {isOptimizing ? (
               <>
@@ -245,10 +275,12 @@ export default function TopNav({
         </div>
 
         {/* 分割线 */}
-        <div className="w-px h-5 bg-gray-200/60" />
+        <div className="hidden w-px h-5 bg-gray-200/60 lg:block" />
 
         {/* 用户头像菜单 */}
-        <UserMenu />
+        <div className="flex min-h-11 items-center justify-center">
+          <UserMenu />
+        </div>
       </div>
     </motion.header>
   )

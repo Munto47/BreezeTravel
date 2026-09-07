@@ -101,6 +101,9 @@ VENUE_SUFFIXES = (
     "风景区",
     "景区",
 )
+# These are equivalent venue kinds, not arbitrary removable name fragments.
+# All other suffixes keep their own identity (e.g. a library is not a museum).
+_VENUE_KIND_EQUIVALENTS = {"博物院": "博物馆", "风景区": "景区"}
 
 _RECORD_FIELDS = frozenset(
     {
@@ -164,7 +167,11 @@ class ThreeCityPlaceLexicon:
         if normalized_city not in SUPPORTED_CITIES or not normalized_name:
             return PlaceLexiconLookup(LexiconMatchTier.NONE, ())
 
-        city_entries = tuple(entry for entry in self.entries if entry.city == normalized_city)
+        city_entries = tuple(
+            entry for entry in self.entries
+            if entry.city == normalized_city
+            and not venue_suffix_conflicts(name, entry.canonical_name)
+        )
         canonical = tuple(
             entry
             for entry in city_entries
@@ -217,19 +224,43 @@ def normalize_city_name(value: str) -> str:
     return normalized
 
 
-def strip_complete_venue_suffix(value: str) -> str | None:
+def _venue_name_parts(value: str) -> tuple[str, str] | None:
     normalized = normalize_place_name(value)
     for suffix in sorted(VENUE_SUFFIXES, key=len, reverse=True):
         normalized_suffix = normalize_place_name(suffix)
         if normalized.endswith(normalized_suffix) and len(normalized) > len(normalized_suffix):
-            return normalized[: -len(normalized_suffix)]
+            return normalized[: -len(normalized_suffix)], normalized_suffix
     return None
+
+
+def venue_kind(value: str) -> str | None:
+    """Return an explicit venue kind, including a bare Provider type label."""
+
+    normalized = normalize_place_name(value)
+    for suffix in sorted(VENUE_SUFFIXES, key=len, reverse=True):
+        normalized_suffix = normalize_place_name(suffix)
+        if normalized.endswith(normalized_suffix):
+            return _VENUE_KIND_EQUIVALENTS.get(normalized_suffix, normalized_suffix)
+    return None
+
+
+def strip_complete_venue_suffix(value: str) -> str | None:
+    parts = _venue_name_parts(value)
+    return parts[0] if parts is not None else None
+
+
+def venue_suffix_conflicts(left: str, right: str) -> bool:
+    """Explicit different venue kinds cannot be rescued by a shared short alias."""
+    left_kind, right_kind = venue_kind(left), venue_kind(right)
+    return left_kind is not None and right_kind is not None and left_kind != right_kind
 
 
 def venue_suffix_equivalent(left: str, right: str) -> bool:
     left_normalized = normalize_place_name(left)
     right_normalized = normalize_place_name(right)
     if not left_normalized or not right_normalized or left_normalized == right_normalized:
+        return False
+    if venue_suffix_conflicts(left, right):
         return False
     left_base = strip_complete_venue_suffix(left)
     right_base = strip_complete_venue_suffix(right)

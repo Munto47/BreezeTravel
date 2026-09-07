@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
@@ -12,10 +14,11 @@ from app.itineraries.errors import ItineraryDomainError
 from app.itineraries.repositories import ItineraryRepository, PostgresItineraryRepository
 from app.audit.models import AuditFinding, AuditReport
 from app.audit.repositories import AuditRepository, PostgresAuditRepository
+from app.config import get_settings
 from app.members.models import ConstraintConfirmationStatus, ConstraintHardness, ConstraintSource, MemberConstraint, MemberConstraintDraft, MemberConstraintWriteResult, TravelerProfile
 from app.members.repositories import MemberConstraintRepository, PostgresMemberConstraintRepository
 from app.members.service import MemberConstraintService
-from app.members.sharing import IssuedShareLink, PostgresShareLinkRepository, ShareLink, ShareLinkRepository, ShareLinkService, ShareLinkUnavailableError, ShareResponse, ShareResponseAction, ShareScope, ShareScopeDeniedError
+from app.members.sharing import IssuedShareLink, PostgresShareLinkRepository, ShareLink, ShareLinkRepository, ShareLinkService, ShareLinkUnavailableError, ShareResponseAction, ShareScope, ShareScopeDeniedError
 from app.services.room_access import require_room_member
 from app.utils.auth import get_current_user, get_optional_user
 
@@ -85,18 +88,12 @@ class ShareLinkCreateRequest(BaseModel):
 
 
 class SharedStopView(BaseModel):
-    """The immutable itinerary fields a recipient needs, without workspace metadata."""
+    """User-facing stop fields without internal identifiers or lock metadata."""
 
-    stop_id: str
-    place_id: str
-    day_index: int
-    order_index: int
+    name: str
     start_time: str | None = None
     end_time: str | None = None
     visit_duration_minutes: int | None = None
-    raw_name: str | None = None
-    fixed_commitment: bool
-    locked: bool
     category: str
     notes: str
 
@@ -107,37 +104,20 @@ class SharedDayView(BaseModel):
     stops: list[SharedStopView] = Field(default_factory=list)
 
 
-class SharedRevisionView(BaseModel):
-    revision: int
-    content_hash: str
+class SharedItineraryView(BaseModel):
     city: str
     trip_start_date: str
     trip_end_date: str
     days: list[SharedDayView]
 
 
-class SharedFindingView(BaseModel):
-    """Finding display intentionally excludes internal input/evidence/member IDs."""
+class SharedSuggestionView(BaseModel):
+    """Plain-language advice derived from a captured report."""
 
-    finding_id: str
-    rule_id: str
-    status: str
-    severity: str
-    reason_code: str
+    level: Literal["必须调整", "可以更好", "需要确认"]
     message: str
     affected_days: list[int]
-    affected_stop_ids: list[str]
-    repairable: bool
-    confirmation_action: str | None = None
-
-
-class SharedReportView(BaseModel):
-    report_id: str
-    itinerary_revision: int
-    audit_rule_set_version: str
-    overall_status: str
-    created_at: datetime
-    findings: list[SharedFindingView] = Field(default_factory=list)
+    suggested_action: str | None = None
 
 
 class SharedAcknowledgementView(BaseModel):
@@ -146,37 +126,42 @@ class SharedAcknowledgementView(BaseModel):
     acknowledged_at: datetime | None = None
 
 
-class SharedConstraintWriteContext(BaseModel):
-    """Recipient-only optimistic-concurrency token for a constrained write."""
-
-    expected_base_revision: int = Field(ge=0)
-
-
 class SharedWorkspaceView(BaseModel):
-    """A redacted, captured share projection; never a workspace capability."""
+    """Strict ordinary-user projection; never a workspace capability."""
 
-    itinerary: SharedRevisionView
-    report: SharedReportView | None = None
-    scopes: set[ShareScope]
+    itinerary: SharedItineraryView
+    suggestions: list[SharedSuggestionView] = Field(default_factory=list)
     recipient_bound: bool
+    can_acknowledge: bool
+    can_add_preference: bool
     acknowledgement: SharedAcknowledgementView
-    constraint_write_context: SharedConstraintWriteContext | None = None
+    constraint_write_token: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
 
 class ShareResponseRequest(BaseModel):
     action: ShareResponseAction
-    expected_base_revision: int | None = Field(default=None, ge=0)
+    constraint_write_token: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
     profile: TravelerProfile | None = None
     constraint: MemberConstraintDraft | None = None
 
     @model_validator(mode="after")
     def validate_action_payload(self) -> "ShareResponseRequest":
         if self.action == ShareResponseAction.CONSTRAINT:
-            if self.constraint is None or self.expected_base_revision is None:
-                raise ValueError("CONSTRAINT response requires constraint and expected_base_revision")
-        elif self.constraint is not None or self.profile is not None or self.expected_base_revision is not None:
+            if self.constraint is None or self.constraint_write_token is None:
+                raise ValueError("CONSTRAINT response requires constraint and constraint_write_token")
+        elif self.constraint is not None or self.profile is not None or self.constraint_write_token is not None:
             raise ValueError("ACKNOWLEDGE response cannot modify member constraints")
         return self
+
+
+class SharedResponseAccepted(BaseModel):
+    accepted: Literal[True] = True
 
 
 async def _workspace_with_access(workspace_id: str, user_id: str, repository: ItineraryRepository):
@@ -219,10 +204,14 @@ def _assert_share_recipient(link: ShareLink, current_user: str | None) -> None:
         raise HTTPException(status_code=403, detail={"code": "RESOURCE_SCOPE_DENIED"})
 
 
-def _shared_revision(revision) -> SharedRevisionView:
-    return SharedRevisionView(
-        revision=revision.revision,
-        content_hash=revision.content_hash,
+def _shared_itinerary(revision) -> SharedItineraryView:
+    category_labels = {
+        "attraction": "景点",
+        "food": "餐饮",
+        "hotel": "住宿",
+        "transport": "交通",
+    }
+    return SharedItineraryView(
         city=revision.city,
         trip_start_date=revision.date_range.start.isoformat(),
         trip_end_date=revision.date_range.end.isoformat(),
@@ -231,17 +220,14 @@ def _shared_revision(revision) -> SharedRevisionView:
                 day_index=day.day_index,
                 date=day.date.isoformat() if day.date else None,
                 stops=[SharedStopView(
-                    stop_id=stop.stop_id,
-                    place_id=stop.place_id,
-                    day_index=stop.day_index,
-                    order_index=stop.order_index,
+                    name=stop.raw_name or "地点待确认",
                     start_time=stop.start_time,
                     end_time=stop.end_time,
                     visit_duration_minutes=stop.visit_duration_minutes,
-                    raw_name=stop.raw_name,
-                    fixed_commitment=stop.fixed_commitment,
-                    locked=stop.locked,
-                    category=stop.category,
+                    category=category_labels.get(
+                        stop.category.casefold(),
+                        stop.category if any("\u4e00" <= char <= "\u9fff" for char in stop.category) else "地点",
+                    ),
                     notes=stop.notes,
                 ) for stop in day.stops],
             ) for day in revision.days
@@ -249,30 +235,37 @@ def _shared_revision(revision) -> SharedRevisionView:
     )
 
 
-def _shared_finding(finding: AuditFinding) -> SharedFindingView:
-    return SharedFindingView(
-        finding_id=finding.finding_id,
-        rule_id=finding.rule_id,
-        status=finding.status.value,
-        severity=finding.severity.value,
-        reason_code=finding.reason_code,
+def _shared_suggestion(finding: AuditFinding) -> SharedSuggestionView:
+    if finding.status.value == "UNKNOWN":
+        level = "需要确认"
+    elif finding.severity.value in {"BLOCKER", "HIGH"}:
+        level = "必须调整"
+    else:
+        level = "可以更好"
+    return SharedSuggestionView(
+        level=level,
         message=finding.message,
         affected_days=finding.affected_days,
-        affected_stop_ids=finding.affected_stop_ids,
-        repairable=finding.repairable,
-        confirmation_action=finding.confirmation_action,
+        suggested_action=finding.confirmation_action,
     )
 
 
-def _shared_report(report: AuditReport) -> SharedReportView:
-    return SharedReportView(
-        report_id=report.report_id,
-        itinerary_revision=report.itinerary_revision,
-        audit_rule_set_version=report.audit_rule_set_version,
-        overall_status=report.overall_status.value,
-        created_at=report.created_at,
-        findings=[_shared_finding(finding) for finding in report.findings],
-    )
+def _shared_suggestions(report: AuditReport | None) -> list[SharedSuggestionView]:
+    if report is None:
+        return []
+    return [
+        _shared_suggestion(finding)
+        for finding in report.findings
+        if finding.status.value != "SATISFIED"
+    ]
+
+
+def _constraint_write_token(link: ShareLink, revision: int) -> str:
+    key = get_settings().trip_understanding_cookie_signing_key.encode("utf-8")
+    payload = (
+        f"legacy-share-constraint-v1:{link.share_link_id}:{revision}"
+    ).encode("utf-8")
+    return hmac.new(key, payload, hashlib.sha256).hexdigest()
 
 
 @router.get("/trip-workspaces/{workspace_id}/members", response_model=list[MemberView])
@@ -359,33 +352,46 @@ async def read_shared_workspace(
         if response.share_link_id == link.share_link_id and response.action == ShareResponseAction.ACKNOWLEDGE
     ]
     latest_acknowledgement = max(acknowledgements, key=lambda response: response.created_at, default=None)
-    constraint_write_context = None
+    constraint_write_token = None
     if ShareScope.CONSTRAINT_WRITE in link.scopes:
-        # Recipient identity was verified above.  This is only the append
-        # revision needed for an optimistic constrained write, not a workspace
-        # read or a workspace-edit capability.
+        # The recipient receives only a keyed, irreversible CAS validator.
+        # The underlying revision remains server-side and is recomputed when
+        # the write arrives, so stale views fail without exposing an integer.
         workspace = await itinerary_repository.get_workspace(link.workspace_id)
         if workspace is None:
             raise HTTPException(status_code=409, detail={"code": "SHARE_LINK_REVISION_INCONSISTENT"})
-        constraint_write_context = SharedConstraintWriteContext(
-            expected_base_revision=workspace.current_member_constraint_revision or 0,
+        constraint_write_token = _constraint_write_token(
+            link,
+            workspace.current_member_constraint_revision or 0,
         )
     return SharedWorkspaceView(
-        itinerary=_shared_revision(revision),
-        report=_shared_report(report) if report else None,
-        scopes=link.scopes,
+        itinerary=_shared_itinerary(revision),
+        suggestions=_shared_suggestions(report),
         recipient_bound=link.recipient_member_id is not None,
+        can_acknowledge=ShareScope.ACKNOWLEDGE in link.scopes,
+        can_add_preference=ShareScope.CONSTRAINT_WRITE in link.scopes,
         acknowledgement=SharedAcknowledgementView(
             required=ShareScope.ACKNOWLEDGE in link.scopes,
             acknowledged=latest_acknowledgement is not None,
             acknowledged_at=latest_acknowledgement.created_at if latest_acknowledgement else None,
         ),
-        constraint_write_context=constraint_write_context,
+        constraint_write_token=constraint_write_token,
     )
 
 
-@router.post("/share/{token}/responses", response_model=ShareResponse, status_code=status.HTTP_201_CREATED)
-async def respond_to_share_link(token: str, body: ShareResponseRequest, current_user: CurrentUserDep, member_repository: MemberRepositoryDep, share_repository: ShareRepositoryDep):
+@router.post(
+    "/share/{token}/responses",
+    response_model=SharedResponseAccepted,
+    status_code=status.HTTP_201_CREATED,
+)
+async def respond_to_share_link(
+    token: str,
+    body: ShareResponseRequest,
+    current_user: CurrentUserDep,
+    itinerary_repository: ItineraryRepositoryDep,
+    member_repository: MemberRepositoryDep,
+    share_repository: ShareRepositoryDep,
+):
     required_scope = ShareScope.ACKNOWLEDGE if body.action == ShareResponseAction.ACKNOWLEDGE else ShareScope.CONSTRAINT_WRITE
     service = ShareLinkService(share_repository)
     try:
@@ -397,15 +403,31 @@ async def respond_to_share_link(token: str, body: ShareResponseRequest, current_
     _assert_share_recipient(link, current_user)
     constraint_revision = None
     if body.action == ShareResponseAction.CONSTRAINT:
-        assert body.constraint is not None and body.expected_base_revision is not None
+        assert body.constraint is not None and body.constraint_write_token is not None
         _assert_member_self(link.recipient_member_id, link.recipient_member_id, body.constraint)
         profile = _profile_for_member(body.profile, link.workspace_id, link.recipient_member_id)
+        workspace = await itinerary_repository.get_workspace(link.workspace_id)
+        if workspace is None:
+            raise HTTPException(status_code=409, detail={"code": "SHARE_STATE_CHANGED"})
+        expected_base_revision = workspace.current_member_constraint_revision or 0
+        expected_token = _constraint_write_token(link, expected_base_revision)
+        if not hmac.compare_digest(body.constraint_write_token, expected_token):
+            raise HTTPException(status_code=409, detail={"code": "SHARE_STATE_CHANGED"})
         member_service = MemberConstraintService(member_repository)
         try:
             if profile is not None:
                 await member_service.save_profile(profile)
-            result = await member_service.write_constraint(link.workspace_id, body.constraint, expected_base_revision=body.expected_base_revision)
+            result = await member_service.write_constraint(
+                link.workspace_id,
+                body.constraint,
+                expected_base_revision=expected_base_revision,
+            )
         except ItineraryDomainError as exc:
             raise _domain_error(exc) from exc
         constraint_revision = result.current_workspace_revision
-    return await service.record_response(link, action=body.action, member_constraint_revision=constraint_revision)
+    await service.record_response(
+        link,
+        action=body.action,
+        member_constraint_revision=constraint_revision,
+    )
+    return SharedResponseAccepted()

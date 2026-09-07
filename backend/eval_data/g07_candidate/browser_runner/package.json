@@ -1,0 +1,8 @@
+{
+  "name": "breezetravel-g07-candidate-browser-runner",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:e2e:g07": "node ../../../../frontend/node_modules/@playwright/test/cli.js test -c ../../../../frontend/playwright.candidate.config.js"
+  }
+}

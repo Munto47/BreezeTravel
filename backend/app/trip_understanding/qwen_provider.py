@@ -20,7 +20,15 @@ from app.trip_understanding.models import (
     ProposedMention,
     StrictModel,
 )
-from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.pipeline import (
+    atomic_place_rejection_reason,
+    canonical_sha256,
+    derive_visit_time_hint,
+    has_affirmed_cancellation,
+    has_negated_cancellation,
+    normalize_atomic_place_candidate,
+    normalized_destination_name,
+)
 
 
 _PROMPT_PATH = (
@@ -162,6 +170,8 @@ _ROLE_CONTEXT_MARKERS = {
         "听说",
         "提到",
         "推荐",
+        "预约说明",
+        "预约流程",
         "很有名",
         "不表示已经安排",
         "不是本次安排",
@@ -191,7 +201,7 @@ _EXPLICIT_ROLE_PATTERNS: tuple[tuple[ActivityRole, re.Pattern[str]], ...] = (
     (
         ActivityRole.EXCLUDED,
         re.compile(
-            rf"(?:明确不去|已经决定排除|决定排除|取消|不安排|放弃|排除)"
+            rf"(?:明确不去|已经决定排除|决定排除|取消(?!不了)|不安排|放弃|排除)"
             rf"\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})"
         ),
     ),
@@ -263,13 +273,16 @@ def _day_index_at(source_text: str, position: int) -> int:
     return day_index
 
 
-def _time_hint_at(source_text: str, position: int) -> str | None:
-    left = max(
-        source_text.rfind(marker, 0, position)
-        for marker in _TIME_SEGMENT_BOUNDARIES
+def _time_hint_at(
+    source_text: str,
+    position: int,
+    end_position: int | None = None,
+) -> str | None:
+    return derive_visit_time_hint(
+        source_text,
+        position,
+        end_position if end_position is not None else position + 1,
     )
-    matches = list(_TIME_HINT_RE.finditer(source_text[left + 1 : position]))
-    return matches[-1].group(0) if matches else None
 
 
 def _source_clause(source_text: str, position: int) -> str:
@@ -306,6 +319,49 @@ def _is_meta_activity_clause(clause: str) -> bool:
     )
 
 
+def _is_descriptive_reference_clause(clause: str) -> bool:
+    if any(
+        marker in clause
+        for marker in (
+            "介绍",
+            "旧名",
+            "旧称",
+            "曾称",
+            "历史说明",
+            "开放时间",
+            "营业时间",
+            "排队",
+        )
+    ) or re.search(
+        r"(?:步行|公交|地铁|交通|车程|耗时|路线|驾车)[^。！？；;]*"
+        r"(?:\d+(?:\.\d+)?\s*(?:小时|分钟)|\d{1,2}[:：]\d{2})",
+        clause,
+    ):
+        return True
+    if any(
+        marker in clause
+        for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PLANNED]
+    ):
+        return False
+    return any(
+        marker in clause
+        for marker in (
+            "去年",
+            "前年",
+            "曾经",
+            "历史上",
+            "过去",
+            "此前",
+            "当年",
+            "世界文化遗产",
+            "游客很多",
+        )
+    ) or re.search(
+        r"(?:是|为|位于|坐落于|建于|始建于|被誉为|属于|拥有)[^。！？；;]*$",
+        clause,
+    ) is not None
+
+
 def _local_activity_role(
     source_text: str,
     position: int,
@@ -314,7 +370,19 @@ def _local_activity_role(
     clause = _local_source_clause(source_text, position)
     if _is_meta_activity_clause(clause):
         return None
-    if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.EXCLUDED]):
+    if has_negated_cancellation(clause):
+        return ActivityRole.REFERENCE
+    if "原计划" in clause:
+        return ActivityRole.REFERENCE
+    if re.search(r"(?:后来|随后|之后)\s*(?:改到|调整为|改为)", clause) and not re.search(
+        r"(?:最终|最后|到最后|末了)", clause
+    ):
+        return ActivityRole.OPTIONAL
+    if any(
+        marker in clause
+        for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.EXCLUDED]
+        if marker != "取消"
+    ) or has_affirmed_cancellation(clause):
         return ActivityRole.EXCLUDED
     if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.OPTIONAL]):
         return ActivityRole.OPTIONAL
@@ -324,10 +392,9 @@ def _local_activity_role(
         return ActivityRole.PASS_THROUGH
     if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.REFERENCE]):
         return ActivityRole.REFERENCE
-    if (
-        any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PLANNED])
-        or _DAY_HEADING_RE.search(clause)
-    ):
+    if _is_descriptive_reference_clause(clause):
+        return ActivityRole.REFERENCE
+    if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PLANNED]):
         return ActivityRole.PLANNED
     return proposed_role
 
@@ -353,7 +420,16 @@ def _explicit_role_mentions(
                 ):
                     continue
                 seen.add(recovered[:2])
-                mentions.append((*recovered, role))
+                recovered_role = role
+                local_role_text = clause[
+                    max(0, match.start() - 5) : match.start("name")
+                ]
+                if role == ActivityRole.EXCLUDED and (
+                    has_negated_cancellation(local_role_text)
+                    or has_negated_cancellation(clause)
+                ):
+                    recovered_role = ActivityRole.REFERENCE
+                mentions.append((*recovered, recovered_role))
     return mentions
 
 
@@ -440,9 +516,7 @@ def _is_atomic_place_value(value: str) -> bool:
         return False
     if any(marker in value for marker in _NON_ATOMIC_SOURCE_MARKERS):
         return False
-    if re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]+", value) is None:
-        return False
-    return re.search(r"[A-Za-z\u4e00-\u9fff]", value) is not None
+    return atomic_place_rejection_reason(value) is None
 
 
 def _safe_atomic_source_span(
@@ -594,11 +668,16 @@ class QwenStructuredInferenceProvider:
             or frozen_config.get("max_output_tokens") != max_output_tokens
         ):
             raise ValueError("live Qwen runtime disagrees with frozen limits")
-        self.client = client or AsyncOpenAI(
-            api_key=api_key,
-            base_url=self.base_url,
-            timeout=deadline_seconds,
-            max_retries=0,
+        self._owned_client = client is None
+        self.client = (
+            client
+            if client is not None
+            else AsyncOpenAI(
+                api_key=api_key,
+                base_url=self.base_url,
+                timeout=deadline_seconds,
+                max_retries=0,
+            )
         )
         self.prompt_sha256 = _sha256_text(self.prompt)
         self.prompt_artifact_sha256 = hashlib.sha256(prompt_bytes).hexdigest()
@@ -620,6 +699,12 @@ class QwenStructuredInferenceProvider:
         )
         self.schema_sha256 = self.schema_artifact_sha256
         self.config_sha256 = self.config_artifact_sha256
+
+    async def aclose(self) -> None:
+        if not self._owned_client:
+            return
+        await self.client.close()
+        self._owned_client = False
 
     async def _call(
         self,
@@ -786,6 +871,13 @@ class QwenStructuredInferenceProvider:
                 raise ValueError("DESTINATION_SPAN_MISMATCH")
         else:
             destination_name = destination.name
+        source_destination_name = normalized_destination_name(
+            source_text,
+            destination_name,
+        )
+        if source_destination_name != destination_name:
+            destination_name = source_destination_name
+            normalization_counts["destination_span_relocation_count"] += 1
 
         mentions: list[ProposedMention] = []
         seen_spans: set[tuple[int, int]] = set()
@@ -800,6 +892,12 @@ class QwenStructuredInferenceProvider:
                     raise ValueError("FORBIDDEN_ATOMIC_PLACE")
                 if any(marker in atomic for marker in _SENTENCE_MARKERS):
                     raise ValueError("NON_ATOMIC_PLACE")
+                normalized_atomic = normalize_atomic_place_candidate(atomic)
+                if normalized_atomic is None:
+                    raise ValueError("NON_ATOMIC_PLACE")
+                if normalized_atomic != atomic:
+                    atomic = normalized_atomic
+                    normalization_counts["atomic_name_source_recovery_count"] += 1
                 all_source_offsets = _verbatim_offsets_outside_urls(source_text, atomic)
                 source_offsets = [
                     offset
@@ -899,7 +997,7 @@ class QwenStructuredInferenceProvider:
             elif not 0 <= span_start < span_end <= len(source_text):
                 raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
             raw_text = source_text[span_start:span_end]
-            time_hint = _time_hint_at(source_text, span_start)
+            time_hint = _time_hint_at(source_text, span_start, span_end)
             if time_hint is not None:
                 normalization_counts["time_hint_derivation_count"] += 1
             day_index = None
@@ -931,7 +1029,7 @@ class QwenStructuredInferenceProvider:
                 continue
             seen_spans.add(span)
             normalization_counts["explicit_role_recovery_count"] += 1
-            time_hint = _time_hint_at(source_text, span_start)
+            time_hint = _time_hint_at(source_text, span_start, span_end)
             if time_hint is not None:
                 normalization_counts["time_hint_derivation_count"] += 1
             mentions.append(

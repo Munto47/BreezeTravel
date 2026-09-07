@@ -17,6 +17,15 @@ from evals.agent_gate_v1.contracts import CurrentGoalBinding
 from scripts import build_agent_gate_pass
 
 
+@pytest.fixture(autouse=True)
+def _stub_component_raw_revalidation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        candidate_gate,
+        "verify_candidate_component_receipt",
+        lambda **_kwargs: {"verdict": "PASS"},
+    )
+
+
 def _git(root: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-C", str(root), *args],
@@ -32,22 +41,50 @@ def _write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
+def _threat_model_sha(root: Path, commit: str) -> str:
+    content = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "show",
+            f"{commit}:backend/eval_data/g07_candidate/threat_model_v1.json",
+        ],
+        check=True,
+        capture_output=True,
+    ).stdout
+    return hashlib.sha256(content).hexdigest()
+
+
 def _candidate_repository(
     tmp_path: Path,
     *,
     isolation_mode: str = "FRESH_CLEAN_CHECKOUT",
+    binding_version: str = "current-goal-binding-v2",
 ) -> tuple[Path, Path, str, str, str, str, str]:
     root = tmp_path / "candidate"
     root.mkdir()
     _git(root, "init")
     _git(root, "config", "user.email", "gate@example.test")
     _git(root, "config", "user.name", "Gate Test")
-    _git(root, "checkout", "-b", "codex/trip-check-product-reset")
+    branch = (
+        "codex/g07-candidate-cycle-3"
+        if binding_version == "current-goal-binding-v3"
+        else "codex/trip-check-product-reset"
+    )
+    _git(root, "checkout", "-b", branch)
     agents = b"# G07 guidance\n"
     (root / "AGENTS.md").write_bytes(agents)
     (root / "docs/governance").mkdir(parents=True)
     (root / "backend/eval_data").mkdir(parents=True)
     (root / "backend/eval_data/value.json").write_text("{}\n", encoding="utf-8")
+    _write_json(
+        root / "backend/eval_data/g07_candidate/threat_model_v1.json",
+        {
+            "schema_version": "g07-candidate-threat-model-v1",
+            "goal_id": "TC-VNEXT-G07-CANDIDATE",
+        },
+    )
     (root / "backend/app").mkdir(parents=True)
     (root / "backend/app/value.py").write_text("VALUE = 1\n", encoding="utf-8")
     isolation: dict[str, object] = {
@@ -93,11 +130,17 @@ def _candidate_repository(
         ],
     }
     _write_json(root / "gate.json", gate)
+    if binding_version == "current-goal-binding-v3":
+        _write_json(root / "docs/governance/product_delivery_gates.json", {"version": 1})
     _git(root, "add", "--all")
     _git(root, "commit", "-m", "baseline")
     baseline = _git(root, "rev-parse", "HEAD")
-    registry = {
-        "schema_version": "work-package-registry-v2",
+    registry: dict[str, object] = {
+        "schema_version": (
+            "work-package-registry-v3"
+            if binding_version == "current-goal-binding-v3"
+            else "work-package-registry-v2"
+        ),
         "active_goal_sequence": 7,
         "active_goal_id": "TC-VNEXT-G07-CANDIDATE",
         "mainline_phase": "CANDIDATE_HARDENING",
@@ -110,8 +153,8 @@ def _candidate_repository(
                 "package_id": "WP-G07-INTEGRATOR",
                 "goal_id": "TC-VNEXT-G07-CANDIDATE",
                 "baseline_commit": baseline,
-                "branch": "codex/trip-check-product-reset",
-                "remote_branch": "origin/codex/trip-check-product-reset",
+                "branch": branch,
+                "remote_branch": f"origin/{branch}",
                 "worktree_path": root.resolve().as_posix(),
                 "role": "INTEGRATOR",
                 "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
@@ -125,22 +168,85 @@ def _candidate_repository(
             }
         ],
     }
+    if binding_version == "current-goal-binding-v3":
+        registry.update(
+            {
+                "program_id": "TC-VNEXT-2026",
+                "program_state": "G07_CANDIDATE_IN_PROGRESS",
+                "scope_guard_version": "core-mainline-v1",
+                "writer_activation": "INTEGRATOR_ONLY",
+                "max_prepared_next_goal_packages": 0,
+                "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
+                "scope_policy_sha256": hashlib.sha256(
+                    (root / "docs/governance/product_delivery_gates.json").read_bytes()
+                ).hexdigest(),
+                "max_parallel_writers": 2,
+                "active_slice": {
+                    "slice_id": "G07-CANDIDATE-CONTRACT",
+                    "work_kind": "CANDIDATE_HARDENING",
+                    "phase": "EVIDENCE_FROZEN",
+                    "base_commit": baseline,
+                    "allowed_paths": [
+                        "backend/evals/agent_gate_v1/candidate_gate.py",
+                        "backend/evals/agent_gate_v1/contracts.py",
+                        "docs",
+                    ],
+                },
+            }
+        )
+        (root / "docs/governance/CURRENT_GOAL.md").write_text(
+            "# G07\n\n"
+            "<!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE\n"
+            + json.dumps(
+                {
+                    "goal_id": "TC-VNEXT-G07-CANDIDATE",
+                    "goal_status": "IN_PROGRESS",
+                    "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
+                }
+            )
+            + "\n-->\n",
+            encoding="utf-8",
+        )
     _write_json(root / "docs/governance/current_work_packages.json", registry)
-    binding = {
-        "schema_version": "current-goal-binding-v2",
+    binding: dict[str, object] = {
+        "schema_version": binding_version,
         "goal_sequence": 7,
         "goal_id": "TC-VNEXT-G07-CANDIDATE",
         "status": "IN_PROGRESS",
         "predecessor_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
         "predecessor_completion_commit": baseline,
-        "automated_gate_contract_path": "gate.json",
+        "automated_gate_contract_path": (
+            "docs/governance/product_delivery_gates.json"
+            if binding_version == "current-goal-binding-v3"
+            else "gate.json"
+        ),
         "automated_gate_contract_sha256": hashlib.sha256(
-            (root / "gate.json").read_bytes()
+            (
+                root / "docs/governance/product_delivery_gates.json"
+                if binding_version == "current-goal-binding-v3"
+                else root / "gate.json"
+            ).read_bytes()
         ).hexdigest(),
         "gate_profile": "HARDENED_CANDIDATE_GATE",
         "mainline_phase": "CANDIDATE_HARDENING",
         "work_package_registry_path": "docs/governance/current_work_packages.json",
     }
+    if binding_version == "current-goal-binding-v3":
+        binding.update(
+            {
+                "program_id": "TC-VNEXT-2026",
+                "canonical_candidate_ref": "refs/heads/codex/g07-candidate-cycle-3",
+                "implementation_baseline_commit": baseline,
+                "last_completed_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+                "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
+                "next_goal_status": "REQUIRES_OWNER_APPROVAL",
+                "program_state": "G07_CANDIDATE_IN_PROGRESS",
+                "candidate_gate_contract_path": "gate.json",
+                "candidate_gate_contract_sha256": hashlib.sha256(
+                    (root / "gate.json").read_bytes()
+                ).hexdigest(),
+            }
+        )
     _write_json(root / "docs/governance/current_goal_binding.json", binding)
     _git(root, "add", "--all")
     _git(root, "commit", "-m", "activate G07")
@@ -164,7 +270,11 @@ def _candidate_repository(
         tree,
         config_sha,
         data_sha,
-        binding["automated_gate_contract_sha256"],
+        (
+            binding["candidate_gate_contract_sha256"]
+            if binding_version == "current-goal-binding-v3"
+            else binding["automated_gate_contract_sha256"]
+        ),
     )
 
 
@@ -185,6 +295,7 @@ def _component(
         "SEALED_AGENT_BLIND": "SEALED_AGENT_BLIND",
     }
     return {
+        "schema_version": "candidate-gate-component-receipt-v2",
         "goal_id": "TC-VNEXT-G07-CANDIDATE",
         "candidate_commit": commit,
         "candidate_tree": tree,
@@ -193,16 +304,47 @@ def _component(
         "automated_gate_contract_sha256": contract_sha,
         "component": component,
         "evidence_level": levels[component],
+        "upstream_artifact_path": {
+            "evidence.bundle": "C:/g07-external/evidence.bundle"
+        },
         "upstream_artifact_sha256": {"evidence.bundle": "1" * 64},
+        "verifier_path": (
+            "backend/evals/agent_gate_v1/candidate_component_verifiers.py"
+        ),
         "verifier_sha256": "2" * 64,
+        "verification_summary_sha256": "3" * 64,
         "isolation_mode": isolation,
     }
+
+
+def test_checked_in_v3_binding_selects_separate_candidate_contract() -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    binding_path = repository_root / "docs/governance/current_goal_binding.json"
+    binding = CurrentGoalBinding.model_validate_json(binding_path.read_text(encoding="utf-8"))
+
+    contract_path, contract_sha256 = candidate_gate._candidate_contract_binding(binding)
+
+    assert binding.schema_version == "current-goal-binding-v3"
+    assert binding.automated_gate_contract_path == "docs/governance/product_delivery_gates.json"
+    assert contract_path == "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json"
+    assert hashlib.sha256((repository_root / contract_path).read_bytes()).hexdigest() == (
+        contract_sha256
+    )
 
 
 def test_g07_not_required_uses_fresh_checkout_without_control_receipts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    verified_components: list[str] = []
+    monkeypatch.setattr(
+        candidate_gate,
+        "verify_candidate_component_receipt",
+        lambda *, receipt, repository_root: verified_components.append(
+            receipt.component
+        )
+        or {"verdict": "PASS"},
+    )
     (
         root,
         development,
@@ -245,7 +387,7 @@ def test_g07_not_required_uses_fresh_checkout_without_control_receipts(
         {
             "candidate_commit": commit,
             "candidate_tree": tree,
-            "threat_model_sha256": "3" * 64,
+            "threat_model_sha256": _threat_model_sha(root, commit),
             "decision": "NOT_REQUIRED_WITH_RATIONALE",
             "identified_threats": ["candidate evidence may drift"],
             "selected_controls": [],
@@ -271,6 +413,116 @@ def test_g07_not_required_uses_fresh_checkout_without_control_receipts(
     )
     assert receipt.hardening_decision == "NOT_REQUIRED_WITH_RATIONALE"
     assert receipt.selected_control_receipt_sha256 == {}
+    assert set(verified_components) == {
+        "AUTOMATED_PRODUCT_GATE",
+        "LIVE_PROVIDER_GATE",
+        "MULTI_AGENT_PANEL",
+        "SEALED_AGENT_BLIND",
+    }
+    drifted_decision = external / "drifted-decision.json"
+    payload = json.loads(decision.read_text(encoding="utf-8"))
+    payload["threat_model_sha256"] = "0" * 64
+    _write_json(drifted_decision, payload)
+    with pytest.raises(CandidateGateError, match="threat model binding mismatch"):
+        verify_g07_candidate_gate_pass(
+            repository_root=root,
+            development_checkout_root=development,
+            expected_candidate_commit=commit,
+            expected_candidate_tree=tree,
+            component_receipt_paths=components,
+            hardening_decision_path=drifted_decision,
+            hardening_control_receipt_paths={},
+            output_path=external / "drifted-pass.json",
+        )
+
+
+def test_g07_v3_binding_validates_current_governance_without_legacy_loader(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        root,
+        development,
+        commit,
+        tree,
+        config_sha,
+        data_sha,
+        contract_sha,
+    ) = _candidate_repository(tmp_path, binding_version="current-goal-binding-v3")
+    external = tmp_path / "external-v3"
+    external.mkdir()
+    components: list[Path] = []
+    for component in (
+        "AUTOMATED_PRODUCT_GATE",
+        "LIVE_PROVIDER_GATE",
+        "MULTI_AGENT_PANEL",
+        "SEALED_AGENT_BLIND",
+    ):
+        path = external / f"{component}.json"
+        _write_json(
+            path,
+            _component(
+                component,
+                commit,
+                tree,
+                config_sha,
+                data_sha,
+                contract_sha,
+                isolation=(
+                    "FRESH_CLEAN_CHECKOUT"
+                    if component == "AUTOMATED_PRODUCT_GATE"
+                    else None
+                ),
+            ),
+        )
+        components.append(path)
+    decision = external / "decision.json"
+    _write_json(
+        decision,
+        {
+            "candidate_commit": commit,
+            "candidate_tree": tree,
+            "threat_model_sha256": _threat_model_sha(root, commit),
+            "decision": "NOT_REQUIRED_WITH_RATIONALE",
+            "identified_threats": ["candidate evidence may drift"],
+            "selected_controls": [],
+            "alternative_controls": ["fresh checkout and remote readback"],
+            "residual_risks": ["no organizational independence claim"],
+            "rationale": "The bounded candidate threat model does not need external custody.",
+        },
+    )
+    monkeypatch.setattr(
+        candidate_gate,
+        "_read_remote_candidate",
+        lambda *_args: ("refs/heads/codex/g07-candidate-cycle-3", commit, tree),
+    )
+    real_validate_registry_v3 = candidate_gate.validate_registry_v3
+    require_all_merged_values: list[bool] = []
+
+    def validate_registry_with_observation(*args: object, **kwargs: object) -> object:
+        require_all_merged_values.append(bool(kwargs.get("require_all_merged")))
+        return real_validate_registry_v3(*args, **kwargs)
+
+    monkeypatch.setattr(
+        candidate_gate,
+        "validate_registry_v3",
+        validate_registry_with_observation,
+    )
+
+    receipt = verify_g07_candidate_gate_pass(
+        repository_root=root,
+        development_checkout_root=development,
+        expected_candidate_commit=commit,
+        expected_candidate_tree=tree,
+        component_receipt_paths=components,
+        hardening_decision_path=decision,
+        hardening_control_receipt_paths={},
+        output_path=external / "pass.json",
+    )
+
+    assert receipt.remote_ref == "refs/heads/codex/g07-candidate-cycle-3"
+    assert receipt.hardening_decision == "NOT_REQUIRED_WITH_RATIONALE"
+    assert require_all_merged_values == [True]
 
 
 def test_g07_required_validates_only_selected_controls(
@@ -322,7 +574,7 @@ def test_g07_required_validates_only_selected_controls(
         {
             "candidate_commit": commit,
             "candidate_tree": tree,
-            "threat_model_sha256": "3" * 64,
+            "threat_model_sha256": _threat_model_sha(root, commit),
             "decision": "REQUIRED",
             "identified_threats": ["runner contamination"],
             "selected_controls": ["ISOLATED_OCI"],
@@ -353,7 +605,7 @@ def test_g07_required_validates_only_selected_controls(
         {
             "candidate_commit": commit,
             "candidate_tree": tree,
-            "threat_model_sha256": "6" * 64,
+            "threat_model_sha256": _threat_model_sha(root, commit),
             "decision": "NOT_REQUIRED_WITH_RATIONALE",
             "identified_threats": ["runner contamination was not confirmed"],
             "selected_controls": [],

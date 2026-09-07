@@ -126,19 +126,58 @@ def test_share_links_bind_scope_recipient_expiry_and_revocation(monkeypatch):
     readable = client.get(f"/api/share/{issued['token']}")
     assert readable.status_code == 200
     body = readable.json()
-    assert body["itinerary"]["revision"] == 1
+    assert body["itinerary"] == {
+        "city": "北京",
+        "trip_start_date": "2026-09-01",
+        "trip_end_date": "2026-09-02",
+        "days": [
+            {
+                "day_index": 0,
+                "date": "2026-09-01",
+                "stops": [{
+                    "name": "故宫",
+                    "start_time": None,
+                    "end_time": None,
+                    "visit_duration_minutes": None,
+                    "category": "景点",
+                    "notes": "",
+                }],
+            },
+            {"day_index": 1, "date": "2026-09-02", "stops": []},
+        ],
+    }
     assert body["recipient_bound"] is True
+    assert body["can_acknowledge"] is True
+    assert body["can_add_preference"] is True
     assert body["acknowledgement"] == {"required": True, "acknowledged": False, "acknowledged_at": None}
+    assert len(body["constraint_write_token"]) == 64
     assert "workspace_id" not in body
     assert "share_link_id" not in body
+    assert "revision" not in readable.text.casefold()
+    assert "hash" not in readable.text.casefold()
 
     constraint_response = client.post(
         f"/api/share/{issued['token']}/responses",
-        json={"action": "CONSTRAINT", "expected_base_revision": 0, "constraint": _constraint()},
+        json={
+            "action": "CONSTRAINT",
+            "constraint_write_token": body["constraint_write_token"],
+            "constraint": _constraint(),
+        },
     )
     assert constraint_response.status_code == 201
-    assert constraint_response.json()["member_constraint_revision"] == 1
+    assert constraint_response.json() == {"accepted": True}
     assert asyncio.run(member_repository.list_effective_constraints("share-workspace", 1))[0].hardness.value == "HARD"
+
+    stale = client.post(
+        f"/api/share/{issued['token']}/responses",
+        json={
+            "action": "CONSTRAINT",
+            "constraint_write_token": body["constraint_write_token"],
+            "constraint": {**_constraint(), "constraint_id": "stale-write"},
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "SHARE_STATE_CHANGED"
 
     acknowledgement = client.post(f"/api/share/{issued['token']}/responses", json={"action": "ACKNOWLEDGE"})
     assert acknowledgement.status_code == 201
@@ -233,13 +272,11 @@ def test_shared_read_projection_captures_only_the_locked_revision_and_report(mon
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["itinerary"]["revision"] == 1
-    assert payload["report"]["report_id"] == "captured-report"
-    assert payload["report"]["findings"] == [{
-        "finding_id": "shared-finding", "rule_id": "route-time-window",
-        "status": "VIOLATED", "severity": "HIGH", "reason_code": "TIME_OVERLAP",
-        "message": "两个地点的时段重叠", "affected_days": [0],
-        "affected_stop_ids": ["s1"], "repairable": True, "confirmation_action": "调整时间",
+    assert payload["suggestions"] == [{
+        "level": "必须调整",
+        "message": "两个地点的时段重叠",
+        "affected_days": [0],
+        "suggested_action": "调整时间",
     }]
     serialized = response.text
     assert "share-workspace" not in serialized
@@ -247,3 +284,18 @@ def test_shared_read_projection_captures_only_the_locked_revision_and_report(mon
     assert "must-not-leak" not in serialized
     assert "secret-evidence" not in serialized
     assert "member-1" not in serialized
+    for forbidden in (
+        "revision",
+        "hash",
+        "report",
+        "finding",
+        "rule_id",
+        "status",
+        "severity",
+        "reason_code",
+        "stop_id",
+        "place_id",
+        "hard",
+        "soft",
+    ):
+        assert forbidden not in serialized.casefold()

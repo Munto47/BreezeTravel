@@ -40,8 +40,8 @@ function formatDuration(mins?: number): string {
 
 export default function PlaceCard({
   place,
-  currentUserId,
-  members,
+  currentUserId: _currentUserId,
+  members: _members,
   isSelected = false,
   onToggleVote,
   onRemove,
@@ -51,9 +51,7 @@ export default function PlaceCard({
 }: PlaceCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
 
-  const isVoted = place.votedBy.includes(currentUserId)
-  const voteCount = place.votedBy.length
-  const votedMembers = members.filter((m) => place.votedBy.includes(m.userId))
+  const isVoted = place.votedBy.length > 0
   const cat = CATEGORY_CONFIG[place.category] || CATEGORY_CONFIG.attraction
   const hasPhoto = place.amapPhotos && place.amapPhotos.length > 0
   const hasRecommendation = recommendation && (recommendation.reason || recommendation.avoidTips.length > 0)
@@ -106,14 +104,16 @@ export default function PlaceCard({
                 </span>
               </div>
               <div className="absolute top-2 right-2">
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+                <button
+                  type="button"
+                  aria-label={isVoted ? `取消选择 ${place.name}` : `选择 ${place.name}`}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 ${
                     isVoted ? 'bg-coral-500 text-white shadow-md' : 'bg-white/80 backdrop-blur-sm text-gray-400 group-hover:text-coral-400'
                   }`}
                   onClick={(e) => { e.stopPropagation(); onToggleVote(place.placeId) }}
                 >
                   <Heart className={`w-3.5 h-3.5 ${isVoted ? 'fill-white' : ''}`} />
-                </div>
+                </button>
               </div>
             </div>
           )}
@@ -124,14 +124,16 @@ export default function PlaceCard({
                 <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md ${cat.bg} ${cat.text}`}>
                   {cat.icon} {cat.label}
                 </span>
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 ${
+                <button
+                  type="button"
+                  aria-label={isVoted ? `取消选择 ${place.name}` : `选择 ${place.name}`}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 ${
                     isVoted ? 'bg-coral-500 text-white' : 'bg-gray-100 text-gray-400 group-hover:text-coral-400 group-hover:bg-coral-50'
                   }`}
                   onClick={(e) => { e.stopPropagation(); onToggleVote(place.placeId) }}
                 >
                   <Heart className={`w-3 h-3 ${isVoted ? 'fill-white' : ''}`} />
-                </div>
+                </button>
               </div>
             )}
 
@@ -172,7 +174,7 @@ export default function PlaceCard({
                     }`}>
                       {item.status === 'VERIFIED' ? '已核验' : item.status === 'UNKNOWN' ? '未知' : '需确认'}
                     </span>
-                    <span className="text-slate-600" title={item.detail}>{item.label}</span>
+                    <span className="text-slate-600">{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -213,33 +215,17 @@ export default function PlaceCard({
 
             {/* 底部行：投票头像 + 删除 + 「为什么推荐」按钮 */}
             <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100/60">
-              {voteCount > 0 && votedMembers.length > 0 ? (
-                <div className="flex items-center gap-1.5">
-                  <div className="flex -space-x-1.5">
-                    {votedMembers.slice(0, 4).map((m) => (
-                      <div
-                        key={m.userId}
-                        title={m.nickname}
-                        className="avatar-ring text-[9px]"
-                        style={{ backgroundColor: m.color, width: 20, height: 20 }}
-                      >
-                        {m.nickname[0]}
-                      </div>
-                    ))}
-                  </div>
-                  <span className="text-[10px] text-gray-400">{voteCount}人想去</span>
-                </div>
+              {isVoted ? (
+                <span className="text-[10px] text-[#0C789D]">房间共享选择</span>
               ) : <div />}
 
               <div className="flex items-center gap-2">
-                {place.addedBy === currentUserId && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onRemove(place.placeId) }}
-                    className="text-[10px] text-gray-300 hover:text-red-400 transition-colors"
-                  >
-                    移除
-                  </button>
-                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRemove(place.placeId) }}
+                  className="min-h-11 px-2 text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  从房间移除
+                </button>
                 {/* Phase B：为什么推荐按钮 */}
                 {hasRecommendation && (
                   <button
@@ -287,11 +273,6 @@ export default function PlaceCard({
               {recommendation.reason && (
                 <div className="bg-blue-50/60 rounded-lg p-2.5 border border-blue-100/60">
                   <p className="text-[11px] text-blue-800 leading-relaxed">{recommendation.reason}</p>
-                  {recommendation.sourceChunkIds.length > 0 && (
-                    <p className="text-[9px] text-blue-400 mt-1">
-                      来源：游记 {recommendation.sourceChunkIds.slice(0, 2).join('、')}
-                    </p>
-                  )}
                 </div>
               )}
 

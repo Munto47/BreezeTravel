@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
-from app.trip_understanding.models import DestinationBasis
+from app.trip_understanding.models import ActivityRole, DestinationBasis
 from app.trip_understanding.qwen_provider import (
     QwenStructuredInferenceProvider,
     qwen_effective_run_config_sha256,
@@ -35,6 +35,12 @@ class _FakeCompletions:
 class _FakeClient:
     def __init__(self, outputs: list[str]) -> None:
         self.chat = SimpleNamespace(completions=_FakeCompletions(outputs))
+        self.closed = False
+        self.close_calls = 0
+
+    async def close(self) -> None:
+        self.close_calls += 1
+        self.closed = True
 
 
 def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
@@ -61,6 +67,40 @@ def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
         },
         ensure_ascii=False,
     )
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_does_not_close_an_injected_client() -> None:
+    client = _FakeClient([])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    await provider.aclose()
+
+    assert client.closed is False
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_closes_its_owned_client_once(monkeypatch) -> None:
+    from app.trip_understanding import qwen_provider as qwen_module
+
+    client = _FakeClient([])
+    monkeypatch.setattr(qwen_module, "AsyncOpenAI", lambda **_kwargs: client)
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+    )
+
+    await provider.aclose()
+    await provider.aclose()
+
+    assert client.closed is True
+    assert client.close_calls == 1
 
 
 @pytest.mark.asyncio
@@ -173,6 +213,31 @@ async def test_qwen_provider_returns_model_neutral_proposal_and_redacted_receipt
     assert call["extra_body"] == {"enable_thinking": False}
     assert call["response_format"]["type"] == "json_schema"
     assert call["response_format"]["json_schema"]["strict"] is True
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_recovers_explicit_destination_from_source_context() -> None:
+    source = "这是一份围绕北京的三天攻略。Day 1 去故宫博物院。"
+    output = json.loads(_valid_output(source))
+    wrong_start = source.index("三")
+    output["destination"] = {
+        "basis": "EXPLICIT",
+        "evidence_span_start": wrong_start,
+        "evidence_span_end": wrong_start + 1,
+    }
+    client = _FakeClient([json.dumps(output, ensure_ascii=False)])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    assert proposal.destination_name == "北京"
+    assert proposal.destination_basis == DestinationBasis.EXPLICIT
+    assert proposal.binding["destination_span_relocation_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -510,6 +575,39 @@ async def test_qwen_provider_derives_sequence_from_source_order() -> None:
 
     assert [item.raw_text for item in proposal.mentions] == ["故宫博物院", "天坛"]
     assert [item.sequence_index for item in proposal.mentions] == [0, 1]
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_reclassifies_booking_colon_place_as_reference() -> None:
+    source = "北京两日游。预约说明：Day 2 去天坛公园完成预约，不是当天行程。"
+    start = source.index("天坛公园")
+    output = {
+        "destination": {
+            "basis": "EXPLICIT",
+            "evidence_span_start": 0,
+            "evidence_span_end": 2,
+        },
+        "mentions": [
+            {
+                "span_start": start,
+                "span_end": start + len("天坛公园"),
+                "role": "PLANNED",
+                "atomic_place_name": "天坛公园",
+            }
+        ],
+    }
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=_FakeClient([json.dumps(output, ensure_ascii=False)]),
+    )
+
+    proposal = await provider.propose(source)
+
+    assert proposal.mentions[0].role == ActivityRole.REFERENCE
+    assert proposal.mentions[0].day_index is None
+    assert proposal.binding["local_role_reclassification_count"] == 1
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,10 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from evals.agent_gate_v1.candidate_component_verifiers import (
+    CandidateComponentVerificationError,
+    verify_candidate_component_receipt,
+)
 from evals.agent_gate_v1.contracts import (
     AutomatedProductGateContract,
     CandidateGateComponentReceipt,
@@ -24,10 +28,14 @@ from evals.agent_gate_v1.work_packages import (
     WorkPackageValidationError,
     load_candidate_work_package_registry,
 )
+from governance.work_packages_v3 import validate_registry_v3
 
 
 class CandidateGateError(ValueError):
     pass
+
+
+G07_THREAT_MODEL_PATH = "backend/eval_data/g07_candidate/threat_model_v1.json"
 
 
 def _git(root: Path, *args: str, binary: bool = False) -> str | bytes:
@@ -125,6 +133,18 @@ def _read_remote_candidate(
     return remote_ref, subject, tree
 
 
+def _candidate_contract_binding(binding: CurrentGoalBinding) -> tuple[str, str]:
+    if binding.schema_version == "current-goal-binding-v3":
+        path = binding.candidate_gate_contract_path
+        sha256 = binding.candidate_gate_contract_sha256
+    else:
+        path = binding.automated_gate_contract_path
+        sha256 = binding.automated_gate_contract_sha256
+    if path is None or sha256 is None:
+        raise CandidateGateError("G07 candidate contract binding is incomplete")
+    return path, sha256
+
+
 def verify_g07_candidate_gate_pass(
     *,
     repository_root: Path,
@@ -157,23 +177,27 @@ def verify_g07_candidate_gate_pass(
     except ValueError as exc:
         raise CandidateGateError("invalid G07 current Goal binding") from exc
     if (
-        binding.schema_version != "current-goal-binding-v2"
+        binding.schema_version not in {
+            "current-goal-binding-v2",
+            "current-goal-binding-v3",
+        }
         or binding.goal_sequence != 7
         or binding.goal_id != "TC-VNEXT-G07-CANDIDATE"
         or binding.gate_profile != "HARDENED_CANDIDATE_GATE"
     ):
-        raise CandidateGateError("G07 Gate requires the active v2 G07 binding")
+        raise CandidateGateError("G07 Gate requires the active v2 or v3 G07 binding")
+    contract_path, expected_contract_sha256 = _candidate_contract_binding(binding)
     contract_sha256 = _git_blob_sha256(
-        root, expected_candidate_commit, binding.automated_gate_contract_path
+        root, expected_candidate_commit, contract_path
     )
-    if contract_sha256 != binding.automated_gate_contract_sha256:
+    if contract_sha256 != expected_contract_sha256:
         raise CandidateGateError("G07 automated contract hash mismatch")
     try:
         automated_contract = AutomatedProductGateContract.model_validate_json(
             _git_blob(
                 root,
                 expected_candidate_commit,
-                binding.automated_gate_contract_path,
+                contract_path,
             )
         )
     except ValueError as exc:
@@ -183,15 +207,36 @@ def verify_g07_candidate_gate_pass(
         or automated_contract.gate_profile != binding.gate_profile
     ):
         raise CandidateGateError("G07 automated contract disagrees with binding")
-    try:
-        _registry, registry_sha256 = load_candidate_work_package_registry(
+    if binding.schema_version == "current-goal-binding-v3":
+        registry_report = validate_registry_v3(
+            root,
+            check_scope=False,
+            head_ref=expected_candidate_commit,
+            require_all_merged=True,
+        )
+        if registry_report["verdict"] != "PASS":
+            joined = ",".join(registry_report["error_codes"])
+            raise CandidateGateError(
+                f"invalid G07 work package governance: {joined}"
+            )
+        assert binding.work_package_registry_path is not None
+        registry_sha256 = _git_blob_sha256(
             root,
             expected_candidate_commit,
-            binding,
-            require_gate_ready=True,
+            binding.work_package_registry_path,
         )
-    except WorkPackageValidationError as exc:
-        raise CandidateGateError(f"invalid G07 work package governance: {exc}") from exc
+    else:
+        try:
+            _registry, registry_sha256 = load_candidate_work_package_registry(
+                root,
+                expected_candidate_commit,
+                binding,
+                require_gate_ready=True,
+            )
+        except WorkPackageValidationError as exc:
+            raise CandidateGateError(
+                f"invalid G07 work package governance: {exc}"
+            ) from exc
 
     config_sha256 = _git_bundle_sha256(root, expected_candidate_commit, CORE_CONFIG_ROOTS)
     data_sha256 = _git_bundle_sha256(root, expected_candidate_commit, CORE_DATA_ROOTS)
@@ -205,6 +250,22 @@ def verify_g07_candidate_gate_pass(
         or decision.candidate_tree != expected_candidate_tree
     ):
         raise CandidateGateError("hardening decision is bound to another candidate")
+    threat_model_bytes = _git_blob(
+        root,
+        expected_candidate_commit,
+        G07_THREAT_MODEL_PATH,
+    )
+    if decision.threat_model_sha256 != _sha256_bytes(threat_model_bytes):
+        raise CandidateGateError("hardening decision threat model binding mismatch")
+    try:
+        threat_model = json.loads(threat_model_bytes)
+    except json.JSONDecodeError as exc:
+        raise CandidateGateError("invalid G07 threat model") from exc
+    if (
+        threat_model.get("schema_version") != "g07-candidate-threat-model-v1"
+        or threat_model.get("goal_id") != binding.goal_id
+    ):
+        raise CandidateGateError("G07 threat model disagrees with candidate binding")
 
     expected_components = {
         "AUTOMATED_PRODUCT_GATE",
@@ -226,6 +287,15 @@ def verify_g07_candidate_gate_pass(
             or receipt.automated_gate_contract_sha256 != contract_sha256
         ):
             raise CandidateGateError("G07 component candidate binding mismatch")
+        try:
+            verify_candidate_component_receipt(
+                receipt=receipt,
+                repository_root=root,
+            )
+        except CandidateComponentVerificationError as exc:
+            raise CandidateGateError(
+                f"G07 component raw verification failed: {receipt.component}"
+            ) from exc
         component_hashes[receipt.component] = snapshot.sha256
         if receipt.component == "AUTOMATED_PRODUCT_GATE":
             automated_isolation = receipt.isolation_mode

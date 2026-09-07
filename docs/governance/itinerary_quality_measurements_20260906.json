@@ -1,0 +1,393 @@
+{
+  "scope": "Original synthetic texts only; live semantic adapter with refusing POI resolver. Not a POI accuracy, blind, human or production result.",
+  "baseline": "a6035de874948029aa593104626c1ac40081d986",
+  "source_binding": "Measurements precede the local checkpoint. source_commit identifies the checkout baseline; source_fingerprint identifies the exact runtime content.",
+  "runs": [
+    {
+      "local_report": ".local-artifacts/quality-before.json",
+      "source_commit": "a6035de874948029aa593104626c1ac40081d986",
+      "source_fingerprint": "91f08a378aabecb089b9b9635985130443bbd7cf57b74376bce01bf6cdc4fd2c",
+      "cases_sha256": "a83e1ec18408ed77903fa2942849c6513c7de50eb54e116f66c658437dea13fe",
+      "model": "qwen3.7-flash-2026-07-15",
+      "started_at": "2026-09-06T07:41:21.418388+00:00",
+      "measurement": "SYNTHETIC_LIVE_SEMANTICS_WITH_REFUSING_POI_RESOLVER",
+      "raw_model_responses_retained": false,
+      "source_unchanged": true,
+      "summary": {
+        "cases": 24,
+        "exact": 24,
+        "errors": 0,
+        "groups": {
+          "普通多日": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "短句箭头": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "Markdown表格": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "乱序日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "跨城": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "取消恢复改期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "并列备选": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "摘要重复": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "再次到访": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无名餐休": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "长文分组": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          }
+        },
+        "poi_external_calls": 0,
+        "poi_confirmations": 0,
+        "external_calls": 24,
+        "external_calls_known_cases": 24,
+        "repair_call_count": 0,
+        "repair_call_count_known_cases": 24,
+        "input_tokens": 42475,
+        "input_tokens_known_cases": 24,
+        "output_tokens": 8026,
+        "output_tokens_known_cases": 24,
+        "estimated_cost_cny": null,
+        "estimated_cost_cny_known_cases": 0,
+        "latency_ms": 60530.58,
+        "latency_ms_known_cases": 24
+      },
+      "non_exact_cases": []
+    },
+    {
+      "local_report": ".local-artifacts/quality-after.json",
+      "source_commit": "a6035de874948029aa593104626c1ac40081d986",
+      "source_fingerprint": "134ca28c66f399ab2e793c6f3210b94c6e26e73562ec06785382c8124d5b7f84",
+      "cases_sha256": "a83e1ec18408ed77903fa2942849c6513c7de50eb54e116f66c658437dea13fe",
+      "model": "qwen3.7-flash-2026-07-15",
+      "started_at": "2026-09-06T08:26:56.830979+00:00",
+      "measurement": "SYNTHETIC_LIVE_SEMANTICS_WITH_REFUSING_POI_RESOLVER",
+      "raw_model_responses_retained": false,
+      "source_unchanged": true,
+      "summary": {
+        "cases": 24,
+        "exact": 23,
+        "errors": 1,
+        "groups": {
+          "普通多日": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "短句箭头": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "Markdown表格": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "乱序日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "跨城": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "取消恢复改期": {
+            "cases": 2,
+            "exact": 1,
+            "errors": 1
+          },
+          "并列备选": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "摘要重复": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "再次到访": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无名餐休": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "长文分组": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          }
+        },
+        "poi_external_calls": 0,
+        "poi_confirmations": 0,
+        "external_calls": 25,
+        "external_calls_known_cases": 24,
+        "repair_call_count": 1,
+        "repair_call_count_known_cases": 24,
+        "input_tokens": 56536,
+        "input_tokens_known_cases": 24,
+        "output_tokens": 9806,
+        "output_tokens_known_cases": 24,
+        "estimated_cost_cny": null,
+        "estimated_cost_cny_known_cases": 0,
+        "latency_ms": 79109.2,
+        "latency_ms_known_cases": 24
+      },
+      "non_exact_cases": [
+        {
+          "id": "changes-02",
+          "status": "ERROR"
+        }
+      ]
+    },
+    {
+      "local_report": ".local-artifacts/quality-after-final.json",
+      "source_commit": "a6035de874948029aa593104626c1ac40081d986",
+      "source_fingerprint": "f90f5cd65289ab1aaebc9b549d289bb0aeaad86d98daf71c6a888875b3e2910e",
+      "cases_sha256": "a83e1ec18408ed77903fa2942849c6513c7de50eb54e116f66c658437dea13fe",
+      "model": "qwen3.7-flash-2026-07-15",
+      "started_at": "2026-09-06T08:39:19.310172+00:00",
+      "measurement": "SYNTHETIC_LIVE_SEMANTICS_WITH_REFUSING_POI_RESOLVER",
+      "raw_model_responses_retained": false,
+      "source_unchanged": true,
+      "summary": {
+        "cases": 24,
+        "exact": 22,
+        "errors": 2,
+        "groups": {
+          "普通多日": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "短句箭头": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "Markdown表格": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "乱序日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "跨城": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "取消恢复改期": {
+            "cases": 2,
+            "exact": 1,
+            "errors": 1
+          },
+          "并列备选": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "摘要重复": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "再次到访": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无名餐休": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "长文分组": {
+            "cases": 2,
+            "exact": 1,
+            "errors": 1
+          }
+        },
+        "poi_external_calls": 0,
+        "poi_confirmations": 0,
+        "external_calls": 25,
+        "external_calls_known_cases": 24,
+        "repair_call_count": 1,
+        "repair_call_count_known_cases": 24,
+        "input_tokens": null,
+        "input_tokens_known_cases": 23,
+        "output_tokens": null,
+        "output_tokens_known_cases": 23,
+        "estimated_cost_cny": null,
+        "estimated_cost_cny_known_cases": 0,
+        "latency_ms": 102516.96,
+        "latency_ms_known_cases": 24
+      },
+      "non_exact_cases": [
+        {
+          "id": "changes-02",
+          "status": "ERROR"
+        },
+        {
+          "id": "long-01",
+          "status": "ERROR"
+        }
+      ]
+    },
+    {
+      "local_report": ".local-artifacts/quality-delivery.json",
+      "source_commit": "a6035de874948029aa593104626c1ac40081d986",
+      "source_fingerprint": "696afecdac6998f864bd243b47948dd9e13ff7c5ab6c981836a012ecd5a7033f",
+      "cases_sha256": "a83e1ec18408ed77903fa2942849c6513c7de50eb54e116f66c658437dea13fe",
+      "model": "qwen3.7-flash-2026-07-15",
+      "started_at": "2026-09-06T08:55:51.778134+00:00",
+      "measurement": "SYNTHETIC_LIVE_SEMANTICS_WITH_REFUSING_POI_RESOLVER",
+      "raw_model_responses_retained": false,
+      "source_unchanged": true,
+      "summary": {
+        "cases": 24,
+        "exact": 24,
+        "errors": 0,
+        "groups": {
+          "普通多日": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "短句箭头": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "Markdown表格": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "乱序日期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "跨城": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "取消恢复改期": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "并列备选": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "摘要重复": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "再次到访": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "无名餐休": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          },
+          "长文分组": {
+            "cases": 2,
+            "exact": 2,
+            "errors": 0
+          }
+        },
+        "poi_external_calls": 0,
+        "poi_confirmations": 0,
+        "external_calls": 24,
+        "external_calls_known_cases": 24,
+        "repair_call_count": 0,
+        "repair_call_count_known_cases": 24,
+        "input_tokens": 53875,
+        "input_tokens_known_cases": 24,
+        "output_tokens": 9558,
+        "output_tokens_known_cases": 24,
+        "estimated_cost_cny": null,
+        "estimated_cost_cny_known_cases": 0,
+        "latency_ms": 73434.42,
+        "latency_ms_known_cases": 24
+      },
+      "non_exact_cases": []
+    }
+  ]
+}

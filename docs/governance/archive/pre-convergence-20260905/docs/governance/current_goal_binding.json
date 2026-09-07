@@ -1,0 +1,22 @@
+{
+  "automated_gate_contract_path": "docs/governance/product_delivery_gates.json",
+  "automated_gate_contract_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
+  "candidate_gate_contract_path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
+  "candidate_gate_contract_sha256": "917dabd1674701d3581fb580d6667638d211c3cb4e0deaa61433d78311b6d195",
+  "canonical_candidate_ref": "refs/heads/codex/g07-candidate-cycle-3",
+  "gate_profile": "HARDENED_CANDIDATE_GATE",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "goal_sequence": 7,
+  "implementation_baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
+  "last_completed_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+  "mainline_phase": "CANDIDATE_HARDENING",
+  "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
+  "next_goal_status": "REQUIRES_OWNER_APPROVAL",
+  "predecessor_completion_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
+  "predecessor_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+  "program_id": "TC-VNEXT-2026",
+  "program_state": "G07_CANDIDATE_IN_PROGRESS",
+  "schema_version": "current-goal-binding-v3",
+  "status": "IN_PROGRESS",
+  "work_package_registry_path": "docs/governance/current_work_packages.json"
+}

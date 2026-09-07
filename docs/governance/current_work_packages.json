@@ -1,103 +1,13 @@
 {
-  "active_goal_id": "TC-VNEXT-G07-CANDIDATE",
-  "active_goal_sequence": 7,
+  "schema_version": "experience-work-packages-v1",
+  "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "acceptance_refs": [
-      "G06 Consent & Share Gate与PRODUCT_DELIVERY_PASS已通过并由PR #20合入develop",
-      "完整G06合同以COMPLETED状态归档且G06.product-delivery.json继续可回读",
-      "G07完整合同、唯一集成者、fresh baseline与G04方案A例外移除首动作原子激活"
-    ],
-    "allowed_paths": [
-      "docs/governance",
-      "backend/governance/core_mainline.py",
-      "backend/tests/test_g04_governance_delivery.py",
-      "backend/tests/test_g06_governance_delivery.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_product_delivery_governance.py",
-      "backend/tests/test_product_work_packages_v3.py"
-    ],
-    "base_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
-    "evidence_invalidated": [],
-    "forbidden_mechanisms": [
-      "修改G07候选资产、产品运行时、migration、公共OpenAPI、依赖、blind或oracle作为过渡提交的一部分",
-      "在过渡PR合并和new baseline readback前创建G07候选产品提交",
-      "保留或扩大G04方案A历史失败例外进入G07 exact-binding验收",
-      "新功能、新Provider、新费用、H1、公网、生产、商业、发布、部署、release或main合并"
-    ],
-    "minimum_change": "完整归档G06并原子激活G07合同、唯一集成者、fresh baseline和移除G04历史例外的首个阻断动作，不执行候选工作。",
-    "phase": "GOAL_TRANSITION",
-    "preflight_entrypoints": [
-      "backend/tests/test_product_delivery_governance.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_product_work_packages_v3.py",
-      "backend/tests/test_g06_governance_delivery.py",
-      "backend/scripts/validate_core_mainline.py"
-    ],
-    "preflight_required_tokens": {},
-    "product_progress": "NONE",
-    "repair_review_cycle": 0,
-    "slice_id": "G06-ARCHIVE-G07-ACTIVATION",
-    "stop_condition": "若G06交付或远端integration无法回读、fresh develop不再由G07接棒，或激活必须修改候选资产、扩大授权、降低Gate或保留G04历史例外进入exact-binding，则停止过渡并重新审计。",
-    "user_outcome": "显式记忆与分享完成归档后，项目进入候选收口；治理过渡不改变现有用户体验或候选资产。",
-    "work_kind": "GOAL_TRANSITION"
+    "id": "domestic-city-generation-resilience-20260907",
+    "work_kind": "PRODUCT",
+    "status": "IN_PROGRESS",
+    "outcome": "普通地级市经真实行政区核验搜索POI；票种/菜品不再造成整份失败，地点可更换。生成硬失败已改善，完整召回与服务波动尚未收口。",
+    "verification": "412 backend checks including isolated PostgreSQL, 19 browser checks, build, TypeScript, Ruff and diff passed. Final live API: 9/9 partial results and identical refresh, cleanup 204/410; 8/9 candidate searches available. Beijing 10 places, Xinyu generally 7 with one 3-place degraded run; Chengdu 4/5, Suzhou 2/5. Real Chrome generation, replace, refresh and undo verified. Overall resilience PARTIAL."
   },
-  "e2e_after_all_merges": true,
-  "gate_profile": "HARDENED_CANDIDATE_GATE",
-  "guidance_sha256": "fea2d2a1040efb650ac9b268656bbadd06d13d097f88a0cd4338bc50cc32cb51",
-  "integration_order": [],
-  "mainline_phase": "CANDIDATE_HARDENING",
-  "max_parallel_writers": 2,
-  "max_prepared_next_goal_packages": 0,
-  "mismatch_policy": "READ_ONLY",
-  "delivery_evidence": {
-    "predecessor_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
-    "product_commit": "e3de1b57b014439ec16eb0034e8b7e47867053d0",
-    "receipt_commit": "215770f2ad975ed89271047fa40780fdddbd02a0",
-    "receipt_path": "docs/governance/gate-results/G06.product-delivery.json",
-    "integration_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
-    "first_exact_tip_ci": 33400646254,
-    "receipt_exact_tip_ci": 33402192501,
-    "develop_exact_tip_ci": 33402780730,
-    "status": "PRODUCT_DELIVERY_PASS_AND_INTEGRATED"
-  },
-  "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
-  "next_goal_status": "REQUIRES_OWNER_APPROVAL",
-  "packages": [
-    {
-      "acceptance": [
-        "G07完整合同和fresh baseline可远端回读",
-        "首个候选preflight先修复并移除G04方案A两个历史失败例外",
-        "候选RunSpec、Provider/model/dataset、G0至G7矩阵与exact binding在同一subject冻结",
-        "H1、公网、生产、商业、发布、部署、release和main保持未运行或未请求"
-      ],
-      "baseline_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
-      "branch": "codex/g07-candidate",
-      "dependencies": [],
-      "dialogue_ref": "codex-task:primary-integrator",
-      "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
-      "forbidden_paths": [],
-      "goal_id": "TC-VNEXT-G07-CANDIDATE",
-      "merge_order": 100,
-      "owned_paths": [
-        "docs/governance",
-        "backend/governance/core_mainline.py",
-        "backend/tests/test_g04_governance_delivery.py",
-        "backend/tests/test_g06_governance_delivery.py",
-        "backend/tests/test_governance_agent_gate_transition.py",
-        "backend/tests/test_product_delivery_governance.py",
-        "backend/tests/test_product_work_packages_v3.py"
-      ],
-      "package_id": "WP-G07-INTEGRATOR",
-      "remote_branch": "origin/codex/g07-candidate",
-      "role": "INTEGRATOR",
-      "status": "IN_PROGRESS",
-      "worktree_path": "D:/munto/code/claudeProject/agentTravel-g07-candidate"
-    }
-  ],
-  "program_id": "TC-VNEXT-2026",
-  "program_state": "G07_CANDIDATE_APPROVED",
-  "scope_guard_version": "core-mainline-v1",
-  "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
-  "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_ONLY"
+  "packages": [],
+  "next_planned_slice": "逐项区分语义遗漏、身份歧义和服务不可用；为服务失败保留证据并实施有界恢复，恢复明确分支与园内明细，不把部分生成等同完整稳定，不扩大部署。"
 }

@@ -21,6 +21,7 @@ from app.trip_check.provider_integrity import (
     ROUTE_MODES,
     TripCheckProviderIntegrityCollector,
     provider_snapshot_sha256,
+    validate_product_route_observations,
 )
 
 
@@ -340,6 +341,9 @@ async def run_live_matrix(
         )
         revision = _build_revision(city, live=True)
         result = await collector.collect(run, revision, {})
+        route_failures, route_metrics = validate_product_route_observations(
+            result.observations
+        )
         receipt_count += len(result.provider_receipts)
         case_dir = output / "live" / city
         _write_json(case_dir / "run_spec.json", run.run_spec.model_dump(mode="json"))
@@ -348,9 +352,19 @@ async def run_live_matrix(
         cases.append(
             {
                 "city": city,
-                "status": "PASS" if not result.provider_failures else "FAIL",
+                "status": (
+                    "PASS"
+                    if not result.provider_failures and not route_failures
+                    else "FAIL"
+                ),
                 "receipt_count": len(result.provider_receipts),
-                "failure_categories": [item.error_category for item in result.provider_failures],
+                "failure_categories": sorted(
+                    {
+                        *[item.error_category for item in result.provider_failures],
+                        *route_failures,
+                    }
+                ),
+                "route_fact_metrics": route_metrics,
             }
         )
     manifest = {

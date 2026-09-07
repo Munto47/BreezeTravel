@@ -7,4 +7,4 @@ COPY server.js ./
 ENV HOST=0.0.0.0
 ENV PORT=1234
 EXPOSE 1234
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

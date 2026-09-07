@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import pytest
 
@@ -10,8 +12,7 @@ from app.trip_understanding.amap_place import (
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
 from app.trip_understanding.full_text import ControlledSnapshotPlaceResolver
-from app.trip_understanding.pipeline import ResilientStructuredInferenceProvider
-from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
+from app.trip_understanding.experience_inference import ExperienceQwenProvider
 from app.trip_understanding.worker import build_configured_full_pipeline
 
 
@@ -32,7 +33,7 @@ def _poi(
     return {
         "id": provider_id,
         "name": name,
-        "location": "116.397026,39.918058",
+        "location": {"北京": "116.397026,39.918058", "上海": "121.48,31.23", "杭州": "120.17,30.25"}[city_key],
         "type": "风景名胜;风景名胜相关;旅游景点",
         "typecode": typecode,
         "pname": province,
@@ -54,6 +55,49 @@ def _client(payload: dict[str, object], observed: list[httpx.Request]) -> httpx.
         )
 
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.asyncio
+async def test_amap_owned_client_is_reused_and_closed(monkeypatch) -> None:
+    observed: list[httpx.Request] = []
+    created: list[httpx.AsyncClient] = []
+    real_async_client = httpx.AsyncClient
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        return httpx.Response(
+            200,
+            json={"status": "1", "infocode": "10000", "pois": [_poi()]},
+            headers={"x-request-id": f"provider-request-{len(observed)}"},
+        )
+
+    def client_factory(*args, **kwargs):
+        del args
+        client = real_async_client(
+            transport=httpx.MockTransport(handler),
+            timeout=kwargs.get("timeout"),
+        )
+        created.append(client)
+        return client
+
+    monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+    resolver = AmapPlaceResolver(api_key="test-only")
+    outcomes = await asyncio.gather(
+        resolver.resolve(
+            city="北京", atomic_place_name="故宫博物院", category_hint="景点"
+        ),
+        resolver.resolve(
+            city="北京", atomic_place_name="故宫博物院", category_hint="景点"
+        ),
+    )
+
+    assert all(outcome.place is not None for outcome in outcomes)
+    assert len(created) == 1
+    assert len(observed) == 2
+    assert created[0].is_closed is False
+    await resolver.aclose()
+    assert created[0].is_closed is True
+    await resolver.aclose()
 
 
 @pytest.mark.asyncio
@@ -91,6 +135,7 @@ async def test_amap_exact_city_category_match_is_adopted_with_redacted_receipt()
         "140200",
         "140400",
         "140500",
+        "140600",
     ]
     assert "key=test-only" in str(request.url)
     assert "test-only" not in str(outcome.receipt)
@@ -297,12 +342,12 @@ async def test_amap_provider_name_variants_remain_unique_city_category_matches(
     assert outcome.place is not None
     assert outcome.receipt["provider_alias_candidate_count"] == alias_count
     assert outcome.receipt["category_compatible_candidate_count"] == 1
-    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_UNIQUE_POI_ID_V4"
+    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_UNIQUE_OR_SAME_ROAD_V6"
     assert len(observed) == 1
 
 
 @pytest.mark.asyncio
-async def test_amap_unique_safe_alias_wins_over_suffix_equivalent_candidate() -> None:
+async def test_amap_safe_alias_excludes_a_different_venue_candidate() -> None:
     observed: list[httpx.Request] = []
     payload = {
         "status": "1",
@@ -327,7 +372,9 @@ async def test_amap_unique_safe_alias_wins_over_suffix_equivalent_candidate() ->
 
     assert outcome.place is not None
     assert outcome.place.canonical_place_id == "B0PALACE"
-    assert outcome.receipt["category_compatible_candidate_count"] == 2
+    # The lexicon expands the attraction to a scenic-area identity; its museum
+    # is a distinct venue, even when both share the broad attraction category.
+    assert outcome.receipt["category_compatible_candidate_count"] == 1
     assert outcome.receipt["primary_exact_candidate_count"] == 0
     assert outcome.receipt["selection_tier"] == "SAFE_ALIAS_EXACT"
     assert outcome.receipt["category_basis"] == "ATOMIC_NAME_LEXICAL"
@@ -338,6 +385,7 @@ async def test_amap_unique_safe_alias_wins_over_suffix_equivalent_candidate() ->
         "140200",
         "140400",
         "140500",
+        "140600",
     ]
     assert len(observed) == 1
 
@@ -375,13 +423,13 @@ async def test_amap_missing_hint_uses_only_unambiguous_atomic_category_markers(
 @pytest.mark.parametrize(
     ("city", "atomic"),
     [
-        ("成都", "武侯祠"),
+        ("", "武侯祠"),
         ("北京", "https://example.invalid/place"),
         ("北京", "预约说明"),
         ("北京", "去故宫。然后吃饭"),
     ],
 )
-async def test_amap_non_deep_city_or_non_atomic_text_makes_zero_calls(
+async def test_amap_invalid_city_or_non_atomic_text_makes_zero_calls(
     city: str,
     atomic: str,
 ) -> None:
@@ -434,9 +482,10 @@ async def test_amap_timeout_preserves_redacted_city_and_atomic_query_binding() -
     assert "test-only" not in str(binding)
 
 
-def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled() -> None:
+@pytest.mark.asyncio
+async def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled() -> None:
     fixture = build_configured_full_pipeline(
-        Settings(_env_file=None, trip_understanding_provider_mode="fixture")
+        Settings(_env_file=None, runtime_profile="test", trip_understanding_provider_mode="fixture")
     )
     assert isinstance(fixture.place_resolver, ControlledSnapshotPlaceResolver)
 
@@ -449,6 +498,39 @@ def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled() -> N
             amap_api_key="test-amap-key",
         )
     )
-    assert isinstance(live.inference_provider, ResilientStructuredInferenceProvider)
-    assert isinstance(live.inference_provider.primary, QwenStructuredInferenceProvider)
-    assert isinstance(live.place_resolver, AmapPlaceResolver)
+    try:
+        # The approved experience contract forbids replacing a real user's
+        # failed inference with the historical deterministic fallback.
+        assert isinstance(live.inference_provider, ExperienceQwenProvider)
+        assert not hasattr(live.inference_provider, "fallback")
+        assert isinstance(live.place_resolver, AmapPlaceResolver)
+    finally:
+        await live.aclose()
+        await fixture.aclose()
+
+@pytest.mark.asyncio
+async def test_photo_is_taken_only_from_selected_valid_poi_without_extra_request():
+    observed = []
+    correct = _poi(photos=[{"url": "javascript:alert(1)"}, {"url": "http://store.is.autonavi.com/showpic/palace.jpg"}])
+    wrong_city = _poi(provider_id="wrong-city", city="上海市", photos=[{"url": "https://store.is.autonavi.com/showpic/wrong.jpg"}])
+    async with _client({"status": "1", "pois": [wrong_city, correct]}, observed) as client:
+        outcome = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
+            city="北京", atomic_place_name="故宫博物院", category_hint="景点")
+    assert outcome.place is not None
+    assert outcome.place.photo_url == "https://store.is.autonavi.com/showpic/palace.jpg"
+    assert len(observed) == 1
+    assert observed[0].url.params["show_fields"] == "business,photos"
+    assert "photo" not in str(outcome.receipt).lower()
+
+
+@pytest.mark.parametrize("value", [
+    "https://localhost/pic", "https://127.0.0.1/pic",
+    "https://store.is.autonavi.com.evil.test/pic",
+    "https://user:secret@store.is.autonavi.com/pic",
+    "https://store.is.autonavi.com/pic?key=secret",
+    "https://store.is.autonavi.com:443/pic",
+    "data:image/png;base64,secret", "javascript:alert(1)", "", None,
+])
+def test_photo_projection_rejects_untrusted_or_secret_urls(value):
+    from app.trip_understanding.models import safe_poi_photo_url
+    assert safe_poi_photo_url(value) is None

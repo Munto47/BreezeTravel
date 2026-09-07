@@ -1,5 +1,26 @@
 export type DemoCreateRequest = { mode: 'DEMO' }
 
+export interface DiningCandidatesView {
+  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'NEEDS_CONFIRMATION'
+  message: string
+  candidates: Array<PlaceCandidatesView['candidates'][number] & { reason: string }>
+}
+
+export interface PlaceCandidatesView {
+  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE'
+  candidates: Array<{
+    candidate_token: string
+    name: string
+    category: string
+    area_or_address: string
+    position: {
+      longitude: number
+      latitude: number
+      coordinate_system: 'GCJ02'
+    }
+  }>
+}
+
 export interface TripUnderstandingAcceptedView {
   public_resource_id: string
   status: 'PROCESSING'
@@ -12,6 +33,87 @@ export interface TripUnderstandingProgressView {
   status: 'PROCESSING'
   message: string
   retry_after_ms: number
+  phase: 'RECEIVED' | 'CARDS_AVAILABLE' | 'CHECKING_PLACES'
+  event_cursor: number
+  progress: TripUnderstandingProgressMetrics
+  snapshot: UserFacingTripResult | null
+}
+
+export interface TripUnderstandingProgressMetrics {
+  day_count: number
+  card_count: number
+  places_checked: number
+  places_total: number
+}
+
+export interface TripUnderstandingCancelView {
+  status: 'STOPPED_WITH_DRAFT' | 'STOPPED_EMPTY' | 'ALREADY_FINISHED'
+  message: string
+  has_editable_result: boolean
+}
+
+export type TripUnderstandingCommand =
+  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string }
+  | {
+      command_type: 'ACTIVITY_TIMES_APPLY'
+      changes: Array<{
+        activity_token: string
+        start_time: string
+        end_time: string | null
+      }>
+    }
+  | { command_type: 'UNDO' }
+  | {
+      command_type: 'PLACE_CONFIRM'
+      activity_token: string
+      candidate_token: string
+    }
+  | {
+      command_type: 'ACTIVITY_TIME_SET'
+      activity_token: string
+      start_time?: string | null
+      end_time?: string | null
+      visit_duration_minutes?: number | null
+      locked?: boolean
+    }
+  | {
+      command_type: 'ACTIVITY_INSERT'
+      city?: string | null
+      day_index: number
+      position: number
+      name: string
+      category?: string
+      area_or_address?: string
+      time_hint?: string | null
+    }
+  | { command_type: 'ACTIVITY_DELETE'; activity_token: string }
+  | {
+      command_type: 'ACTIVITY_MOVE'
+      activity_token: string
+      target_day_index: number
+      target_position: number
+    }
+  | {
+      command_type: 'ACTIVITY_TEXT_EDIT'
+      activity_token: string
+      name?: string
+      time_hint?: string | null
+    }
+  | {
+      command_type: 'PLACE_REPLACE'
+      activity_token: string
+      replacement: { name: string; category: string; area_or_address: string }
+    }
+  | {
+      command_type: 'ASSUMPTION_SET'
+      key: 'destination' | 'calendar' | 'party_size'
+      value: string
+    }
+
+export interface CommandAppliedView {
+  status: 'APPLIED'
+  changed_days: string[]
+  map_readiness: 'NEEDS_UPDATE'
 }
 
 export interface AssumptionChipView {
@@ -22,7 +124,12 @@ export interface AssumptionChipView {
 }
 
 export interface KnowledgeSuggestionView {
-  type: 'TYPICAL_DURATION' | 'SUITABLE_TIME' | 'NIGHT_VIEW' | 'SEASON' | 'RESERVATION_ADVICE'
+  type:
+    | 'TYPICAL_DURATION'
+    | 'SUITABLE_TIME'
+    | 'NIGHT_VIEW'
+    | 'SEASON'
+    | 'RESERVATION_ADVICE'
   text: string
   source_name: string
   source_url: string
@@ -30,6 +137,14 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  city?: string | null
+  photo_url?: string | null
+  start_time?: string | null
+  end_time?: string | null
+  visit_duration_minutes?: number | null
+  timing_source?: 'TEXT' | 'USER' | 'SUGGESTED' | 'UNSPECIFIED'
+  locked?: boolean
+  fixed_commitment?: boolean
   activity_token: string
   name: string
   category: string
@@ -43,19 +158,35 @@ export interface ActivityCardView {
 export interface TripDayView {
   label: string
   activities: ActivityCardView[]
+  alternatives?: Array<{ name: string; category: string; city?: string | null }>
 }
 
 export interface UserFacingTripResult {
+  can_undo?: boolean
+  ownership?: 'ANONYMOUS' | 'ACCOUNT'
+  expires_at?: string | null
+  updated_at?: string | null
+  is_demo?: boolean
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: TripDayView[]
   map: {
-    status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+    status:
+      | 'PREPARING'
+      | 'AVAILABLE'
+      | 'NEEDS_UPDATE'
+      | 'LIMITED'
+      | 'UNAVAILABLE'
     message: string
     available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
   }
   stay: {
-    status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+    status:
+      | 'PREPARING'
+      | 'AVAILABLE'
+      | 'NEEDS_UPDATE'
+      | 'LIMITED'
+      | 'UNAVAILABLE'
     message: string
     area_summary: string | null
     searched_scopes: string[]
@@ -66,9 +197,8 @@ export interface UserFacingTripResult {
       category: string
       area_or_address: string
       commute_summary: string
-      max_single_leg_minutes: number
+      max_single_leg_minutes: number | null
       transfer_count: number
-      evidence_gap: string | null
       reason: string
       available_actions: Array<'CHOOSE_STAY'>
       selected: boolean
@@ -87,11 +217,25 @@ export interface PublicRouteModeView {
 }
 
 export interface MapRenderView {
+  points?: Array<{
+    activity_token: string
+    day_label: string
+    sequence_index: number
+    name: string
+    position: {
+      longitude: number
+      latitude: number
+      coordinate_system: 'GCJ02'
+    } | null
+  }>
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
   message: string
   days: Array<{
+    day_index?: number
     label: string
     routes: Array<{
+      from_activity_token?: string
+      to_activity_token?: string
       from_name: string
       to_name: string
       selected_mode: 'walking' | 'transit' | null
@@ -126,12 +270,49 @@ export interface MaterializedTripView {
 }
 
 export interface PublicTripCheckItem {
+  depends_on_routes?: boolean
+  basis_status?: 'CURRENT' | 'NEEDS_RECHECK'
+  affected_activity_tokens?: string[]
   check_token: string
   label: '必须调整' | '可以更好' | '需要确认'
   title: string
   message: string
   affected_days: string[]
   can_preview: boolean
+}
+
+export interface MyTripListItem {
+  public_resource_id: string
+  title: string
+  city: string
+  day_count: number
+  updated_at: string
+  expires_at: string
+  is_demo: boolean
+}
+
+export interface MyTripListView {
+  items: MyTripListItem[]
+  next_cursor: string | null
+}
+
+export interface TripSourceView {
+  status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
+  text: string | null
+  activities: Array<{ activity_token: string; name: string; quote: string }>
+}
+
+export interface TripSupplementaryView {
+  status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
+  days: Array<{
+    day_index: number | null
+    day_label: string
+    items: Array<{
+      name: string
+      time_hint: string | null
+      role: 'OPTIONAL' | 'EXCLUDED'
+    }>
+  }>
 }
 
 export interface PublicTripChecksView {
@@ -143,6 +324,23 @@ export interface PublicTripChecksView {
 }
 
 export interface PublicChangePreview {
+  changes?: Array<{
+    activity_token: string
+    day_label: string
+    name: string
+    before: {
+      start_time: string | null
+      end_time: string | null
+      visit_duration_minutes: number | null
+      locked: boolean
+    }
+    after: {
+      start_time: string | null
+      end_time: string | null
+      visit_duration_minutes: number | null
+      locked: boolean
+    }
+  }>
   change_token: string
   title: string
   summary: string
@@ -169,7 +367,9 @@ export interface DataConsentView {
 export interface PreferenceMemoryView {
   walking_tolerance_minutes: number | null
   preferred_start_time: string | null
-  dining_preferences: Array<'LOCAL' | 'VEGETARIAN' | 'HALAL' | 'NO_SPICY' | 'QUICK'>
+  dining_preferences: Array<
+    'LOCAL' | 'VEGETARIAN' | 'HALAL' | 'NO_SPICY' | 'QUICK'
+  >
   hotel_preferences: Array<'CHAIN' | 'NEAR_TRANSIT' | 'QUIET' | 'CENTRAL'>
   intensity: 'RELAXED' | 'BALANCED' | 'FULL' | null
 }

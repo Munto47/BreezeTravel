@@ -80,8 +80,9 @@ def _active(candidate: KnowledgeClaimCandidate, *, now: datetime) -> bool:
     )
 
 
-def select_knowledge_candidates(
-    candidates: Iterable[KnowledgeClaimCandidate],
+@lru_cache(maxsize=1024)
+def _select_knowledge_candidates_cached(
+    candidates: tuple[KnowledgeClaimCandidate, ...],
     *,
     now: datetime,
     max_per_place: int = 3,
@@ -128,6 +129,19 @@ def select_knowledge_candidates(
         )
         selected[place_id] = tuple(place_candidates[:max_per_place])
     return selected, tuple(sorted(conflict_groups))
+
+
+def select_knowledge_candidates(
+    candidates: Iterable[KnowledgeClaimCandidate],
+    *,
+    now: datetime,
+    max_per_place: int = 3,
+) -> tuple[dict[str, tuple[KnowledgeClaimCandidate, ...]], tuple[tuple[str, str, str], ...]]:
+    return _select_knowledge_candidates_cached(
+        tuple(candidates),
+        now=now,
+        max_per_place=max_per_place,
+    )
 
 
 @lru_cache(maxsize=4096)

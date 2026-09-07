@@ -35,7 +35,7 @@ export default function WorkspaceMapProjection({
     if (!canRender || !projection || !containerRef.current) {
       return
     }
-    const jsKey = process.env.NEXT_PUBLIC_AMAP_JS_KEY
+    const jsKey = process.env.NEXT_PUBLIC_AMAP_KEY
     if (!jsKey) {
       setMapState('unavailable')
       return

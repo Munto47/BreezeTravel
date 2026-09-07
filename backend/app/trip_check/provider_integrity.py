@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -20,6 +21,13 @@ from app.trip_check.models import RunPartialFailure, TripCheckRun, TripCheckStag
 
 
 ROUTE_MODES = ("walking", "transit", "bicycling", "driving")
+PRODUCT_ROUTE_MODES = ("walking", "transit")
+MAX_ROUTE_SPEED_KMH = {
+    "walking": 15.0,
+    "transit": 250.0,
+    "bicycling": 80.0,
+    "driving": 250.0,
+}
 AMAP_ROUTE_ENDPOINTS = {
     "walking": "https://restapi.amap.com/v5/direction/walking",
     "transit": "https://restapi.amap.com/v5/direction/transit/integrated",
@@ -70,6 +78,113 @@ def provider_snapshot_sha256(path: Path = DEFAULT_SNAPSHOT_PATH) -> str:
 
 def _canonical_hash(value: Any) -> str:
     return sha256_canonical(value)
+
+
+def _positive_float(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed) or parsed <= 0:
+        return None
+    return parsed
+
+
+def _amap_route_value(first: dict[str, Any], route: dict[str, Any]) -> dict[str, Any] | None:
+    cost = first.get("cost")
+    duration_raw = cost.get("duration") if isinstance(cost, dict) else None
+    if duration_raw is None:
+        # Compatibility for the older Amap response shape and frozen test fixtures.
+        duration_raw = first.get("duration")
+    duration_seconds = _positive_float(duration_raw)
+    distance_meters = _positive_float(first.get("distance") or route.get("distance"))
+    if duration_seconds is None or distance_meters is None:
+        return None
+    return {
+        "duration_minutes": max(1, math.ceil(duration_seconds / 60)),
+        "distance_km": round(distance_meters / 1000, 3),
+        "transfer_count": None,
+    }
+
+
+def select_product_route_mode(options: dict[str, dict[str, Any]]) -> str | None:
+    """Select the public default route using the walking/transit product policy."""
+    walking = options.get("walking")
+    transit = options.get("transit")
+    if walking and transit:
+        walking_minutes = _positive_float(walking.get("duration_minutes"))
+        transit_minutes = _positive_float(transit.get("duration_minutes"))
+        if walking_minutes is not None and transit_minutes is not None:
+            return "walking" if walking_minutes <= transit_minutes + 10 else "transit"
+    if walking and _positive_float(walking.get("duration_minutes")) is not None:
+        return "walking"
+    if transit and _positive_float(transit.get("duration_minutes")) is not None:
+        return "transit"
+    return None
+
+
+def validate_product_route_observations(
+    observations: list[EvidenceObservation],
+) -> tuple[list[str], dict[str, int]]:
+    """Fail closed on impossible route facts or a non-product default selection."""
+    failures: list[str] = []
+    options_by_edge: dict[str, dict[str, dict[str, Any]]] = {}
+    edges_by_id: dict[str, list[EvidenceObservation]] = {}
+    sane_option_count = 0
+    for item in observations:
+        if item.subject_type == "ROUTE_OPTION":
+            value = item.value if isinstance(item.value, dict) else {}
+            mode = str(value.get("mode") or "")
+            suffix = f":{mode}"
+            if not mode or not item.subject_id.endswith(suffix):
+                failures.append("ROUTE_OPTION_ID_INVALID")
+                continue
+            edge_id = item.subject_id[: -len(suffix)]
+            options_by_edge.setdefault(edge_id, {})[mode] = value
+            duration = _positive_float(value.get("duration_minutes"))
+            distance = _positive_float(value.get("distance_km"))
+            speed = distance / (duration / 60) if duration and distance else None
+            if (
+                item.freshness_status == EvidenceFreshness.UNAVAILABLE
+                or duration is None
+                or distance is None
+                or mode not in MAX_ROUTE_SPEED_KMH
+                or speed is None
+                or speed > MAX_ROUTE_SPEED_KMH[mode]
+            ):
+                failures.append("ROUTE_FACT_PHYSICAL_SANITY_INVALID")
+            else:
+                sane_option_count += 1
+        elif item.subject_type == "ROUTE_EDGE" and item.fact_type == "ROUTE_TIME":
+            edges_by_id.setdefault(item.subject_id, []).append(item)
+
+    if not options_by_edge:
+        failures.append("ROUTE_OPTIONS_MISSING")
+    selected_edge_count = 0
+    for edge_id, options in options_by_edge.items():
+        if set(options) != set(ROUTE_MODES):
+            failures.append("ROUTE_MODE_COVERAGE_MISMATCH")
+        selected = edges_by_id.get(edge_id, [])
+        if len(selected) != 1:
+            failures.append("ROUTE_EDGE_SELECTION_COUNT_INVALID")
+            continue
+        selected_edge_count += 1
+        selected_value = selected[0].value if isinstance(selected[0].value, dict) else {}
+        selected_mode = str(selected_value.get("mode") or "")
+        expected_mode = select_product_route_mode(options)
+        if selected_mode not in PRODUCT_ROUTE_MODES or selected_mode != expected_mode:
+            failures.append("ROUTE_SELECTION_POLICY_MISMATCH")
+            continue
+        expected_value = options.get(selected_mode)
+        if expected_value != selected_value:
+            failures.append("ROUTE_EDGE_OPTION_MISMATCH")
+    if set(edges_by_id) - set(options_by_edge):
+        failures.append("ROUTE_EDGE_WITHOUT_OPTIONS")
+    return sorted(set(failures)), {
+        "route_edge_count": selected_edge_count,
+        "route_option_count": sum(len(value) for value in options_by_edge.values()),
+        "sane_route_option_count": sane_option_count,
+    }
 
 
 def _coords(value: Any) -> Coordinates | None:
@@ -291,8 +406,7 @@ class TripCheckProviderIntegrityCollector:
         for day in revision.days:
             for left, right in zip(day.stops, day.stops[1:]):
                 edge_id = f"{left.stop_id}->{right.stop_id}"
-                selected = left.transport_to_next.mode if left.transport_to_next else "driving"
-                selected = selected if selected in ROUTE_MODES else "driving"
+                selected = select_product_route_mode(city_routes) or ""
                 for mode in ROUTE_MODES:
                     request = {"city": revision.city, "edge_id": edge_id, "mode": mode}
                     field = f"route_edges.{edge_id}.{mode}"
@@ -491,7 +605,6 @@ class TripCheckProviderIntegrityCollector:
             "city": city,
             "mode": mode,
         }
-        selected_mode = mode
         category: str | None = None
         response_payload: Any | None = None
         route_value: dict[str, Any] = {}
@@ -505,6 +618,7 @@ class TripCheckProviderIntegrityCollector:
                 "origin": f"{origin.lng:.6f},{origin.lat:.6f}",
                 "destination": f"{destination.lng:.6f},{destination.lat:.6f}",
                 "output": "json",
+                "show_fields": "cost",
             }
             if mode == "transit":
                 params["city1"] = AMAP_CITY_CODES[city]
@@ -523,17 +637,17 @@ class TripCheckProviderIntegrityCollector:
                     if not isinstance(first, dict):
                         category = "AMAP_ROUTE_EMPTY"
                     else:
-                        route_value = {
-                            "duration_minutes": max(1, round(float(first.get("duration") or 0) / 60)),
-                            "distance_km": round(float(first.get("distance") or 0) / 1000, 3),
-                            "transfer_count": None,
-                        }
+                        parsed_value = _amap_route_value(first, route)
+                        if parsed_value is None:
+                            category = "AMAP_ROUTE_FACT_INVALID"
+                        else:
+                            route_value = parsed_value
             except Exception as exc:
                 category = f"AMAP_{type(exc).__name__.upper()}"
         observed_at = datetime.now(timezone.utc)
         observations = self._route_observations(
             edge_id=edge_id,
-            selected_mode=selected_mode,
+            selected_mode="",
             mode=mode,
             value=route_value,
             provider="amap",
@@ -573,8 +687,8 @@ class TripCheckProviderIntegrityCollector:
             for day in revision.days:
                 for left, right in zip(day.stops, day.stops[1:]):
                     edge_id = f"{left.stop_id}->{right.stop_id}"
-                    selected = left.transport_to_next.mode if left.transport_to_next else "driving"
-                    selected = selected if selected in ROUTE_MODES else "driving"
+                    route_options: dict[str, dict[str, Any]] = {}
+                    edge_observations: list[EvidenceObservation] = []
                     for mode in ROUTE_MODES:
                         route_observations, receipt, failure, partial = await self._live_route(
                             session,
@@ -585,13 +699,42 @@ class TripCheckProviderIntegrityCollector:
                             origin=coords.get(left.stop_id),
                             destination=coords.get(right.stop_id),
                         )
-                        if mode != selected:
-                            route_observations = [item for item in route_observations if item.subject_type != "ROUTE_EDGE"]
-                        observations.extend(route_observations)
+                        edge_observations.extend(
+                            item for item in route_observations if item.subject_type != "ROUTE_EDGE"
+                        )
+                        available = next(
+                            (
+                                item.value
+                                for item in route_observations
+                                if item.subject_type == "ROUTE_OPTION"
+                                and item.freshness_status != EvidenceFreshness.UNAVAILABLE
+                                and isinstance(item.value, dict)
+                            ),
+                            None,
+                        )
+                        if available is not None:
+                            route_options[mode] = available
                         receipts.append(receipt)
                         if failure and partial:
                             failures.append(failure)
                             partials.append(partial)
+                    selected = select_product_route_mode(route_options)
+                    if selected is not None:
+                        selected_option = next(
+                            item
+                            for item in edge_observations
+                            if item.subject_id == f"{edge_id}:{selected}"
+                        )
+                        edge_observations.append(
+                            selected_option.model_copy(
+                                update={
+                                    "subject_type": "ROUTE_EDGE",
+                                    "subject_id": edge_id,
+                                    "fact_type": "ROUTE_TIME",
+                                }
+                            )
+                        )
+                    observations.extend(edge_observations)
 
             weather_fields = [f"days.{day.day_index}.weather" for day in revision.days]
             anchor = next(iter(coords.values()), None)

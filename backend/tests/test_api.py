@@ -36,6 +36,10 @@ def mock_db_pool():
     mock_conn.fetch = AsyncMock(return_value=[])
     mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
     mock_conn.__aexit__ = AsyncMock(return_value=None)
+    transaction = MagicMock()
+    transaction.__aenter__ = AsyncMock(return_value=None)
+    transaction.__aexit__ = AsyncMock(return_value=None)
+    mock_conn.transaction = MagicMock(return_value=transaction)
 
     mock_pool = MagicMock()
     mock_pool.acquire = MagicMock(return_value=mock_conn)
@@ -133,6 +137,9 @@ class TestHealthCheck:
 
 class TestRoomAPI:
     def test_create_room_success(self, client, mock_db_pool):
+        mock_db_pool.acquire.return_value.fetchrow.return_value = {
+            "room_id": "test-room-01",
+        }
         resp = client.post("/api/room", json={
             "room_id": "test-room-01",
             "thread_id": "test-thread-01",
@@ -184,14 +191,22 @@ class TestChatAPI:
         # 应包含 done 事件
         assert '"event": "done"' in content or '"event":"done"' in content
 
-    def test_chat_sse_contains_thinking_event(self, client):
+    def test_chat_sse_contains_public_progress_event(self, client):
         resp = client.post("/api/chat", json={
             "thread_id": "test-thread-03",
             "user_id": "user-001",
             "message": "成都美食推荐",
         })
         content = resp.text
-        assert "thinking" in content
+        assert '"event": "progress"' in content
+        assert '"phase": "UNDERSTANDING"' in content
+        forbidden = (
+            "router", "tool_executor", "synthesizer", "critic", "trace_id",
+            "retrieval_provider", "retrieval_request_hash", "retrieval_response_hash",
+            "tool_receipts", "retrieval_audits", "retrieval_snapshots",
+        )
+        assert all(value not in content for value in forbidden)
+        assert "X-Trace-Id" not in resp.headers
 
     def test_chat_sse_contains_place_event(self, client):
         resp = client.post("/api/chat", json={

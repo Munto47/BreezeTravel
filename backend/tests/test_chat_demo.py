@@ -105,6 +105,20 @@ def _chat(client, message: str, city: str, thread_id: str) -> tuple[list[dict], 
     return all_events, place_events
 
 
+def test_public_collaboration_copy_removes_runtime_vocabulary():
+    from app.api.chat import _public_collaboration_text
+
+    text = _public_collaboration_text(
+        "Qwen 模型版本 v3，LangGraph 内部阶段，引用 ID abc-123；"
+        "高德 POI 证据门禁安全降级回执。"
+    )
+    assert text
+    assert all(term.lower() not in text.lower() for term in (
+        "qwen", "deepseek", "langgraph", "模型", "版本", "内部阶段",
+        "引用 id", "高德", "poi", "证据门禁", "回执", "provider",
+    ))
+
+
 # ── 测试组 1：综合推荐（新房间首次问询）────────────────────────────────────
 
 class TestNewRoomFirstQuery:
@@ -144,11 +158,18 @@ class TestNewRoomFirstQuery:
         done_events = [e for e in all_events if e.get("event") == "done"]
         assert len(done_events) == 1, "缺少 done 事件"
 
-    def test_sse_has_thinking_events(self, client):
-        """SSE 流必须包含 thinking 事件"""
+    def test_sse_has_public_progress_events(self, client):
+        """SSE 流只公开三个稳定的用户进度阶段。"""
         all_events, _ = _chat(client, "上海美食", "上海", "demo-t06")
-        thinking_events = [e for e in all_events if e.get("event") == "thinking"]
-        assert len(thinking_events) >= 1, "缺少 thinking 事件"
+        progress_events = [e for e in all_events if e.get("event") == "progress"]
+        assert progress_events, "缺少 progress 事件"
+        phases = {event["data"]["phase"] for event in progress_events}
+        assert phases <= {"UNDERSTANDING", "FINDING_PLACES", "ORGANIZING"}
+        serialized = json.dumps(all_events, ensure_ascii=False)
+        assert all(value not in serialized for value in (
+            "router", "tool_executor", "synthesizer", "critic", "trace_id",
+            "tool_receipts", "retrieval_audits", "retrieval_snapshots",
+        ))
 
     def test_sse_has_text_event(self, client):
         """SSE 流必须包含推荐文案 text 事件"""
@@ -156,6 +177,10 @@ class TestNewRoomFirstQuery:
         text_events = [e for e in all_events if e.get("event") == "text"]
         full_text = "".join(e["data"]["delta"] for e in text_events)
         assert len(full_text) >= 10, f"推荐文案过短：{full_text!r}"
+        assert all(term not in full_text for term in (
+            "高德", "POI", "回执", "证据门禁", "Provider", "provider",
+            "router", "tool_executor", "synthesizer", "critic", "RunSpec",
+        ))
 
     def test_place_has_required_fields(self, client):
         """每个地点卡片必须包含 place_id / name / category / coords"""

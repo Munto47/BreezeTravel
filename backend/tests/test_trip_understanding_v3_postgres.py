@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -23,7 +24,11 @@ from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.models import ActivityMoveCommand
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
-from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
+from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
+from app.trip_understanding.service import (
+    DEMO_CREATE_REQUEST_HASH,
+    TripUnderstandingApplicationService,
+)
 from app.trip_understanding.source_crypto import SourceCipher
 
 
@@ -78,9 +83,11 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
             await migration_connection.close()
 
         pool = await asyncpg.create_pool(database_dsn, min_size=2, max_size=4)
+        geometry_cache = InMemoryRouteGeometryCache()
         repository = PostgresTripUnderstandingRepository(
             pool,
             SourceCipher("postgres-integration-root-secret"),
+            geometry_cache,
         )
         now = datetime.now(timezone.utc)
         created = await repository.create_demo(
@@ -105,9 +112,28 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
                 capability_hash="b" * 64,
                 now=now,
             )
-        job = await repository.claim_next(worker_id="postgres-worker", now=now, lease_seconds=30)
+        stale_job = await repository.claim_next(
+            worker_id="postgres-reused-worker",
+            now=now,
+            lease_seconds=5,
+        )
+        assert stale_job is not None
+        job = await repository.claim_next(
+            worker_id="postgres-reused-worker",
+            now=now + timedelta(seconds=6),
+            lease_seconds=30,
+        )
         assert job is not None
+        assert job.attempt == 2
         output = await build_demo_pipeline().run(DEMO_SOURCE_TEXT)
+        await repository.fail_job(
+            stale_job,
+            category="STALE_FAILURE",
+            now=now + timedelta(seconds=7),
+        )
+        with pytest.raises(JobLeaseLostError):
+            await repository.complete_job(stale_job, output, now=now + timedelta(seconds=7))
+        now += timedelta(seconds=7)
         assert await repository.complete_job(job, output, now=now) is False
         assert await repository.complete_job(job, output, now=now) is True
 
@@ -333,7 +359,7 @@ Day 3：颐和园、圆明园。
         assert requested_map.accepted.status == "PREPARING"
         assert replayed_map.replayed is True
         old_map_claim = await repository.claim_next_map(
-            worker_id="postgres-old-map-worker",
+            worker_id="postgres-reused-map-worker",
             now=now + timedelta(seconds=1),
             lease_seconds=5,
         )
@@ -343,17 +369,25 @@ Day 3：颐和园、圆明园。
             observed_at=now + timedelta(seconds=1),
         )
         replacement_map_claim = await repository.claim_next_map(
-            worker_id="postgres-new-map-worker",
+            worker_id="postgres-reused-map-worker",
             now=now + timedelta(seconds=7),
             lease_seconds=30,
         )
         assert replacement_map_claim is not None
+        assert replacement_map_claim.attempt == old_map_claim.attempt + 1
+        await repository.fail_map_job(
+            old_map_claim,
+            category="STALE_MAP_FAILURE",
+            now=now + timedelta(seconds=8),
+        )
+        cached_geometry_before_stale_completion = dict(geometry_cache._items)
         with pytest.raises(JobLeaseLostError):
             await repository.complete_map_job(
                 old_map_claim,
                 old_map_output,
                 now=now + timedelta(seconds=8),
             )
+        assert geometry_cache._items == cached_geometry_before_stale_completion
         replacement_map_output = await MapRenderer().render(
             await repository.load_map_plan(replacement_map_claim),
             observed_at=now + timedelta(seconds=8),
@@ -469,6 +503,42 @@ Day 3：颐和园、圆明园。
                 "action": "DELETE_SOURCE",
             }
         )
+        private_planned_text = "仅供内部参考的联系电话 010-00000000"
+        async with pool.acquire() as conn:
+            source_revision = await conn.fetchval(
+                """
+                SELECT MAX(revision) FROM trip_understanding_revisions
+                WHERE understanding_id = $1
+                """,
+                full_resource.understanding_id,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_activities (
+                    activity_id, understanding_id, revision, public_activity_token,
+                    day_index, sequence_index, role, mention_text, atomic_place_name,
+                    category_hint, time_hint, eligible_for_place_search,
+                    resolution_status, canonical_place_id, resolver_receipt_json, created_at
+                ) VALUES (
+                    $1, $2, $3, $4, 1, 999, 'PLANNED', $5, NULL,
+                    NULL, NULL, FALSE, 'NOT_ELIGIBLE', NULL, '{}'::jsonb, $6
+                )
+                """,
+                str(uuid4()),
+                full_resource.understanding_id,
+                source_revision,
+                "private-planned-token-1234567890",
+                private_planned_text,
+                now,
+            )
+            assert await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understanding_activities
+                WHERE understanding_id = $1 AND mention_text = $2
+                """,
+                full_resource.understanding_id,
+                private_planned_text,
+            ) == 1
         source_delete = await repository.delete_source(
             full_resource,
             user_id=owner_user_id,
@@ -513,10 +583,18 @@ Day 3：颐和园、圆明园。
             assert await conn.fetchval(
                 """
                 SELECT COUNT(*) FROM trip_understanding_activities
-                WHERE understanding_id = $1 AND role <> 'PLANNED'
+                WHERE understanding_id = $1
+                  AND (position($2 in mention_text) > 0 OR role <> 'PLANNED')
                 """,
                 full_resource.understanding_id,
+                private_planned_text,
             ) == 0
+            # Deleting source text must preserve sanitized POI bindings needed
+            # by the retained itinerary, its map and undo history.
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_activities WHERE understanding_id = $1",
+                full_resource.understanding_id,
+            ) > 0
             assert await conn.fetchval(
                 """
                 SELECT COUNT(*) FROM trip_understanding_deletion_jobs
@@ -588,6 +666,109 @@ Day 3：颐和园、圆明园。
                 """,
                 [created.accepted.public_resource_id, claimed_id],
             ) == 0
+
+        # Cancellation and completion use the same advisory/row-lock order.  Exercise
+        # both deterministic race outcomes against PostgreSQL: the first committer
+        # wins, and a late worker can never resurrect a cancelled aggregate.
+        cancellation_service = TripUnderstandingApplicationService(repository)
+        cancel_source_text = "Day 1 去故宫博物院。"
+        cancel_created = await repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=cancel_source_text,
+            idempotency_key="postgres-cancel-wins-create",
+            request_hash=canonical_sha256(
+                {"mode": "FULL", "source": {"type": "TEXT", "text": cancel_source_text}}
+            ),
+            now=now,
+            retention_days=30,
+        )
+        cancel_job = await repository.claim_next(
+            worker_id="postgres-cancel-wins-worker",
+            now=now,
+            lease_seconds=30,
+        )
+        assert cancel_job is not None
+        cancel_output = await build_full_text_pipeline().run(
+            (await repository.load_source(cancel_job, now=now)).text
+        )
+        cancel_resource = await repository.authorize(
+            cancel_created.accepted.public_resource_id,
+            capability_hash=None,
+            user_id=owner_user_id,
+            now=now,
+        )
+
+        async def late_cancelled_completion():
+            await asyncio.sleep(0.02)
+            return await repository.complete_job(
+                cancel_job,
+                cancel_output,
+                now=now + timedelta(seconds=1),
+            )
+
+        cancelled, late_completion = await asyncio.gather(
+            cancellation_service.cancel_understanding(
+                cancel_resource,
+                idempotency_key="postgres-cancel-wins",
+                now=now,
+            ),
+            late_cancelled_completion(),
+            return_exceptions=True,
+        )
+        assert cancelled.cancelled.status == "STOPPED_EMPTY"
+        assert isinstance(late_completion, JobLeaseLostError)
+        async with pool.acquire() as conn:
+            assert await conn.fetchval(
+                "SELECT state FROM trip_understandings WHERE understanding_id = $1",
+                cancel_resource.understanding_id,
+            ) == "CANCELLED"
+            assert await conn.fetchval(
+                "SELECT status FROM trip_understanding_jobs WHERE job_id = $1",
+                cancel_job.job_id,
+            ) == "CANCELLED"
+
+        finish_source_text = "Day 1 去天坛公园。"
+        finish_created = await repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=finish_source_text,
+            idempotency_key="postgres-completion-wins-create",
+            request_hash=canonical_sha256(
+                {"mode": "FULL", "source": {"type": "TEXT", "text": finish_source_text}}
+            ),
+            now=now,
+            retention_days=30,
+        )
+        finish_job = await repository.claim_next(
+            worker_id="postgres-completion-wins-worker",
+            now=now,
+            lease_seconds=30,
+        )
+        assert finish_job is not None
+        finish_output = await build_full_text_pipeline().run(
+            (await repository.load_source(finish_job, now=now)).text
+        )
+        finish_resource = await repository.authorize(
+            finish_created.accepted.public_resource_id,
+            capability_hash=None,
+            user_id=owner_user_id,
+            now=now,
+        )
+
+        async def late_cancel_after_completion():
+            await asyncio.sleep(0.02)
+            return await cancellation_service.cancel_understanding(
+                finish_resource,
+                idempotency_key="postgres-completion-wins",
+                now=now + timedelta(seconds=1),
+            )
+
+        completed, cancel_after_completion = await asyncio.gather(
+            repository.complete_job(finish_job, finish_output, now=now),
+            late_cancel_after_completion(),
+        )
+        assert completed is False
+        assert cancel_after_completion.cancelled.status == "ALREADY_FINISHED"
+        assert cancel_after_completion.cancelled.has_editable_result is True
 
         extra_full_text = "Day 1 去颐和园。"
         extra_created = await repository.create_full(

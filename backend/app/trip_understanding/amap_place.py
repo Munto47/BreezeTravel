@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 import time
 from dataclasses import dataclass
@@ -16,18 +17,22 @@ from app.constraints.amap_types import (
 from app.schemas.place import PlaceCategory
 from app.trip_understanding._three_city_place_lexicon import (
     LexiconMatchTier,
+    PlaceLexiconLookup,
     get_three_city_place_lexicon,
     normalize_city_name,
     normalize_place_name,
+    venue_kind,
+    venue_suffix_conflicts,
     venue_suffix_equivalent,
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
-from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace
-from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.city_scope import CityScope, CityScopeLookup
+from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
+from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace, safe_poi_photo_url
+from app.trip_understanding.pipeline import atomic_place_rejection_reason, canonical_sha256
 
 
 AMAP_POI_V2_ENDPOINT = "https://restapi.amap.com/v5/place/text"
-_DEEP_CITIES = frozenset({"北京", "上海", "杭州"})
 _FORBIDDEN_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
 _SENTENCE_MARKERS = frozenset("。！？；\n")
 _PROVIDER_STATUS_SUFFIX_RE = re.compile(
@@ -39,11 +44,15 @@ _PROVIDER_MATCH_TIERS = (
     "SAFE_ALIAS_EXACT",
     "VENUE_SUFFIX_EQUIVALENT",
 )
+_STRICT_PROVIDER_TYPE_VENUE_KINDS = frozenset(
+    {"博物馆", "美术馆", "纪念馆", "科技馆", "图书馆", "展览馆", "艺术馆"}
+)
 _CITY_ADMIN_RULES = {
     "北京": {"province": "北京", "adcode_prefix": "11", "municipality": True},
     "上海": {"province": "上海", "adcode_prefix": "31", "municipality": True},
     "杭州": {"province": "浙江", "adcode_prefix": "3301", "municipality": False},
 }
+_CITY_BOUNDS = {"北京": (115.4, 117.6, 39.4, 41.1), "上海": (120.8, 122.3, 30.6, 31.9), "杭州": (118.3, 120.8, 29.1, 30.8)}
 _DISTRICT_ADCODES = {
     "北京": {
         "东城": "110101",
@@ -276,7 +285,9 @@ def _provider_aliases(raw: dict[str, Any]) -> list[str]:
 
 def _comparison_values(value: str, *, city: str, provider_name: bool) -> set[str]:
     cleaned = _PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip() if provider_name else value.strip()
-    normalized = _normalized_name(cleaned)
+    # Retain the qualifier's text: 东馆 and (东馆) identify the same campus.
+    # Removing the qualifier itself would turn a specific branch into its parent.
+    normalized = re.sub(r"[()·]", "", _normalized_name(cleaned))
     if not normalized:
         return set()
     values = {normalized}
@@ -284,6 +295,39 @@ def _comparison_values(value: str, *, city: str, provider_name: bool) -> set[str
         if normalized.startswith(prefix) and len(normalized) > len(prefix):
             values.add(normalized[len(prefix) :])
     return values
+
+
+def _identity_qualified(value: str) -> bool:
+    value = _PROVIDER_STATUS_SUFFIX_RE.sub("", value)
+    return bool(
+        re.search(r"[()（）—·-]", value)
+        or any(marker in value for marker in ("入口", "出口", "检票", "售票", "停车", "打卡", "走廊", "冰上运动", "地铁站", "公交站", "分馆", "馆区", "校区", "院区", "分店", "大堂", "寄存"))
+        or re.search(r"(?:东|西|南|北|新|旧|老|总)馆|(?:东|西|南|北)门|.+店$", value)
+        or re.search(r"(?:博物馆|博物院|美术馆|科技馆|酒店|饭店|公园|景区).+(?:馆|楼|厅|门|店|中心|区|堂)$",
+                     re.sub(r"(?:风景区|景区)$", "", value))
+    )
+
+
+def _place_venue_kind(value: str) -> str | None:
+    """A campus qualifier keeps its museum/library identity, even in brackets."""
+    direct = venue_kind(value)
+    if direct is not None:
+        return direct
+    value = _PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip()
+    campus = re.fullmatch(
+        r"(?P<base>.+(?:博物院|博物馆|美术馆|科技馆|纪念馆|图书馆|展览馆|艺术馆))"
+        r"[（(·— -]?[A-Za-z0-9\u4e00-\u9fff·]{0,16}(?:馆区|院区|校区|分馆|馆)[）)]?",
+        value,
+    )
+    return venue_kind(campus["base"]) if campus else None
+
+
+def _explicit_venue_suffix_equivalent(left: str, right: str) -> bool:
+    # A shared stem is not evidence that an unspecified area is a museum.
+    # Only names that already state the same venue kind can use this tier;
+    # exact reviewed aliases remain eligible through the earlier alias tier.
+    left_kind = venue_kind(left)
+    return left_kind is not None and left_kind == venue_kind(right) and venue_suffix_equivalent(left, right)
 
 
 def _name_match_tier(
@@ -294,7 +338,9 @@ def _name_match_tier(
     city: str,
 ) -> str | None:
     primary = raw.get("name")
-    if not isinstance(primary, str) or not primary.strip():
+    if not isinstance(primary, str) or atomic_place_rejection_reason("".join(primary.split())):
+        return None
+    if venue_suffix_conflicts(canonical_name, _PROVIDER_STATUS_SUFFIX_RE.sub("", primary).strip()):
         return None
     canonical_values = _comparison_values(canonical_name, city=city, provider_name=False)
     safe_alias_values = {
@@ -305,6 +351,23 @@ def _name_match_tier(
     primary_values = _comparison_values(primary, city=city, provider_name=True)
     if canonical_values & primary_values:
         return "CANONICAL_EXACT"
+    if safe_alias_values & primary_values:
+        return "SAFE_ALIAS_EXACT"
+
+    # Administrative honors do not change a named forest park's identity.
+    if re.fullmatch(r".{2,}国家森林公园", canonical_name) and primary == canonical_name.replace("国家森林公园", "森林公园"):
+        return "VENUE_SUFFIX_EQUIVALENT"
+    # A provider may prefix a museum with its enclosing park. Require the
+    # separate address field to name that exact parent; never strip branches.
+    parent, separator, child = primary.partition("-")
+    if (separator and child == canonical_name and raw.get("address") == parent
+            and parent.endswith(("公园", "景区")) and canonical_name.endswith(("博物馆", "纪念馆"))):
+        return "VENUE_SUFFIX_EQUIVALENT"
+
+    # Untrusted provider aliases cannot erase a campus, branch or child POI.
+    # Source-backed explicit aliases above still need full city/type validation.
+    if _identity_qualified(primary) or _identity_qualified(canonical_name) or "广场" in primary:
+        return None
 
     provider_alias_values = {
         value
@@ -319,7 +382,7 @@ def _name_match_tier(
     expected_values = canonical_values | safe_alias_values
     provider_values = primary_values | provider_alias_values
     if any(
-        venue_suffix_equivalent(provider_value, expected_value)
+        _explicit_venue_suffix_equivalent(provider_value, expected_value)
         for provider_value in provider_values
         for expected_value in expected_values
     ):
@@ -357,6 +420,11 @@ def _product_semantic_technical_category_is_compatible(
 ) -> bool:
     typecode = str(receipt.get("typecode") or "").strip()
     normalized = _normalized_name(atomic)
+    label = str(receipt.get("type") or "")
+    if typecode.startswith("0801") and (typecode != "080101" or label != "体育休闲服务;运动场馆;综合体育馆"):
+        return False
+    if typecode.startswith("1903") and label != "地名地址信息;交通地名;道路名":
+        return False
     return any(
         expected_category == category
         and typecode.startswith(prefixes)
@@ -391,7 +459,10 @@ def _admin_matches(
     *,
     expected_city: str,
     expected_district: str | None,
+    scope: CityScope | None = None,
 ) -> bool:
+    if scope is not None:
+        return scope.matches(raw, expected_district)
     city = _normalized_city(expected_city)
     rule = _CITY_ADMIN_RULES.get(city)
     if rule is None:
@@ -450,6 +521,80 @@ class _CandidateDecision:
     metrics: dict[str, object]
 
 
+def _visitor_type_compatible(raw: dict[str, Any], atomic: str) -> bool:
+    """Paired provider categories, not keyword similarity or search rank.
+
+    Commercial streets and named roads are legitimate itinerary destinations.
+    A landmark bridge can carry both attraction and bridge classifications.
+    Every pair must agree; a hotel, restaurant or missing segment still fails.
+    """
+    code, label = raw.get("typecode"), raw.get("type")
+    if not isinstance(code, str) or not isinstance(label, str):
+        return False
+    if re.fullmatch(r"0610\d{2}", code) and label in {
+        "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
+    }:
+        return True
+    if code == "190301" and label == "地名地址信息;交通地名;道路名":
+        return atomic.endswith(("路", "街", "巷", "胡同"))
+    if code == "080500" and label == "体育休闲服务;休闲场所;休闲场所":
+        return atomic.endswith(("古镇", "小镇"))
+    codes, labels = code.split("|"), label.split("|")
+    if len(codes) != len(labels) or len(codes) < 2:
+        return False
+    attraction = False
+    for item_code, item_label in zip(codes, labels, strict=True):
+        signal = classify_amap_type_signals(item_code, item_label)
+        if signal.complete and not signal.conflict and signal.category == PlaceCategory.ATTRACTION:
+            attraction = True
+        elif re.fullmatch(r"0610\d{2}", item_code) and item_label in {
+            "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
+        }:
+            attraction = True
+        elif not (atomic.endswith("桥") and (item_code, item_label) == ("190307", "地名地址信息;交通地名;桥")):
+            return False
+    return attraction
+
+
+def _same_road_segments(candidates: tuple[_MatchedCandidate, ...]) -> bool:
+    """Only duplicate segments of one exact road within the same district.
+
+    Never break ties between stores, attractions, districts or distant roads.
+    The provider's first eligible segment supplies the actual map coordinate.
+    """
+    if len(candidates) < 2 or any(c.raw.get("typecode") != "190301" for c in candidates):
+        return False
+    if len({(_normalized_name(str(c.raw.get("name"))), c.raw.get("adcode")) for c in candidates}) != 1:
+        return False
+    for index, left in enumerate(candidates):
+        for right in candidates[index + 1:]:
+            lon1, lat1 = map(math.radians, left.coordinates)
+            lon2, lat2 = map(math.radians, right.coordinates)
+            hav = math.sin((lat2-lat1)/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2
+            if 12742000 * math.asin(min(1, math.sqrt(hav))) > 200:
+                return False
+    return True
+
+
+def _same_visitor_street(candidates: tuple[_MatchedCandidate, ...], atomic: str) -> bool:
+    """A road and visitor POI can locate the same short named street."""
+    if len(candidates) < 2 or not atomic.endswith(("路", "街", "巷", "胡同")):
+        return False
+    if len({(c.raw.get("name"), c.raw.get("adcode")) for c in candidates}) != 1:
+        return False
+    codes = {c.raw.get("typecode") for c in candidates}
+    if "190301" not in codes or not codes.issubset({"190301", "061000", "061001", "110200"}):
+        return False
+    for left in candidates:
+        for right in candidates:
+            lon1, lat1 = map(math.radians, left.coordinates)
+            lon2, lat2 = map(math.radians, right.coordinates)
+            hav = math.sin((lat2-lat1)/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2
+            if 12742000 * math.asin(min(1, math.sqrt(hav))) > 400:
+                return False
+    return True
+
+
 def _evaluate_candidates(
     pois: list[dict[str, Any]],
     *,
@@ -459,10 +604,14 @@ def _evaluate_candidates(
     expected_category: PlaceCategory | None,
     expected_district: str | None,
     atomic: str,
+    scope: CityScope | None = None,
 ) -> _CandidateDecision:
     name_matches: list[tuple[dict[str, Any], str]] = []
     alias_match_ids: set[str] = set()
+    hint = landmark_hint(city, canonical_name)
     for item in pois:
+        if hint and not hint.matches(str(item.get("name") or "")):
+            continue
         tier = _name_match_tier(
             item,
             canonical_name=canonical_name,
@@ -488,9 +637,46 @@ def _evaluate_candidates(
             item,
             expected_city=city,
             expected_district=expected_district,
+            scope=scope,
         ):
             continue
         admin_match_ids.add(provider_id)
+
+        # AMap's broad attraction category cannot distinguish a museum from a
+        # library (or a stadium from a gymnasium). Cross-check every explicit
+        # venue kind carried by the provider name, aliases and type labels
+        # before accepting an otherwise exact lexical match.
+        expected_venue_kind = _place_venue_kind(atomic) or _place_venue_kind(canonical_name)
+        provider_name_kinds = [_place_venue_kind(value) for value in _string_values(item.get("name"))]
+        # An alias such as 上海科技馆分馆 describes affiliation, not this
+        # natural-history museum's category. Bare explicit kinds still conflict.
+        provider_name_kinds += [
+            venue_kind(part.strip())
+            for value in _provider_aliases(item)
+            for part in re.split(r"[|;/；]", value)
+            if part.strip()
+        ]
+        provider_type_parts = [
+            part.strip()
+            for value in _string_values(item.get("type"))
+            for part in re.split(r"[|;/；]", value)
+            if part.strip()
+        ]
+        name_identity_conflict = expected_venue_kind is not None and any(
+            candidate_kind is not None and candidate_kind != expected_venue_kind
+            for candidate_kind in provider_name_kinds
+        )
+        strict_type_identity_conflict = (
+            expected_venue_kind in _STRICT_PROVIDER_TYPE_VENUE_KINDS
+            and any(
+                (candidate_kind := venue_kind(value)) in _STRICT_PROVIDER_TYPE_VENUE_KINDS
+                and candidate_kind != expected_venue_kind
+                for value in provider_type_parts
+            )
+        )
+        if name_identity_conflict or (strict_type_identity_conflict and not verified_technical_landmark(item, city=city, name=canonical_name)):
+            category_conflict_ids.add(provider_id)
+            continue
 
         typecode_raw = item.get("typecode")
         type_label_raw = item.get("type")
@@ -498,13 +684,29 @@ def _evaluate_candidates(
         type_label = type_label_raw.strip() if isinstance(type_label_raw, str) else ""
         signals = classify_amap_type_signals(typecode, type_label)
         compatibility_basis = "PROVIDER_TYPECODE_AND_LABEL"
-        if signals.conflict:
+        visitor_type = expected_category in {None, PlaceCategory.ATTRACTION} and _visitor_type_compatible(item, atomic)
+        if ("|" in typecode or "|" in type_label) and not visitor_type:
             category_conflict_ids.add(provider_id)
             continue
-        if signals.complete:
+        if signals.conflict and not visitor_type:
+            category_conflict_ids.add(provider_id)
+            continue
+        if expected_category == PlaceCategory.ATTRACTION and verified_technical_landmark(item, city=city, name=canonical_name):
+            category = PlaceCategory.ATTRACTION
+            compatibility_basis = "REVIEWED_LANDMARK_EXACT_TECHNICAL_TYPE"
+        elif visitor_type:
+            category = PlaceCategory.ATTRACTION
+            compatibility_basis = (
+                "G01_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY"
+                if expected_category is not None and _product_semantic_technical_category_is_compatible(
+                    item, atomic=atomic, expected_category=expected_category,
+                ) else "EXACT_VISITOR_PLACE_PROVIDER_TYPES"
+            )
+        elif signals.complete:
             category = signals.category
         elif (
-            expected_category is not None
+            hint is None
+            and expected_category is not None
             and typecode
             and type_label
             and _product_semantic_technical_category_is_compatible(
@@ -526,6 +728,9 @@ def _evaluate_candidates(
         coordinates = _coordinates(item.get("location"))
         if coordinates is None:
             continue
+        west, east, south, north = scope.bounds if scope else _CITY_BOUNDS[_normalized_city(city)]
+        if not (west <= coordinates[0] <= east and south <= coordinates[1] <= north):
+            continue
         by_tier[tier].setdefault(
             provider_id,
             _MatchedCandidate(
@@ -544,8 +749,13 @@ def _evaluate_candidates(
         if not candidates:
             continue
         selection_tier = tier if len(candidates) == 1 else f"AMBIGUOUS_{tier}"
-        if len(candidates) == 1:
+        if _same_visitor_street(candidates, atomic):
+            selected = next(c for c in candidates if c.raw.get("typecode") != "190301") if any(c.raw.get("typecode") != "190301" for c in candidates) else candidates[0]
+            selection_tier = f"{tier}_SAME_VISITOR_STREET"
+        elif len(candidates) == 1 or _same_road_segments(candidates):
             selected = candidates[0]
+            if len(candidates) > 1:
+                selection_tier = f"{tier}_NEARBY_ROAD_SEGMENTS"
         break
 
     compatible_ids = {
@@ -562,7 +772,7 @@ def _evaluate_candidates(
         "primary_exact_candidate_count": len(by_tier["CANONICAL_EXACT"]),
         "provider_type_conflict_candidate_count": len(category_conflict_ids),
         "provider_type_incomplete_candidate_count": len(category_incomplete_ids),
-        "name_match_policy": "HIGHEST_TIER_UNIQUE_POI_ID_V4",
+        "name_match_policy": "HIGHEST_TIER_UNIQUE_OR_SAME_ROAD_V6",
         "selection_tier": selection_tier,
     }
     return _CandidateDecision(selected=selected, metrics=metrics)
@@ -654,6 +864,23 @@ class AmapPlaceResolver:
         self.endpoint = endpoint
         self.deadline_seconds = deadline_seconds
         self.client = client
+        self._owned_client: httpx.AsyncClient | None = None
+        self._city_scopes = CityScopeLookup()
+
+    async def city_scope(self, city: str, receipt: dict | None = None) -> CityScope | None:
+        return await self._city_scopes.get(city, client=self._http_client(), api_key=self.api_key, timeout=self.deadline_seconds, receipt=receipt)
+
+    def _http_client(self) -> httpx.AsyncClient:
+        if self.client is not None:
+            return self.client
+        if self._owned_client is None:
+            self._owned_client = httpx.AsyncClient(timeout=self.deadline_seconds)
+        return self._owned_client
+
+    async def aclose(self) -> None:
+        if self._owned_client is not None:
+            await self._owned_client.aclose()
+            self._owned_client = None
 
     @staticmethod
     def _no_call_receipt(
@@ -690,7 +917,7 @@ class AmapPlaceResolver:
             "page_size": 25,
             "page_num": 1,
             "output": "json",
-            "show_fields": "business",
+            "show_fields": "business,photos",
             "types": typecodes,
         }
         params: dict[str, object] = {
@@ -701,7 +928,7 @@ class AmapPlaceResolver:
             "page_size": 25,
             "page_num": 1,
             "output": "json",
-            "show_fields": "business",
+            "show_fields": "business,photos",
         }
         if typecodes:
             params["types"] = "|".join(typecodes)
@@ -725,15 +952,11 @@ class AmapPlaceResolver:
         started = time.perf_counter()
         observed_at = datetime.now(UTC)
         try:
-            if self.client is not None:
-                response = await self.client.get(
-                    self.endpoint,
-                    params=params,
-                    timeout=self.deadline_seconds,
-                )
-            else:
-                async with httpx.AsyncClient(timeout=self.deadline_seconds) as client:
-                    response = await client.get(self.endpoint, params=params)
+            response = await self._http_client().get(
+                self.endpoint,
+                params=params,
+                timeout=self.deadline_seconds,
+            )
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as exc:
@@ -807,12 +1030,17 @@ class AmapPlaceResolver:
             "typecode": str(raw.get("typecode") or "NOT_EXPOSED_BY_PROVIDER"),
             "coordinates": {"longitude": longitude, "latitude": latitude},
         }
+        raw_photos = raw.get("photos")
+        photos = raw_photos if isinstance(raw_photos, list) else [raw_photos] if isinstance(raw_photos, dict) else []
+        photo_url = next((url for photo in photos if isinstance(photo, dict)
+                          if (url := safe_poi_photo_url(photo.get("url")))), None)
         place = ResolvedPlace(
             canonical_place_id=str(raw["id"]),
             name=str(raw["name"]),
             category=_CATEGORY_LABELS[candidate.category],
             area_or_address=address.strip(),
             provider_binding=provider_binding,
+            photo_url=photo_url,
         )
         return PlaceResolutionOutcome(place=place, receipt=provider_binding)
 
@@ -828,6 +1056,7 @@ class AmapPlaceResolver:
         if (
             not atomic
             or len(atomic) > 40
+            or atomic_place_rejection_reason("".join(atomic.split())) is not None
             or any(marker in atomic.casefold() for marker in _FORBIDDEN_MARKERS)
             or any(marker in atomic for marker in _SENTENCE_MARKERS)
         ):
@@ -839,21 +1068,34 @@ class AmapPlaceResolver:
                 )
             )
         normalized_city = _normalized_city(city)
-        if normalized_city not in {_normalized_city(value) for value in _DEEP_CITIES}:
+        city_receipt: dict = {}
+        scope = await self.city_scope(city, city_receipt) if normalized_city not in _CITY_BOUNDS else None
+        if normalized_city not in _CITY_BOUNDS and scope is None:
             return PlaceResolutionOutcome(
-                receipt=self._no_call_receipt(
+                receipt={**self._no_call_receipt(
                     city=city,
                     atomic_place_name=atomic,
-                    status="BASIC_CITY_CONFIRMATION_REQUIRED",
-                )
+                    status="CITY_SCOPE_NOT_FOUND",
+                ), "city_scope": city_receipt},
             )
 
         lexicon = get_three_city_place_lexicon()
         lookup = lexicon.lookup(city=normalized_city, name=atomic) if lexicon.available else None
+        if lookup is not None and lookup.tier is LexiconMatchTier.VENUE_SUFFIX_EQUIVALENT:
+            # The query lexicon also offers stem-only suggestions. They cannot
+            # supply a missing venue identity before provider confirmation.
+            lookup = PlaceLexiconLookup(
+                tier=lookup.tier,
+                matches=tuple(entry for entry in lookup.matches if any(
+                    _explicit_venue_suffix_equivalent(atomic, name)
+                    for name in (entry.canonical_name, *entry.aliases)
+                )),
+            )
         lexicon_binding: dict[str, object] = {
             "lexicon_status": "UNAVAILABLE" if not lexicon.available else "MISS",
             "lexicon_match_tier": LexiconMatchTier.NONE.value,
             "lexicon_rewrite_applied": False,
+            **({"city_scope": city_receipt} if city_receipt else {}),
         }
         query_name = atomic
         safe_aliases: tuple[str, ...] = ()
@@ -886,6 +1128,14 @@ class AmapPlaceResolver:
                 "lexicon_category": entry.category,
                 "lexicon_district_constraint": expected_district is not None,
             }
+
+        hint = landmark_hint(normalized_city, atomic)
+        if hint is not None and (lookup is None or not lookup.matches or hint.matches(query_name)):
+            query_name = hint.name
+            safe_aliases = hint.aliases
+            expected_district = hint.district
+            lexicon_category = PlaceCategory.ATTRACTION
+            lexicon_binding["landmark_hint"] = "reviewed-landmarks-v1"
 
         expected_category = _expected_category(category_hint)
         category_basis = "EXPLICIT_SEMANTIC_HINT"
@@ -920,6 +1170,8 @@ class AmapPlaceResolver:
         # the shared category list is part of older suggestion query contracts.
         if expected_category == PlaceCategory.ATTRACTION:
             typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
+            if hint is not None:
+                typecodes = [hint.typecode]
 
         pois, primary_base = await self._query_provider(
             city=city,
@@ -937,6 +1189,7 @@ class AmapPlaceResolver:
             expected_category=expected_category,
             expected_district=expected_district,
             atomic=atomic,
+            scope=scope,
         )
         primary_receipt = {**primary_base, **primary_decision.metrics}
         if primary_decision.selected is not None:
@@ -976,6 +1229,7 @@ class AmapPlaceResolver:
                 expected_category=expected_category,
                 expected_district=expected_district,
                 atomic=atomic,
+                scope=scope,
             )
             rewrite_receipt = {**rewrite_base, **rewrite_decision.metrics}
             combined_receipt = _combine_rewrite_receipts(

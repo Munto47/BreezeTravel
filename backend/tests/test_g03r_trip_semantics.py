@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from pathlib import Path
 
 import pytest
 
 from app.trip_understanding.full_text import DeterministicTextInferenceProvider
 from app.trip_understanding.models import InferenceProposal, ProposedMention
-from app.trip_understanding.pipeline import TripUnderstandingPipeline
+from app.trip_understanding.pipeline import TripUnderstandingPipeline, source_destination_cities
 from app.trip_understanding.qwen_provider import (
     QwenSemanticDraft,
     QwenStructuredInferenceProvider,
@@ -16,6 +18,23 @@ from app.trip_understanding.qwen_provider import (
 def _span(source: str, name: str) -> tuple[int, int]:
     start = source.index(name)
     return start, start + len(name)
+
+
+def test_all_frozen_text_card_sources_recover_the_declared_destination_scope() -> None:
+    dataset_dir = Path("eval_data/trip_text_cards_v1")
+    rows = []
+    for filename in ("dev.inputs.jsonl", "validation.inputs.jsonl"):
+        rows.extend(
+            json.loads(line)
+            for line in (dataset_dir / filename).read_text(encoding="utf-8").splitlines()
+        )
+
+    assert len(rows) == 72
+    assert [
+        row["case_id"]
+        for row in rows
+        if list(source_destination_cities(row["input_text"])) != row["city_scope"]
+    ] == []
 
 
 def test_qwen_day_titles_and_source_order_override_model_array_order() -> None:
@@ -57,6 +76,55 @@ def test_qwen_day_titles_and_source_order_override_model_array_order() -> None:
     assert [item.atomic_place_name for item in normalized] == names
     assert [item.day_index for item in normalized] == [1, 2, 3, 4, 5]
     assert [item.sequence_index for item in normalized] == [0, 0, 0, 0, 0]
+
+
+def test_qwen_day_title_does_not_upgrade_a_descriptive_reference_to_planned() -> None:
+    source = "北京。Day 1 故宫是世界文化遗产。"
+    start, end = _span(source, "故宫")
+    draft = QwenSemanticDraft.model_validate(
+        {
+            "destination": {
+                "basis": "EXPLICIT",
+                "evidence_span_start": 0,
+                "evidence_span_end": 2,
+            },
+            "mentions": [
+                {
+                    "span_start": start,
+                    "span_end": end,
+                    "role": "REFERENCE",
+                    "atomic_place_name": "故宫",
+                }
+            ],
+        }
+    )
+
+    normalized, _destination, counts = (
+        QwenStructuredInferenceProvider._proposal_from_draft(source, draft)
+    )
+
+    assert [(item.atomic_place_name, item.role.value, item.day_index) for item in normalized] == [
+        ("故宫", "REFERENCE", None)
+    ]
+    assert counts["local_role_reclassification_count"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source",
+    (
+        "北京。Day 1 故宫是世界文化遗产。",
+        "北京。Day 1 去年故宫游客很多。",
+    ),
+)
+async def test_local_fallback_keeps_day_descriptions_out_of_planned_cards(
+    source: str,
+) -> None:
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    assert [item for item in proposal.mentions if item.role.value == "PLANNED"] == []
+    assert all(item.atomic_place_name != "故宫是世界文化遗产" for item in proposal.mentions)
+    assert all(item.atomic_place_name != "年故宫游客很多" for item in proposal.mentions)
 
 
 @pytest.mark.asyncio
@@ -301,6 +369,97 @@ async def test_local_fallback_preserves_controlled_other_city_metadata() -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source", "place", "expected_destination", "expected_cities"),
+    (
+        (
+            "这是一份围绕北京的三天攻略。第1天先去故宫博物院。",
+            "故宫博物院",
+            "北京",
+            ["北京"],
+        ),
+        (
+            "朋友转来一段上海的三日攻略。第1天先去外滩。",
+            "外滩",
+            "上海",
+            ["上海"],
+        ),
+        (
+            "整理杭州的三日行程。第1天先去西湖。",
+            "西湖",
+            "杭州",
+            ["杭州"],
+        ),
+        (
+            "这是一份围绕南京的三天攻略。第1天先去中山陵。",
+            "中山陵",
+            "南京",
+            ["南京"],
+        ),
+        (
+            "这是一份围绕北京、杭州的三天攻略。第1天先去中山公园。",
+            "中山公园",
+            "北京、杭州",
+            ["北京", "杭州"],
+        ),
+    ),
+)
+async def test_pipeline_never_uses_an_unrelated_model_fragment_as_destination_lane(
+    source: str,
+    place: str,
+    expected_destination: str,
+    expected_cities: list[str],
+) -> None:
+    start, end = _span(source, place)
+
+    class Provider:
+        async def propose(self, source_text: str) -> InferenceProposal:
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name="三",
+                destination_basis="EXPLICIT",
+                mentions=[
+                    ProposedMention(
+                        mention_id="destination-guard",
+                        raw_text=place,
+                        span_start=start,
+                        span_end=end,
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=0,
+                        atomic_place_name=place,
+                    )
+                ],
+                binding={"provider": "test-double", "external_calls": 1},
+            )
+
+    class Resolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    resolver = Resolver()
+    output = await TripUnderstandingPipeline(Provider(), resolver).run(source)
+
+    assert sorted(resolver.calls) == sorted((city, place) for city in expected_cities)
+    assert output.proposal.destination_name == expected_destination
+    destination_chip = next(
+        item for item in output.public_result.assumptions if item.key == "destination"
+    )
+    assert destination_chip.value == expected_destination
+
+
+@pytest.mark.asyncio
 async def test_resolver_and_public_cards_share_the_same_atomic_planned_gate() -> None:
     source = "未知地点甲；只写描述；010-12345678；预约说明；前往地点丙；推荐地点乙"
     values = [
@@ -362,3 +521,47 @@ async def test_resolver_and_public_cards_share_the_same_atomic_planned_gate() ->
     cards = [card.name for day in output.public_result.days for card in day.activities]
 
     assert resolver.calls == eligible == cards == ["未知地点甲"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source",
+    (
+        "北京 Day 1：上午去吃午饭。",
+        "北京 Day 1：下午安排自由活动。",
+        "北京 Day 1：晚上去酒店休息。",
+        "北京 Day 1：上午去看看风景。",
+    ),
+)
+async def test_generic_activity_prose_never_becomes_an_executable_place(
+    source: str,
+) -> None:
+    class Resolver:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del city, category_hint
+            self.calls.append(atomic_place_name)
+            return None
+
+    resolver = Resolver()
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        resolver,
+    ).run(source)
+
+    assert resolver.calls == []
+    assert output.compiler_receipt["eligible_place_count"] == 0
+    assert output.resolution_receipt["attempted_count"] == 0
+    assert [
+        card
+        for day in output.public_result.days
+        for card in day.activities
+    ] == []

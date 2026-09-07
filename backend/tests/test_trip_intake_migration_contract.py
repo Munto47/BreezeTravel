@@ -9,7 +9,7 @@ LINEAGE_MIGRATION = Path("app/db/migrations/027_trip_intake_revision_lineage.sql
 
 def test_runtime_requires_the_current_complete_migration_set() -> None:
     assert Settings().required_migration == (
-        "034_trip_understanding_screenshot_batches.sql"
+        "035_trip_understanding_cancelled.sql"
     )
 
 

@@ -359,7 +359,8 @@ def test_future_product_contracts_keep_the_approved_boundaries() -> None:
     g05 = _text(_goal_contract(5))
     g06 = _text(_goal_contract(6))
     g07 = _text(_goal_contract(7))
-    assert "SCREENSHOT_BATCH" in api and "禁止JSON Base64" in api
+    assert "FULL + TEXT" in api
+    assert "/api/v3/screenshot-batches" in api and "OCR" in api
     assert "SCREENSHOT_BATCH" in g04 and "禁止Base64 JSON" in g04
     assert "不授权抓取小红书" in g05
     assert "记忆默认关闭" in g06 and "训练/eval consent" in g06

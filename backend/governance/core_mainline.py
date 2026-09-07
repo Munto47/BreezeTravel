@@ -15,6 +15,9 @@ BINDING_PATH = "docs/governance/current_goal_binding.json"
 REGISTRY_PATH = "docs/governance/current_work_packages.json"
 GUIDANCE_PATH = "AGENTS.md"
 CURRENT_GOAL_PATH = "docs/governance/CURRENT_GOAL.md"
+G07_CANDIDATE_CONTRACT_PATH = (
+    "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json"
+)
 OWNER_REVIEW_STATE = "CORE_MVP_OWNER_REVIEW_PENDING"
 OWNER_REVIEW_STATUS = "OWNER_REVIEW_PENDING"
 G03_GOAL_ID = "TC-VNEXT-G03-TOP3-AUDIT"
@@ -211,6 +214,29 @@ def product_fingerprint(root: Path) -> str:
     return digest.hexdigest()
 
 
+def product_fingerprint_at_commit(root: Path, commit: str) -> str:
+    """Rebuild a historical product fingerprint from immutable Git objects."""
+
+    if re.fullmatch(r"[0-9a-f]{40}", commit) is None or not _git_object_exists(
+        root, commit
+    ):
+        raise CoreMainlineError("historical product commit is unavailable")
+    names = _normalized_paths(_git(root, "ls-tree", "-r", "--name-only", commit))
+    paths = tuple(
+        path
+        for path in names
+        if path in PRODUCT_CONFIG_PATHS
+        or any(path.startswith(prefix) for prefix in PRODUCT_ROOTS)
+    )
+    digest = hashlib.sha256()
+    for relative in paths:
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(_git(root, "rev-parse", f"{commit}:{relative}").encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def classify_product_progress(paths: tuple[str, ...]) -> tuple[str, ...]:
     progress: set[str] = set()
     for path in paths:
@@ -297,6 +323,13 @@ def _validate_active_files(
         raise CoreMainlineError("active Goal does not bind the product delivery contract")
     if binding.get("automated_gate_contract_sha256") != _sha256(root / CONTRACT_PATH):
         raise CoreMainlineError("product delivery contract hash binding differs")
+    if sequence == 7:
+        if binding.get("candidate_gate_contract_path") != G07_CANDIDATE_CONTRACT_PATH:
+            raise CoreMainlineError("G07 candidate Gate contract path differs")
+        if binding.get("candidate_gate_contract_sha256") != _sha256(
+            root / G07_CANDIDATE_CONTRACT_PATH
+        ):
+            raise CoreMainlineError("G07 candidate Gate contract hash differs")
     if registry.get("guidance_sha256") != _sha256(root / GUIDANCE_PATH):
         raise CoreMainlineError("work package registry does not bind current AGENTS.md")
     goal_state: dict[str, Any] | None = None
@@ -484,9 +517,7 @@ def validate_core_mainline(
     )
     errors: list[str] = []
     if (
-        sequence == 4
-        and registry.get("active_goal_id") == G04_GOAL_ID
-        and registry.get("schema_version") == "work-package-registry-v3"
+        registry.get("schema_version") == "work-package-registry-v3"
         and registry.get("packages")
     ):
         from governance.work_packages_v3 import validate_registry_v3

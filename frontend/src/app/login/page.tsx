@@ -1,535 +1,250 @@
 'use client'
 
-import { useCallback, useState, useRef, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Compass, Phone, Shield, ArrowRight, Check, Mail, Lock } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
-import { useToastStore } from '@/stores/toastStore'
+import '../experience.css'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+type AuthResponse = { token?: string; user_id?: string; nickname?: string }
 
-type Step = 'phone' | 'code' | 'nickname'
+function returnPath(consume = true) {
+  const requested = sessionStorage.getItem('bt_login_return')
+  if (consume) sessionStorage.removeItem('bt_login_return')
+  if (
+    !requested?.startsWith('/') ||
+    requested.startsWith('//') ||
+    /[\\\u0000-\u001f]/.test(requested)
+  )
+    return '/'
+  try {
+    const target = new URL(requested, window.location.origin)
+    if (
+      target.origin !== window.location.origin ||
+      target.pathname === '/login'
+    )
+      return '/'
+    return `${target.pathname}${target.search}${target.hash}`
+  } catch {
+    return '/'
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter()
-  const { user, login, updateUser } = useAuthStore()
-  const toast = useToastStore(s => s.toast)
-  const [step, setStep] = useState<Step>('phone')
-  const [phone, setPhone] = useState('')
-  const [code, setCode] = useState(['', '', '', '', '', ''])
-  const [nickname, setNickname] = useState('')
-  const [countdown, setCountdown] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [devBypass, setDevBypass] = useState(false)
-  // P1-3：短信兜底通道，邮箱+密码登录/注册
-  const [authMode, setAuthMode] = useState<'phone' | 'email'>('phone')
-  const [emailMode, setEmailMode] = useState<'login' | 'register'>('login')
+  const { user, hydrate, isHydrated, login } = useAuthStore()
+  const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [emailNickname, setEmailNickname] = useState('')
-  const codeRefs = useRef<(HTMLInputElement | null)[]>([])
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const loginHandledRef = useRef(false)
-
-  const finishLoginNavigation = useCallback(() => {
-    const requested = sessionStorage.getItem('bt_login_return')
-    sessionStorage.removeItem('bt_login_return')
-    const destination = requested?.startsWith('/') && !requested.startsWith('//')
-      ? requested
-      : '/'
-    router.replace(destination)
+  const [nickname, setNickname] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [backPath, setBackPath] = useState('/')
+  const submitted = useRef(false)
+  const navigated = useRef(false)
+  const finish = useCallback(() => {
+    if (navigated.current) return
+    navigated.current = true
+    router.replace(returnPath())
   }, [router])
 
-  // 已登录则直接跳主页
   useEffect(() => {
-    if (user && !loginHandledRef.current) finishLoginNavigation()
-  }, [finishLoginNavigation, user])
-
+    hydrate()
+    const target = returnPath(false)
+    setBackPath(
+      target === '/profile' ||
+        target.startsWith('/collaborate') ||
+        target.startsWith('/room/')
+        ? '/'
+        : target,
+    )
+  }, [hydrate])
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [])
+    if (isHydrated && user) finish()
+  }, [isHydrated, user, finish])
 
-  const startCountdown = () => {
-    setCountdown(60)
-    timerRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) { clearInterval(timerRef.current!); return 0 }
-        return prev - 1
-      })
-    }, 1000)
-  }
-
-  const handleSendCode = async () => {
-    const trimmed = phone.trim()
-    if (!/^1[3-9]\d{9}$/.test(trimmed)) {
-      const msg = '请输入正确的 11 位手机号'
-      setError(msg)
-      toast(msg, 'warning')
+  async function authenticate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (submitted.current) return
+    if (
+      mode === 'register' &&
+      !/^(?=.*[A-Za-z])(?=.*\d).{8,64}$/.test(password)
+    ) {
+      setError('密码请使用 8–64 位字符，并包含字母和数字。')
       return
     }
+    submitted.current = true
+    setBusy(true)
     setError('')
-    setLoading(true)
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), 15000)
     try {
-      const res = await fetch(`${API_BASE}/api/auth/send-code`, {
+      const response = await fetch(`/api/auth/email-${mode}`, {
         method: 'POST',
+        credentials: 'include',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: trimmed }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          ...(mode === 'register'
+            ? { nickname: nickname.trim() || undefined }
+            : {}),
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || '发送失败')
-      startCountdown()
-      setStep('code')
-      if (data.dev_bypass) {
-        setDevBypass(true)
-        toast('开发模式：验证码固定为 888888', 'info')
-      } else {
-        toast('验证码已发送', 'success')
+      if (!response.ok) {
+        setError(
+          response.status === 401
+            ? '邮箱或密码不正确，请重新填写。'
+            : response.status === 409
+              ? '这个邮箱已经注册，可以切换到登录。'
+              : response.status === 429
+                ? '操作较频繁，请稍后重试。'
+                : '暂时未能完成，请检查填写内容后重试。',
+        )
+        return
       }
-      setTimeout(() => codeRefs.current[0]?.focus(), 100)
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '发送失败，请重试'
-      setError(msg)
-      toast(msg, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCodeInput = (idx: number, val: string) => {
-    if (val.length === 6 && /^\d{6}$/.test(val)) {
-      const digits = val.split('')
-      setCode(digits)
-      codeRefs.current[5]?.focus()
-      verifyCode(val)
-      return
-    }
-    if (!/^\d?$/.test(val)) return
-    const next = [...code]
-    next[idx] = val
-    setCode(next)
-    if (val && idx < 5) codeRefs.current[idx + 1]?.focus()
-    if (next.every(d => d !== '')) {
-      verifyCode(next.join(''))
-    }
-  }
-
-  const handleCodePaste = (e: React.ClipboardEvent) => {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (pasted.length === 6) {
-      e.preventDefault()
-      const digits = pasted.split('')
-      setCode(digits)
-      codeRefs.current[5]?.focus()
-      verifyCode(pasted)
-    }
-  }
-
-  const handleCodeKeyDown = (idx: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !code[idx] && idx > 0) {
-      codeRefs.current[idx - 1]?.focus()
-    }
-  }
-
-  const verifyCode = async (fullCode: string) => {
-    setError('')
-    setLoading(true)
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), code: fullCode }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || '验证失败')
-
-      if (data.is_new_user) {
-        // 新用户：先写入 token，再引导设置昵称
-        loginHandledRef.current = true
-        login(data.token, { userId: data.user_id, nickname: data.nickname })
-        setStep('nickname')
-      } else {
-        loginHandledRef.current = true
-        login(data.token, { userId: data.user_id, nickname: data.nickname })
-        finishLoginNavigation()
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '验证失败'
-      setError(msg)
-      toast(msg, 'error')
-      setCode(['', '', '', '', '', ''])
-      setTimeout(() => codeRefs.current[0]?.focus(), 50)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleTestLogin = async () => {
-    setError('')
-    setLoading(true)
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/test-login`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || '测试账号登录失败')
-      loginHandledRef.current = true
+      const data = (await response.json()) as AuthResponse
+      if (!data.token || !data.user_id || !data.nickname)
+        throw new Error('INVALID_RESPONSE')
       login(data.token, { userId: data.user_id, nickname: data.nickname })
-      toast(`已用测试账号登录（${data.nickname}）`, 'success')
-      finishLoginNavigation()
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '测试账号登录失败'
-      setError(msg)
-      toast(msg, 'error')
+      finish()
+    } catch {
+      setError(
+        mode === 'register'
+          ? '暂时没有收到结果。可以稍后重试；若提示邮箱已注册，请直接登录。'
+          : '暂时没有收到登录结果，请稍后重试。',
+      )
     } finally {
-      setLoading(false)
+      window.clearTimeout(timer)
+      submitted.current = false
+      setBusy(false)
     }
-  }
-
-  const handleEmailSubmit = async () => {
-    const e = email.trim().toLowerCase()
-    if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(e)) {
-      const msg = '请输入正确的邮箱'
-      setError(msg); toast(msg, 'warning'); return
-    }
-    if (!password) {
-      const msg = '请输入密码'
-      setError(msg); toast(msg, 'warning'); return
-    }
-    if (emailMode === 'register' && !/^(?=.*[A-Za-z])(?=.*\d).{8,64}$/.test(password)) {
-      const msg = '密码至少 8 位，且包含字母 + 数字'
-      setError(msg); toast(msg, 'warning'); return
-    }
-    setError('')
-    setLoading(true)
-    try {
-      const endpoint = emailMode === 'register' ? '/api/auth/email-register' : '/api/auth/email-login'
-      const body: Record<string, unknown> = { email: e, password }
-      if (emailMode === 'register') body.nickname = emailNickname.trim() || undefined
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || (emailMode === 'register' ? '注册失败' : '登录失败'))
-      loginHandledRef.current = true
-      login(data.token, { userId: data.user_id, nickname: data.nickname })
-      toast(emailMode === 'register' ? `已注册，欢迎 ${data.nickname}` : `欢迎回来，${data.nickname}`, 'success')
-      finishLoginNavigation()
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '请求失败'
-      setError(msg); toast(msg, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSetNickname = async () => {
-    const name = nickname.trim() || '旅行者'
-    try {
-      await fetch(`${API_BASE}/api/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-        },
-        body: JSON.stringify({ nickname: name }),
-      })
-    } catch {}
-    updateUser({ nickname: name })
-    finishLoginNavigation()
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex items-center justify-center p-4">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-coral-100/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-blue-100/30 rounded-full blur-3xl" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-sm relative z-10"
-      >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-coral-500 text-white mb-4 shadow-lg shadow-coral-200">
-            <Compass className="w-7 h-7" strokeWidth={2} />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">BreezeTravel</h1>
-          <p className="text-gray-400 text-sm mt-1">导入行程 · 事实核验 · 有依据的调整建议</p>
-        </div>
-
-        {/* 步骤进度条 */}
-        <div className="flex items-center justify-center gap-2 mb-5">
-          {(['phone', 'code', 'nickname'] as const).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                s === step ? 'bg-coral-500 scale-125' :
-                (['phone', 'code', 'nickname'].indexOf(step) > i) ? 'bg-coral-300' : 'bg-gray-200'
-              }`} />
-              {i < 2 && <div className={`w-8 h-px transition-colors duration-300 ${
-                (['phone', 'code', 'nickname'].indexOf(step) > i) ? 'bg-coral-300' : 'bg-gray-200'
-              }`} />}
-            </div>
-          ))}
-        </div>
-
-        {/* 卡片 */}
-        <div className="glass-panel-solid rounded-2xl overflow-hidden shadow-glass">
-          <AnimatePresence mode="wait">
-
-            {/* Step 1: 手机号 / 邮箱 */}
-            {step === 'phone' && (
-              <motion.div
-                key="phone"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-6"
-              >
-                {/* 登录方式 Tab */}
-                <div className="flex bg-gray-100 rounded-xl p-1 mb-5">
-                  {([
-                    { v: 'phone', label: '手机号', icon: <Phone className="w-3.5 h-3.5" /> },
-                    { v: 'email', label: '邮箱', icon: <Mail className="w-3.5 h-3.5" /> },
-                  ] as const).map((t) => (
-                    <button
-                      key={t.v}
-                      data-testid={t.v === 'email' ? 'auth-email-tab' : 'auth-phone-tab'}
-                      onClick={() => { setAuthMode(t.v); setError('') }}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${authMode === t.v ? 'bg-white text-coral-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      {t.icon}{t.label}
-                    </button>
-                  ))}
-                </div>
-
-                {authMode === 'email' ? (
-                  <>
-                    <div className="flex items-center gap-2 mb-4">
-                      <button
-                        onClick={() => { setEmailMode('login'); setError('') }}
-                        className={`text-xs font-medium px-2 py-1 rounded-lg ${emailMode === 'login' ? 'bg-coral-50 text-coral-600' : 'text-gray-500 hover:text-gray-700'}`}
-                      >
-                        登录
-                      </button>
-                      <button
-                        onClick={() => { setEmailMode('register'); setError('') }}
-                        className={`text-xs font-medium px-2 py-1 rounded-lg ${emailMode === 'register' ? 'bg-coral-50 text-coral-600' : 'text-gray-500 hover:text-gray-700'}`}
-                      >
-                        注册
-                      </button>
-                      <span className="ml-auto text-[10px] text-gray-400">短信故障时的兜底通道</span>
-                    </div>
-                    <div className="relative mb-3">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        data-testid="auth-email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="邮箱地址"
-                        autoComplete="email"
-                        className="input-glass pl-9 w-full"
-                      />
-                    </div>
-                    <div className="relative mb-3">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        data-testid="auth-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
-                        placeholder={emailMode === 'register' ? '至少 8 位，含字母+数字' : '密码'}
-                        autoComplete={emailMode === 'register' ? 'new-password' : 'current-password'}
-                        className="input-glass pl-9 w-full"
-                      />
-                    </div>
-                    {emailMode === 'register' && (
-                      <input
-                        data-testid="auth-nickname"
-                        type="text"
-                        value={emailNickname}
-                        onChange={(e) => setEmailNickname(e.target.value)}
-                        placeholder="昵称（可选，默认用邮箱前缀）"
-                        maxLength={20}
-                        className="input-glass mb-3 w-full"
-                      />
-                    )}
-                    {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
-                    <button
-                      data-testid="auth-email-submit"
-                      onClick={handleEmailSubmit}
-                      disabled={loading}
-                      className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"
-                    >
-                      {loading ? (
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>{emailMode === 'register' ? '注册并登录' : '邮箱登录'} <ArrowRight className="w-4 h-4" /></>
-                      )}
-                    </button>
-                  </>
-                ) : (
-                <>
-                <p className="text-xs text-gray-400 mb-4">未注册手机号将自动创建账号</p>
-                <div className="flex gap-2 mb-4">
-                  <div className="flex items-center px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500 font-medium">
-                    +86
-                  </div>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSendCode()}
-                    placeholder="请输入手机号"
-                    maxLength={11}
-                    className="input-glass flex-1"
-                    autoFocus
-                  />
-                </div>
-                {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
-                <button
-                  onClick={handleSendCode}
-                  disabled={loading}
-                  className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>获取验证码 <ArrowRight className="w-4 h-4" /></>
-                  )}
-                </button>
-
-                {/* 测试入口：仅在本地开发时通过 NEXT_PUBLIC_SHOW_TEST_LOGIN=true 显式启用 */}
-                {process.env.NEXT_PUBLIC_SHOW_TEST_LOGIN === 'true' && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={handleTestLogin}
-                      disabled={loading}
-                      className="w-full py-2.5 text-xs text-gray-500 hover:text-coral-600 bg-gray-50 hover:bg-coral-50 border border-gray-200 hover:border-coral-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
-                    >
-                      🚀 使用测试账号一键登录（演示用）
-                    </button>
-                  </div>
-                )}
-                </>
-                )}
-              </motion.div>
-            )}
-
-            {/* Step 2: 验证码 */}
-            {step === 'code' && (
-              <motion.div
-                key="code"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-6"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="w-4 h-4 text-coral-500" />
-                  <span className="text-sm font-semibold text-gray-700">输入验证码</span>
-                </div>
-                <p className="text-xs text-gray-400 mb-2">
-                  已发送至 +86 {phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}
-                </p>
-                {devBypass && (
-                  <div className="mb-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
-                    🛠 开发模式：固定验证码 <span className="font-mono font-bold">888888</span>
-                  </div>
-                )}
-
-                {/* 6 格验证码输入 */}
-                <div className="flex gap-2 mb-4 justify-center">
-                  {code.map((digit, i) => (
-                    <input
-                      key={i}
-                      ref={el => { codeRefs.current[i] = el }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => handleCodeInput(i, e.target.value)}
-                      onKeyDown={e => handleCodeKeyDown(i, e)}
-                      onPaste={handleCodePaste}
-                      className="w-10 h-12 text-center text-lg font-bold border-2 border-gray-200 rounded-xl focus:border-coral-400 focus:outline-none bg-white transition-colors"
-                    />
-                  ))}
-                </div>
-
-                {error && <p className="text-xs text-red-500 mb-3 text-center">{error}</p>}
-
-                {loading && (
-                  <div className="flex justify-center mb-3">
-                    <span className="w-5 h-5 border-2 border-coral-200 border-t-coral-500 rounded-full animate-spin" />
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <button
-                    onClick={() => { setStep('phone'); setCode(['','','','','','']); setError('') }}
-                    className="hover:text-gray-600 transition-colors"
-                  >
-                    更换手机号
-                  </button>
-                  <button
-                    onClick={handleSendCode}
-                    disabled={countdown > 0 || loading}
-                    className="disabled:opacity-40"
-                  >
-                    {countdown > 0 ? `${countdown}s 后重发` : '重新获取'}
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Step 3: 新用户设置昵称 */}
-            {step === 'nickname' && (
-              <motion.div
-                key="nickname"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                className="p-6"
-              >
-                <div className="text-center mb-5">
-                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Check className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <p className="font-semibold text-gray-800">欢迎加入 BreezeTravel！</p>
-                  <p className="text-xs text-gray-400 mt-1">取一个旅行代号吧</p>
-                </div>
-                <input
-                  type="text"
-                  value={nickname}
-                  onChange={e => setNickname(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSetNickname()}
-                  placeholder="你的旅行代号（可跳过）"
-                  maxLength={20}
-                  className="input-glass mb-4"
-                  autoFocus
-                />
-                <button
-                  onClick={handleSetNickname}
-                  className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"
-                >
-                  开始核验 <ArrowRight className="w-4 h-4" />
-                </button>
-              </motion.div>
-            )}
-
-          </AnimatePresence>
-        </div>
-
-        <p className="text-center text-[11px] text-gray-300 mt-6">
-          登录即代表同意用户协议与隐私政策
+    <main className="experience">
+      <header className="e-header">
+        <Link href="/" className="e-brand">
+          行程查<span>TRIPCHECK</span>
+        </Link>
+        <Link
+          href={backPath}
+          className="e-button e-button-quiet"
+          onClick={() => {
+            sessionStorage.removeItem('bt_claim_after_login')
+            sessionStorage.removeItem('bt_login_return')
+          }}
+        >
+          {backPath.startsWith('/trip/result')
+            ? '返回行程'
+            : backPath.startsWith('/collaborate') || backPath.startsWith('/room/')
+              ? '返回协同规划'
+              : '返回首页'}
+        </Link>
+      </header>
+      <section className="e-auth">
+        <div className="e-eyebrow">让下一次出发，接着这次安排</div>
+        <h1>{mode === 'login' ? '找回你的行程。' : '为行程留个位置。'}</h1>
+        <p className="e-muted">
+          登录后可保存当前行程，保留 30 天。未保存的匿名行程保留 24 小时。
         </p>
-      </motion.div>
-    </div>
+        <nav className="e-auth-tabs" aria-label="登录方式">
+          <button
+            type="button"
+            aria-pressed={mode === 'login'}
+            disabled={busy || !isHydrated}
+            onClick={() => {
+              setMode('login')
+              setError('')
+            }}
+          >
+            邮箱登录
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === 'register'}
+            disabled={busy || !isHydrated}
+            onClick={() => {
+              setMode('register')
+              setError('')
+            }}
+          >
+            注册账号
+          </button>
+        </nav>
+        <form onSubmit={authenticate} className="e-auth-form">
+          <label className="e-field">
+            邮箱
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              maxLength={254}
+              value={email}
+              disabled={busy || !isHydrated}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          <label className="e-field">
+            密码
+            <input
+              type="password"
+              autoComplete={
+                mode === 'register' ? 'new-password' : 'current-password'
+              }
+              required
+              maxLength={64}
+              minLength={mode === 'register' ? 8 : undefined}
+              value={password}
+              disabled={busy || !isHydrated}
+              onChange={(event) => setPassword(event.target.value)}
+              aria-describedby={
+                mode === 'register' ? 'password-help' : undefined
+              }
+            />
+          </label>
+          {mode === 'register' && (
+            <>
+              <p id="password-help" className="e-small e-muted">
+                8–64 位，包含字母和数字。
+              </p>
+              <label className="e-field">
+                称呼（选填）
+                <input
+                  autoComplete="nickname"
+                  maxLength={40}
+                  value={nickname}
+                  disabled={busy || !isHydrated}
+                  onChange={(event) => setNickname(event.target.value)}
+                />
+              </label>
+            </>
+          )}
+          {error && (
+            <p className="e-message" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            className="e-button e-button-primary"
+            type="submit"
+            disabled={!isHydrated || busy}
+          >
+            {busy
+              ? '正在处理…'
+              : mode === 'login'
+                ? '登录并继续'
+                : '注册并继续'}
+            <ArrowRight aria-hidden="true" />
+          </button>
+        </form>
+        <p className="e-auth-foot e-small e-muted">
+          你可以随时删除自己的行程。
+          <Link href="/about#privacy">了解隐私与数据</Link>
+        </p>
+      </section>
+    </main>
   )
 }

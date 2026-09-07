@@ -14,6 +14,8 @@ from app.trip_understanding._three_city_place_lexicon import (
 )
 from app.trip_understanding.amap_place import AmapPlaceResolver
 from app.trip_understanding.errors import PlaceProviderUnavailableError
+from app.trip_understanding.full_text import DeterministicTextInferenceProvider
+from app.trip_understanding.pipeline import TripUnderstandingPipeline
 
 
 def _entry(
@@ -70,7 +72,7 @@ def _poi(
     return {
         "id": provider_id,
         "name": name,
-        "location": "116.397026,39.918058",
+        "location": {"北京": "116.397026,39.918058", "上海": "121.48,31.23", "杭州": "120.17,30.25"}[city],
         "type": type_label,
         "typecode": typecode,
         "pname": province,
@@ -92,6 +94,42 @@ def _client(
         return httpx.Response(200, json=payload, headers={"x-request-id": "test-request"})
 
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.asyncio
+async def test_explicit_dining_context_prevents_same_name_hotel_auto_match() -> None:
+    source = "北京。Day 1 晚餐去悦庭。"
+    observed: list[httpx.Request] = []
+    pois = [
+        _poi(
+            provider_id="hotel-yueting",
+            name="悦庭",
+            category=PlaceCategory.HOTEL,
+        ),
+        _poi(
+            provider_id="food-yueting",
+            name="悦庭餐厅",
+            category=PlaceCategory.FOOD,
+            business={"alias": "悦庭"},
+        ),
+    ]
+    async with _client(
+        {"status": "1", "infocode": "10000", "pois": pois},
+        observed,
+    ) as client:
+        output = await TripUnderstandingPipeline(
+            DeterministicTextInferenceProvider(),
+            AmapPlaceResolver(api_key="test-only", client=client),
+        ).run(source)
+
+    mention = output.proposal.mentions[0]
+    card = output.public_result.days[0].activities[0]
+    assert mention.atomic_place_name == "悦庭"
+    assert mention.category_hint == "餐饮"
+    assert card.name == "悦庭餐厅"
+    assert card.category == "餐饮"
+    assert card.status == "READY"
+    assert all("050000" in request.url.params["types"] for request in observed)
 
 
 @pytest.mark.asyncio
@@ -477,7 +515,7 @@ async def test_lexicon_hit_does_not_hide_provider_failure(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
-async def test_complete_whitelisted_venue_suffix_is_an_equivalent_lowest_tier(
+async def test_person_name_without_a_reviewed_alias_does_not_identify_a_memorial(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _use_lexicon(monkeypatch)
@@ -490,9 +528,10 @@ async def test_complete_whitelisted_venue_suffix_is_an_equivalent_lowest_tier(
             category_hint="景点",
         )
 
-    assert outcome.place is not None
-    assert outcome.place.canonical_place_id == "poi-1"
-    assert outcome.receipt["selection_tier"] == "VENUE_SUFFIX_EQUIVALENT"
+    # A person/place stem alone is not a venue identity. The same historical
+    # suffix rule incorrectly confirmed a street area as an unrelated museum.
+    assert outcome.place is None
+    assert outcome.receipt["status"] == "NO_UNIQUE_MATCH"
 
 
 @pytest.mark.asyncio

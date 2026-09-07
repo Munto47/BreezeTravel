@@ -11,10 +11,7 @@ interface AMapContainerProps {
   tripCity?: string
 }
 
-const CLUSTER_COLORS = ['#FF5A5F', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4']
-
-// 每天路线的高级配色：珊瑚红 / 水鸭蓝 / 亮橙 / 深紫红 / 琥珀黄
-const ROUTE_COLORS = ['#FF5A5F', '#00A699', '#FC642D', '#7B0051', '#FFB400']
+const CLUSTER_COLORS = ['#0C789D', '#5C7CFA', '#10B981', '#B7791F', '#8B5CF6', '#06B6D4']
 
 const CATEGORY_ICON: Record<string, string> = {
   attraction: '🏛',
@@ -23,6 +20,15 @@ const CATEGORY_ICON: Record<string, string> = {
   transport: '🚉',
 }
 const DEFAULT_CENTER: [number, number] = [116.407, 39.904] // 无城市时默认北京
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
 
 // 7 个支持城市的地图中心坐标（高德 WGS-84 偏移后的 GCJ-02）
 const CITY_CENTERS: Record<string, [number, number]> = {
@@ -49,8 +55,6 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   const mapRef          = useRef<any>(null)
   // key=placeId, value=marker 实例，便于 hover 联动时按 id 查找
   const markersRef      = useRef<Map<string, any>>(new Map())
-  const routePolylinesRef = useRef<any[]>([])
-  const drivingRef      = useRef<any[]>([])
   const infoWindowRef   = useRef<any>(null)
   const [isMapReady, setIsMapReady] = useState(false)
   // 记录上次渲染时的 place ID 集合，只有 ID 变化（新增/删除地点）才调 setFitView
@@ -75,9 +79,9 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   // ── 初始化地图（仅运行一次）────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
-    const jsKey = process.env.NEXT_PUBLIC_AMAP_JS_KEY
+    const jsKey = process.env.NEXT_PUBLIC_AMAP_KEY
     if (!jsKey) {
-      console.warn('[AMap] NEXT_PUBLIC_AMAP_JS_KEY 未配置')
+      console.warn('[AMap] NEXT_PUBLIC_AMAP_KEY 未配置')
       return
     }
 
@@ -94,7 +98,7 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
         const AMap = await AMapLoader.load({
           key: jsKey,
           version: '2.0',
-          plugins: ['AMap.InfoWindow', 'AMap.Driving', 'AMap.Geocoder'],
+          plugins: ['AMap.InfoWindow', 'AMap.Geocoder'],
         })
         if (destroyed || !containerRef.current) return
 
@@ -181,7 +185,7 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
         <div style="width:40px;height:40px;background:${bgColor};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:${isActive ? '3px' : '2.5px'} solid white;display:flex;align-items:center;justify-content:center">
           <span style="transform:rotate(45deg);font-size:18px">${icon}</span>
         </div>
-        <div style="margin-top:4px;background:${isActive ? bgColor : 'white'};color:${isActive ? 'white' : '#374151'};border-radius:6px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);max-width:80px;overflow:hidden;text-overflow:ellipsis">${place.name}</div>
+        <div style="margin-top:4px;background:${isActive ? bgColor : 'white'};color:${isActive ? 'white' : '#374151'};border-radius:6px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.12);max-width:80px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(place.name)}</div>
       </div>`
   }, [])
 
@@ -219,18 +223,14 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
         setSelectedPlaceId(place.placeId)
 
         const tipHtml = place.ragMeta?.tipSnippets?.[0]
-          ? `<p style="color:#92400E;font-size:11px;margin-top:6px;padding:6px 8px;background:#FEF3C7;border-radius:6px;line-height:1.4">💡 ${place.ragMeta.tipSnippets[0]}</p>`
-          : ''
-        const photoHtml = place.amapPhotos?.[0]
-          ? `<img src="${place.amapPhotos[0]}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:8px"/>`
+          ? `<p style="color:#6B5624;font-size:11px;margin-top:6px;padding:6px 8px;background:#FEF3C7;border-radius:6px;line-height:1.4">提示：${escapeHtml(place.ragMeta.tipSnippets[0])}</p>`
           : ''
         infoWindowRef.current.setContent(`
           <div style="min-width:200px;max-width:260px;font-family:Inter,system-ui,sans-serif;padding:2px">
-            ${photoHtml}
-            <p style="font-weight:700;font-size:14px;margin:0 0 2px;color:#111827">${place.name}</p>
-            <p style="color:#9CA3AF;font-size:11px;margin:0 0 6px">${place.address || ''}</p>
-            ${place.amapRating ? `<span style="color:#D97706;font-size:12px">⭐ ${place.amapRating}</span>` : ''}
-            ${place.amapPrice  ? `<span style="color:#6B7280;margin-left:8px;font-size:12px">¥${place.amapPrice}/人</span>` : ''}
+            <p style="font-weight:700;font-size:14px;margin:0 0 2px;color:#111827">${escapeHtml(place.name)}</p>
+            <p style="color:#6B7280;font-size:11px;margin:0 0 6px">${escapeHtml(place.address || '')}</p>
+            ${place.amapRating ? `<span style="color:#8A6518;font-size:12px">评分 ${escapeHtml(place.amapRating)}</span>` : ''}
+            ${place.amapPrice  ? `<span style="color:#6B7280;margin-left:8px;font-size:12px">人均 ¥${escapeHtml(place.amapPrice)}</span>` : ''}
             ${tipHtml}
           </div>`)
         infoWindowRef.current.open(map, marker.getPosition())
@@ -248,104 +248,12 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
     }
   }, [places, buildMarkerContent, setSelectedPlaceId, setHoveredPlaceId])
 
-  // ── 渲染多色静态驾车路线 ────────────────────────────────────────
-  const renderRoutes = useCallback(() => {
-    const map = mapRef.current
-    if (!map) return
-
-    // ① 内存清理：移除上一版所有折线和 Driving 实例
-    if (routePolylinesRef.current.length > 0) {
-      map.remove(routePolylinesRef.current)
-      routePolylinesRef.current = []
-    }
-    drivingRef.current.forEach((d) => { try { d.clear() } catch (_) {} })
-    drivingRef.current = []
-
-    if (!itinerary?.days?.length) return
-
-    const AMap = (window as any).AMap
-    if (!AMap) return
-
-    // ② 数据预加载：Promise.all 静默获取所有天的路径，不触碰地图
-    const pathPromises: Promise<any[]>[] = itinerary.days.map((day, dayIdx) =>
-      new Promise<any[]>((resolve) => {
-        const slots = day?.slots ?? []
-        if (slots.length < 2) {
-          resolve([])
-          return
-        }
-
-        const origin: [number, number]      = [slots[0].place.coords.lng, slots[0].place.coords.lat]
-        const destination: [number, number] = [slots[slots.length - 1].place.coords.lng, slots[slots.length - 1].place.coords.lat]
-        const waypoints = slots
-          .slice(1, -1)
-          .map((s: any) => [s.place.coords.lng, s.place.coords.lat] as [number, number])
-
-        // 关键：不传 map 参数，Driving 完全静默，不自动渲染、不抢占视图
-        const driving = new AMap.Driving({ hideMarkers: true, autoFitView: false })
-        drivingRef.current.push(driving)
-
-        // 错开请求，每天间隔 600ms，避免触发高德 QPS 限制
-        setTimeout(() => {
-          driving.search(origin, destination, { waypoints }, (status: string, result: any) => {
-            if (status === 'complete' && result?.routes?.[0]) {
-              const path: any[] = []
-              result.routes[0].steps.forEach((step: any) => {
-                step.path?.forEach((pt: any) => path.push(pt))
-              })
-              console.log(`[AMap] 第${dayIdx + 1}天路径节点数：${path.length}`)
-              resolve(path)
-            } else {
-              console.warn(`[AMap] 第${dayIdx + 1}天路线规划失败:`, status)
-              resolve([])
-            }
-          })
-        }, dayIdx * 600)
-      })
-    )
-
-    // ③ 全部到齐后，一次性绘制静态多色折线
-    Promise.all(pathPromises).then((allPaths) => {
-      const drawn: any[] = []
-
-      allPaths.forEach((path, i) => {
-        if (path.length < 2) return
-
-        const polyline = new AMap.Polyline({
-          path,
-          showDir:       true,                               // 方向箭头
-          strokeColor:   ROUTE_COLORS[i % ROUTE_COLORS.length],
-          strokeWeight:  8,
-          strokeOpacity: 0.8,                               // 允许重叠路段颜色叠加
-          lineJoin:      'round',                           // 拐角平滑
-          lineCap:       'round',                           // 端点平滑
-          zIndex:        20 + i,                            // 后绘制的天数层叠在上
-        })
-        polyline.setMap(map)
-        drawn.push(polyline)
-      })
-
-      routePolylinesRef.current = drawn
-
-      // ④ 全局自适应：缩放视角到恰好包含所有路线
-      if (drawn.length > 0) {
-        map.setFitView(drawn, false, [50, 50, 50, 50])
-      }
-    })
-  }, [itinerary])
-
   // places 变化或 SDK 刚完成初始化 → 重绘 Markers。过去只做一次固定
   // 1.5s 重试，SDK 初始化更慢时会永久错过首批地点。
   useEffect(() => {
     if (!isMapReady || !mapRef.current) return
     renderMarkers()
   }, [places, isMapReady, renderMarkers])
-
-  // itinerary 变化 → 重绘静态路线
-  useEffect(() => {
-    if (!isMapReady || !mapRef.current) return
-    renderRoutes()
-  }, [itinerary, isMapReady, renderRoutes])
 
   // hoveredPlaceId 变化 → 更新对应 Marker 高亮样式
   useEffect(() => {
@@ -363,6 +271,14 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   return (
     <div className="map-fullscreen">
       <div ref={containerRef} className="w-full h-full" />
+      {itinerary?.days.some((day) => day.slots.length > 1) && (
+        <div
+          role="status"
+          className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-xl border border-sky-200 bg-white/95 px-4 py-2 text-xs text-slate-600 shadow-lg"
+        >
+          计划站点已显示；地图路线暂不可用，不会绘制估算线。
+        </div>
+      )}
     </div>
   )
 }

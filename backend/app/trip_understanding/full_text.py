@@ -18,6 +18,12 @@ from app.trip_understanding.pipeline import (
     ResilientStructuredInferenceProvider,
     StructuredInferenceProvider,
     TripUnderstandingPipeline,
+    atomic_place_rejection_reason,
+    derive_visit_time_hint,
+    has_affirmed_cancellation,
+    has_negated_cancellation,
+    normalize_atomic_place_candidate,
+    source_destination_cities,
 )
 
 
@@ -42,10 +48,11 @@ _DAY_HEADING_RE = re.compile(
 )
 _URL_TOKEN_RE = re.compile(r"https?://[^\s，。；！？]+", re.IGNORECASE)
 _CLAUSE_BOUNDARIES = "，,。！？；;：:\n"
+_ROUTE_SEPARATOR_PATTERN = r"→|⇒|->|➜|⇨|＞|➔|➡|⟶"
 _PLANNED_ACTION_PATTERN = (
     r"(?:确定行程是|确定游览|依次到|随后前往|步行到|先到|先去|先逛|"
     r"再去|再到|再逛|上午看|下午看|上午安排|下午安排|来到|可游览?|"
-    r"游览(?!线(?:路)?)|参观|打卡|安排|前往|逛|去)"
+    r"游览(?!线(?:路)?)|参观|打卡|安排|前往|逛|去(?!年|过))"
 )
 _PLANNED_ACTION_RE = re.compile(
     rf"{_PLANNED_ACTION_PATTERN}\s*"
@@ -62,6 +69,14 @@ _PLAN_TRAILING_MARKERS = (
     "才是逐日计划",
     "了解预约流程",
     "了解预约",
+    "并参考",
+    "并听说",
+    "二选一",
+    "看体力决定",
+    "视体力决定",
+    "仅作备选",
+    "只作参考",
+    "作为备选",
 )
 _EXCLUDED_CUES = ("明确不去", "已经决定排除", "决定排除", "排除", "取消", "跳过", "不安排", "放弃")
 _OPTIONAL_CUES = (
@@ -71,6 +86,7 @@ _OPTIONAL_CUES = (
     "时间允许",
     "时间充裕",
     "如果有时间",
+    "如果还有时间",
     "如果当天太累",
     "如果太累",
     "可以不去",
@@ -158,6 +174,9 @@ _NON_PLACE_ATOMIC_MARKERS = (
     "营业",
     "票价",
     "开放时间",
+    "介绍",
+    "旧称",
+    "曾称",
 )
 _ATOMIC_ROLE_NAME_PATTERN = r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]{2,40}"
 _ROLE_NAME_FORBIDDEN_MARKERS = ("仅在", "只在", "时间充裕", "作为", "当作", "可以")
@@ -165,7 +184,7 @@ _EXPLICIT_ROLE_PATTERNS: tuple[tuple[ActivityRole, re.Pattern[str]], ...] = (
     (
         ActivityRole.EXCLUDED,
         re.compile(
-            rf"(?:明确不去|已经决定排除|决定排除|取消|不安排|放弃|排除)"
+            rf"(?:明确不去|已经决定排除|决定排除|取消(?!不了)|不安排|放弃|排除)"
             rf"\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})"
         ),
     ),
@@ -412,6 +431,54 @@ def _is_meta_activity_clause(clause: str) -> bool:
     ) or ("朋友转来" in clause and "笔记" in clause)
 
 
+def _is_descriptive_reference_clause(clause: str) -> bool:
+    if any(cue in clause for cue in ("预约说明", "预约流程")):
+        return True
+    if any(cue in clause for cue in ("介绍", "旧称", "曾称", "历史说明")):
+        return True
+    if any(cue in clause for cue in ("开放时间", "营业时间", "排队")):
+        return True
+    if re.search(
+        r"[A-Za-z\u4e00-\u9fff·（）()—_-]{2,40}到"
+        r"[A-Za-z\u4e00-\u9fff·（）()—_-]{2,40}"
+        r"(?:步行|公交|地铁|驾车)\s*\d+\s*分钟",
+        clause,
+    ):
+        return True
+    if re.search(r"(?:相比|比|不如)[^。！？；;]*(?:更|较|热门|有名|适合|值得)", clause):
+        return True
+    if _PLANNED_ACTION_RE.search(clause):
+        return False
+    return any(
+        cue in clause
+        for cue in (
+            "去年",
+            "前年",
+            "曾经",
+            "历史上",
+            "过去",
+            "此前",
+            "当年",
+            "世界文化遗产",
+            "游客很多",
+        )
+    ) or re.search(
+        r"(?:是|为|位于|坐落于|建于|始建于|被誉为|属于|拥有)[^。！？；;]*$",
+        clause,
+    ) is not None
+
+
+def _inside_quoted_text(source_text: str, position: int) -> bool:
+    for opening, closing in (("“", "”"), ('"', '"'), ("‘", "’"), ("'", "'")):
+        left = source_text.rfind(opening, 0, position)
+        if left < 0:
+            continue
+        right = source_text.find(closing, left + 1)
+        if right >= position:
+            return True
+    return False
+
+
 def _role_for_context(
     source_text: str,
     start: int,
@@ -423,9 +490,28 @@ def _role_for_context(
     context = source_text[max(0, start - 24) : start]
     local_before = source_text[max(0, start - 4) : start]
     local_after = source_text[end : min(len(source_text), end + 6)]
+    sentence_start = max(
+        source_text.rfind(marker, 0, start)
+        for marker in "。！？；;\n"
+    ) + 1
+    sentence_prefix = source_text[sentence_start:start]
+    if _inside_quoted_text(source_text, start):
+        return ActivityRole.REFERENCE
+    if any(cue in sentence_prefix for cue in ("预约说明", "预约流程")):
+        return ActivityRole.REFERENCE
     if _is_meta_activity_clause(clause):
         return ActivityRole.REFERENCE
-    if any(cue in clause for cue in _EXCLUDED_CUES):
+    if has_negated_cancellation(clause):
+        return ActivityRole.REFERENCE
+    if "原计划" in clause:
+        return ActivityRole.REFERENCE
+    if re.search(r"(?:后来|随后|之后)\s*(?:改到|调整为|改为)", clause) and not re.search(
+        r"(?:最终|最后|到最后|末了)", clause
+    ):
+        return ActivityRole.OPTIONAL
+    if any(cue in clause for cue in _EXCLUDED_CUES if cue != "取消") or (
+        has_affirmed_cancellation(clause)
+    ):
         return ActivityRole.EXCLUDED
     if re.search(r"(?:经由|经)\s*$", local_before) and re.match(
         r"\s*(?:往返|通过|前往)", local_after
@@ -438,6 +524,8 @@ def _role_for_context(
     if any(cue in clause for cue in _PASS_THROUGH_CUES):
         return ActivityRole.PASS_THROUGH
     if any(cue in clause for cue in _REFERENCE_CUES):
+        return ActivityRole.REFERENCE
+    if _is_descriptive_reference_clause(clause):
         return ActivityRole.REFERENCE
     if has_day or any(cue in context[-12:] for cue in _PLANNED_CUES):
         return ActivityRole.PLANNED
@@ -479,17 +567,13 @@ def _candidate_cities(name: str) -> set[str]:
 
 
 def _is_atomic_place_text(value: str) -> bool:
-    if not 1 < len(value) <= 40:
-        return False
     if _LEADING_PLANNED_ACTION_RE.search(value):
         return False
     if _URL_TOKEN_RE.search(value) or any(marker in value for marker in _CLAUSE_BOUNDARIES):
         return False
     if any(marker in value for marker in _NON_PLACE_ATOMIC_MARKERS):
         return False
-    if re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]+", value) is None:
-        return False
-    return re.search(r"[A-Za-z\u4e00-\u9fff]", value) is not None
+    return atomic_place_rejection_reason(value) is None
 
 
 def _explicit_role_candidates(
@@ -519,6 +603,15 @@ def _explicit_role_candidates(
                     )
                 ):
                     continue
+                recovered_role = role
+                local_role_text = clause[
+                    max(0, match.start() - 5) : match.start("name")
+                ]
+                if role == ActivityRole.EXCLUDED and (
+                    has_negated_cancellation(local_role_text)
+                    or has_negated_cancellation(clause)
+                ):
+                    recovered_role = ActivityRole.REFERENCE
                 occupied.append(span)
                 candidates.append(
                     _MentionCandidate(
@@ -526,7 +619,7 @@ def _explicit_role_candidates(
                         end=end,
                         name=name,
                         cities=frozenset(_candidate_cities(name)),
-                        role_hint=role,
+                        role_hint=recovered_role,
                     )
                 )
     return candidates
@@ -569,12 +662,22 @@ def _atomic_capture_pieces(
         if key in memo:
             return memo[key]
         value = source_text[piece_start:piece_end]
+        normalized = normalize_atomic_place_candidate(value)
+        if normalized is not None and normalized != value:
+            relative_start = value.find(normalized)
+            if relative_start >= 0:
+                piece_start += relative_start
+                piece_end = piece_start + len(normalized)
+                value = normalized
         if value in _PLACES_BY_NAME:
             result = [(piece_start, piece_end)]
             memo[key] = result
             return result
         best: list[tuple[int, int]] | None = None
-        for connector in re.finditer(r"、|→|⇒|->|及|与|和|或", value):
+        for connector in re.finditer(
+            rf"或者|或是|还是|、|{_ROUTE_SEPARATOR_PATTERN}|及|与|和|或|[/／]",
+            value,
+        ):
             left_end = piece_start + connector.start()
             right_start = piece_start + connector.end()
             if left_end <= piece_start or right_start >= piece_end:
@@ -594,6 +697,70 @@ def _atomic_capture_pieces(
     return split(start, end) or []
 
 
+def _contains_non_atomic_choice(value: str, context: str) -> bool:
+    explicit_slash_choice = re.search(r"[/／]", value) is not None and any(
+        cue in context for cue in ("二选一", "看体力", "视体力", "或者", "还是")
+    )
+    return re.search(r"(?:或者|或是|还是|二选一)", value) is not None or (
+        explicit_slash_choice
+    ) or (
+        "或" in value and value not in _PLACES_BY_NAME
+    )
+
+
+def _planned_action_role_hint(
+    source_text: str,
+    action_start: int,
+    name_start: int,
+    name_end: int,
+) -> ActivityRole | None:
+    if _inside_quoted_text(source_text, action_start):
+        return None
+    clause = _clause_for_position(source_text, action_start, name_end)
+    if re.search(r"(?:相比|比|不如)[^。！？；;]*(?:更|较|热门|有名|适合|值得)", clause):
+        return None
+    if has_negated_cancellation(clause):
+        return ActivityRole.REFERENCE
+    if "原计划" in clause:
+        return ActivityRole.REFERENCE
+    if re.search(r"(?:后来|随后|之后)\s*(?:改到|调整为|改为)", clause) and not re.search(
+        r"(?:最终|最后|到最后|末了)", clause
+    ):
+        return ActivityRole.OPTIONAL
+    left = max(
+        source_text.rfind(marker, 0, action_start)
+        for marker in _CLAUSE_BOUNDARIES
+    ) + 1
+    prefix = source_text[left:name_start]
+    sentence_start = max(
+        source_text.rfind(marker, 0, action_start)
+        for marker in "。！？；;\n"
+    ) + 1
+    sentence_prefix = source_text[sentence_start:name_start]
+    for boundary in ("但是", "不过", "而是", "但"):
+        position = prefix.rfind(boundary)
+        if position >= 0:
+            prefix = prefix[position + len(boundary) :]
+            break
+    blocking_cues = (
+        *_EXCLUDED_CUES,
+        *_OPTIONAL_CUES,
+        *_PASS_THROUGH_CUES,
+        *_REFERENCE_CUES,
+        "预约说明",
+        "预约流程",
+        "不去",
+        "不要去",
+    )
+    if any(cue in sentence_prefix for cue in ("预约说明", "预约流程")):
+        return ActivityRole.REFERENCE
+    if any(cue in prefix for cue in blocking_cues):
+        return None
+    if prefix.rstrip().endswith(("不", "不要", "不准备", "不打算")):
+        return None
+    return ActivityRole.PLANNED
+
+
 def _append_plan_capture(
     source_text: str,
     start: int,
@@ -609,6 +776,30 @@ def _append_plan_capture(
     if trimmed is None:
         return
     start, end = trimmed
+    context = _sentence_for_position(source_text, start, end)
+    if _contains_non_atomic_choice(source_text[start:end], context):
+        for piece_start, piece_end in _atomic_capture_pieces(source_text, start, end):
+            name = source_text[piece_start:piece_end]
+            span = (piece_start, piece_end)
+            if (
+                _inside_url(piece_start, url_spans)
+                or any(
+                    not (piece_end <= old_start or piece_start >= old_end)
+                    for old_start, old_end in occupied
+                )
+            ):
+                continue
+            occupied.append(span)
+            candidates.append(
+                _MentionCandidate(
+                    start=piece_start,
+                    end=piece_end,
+                    name=name,
+                    cities=frozenset(_candidate_cities(name)),
+                    role_hint=ActivityRole.OPTIONAL,
+                )
+            )
+        return
     pieces = _atomic_capture_pieces(source_text, start, end)
     for piece_start, piece_end in pieces:
         name = source_text[piece_start:piece_end]
@@ -688,10 +879,13 @@ def _route_title_candidates(
             route_text[left.end() : right.start()]
             for left, right in zip(token_matches, token_matches[1:])
         ]
-        if not all(re.fullmatch(r"(?:\s+|\s*(?:→|⇒|->)\s*)", item) for item in between_values):
+        if not all(
+            re.fullmatch(rf"(?:\s+|\s*(?:{_ROUTE_SEPARATOR_PATTERN})\s*)", item)
+            for item in between_values
+        ):
             continue
         if len(token_matches) == 2 and not any(
-            re.search(r"→|⇒|->", item) for item in between_values
+            re.search(_ROUTE_SEPARATOR_PATTERN, item) for item in between_values
         ):
             continue
         if not all(_is_atomic_place_text(item.group(0)) for item in token_matches):
@@ -857,6 +1051,26 @@ def _planned_atomic_candidates(
         url_spans=url_spans,
         occupied=occupied,
     )
+    postfix_arrival = re.compile(
+        r"(?:去|到|前往)\s*"
+        r"(?P<name>[A-Za-z0-9\u4e00-\u9fff·（）()—_-]{2,40}?)\s*"
+        r"(?:[01]?\d|2[0-3])[:：][0-5]\d\s*(?:到达|抵达)"
+    )
+    for match in postfix_arrival.finditer(source_text):
+        _append_plan_capture(
+            source_text,
+            match.start("name"),
+            match.end("name"),
+            url_spans=url_spans,
+            occupied=occupied,
+            candidates=candidates,
+            role_hint=_planned_action_role_hint(
+                source_text,
+                match.start(),
+                match.start("name"),
+                match.end("name"),
+            ),
+        )
     for match in _PLANNED_ACTION_RE.finditer(source_text):
         if _is_meta_activity_clause(
             _sentence_for_position(source_text, match.start(), match.end())
@@ -869,6 +1083,12 @@ def _planned_atomic_candidates(
             url_spans=url_spans,
             occupied=occupied,
             candidates=candidates,
+            role_hint=_planned_action_role_hint(
+                source_text,
+                match.start(),
+                match.start("names"),
+                match.end("names"),
+            ),
         )
 
     candidates.extend(
@@ -902,7 +1122,7 @@ def _planned_atomic_candidates(
             if (position := source_text.find(marker, segment_start, next_heading)) >= 0
         ]
         segment_end = min(strong_ends) if strong_ends else next_heading
-        segment = source_text[segment_start:segment_end].strip(" \t：:；;")
+        segment = source_text[segment_start:segment_end].strip(" \t：:；;|｜")
         if not segment:
             continue
         absolute_start = source_text.find(segment, segment_start, segment_end)
@@ -937,10 +1157,14 @@ def _planned_atomic_candidates(
                 candidates=candidates,
             )
 
-        if not any(
-            not (segment_end <= old_start or segment_start >= old_end)
-            for old_start, old_end in occupied
-        ) and all(marker not in segment for marker in "，,；;"):
+        if (
+            not _is_descriptive_reference_clause(segment)
+            and not any(
+                not (segment_end <= old_start or segment_start >= old_end)
+                for old_start, old_end in occupied
+            )
+            and all(marker not in segment for marker in "，,；;")
+        ):
             _append_plan_capture(
                 source_text,
                 absolute_start,
@@ -957,6 +1181,9 @@ def _destination(
     candidates: list[_MentionCandidate],
     headings: list[tuple[int, int]],
 ) -> tuple[str, DestinationBasis]:
+    source_cities = source_destination_cities(source_text)
+    if source_cities:
+        return "、".join(source_cities), DestinationBasis.EXPLICIT
     candidate_spans = [(item.start, item.end) for item in candidates]
     explicit: list[str] = []
     for city in _DEEP_CITIES:
@@ -1044,7 +1271,7 @@ class DeterministicTextInferenceProvider:
             headings,
         )
         day_sequences: dict[int, int] = {}
-        emitted: set[tuple[str, ActivityRole, int | None]] = set()
+        emitted: set[tuple[int, int]] = set()
         mentions: list[ProposedMention] = []
         for candidate in candidates:
             explicit_day = candidate.day_hint or _day_for_position(
@@ -1069,7 +1296,7 @@ class DeterministicTextInferenceProvider:
             day_index = explicit_day if role == ActivityRole.PLANNED else None
             if role == ActivityRole.PLANNED and day_index is None:
                 day_index = 1
-            signature = (candidate.name, role, day_index)
+            signature = (candidate.start, candidate.end)
             if signature in emitted:
                 continue
             emitted.add(signature)
@@ -1093,6 +1320,7 @@ class DeterministicTextInferenceProvider:
                 candidate.start,
                 candidate.end,
             )
+            time_hint = derive_visit_time_hint(source_text, source_start, source_end)
             mentions.append(
                 ProposedMention(
                     mention_id=f"mention-{len(mentions) + 1}",
@@ -1106,6 +1334,7 @@ class DeterministicTextInferenceProvider:
                         None if meta_description else candidate.name
                     ),
                     category_hint=category,
+                    time_hint=time_hint,
                 )
             )
         return InferenceProposal(
@@ -1131,10 +1360,11 @@ class ControlledSnapshotPlaceResolver:
         atomic_place_name: str,
         category_hint: str | None = None,
     ) -> ResolvedPlace | None:
-        del category_hint
         if city not in _DEEP_CITIES:
             return None
         candidates = [fact for fact in _PLACES_BY_NAME.get(atomic_place_name, []) if fact.city == city]
+        if category_hint is not None:
+            candidates = [fact for fact in candidates if fact.category == category_hint]
         if len(candidates) != 1:
             return None
         fact = candidates[0]

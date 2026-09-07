@@ -10,10 +10,15 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from evals.trip_nlu_v2.validator import _current_code_bindings
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INVENTORY_PATH = REPO_ROOT / "docs" / "governance" / "g01_s0_asset_disposition.json"
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
+G07_CANDIDATE_MANIFEST = (
+    "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json"
+)
 
 
 def load_inventory() -> dict[str, Any]:
@@ -88,6 +93,43 @@ def _legacy_openapi_receipt(inventory: dict[str, Any]) -> dict[str, Any]:
     return actual
 
 
+def _g07_exact_binding_exemptions(changes: list[str]) -> set[str]:
+    if G07_CANDIDATE_MANIFEST not in changes:
+        return set()
+    try:
+        binding = json.loads(
+            (REPO_ROOT / "docs/governance/current_goal_binding.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        candidate = json.loads(
+            (REPO_ROOT / G07_CANDIDATE_MANIFEST).read_text(encoding="utf-8")
+        )
+        data_root = REPO_ROOT / "backend/eval_data/trip_nlu_v2"
+        custody = json.loads((data_root / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    if (
+        binding.get("goal_id") != "TC-VNEXT-G07-CANDIDATE"
+        or binding.get("gate_profile") != "HARDENED_CANDIDATE_GATE"
+        or binding.get("status") != "IN_PROGRESS"
+    ):
+        return set()
+    if candidate.get("code_bindings") != _current_code_bindings(REPO_ROOT / "backend"):
+        return set()
+    files = candidate.get("files")
+    if not isinstance(files, dict) or files != custody.get("files"):
+        return set()
+    if any(
+        not isinstance(relative, str)
+        or not isinstance(expected, str)
+        or hashlib.sha256((data_root / relative).read_bytes()).hexdigest() != expected
+        for relative, expected in files.items()
+    ):
+        return set()
+    return {G07_CANDIDATE_MANIFEST}
+
+
 def frozen_changes(inventory: dict[str, Any] | None = None) -> list[str]:
     inventory = inventory or load_inventory()
     guard = inventory["frozen_guards"]
@@ -106,7 +148,9 @@ def frozen_changes(inventory: dict[str, Any] | None = None) -> list[str]:
         capture_output=True,
         text=True,
     )
-    return sorted(line.strip() for line in result.stdout.splitlines() if line.strip())
+    changes = sorted(line.strip() for line in result.stdout.splitlines() if line.strip())
+    exemptions = _g07_exact_binding_exemptions(changes)
+    return [path for path in changes if path not in exemptions]
 
 
 def audit_inventory() -> dict[str, Any]:

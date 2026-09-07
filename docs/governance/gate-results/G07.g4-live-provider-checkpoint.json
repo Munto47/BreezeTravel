@@ -1,0 +1,95 @@
+{
+  "schema_version": "g07-live-provider-checkpoint-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "gate_id": "G4",
+  "checkpoint_status": "PASS",
+  "final_candidate_admissible": false,
+  "subject": {
+    "commit": "770a6d2b36d7916a34fa75e6d1e4a7fc446d7a38",
+    "tree": "675df410ad6f77bd695252c48aad66ca1559ee0b",
+    "remote_ref": "refs/heads/codex/g07-candidate",
+    "remote_commit_readback": "770a6d2b36d7916a34fa75e6d1e4a7fc446d7a38"
+  },
+  "live_map_weather": {
+    "status": "PASS",
+    "city_count": 3,
+    "network_call_count": 18,
+    "amap_route_call_count": 12,
+    "qweather_forecast_call_count": 3,
+    "qweather_alert_call_count": 3,
+    "provider_failure_count": 0,
+    "fixture_fallback_count": 0,
+    "hidden_retry_count": 0,
+    "secret_leak_count": 0,
+    "run_spec_content_sha256": "5165efc29e1333a92d164a5a284c335b4238b241c2cf4579085e4bbb10f1bda6",
+    "run_spec_file_sha256": "1a4647335a29efa9929e3aa671133381617260daa218c4f07e7ae982450d489a",
+    "receipt_content_sha256": "86be454e0236237aede76e65d2b8778354ca3df0ca9484087e2dda37c20099a1",
+    "receipt_file_sha256": "05ce5c719e571d0aac35c62eb361353106622dd7d82ebc290e2b465a316ddc84",
+    "binding_readback_file_sha256": "2c45da158686b53afe73ae2529201a9df7b48bfef29899a8ecbdd60a4763adb",
+    "manifest_file_sha256": "138c4a37d80ee4ffdcafc45b01a76fc5eacb6caef0dbc14af8abb67ca4511e77"
+  },
+  "live_qwen": {
+    "status": "PASS",
+    "role": "LOW_LATENCY_CANDIDATE",
+    "exact_model_id": "qwen3.7-flash-2026-07-15",
+    "requested_splits": [
+      "dev",
+      "validation"
+    ],
+    "case_count": 72,
+    "external_call_count": 72,
+    "schema_valid_rate": 1.0,
+    "runner_error_count": 0,
+    "editable_partial_result_count": 0,
+    "repair_call_count": 0,
+    "accepted_forbidden_atomic_count": 0,
+    "accepted_sentence_atomic_count": 0,
+    "latency_ms_p95": 3657.351,
+    "input_tokens": 101472,
+    "output_tokens": 39027,
+    "estimated_list_price_usage_cny": 0.051516,
+    "actual_incremental_billing_status": "NOT_EXPOSED_BY_PROVIDER",
+    "execution_authorization": "EXISTING_OWNER_ATTESTED_ZERO_INCREMENT_ACCOUNT_ONLY",
+    "provider_reported_model_match": true,
+    "raw_predictions_sha256": "6b9336f89a67a6bb4f7c28fb97129b8e26de7d46ed64a70cb5fc6d18a35b319c",
+    "summary_file_sha256": "53dd8975acb3bd071cbf31956dd640eda8deab9a4d720c1af8e4e0febbed6679",
+    "raw_request_or_response_retained": false,
+    "blind_inputs_read": 0,
+    "blind_truth_read": 0,
+    "quality_metrics_requiring_reference": "NOT_SCORED_IN_G4"
+  },
+  "checks": [
+    {
+      "command": "python -m pytest -q tests/test_real_provider_evidence.py tests/test_trip_check_p6_live_provider_runner.py tests/test_g07_live_provider_spec.py --timeout=180",
+      "result": "16 passed, 0 skipped, 0 failed in 0.98s",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m ruff check evals/g07_candidate scripts/build_g07_live_provider_spec.py scripts/run_g07_g4_live_provider.py tests/test_g07_live_provider_spec.py",
+      "result": "All checks passed",
+      "exit_code": 0
+    }
+  ],
+  "evidence_storage": {
+    "raw_artifacts": "REPOSITORY_EXTERNAL_WRITE_ONCE",
+    "repository_contains_only": "HASHES_AND_AGGREGATE_METRICS",
+    "credentials_committed": false,
+    "raw_provider_payload_committed": false
+  },
+  "claim_boundary": "LIVE_PROVIDER_EXECUTION_AND_BINDING_PASS; QWEN_NONBLIND_QUALITY_AND_SEALED_BLIND_REMAIN_NOT_RUN",
+  "evidence_level": "LIVE_PROVIDER_EVIDENCE_EXACT_REMOTE_SUBJECT",
+  "not_run": [
+    "G5_BROWSER_PERFORMANCE",
+    "G6_MANIFEST",
+    "G7_AGENT_GATE_AND_SEALED_BLIND",
+    "G8_HARDENING_DECISION",
+    "H1",
+    "PUBLIC_NETWORK",
+    "PRODUCTION",
+    "COMMERCIAL",
+    "RELEASE",
+    "DEPLOYMENT",
+    "MAIN_MERGE"
+  ],
+  "completed_at": "2026-09-01T02:28:47.2845358+08:00"
+}

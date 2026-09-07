@@ -24,8 +24,8 @@ export default function LoginPage() {
       const session = await tripCheckClient.loginWithWechat(loginResult.code)
       saveSession(session)
       await Taro.reLaunch({ url: '/pages/home/index' })
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
+    } catch {
+      setError('暂时无法登录，请稍后重试。')
     } finally {
       setBusy(false)
     }
@@ -36,7 +36,7 @@ export default function LoginPage() {
       <View className='brand-mark'>B</View>
       <Text className='title'>BreezeTravel</Text>
       <Text className='subtitle'>导入行程 · 事实核验 · 有依据的调整建议</Text>
-      {error ? <Text className='error'>{error}</Text> : null}
+      {error ? <Text className='feedback'>{error}</Text> : null}
       <Button className='primary' loading={busy} disabled={busy} onClick={login}>
         {busy ? '正在登录…' : '微信登录'}
       </Button>

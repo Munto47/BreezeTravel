@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import app.trip_understanding.worker as understanding_worker_module
 from app.trip_understanding.access_log import redact_trip_understanding_path
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.demo import (
@@ -31,6 +32,7 @@ from app.trip_understanding.full_text import (
 from app.trip_understanding.map_render import (
     ROUTE_CONFIG_SHA256,
     ControlledFixtureRouteProvider,
+    MapRenderJobRecord,
     MapRenderPlan,
     MapRenderer,
     MapStop,
@@ -52,8 +54,18 @@ from app.trip_understanding.models import (
     ProposedMention,
     ResolvedPlace,
 )
-from app.trip_understanding.pipeline import TripUnderstandingPipeline, resolution_cities
-from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
+from app.trip_understanding.pipeline import (
+    ResilientStructuredInferenceProvider,
+    TripUnderstandingPipeline,
+    normalized_destination_name,
+    resolution_cities,
+    source_destination_cities,
+)
+from app.trip_understanding.repository import (
+    InMemoryTripUnderstandingRepository,
+    PostgresTripUnderstandingRepository,
+)
+from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH, TripUnderstandingApplicationService
 from app.trip_understanding.source_crypto import SourceCipher
 from app.trip_understanding.worker import TripUnderstandingWorker
@@ -74,9 +86,161 @@ FORBIDDEN_PUBLIC_KEYS = {
     "hash",
     "revision",
     "receipt",
+    "evidence_gap",
     "run",
     "stage",
 }
+
+
+@pytest.mark.asyncio
+async def test_default_understanding_worker_does_not_schedule_map_in_the_future(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_at = datetime(2026, 9, 3, tzinfo=timezone.utc)
+
+    class FixedDateTime:
+        @classmethod
+        def now(cls, tz):
+            assert tz is timezone.utc
+            return observed_at
+
+    monkeypatch.setattr(understanding_worker_module, "datetime", FixedDateTime)
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    await service.create_demo(
+        capability_hash="c" * 64,
+        idempotency_key="default-clock-map-readiness",
+        now=observed_at,
+    )
+
+    assert await TripUnderstandingWorker(repository).run_once("clock-worker") is True
+    assert await MapRenderWorker(repository).run_once(
+        "clock-map-worker",
+        now=observed_at,
+    ) is True
+
+
+@pytest.mark.asyncio
+async def test_pipeline_closes_inference_and_place_resources_even_after_one_failure() -> None:
+    closed: list[str] = []
+
+    class Closable:
+        def __init__(self, name: str, *, fail: bool = False) -> None:
+            self.name = name
+            self.fail = fail
+
+        async def aclose(self) -> None:
+            closed.append(self.name)
+            if self.fail:
+                raise RuntimeError(f"{self.name} close failed")
+
+    primary = Closable("primary", fail=True)
+    fallback = Closable("fallback")
+    resolver = Closable("resolver")
+    pipeline = TripUnderstandingPipeline(
+        ResilientStructuredInferenceProvider(primary, fallback),
+        resolver,
+    )
+
+    with pytest.raises(RuntimeError, match="primary close failed"):
+        await pipeline.aclose()
+
+    assert closed == ["primary", "fallback", "resolver"]
+
+
+@pytest.mark.asyncio
+async def test_stale_postgres_map_attempt_does_not_write_geometry_cache() -> None:
+    now = datetime(2026, 9, 3, tzinfo=timezone.utc)
+    plan = MapRenderPlan(
+        understanding_id="stale-map-understanding",
+        plan_ref=PlanRevisionRef(
+            kind="UNDERSTANDING",
+            aggregate_id="stale-map-understanding",
+            revision=1,
+            stop_set_hash="a" * 64,
+        ),
+        route_config_hash=ROUTE_CONFIG_SHA256,
+        stops=[
+            MapStop(
+                day_index=1,
+                day_label="Day 1",
+                sequence_index=0,
+                canonical_place_id="place-a",
+                name="故宫博物院",
+                resolution_status="AUTO_MATCHED",
+                city="北京",
+                longitude=116.397,
+                latitude=39.918,
+            ),
+            MapStop(
+                day_index=1,
+                day_label="Day 1",
+                sequence_index=1,
+                canonical_place_id="place-b",
+                name="景山公园",
+                resolution_status="AUTO_MATCHED",
+                city="北京",
+                longitude=116.396,
+                latitude=39.925,
+            ),
+        ],
+    )
+    output = await MapRenderer().render(plan, observed_at=now)
+    job = MapRenderJobRecord(
+        map_job_id="stale-map-job",
+        understanding_id=plan.understanding_id,
+        plan_ref_id="stale-plan-ref",
+        plan_ref=plan.plan_ref,
+        route_config_hash=plan.route_config_hash,
+        status="BUILDING",
+        lease_owner="reused-map-worker",
+        lease_until=now + timedelta(seconds=5),
+        attempt=1,
+        max_attempts=3,
+        started_at=now,
+    )
+
+    class Context:
+        def __init__(self, value) -> None:
+            self.value = value
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class Connection:
+        def transaction(self):
+            return Context(self)
+
+        async def fetchrow(self, query, *_args):
+            if "trip_map_render_snapshots" in query:
+                return None
+            return {
+                "status": "BUILDING",
+                "lease_owner": job.lease_owner,
+                "attempt": 2,
+                "lease_until": now + timedelta(seconds=30),
+            }
+
+    class Pool:
+        def __init__(self) -> None:
+            self.connection = Connection()
+
+        def acquire(self):
+            return Context(self.connection)
+
+    geometry_cache = InMemoryRouteGeometryCache()
+    repository = PostgresTripUnderstandingRepository(
+        Pool(),
+        geometry_cache=geometry_cache,
+    )
+
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_map_job(job, output, now=now + timedelta(seconds=6))
+
+    assert geometry_cache._items == {}
 
 
 def _walk_keys(value):
@@ -146,7 +310,9 @@ async def test_fixed_demo_runs_the_real_compiler_resolver_projector_chain() -> N
     assert [item.compiled.mention.role for item in output.activities].count(ActivityRole.OPTIONAL) == 1
     assert [item.compiled.mention.role for item in output.activities].count(ActivityRole.EXCLUDED) == 1
     result = output.public_result.model_dump(mode="json")
-    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions"}
+    # The frontend now reads persisted demo identity and last-edit time; source text
+    # and internal evidence still remain outside the ordinary result projection.
+    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "ownership", "expires_at", "is_demo", "updated_at"}
     assert [[card["name"] for card in day["activities"]] for day in result["days"]] == [
         ["故宫博物院", "景山公园"],
         ["天坛公园", "前门大街"],
@@ -321,7 +487,8 @@ async def test_only_atomic_planned_mentions_reach_place_provider_or_public_cards
 
     assert resolver.calls == ["故宫博物院"]
     cards = [card for day in output.public_result.days for card in day.activities]
-    assert [card.name for card in cards] == ["故宫博物院"]
+    assert [card.name for card in cards] == ["故宫博物院", "地点待确认", "地点待确认"]
+    assert all(card.status == "NEEDS_CONFIRMATION" for card in cards)
     public = json.dumps(output.public_result.model_dump(mode="json"), ensure_ascii=False)
     assert "预约说明" not in public
     assert "https://" not in public
@@ -414,10 +581,434 @@ async def test_multi_city_text_searches_each_explicit_deep_city_and_only_adopts_
     assert output.resolution_receipt["place_external_call_count"] == 6
 
 
+@pytest.mark.asyncio
+async def test_multi_city_partial_outage_preserves_successful_place_facts_internally() -> None:
+    source = "北京、杭州两地行程。Day 1 去北京西站。"
+
+    class Provider:
+        async def propose(self, source_text: str):
+            start = source_text.index("北京西站")
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name="北京、杭州",
+                destination_basis="SOFT_ASSUMPTION",
+                mentions=[
+                    ProposedMention(
+                        mention_id="partial-multi-city",
+                        raw_text="北京西站",
+                        span_start=start,
+                        span_end=start + len("北京西站"),
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=0,
+                        atomic_place_name="北京西站",
+                    )
+                ],
+                binding={"provider": "multi-city-test", "external_calls": 0},
+            )
+
+    class Resolver:
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del atomic_place_name, category_hint
+            if city == "杭州":
+                raise PlaceProviderUnavailableError(
+                    "DEADLINE_EXCEEDED",
+                    provider_binding={"provider": "multi-city-test", "city": city},
+                    external_call_count=1,
+                )
+            return ResolvedPlace(
+                canonical_place_id="provider-beijing-west-station",
+                name="北京西站",
+                category="交通节点",
+                area_or_address="北京市丰台区莲花池东路118号",
+                provider_binding={
+                    "provider": "multi-city-test",
+                    "city": city,
+                    "request_sha256": "a" * 64,
+                    "response_sha256": "b" * 64,
+                    "external_calls": 1,
+                },
+            )
+
+    output = await TripUnderstandingPipeline(Provider(), Resolver()).run(source)
+    activity = output.activities[0]
+
+    assert activity.place is None
+    assert activity.resolution_status.value == "NEEDS_CONFIRMATION"
+    candidates = activity.resolver_receipt["successful_place_candidates"]
+    assert candidates == [
+        {
+            "city": "北京",
+            "place": {
+                "canonical_place_id": "provider-beijing-west-station",
+                "photo_url": None,
+                "name": "北京西站",
+                "category": "交通节点",
+                "area_or_address": "北京市丰台区莲花池东路118号",
+                "provider_binding": {
+                    "provider": "multi-city-test",
+                    "city": "北京",
+                    "request_sha256": "a" * 64,
+                    "response_sha256": "b" * 64,
+                    "external_calls": 1,
+                },
+            },
+            "receipt": {
+                "status": "AUTO_MATCHED",
+                "provider": "multi-city-test",
+                "city": "北京",
+                "requested_city": "北京",
+                "request_sha256": "a" * 64,
+                "response_sha256": "b" * 64,
+                "external_calls": 1,
+            },
+        }
+    ]
+    public = output.public_result.model_dump(mode="json")
+    assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(_walk_keys(public))
+    assert "provider-beijing-west-station" not in json.dumps(public, ensure_ascii=False)
+
+
 def test_non_deep_chinese_destination_does_not_inherit_reference_city_lane() -> None:
     source = "南京两日攻略。参考北京玩法，但 Day 1 去中山陵。"
 
     assert resolution_cities(source, "南京") == ("南京",)
+
+
+@pytest.mark.parametrize(
+    ("source", "model_destination"),
+    (
+        ("整理一家三口的北京三日行程。第1天去故宫博物院。", "北京"),
+        ("关于第一次来北京的三日攻略。第1天去故宫博物院。", "北京"),
+        ("关于周末安排的北京攻略。第1天去故宫博物院。", "北京"),
+        ("围绕北京故宫的三日攻略。第1天去故宫博物院。", "北京"),
+        ("广州北京路三日游。第1天去北京路步行街。", "广州"),
+    ),
+)
+def test_destination_recovery_never_promotes_people_modifiers_or_place_names(
+    source: str,
+    model_destination: str,
+) -> None:
+    assert source_destination_cities(source) == ()
+    assert normalized_destination_name(source, model_destination) == model_destination
+    assert resolution_cities(source, model_destination) == (model_destination,)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        ("这是一份围绕北京的三天攻略。", ("北京",)),
+        ("南京两日游。", ("南京",)),
+        ("北京、广州两地游。", ("北京", "广州")),
+        ("嘉兴市三日游。", ("嘉兴",)),
+    ),
+)
+def test_destination_recovery_accepts_only_exact_city_framing(
+    source: str,
+    expected: tuple[str, ...],
+) -> None:
+    assert source_destination_cities(source) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source", "expected_city", "place"),
+    (
+        ("整理一家三口的北京三日行程。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("这是一份关于第一次来北京的三日攻略。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("关于周末安排的北京攻略。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("围绕北京故宫的三日攻略。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("广州北京路三日游，第1天去北京路步行街。", "广州", "北京路步行街"),
+    ),
+)
+async def test_pipeline_keeps_correct_model_city_for_natural_text_boundaries(
+    source: str,
+    expected_city: str,
+    place: str,
+) -> None:
+    class CorrectDestinationProvider:
+        async def propose(self, source_text: str) -> InferenceProposal:
+            start = source_text.index(place)
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name=expected_city,
+                destination_basis="EXPLICIT",
+                mentions=[
+                    ProposedMention(
+                        mention_id="planned-place",
+                        raw_text=place,
+                        span_start=start,
+                        span_end=start + len(place),
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=0,
+                        atomic_place_name=place,
+                        category_hint="景点",
+                    )
+                ],
+                binding={"provider": "correct-destination-test-double", "external_calls": 0},
+            )
+
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    resolver = RecordingResolver()
+    output = await TripUnderstandingPipeline(
+        CorrectDestinationProvider(),
+        resolver,
+    ).run(source)
+
+    assert output.proposal.destination_name == expected_city
+    assert resolver.calls == [(expected_city, place)]
+    assert next(
+        chip.value
+        for chip in output.public_result.assumptions
+        if chip.key == "destination"
+    ) == expected_city
+
+
+@pytest.mark.asyncio
+async def test_deterministic_destination_keeps_explicit_multi_city_and_reference_boundaries() -> None:
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    multi_resolver = RecordingResolver()
+    multi = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        multi_resolver,
+    ).run("北京、杭州两地游。Day 1 去北京西站。Day 2 去南宋御街。")
+    assert multi.destination == {"name": "北京、杭州", "status": "EXPLICIT"}
+    assert set(multi_resolver.calls) == {
+        (city, place)
+        for city in ("北京", "杭州")
+        for place in ("北京西站", "南宋御街")
+    }
+
+    basic_resolver = RecordingResolver()
+    basic = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        basic_resolver,
+    ).run("南京两日游。参考北京玩法。Day 1 去中山陵。")
+    assert basic.destination == {"name": "南京", "status": "EXPLICIT"}
+    assert basic_resolver.calls == [("南京", "中山陵")]
+
+
+@pytest.mark.asyncio
+async def test_deterministic_fallback_rejects_reference_booking_comparison_and_generic_lodging() -> None:
+    class UnavailableInferenceProvider:
+        async def propose(self, source_text: str):
+            del source_text
+            raise InferenceProviderUnavailableError(
+                "DEADLINE_EXCEEDED",
+                provider_binding={"provider": "qwen-test-double"},
+                external_call_count=1,
+            )
+
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    for source in (
+        "北京。朋友说“Day 1 去故宫博物院”，但这只是引用，不是本次安排。",
+        "北京。Day 1 故宫博物院预约说明。",
+        "北京。Day 1 故宫博物院比天坛公园更热门。",
+    ):
+        resolver = RecordingResolver()
+        output = await build_full_text_pipeline(
+            UnavailableInferenceProvider(),
+            resolver,
+        ).run(source)
+        assert output.inference_binding["fallback_used"] is True
+        assert resolver.calls == []
+        assert all(day.activities == [] for day in output.public_result.days)
+
+    route_resolver = RecordingResolver()
+    route = await build_full_text_pipeline(
+        UnavailableInferenceProvider(),
+        route_resolver,
+    ).run("北京。Day 1 从酒店步行到故宫博物院。")
+    assert route_resolver.calls == [("北京", "故宫博物院")]
+    assert [
+        activity.name
+        for day in route.public_result.days
+        for activity in day.activities
+    ] == ["故宫博物院"]
+
+
+@pytest.mark.asyncio
+async def test_deterministic_fallback_keeps_mixed_planned_and_reference_roles_local() -> None:
+    source = "北京一日游。Day 1 去故宫博物院并参考天坛公园的预约说明。"
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    by_name = {
+        item.atomic_place_name: item
+        for item in proposal.mentions
+        if item.atomic_place_name
+    }
+    assert by_name["故宫博物院"].role == ActivityRole.PLANNED
+    assert by_name["故宫博物院"].day_index == 1
+    assert by_name["天坛公园"].role == ActivityRole.REFERENCE
+    assert by_name["天坛公园"].day_index is None
+
+
+@pytest.mark.asyncio
+async def test_deterministic_fallback_does_not_turn_either_or_into_cards() -> None:
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    resolver = RecordingResolver()
+    source = "北京一日游。Day 1 去故宫博物院或天坛公园。"
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        resolver,
+    ).run(source)
+
+    assert [
+        (item.atomic_place_name, item.role, item.day_index)
+        for item in proposal.mentions
+    ] == [
+        ("故宫博物院", ActivityRole.OPTIONAL, None),
+        ("天坛公园", ActivityRole.OPTIONAL, None),
+    ]
+    assert resolver.calls == []
+    assert all(day.activities == [] for day in output.public_result.days)
+
+
+@pytest.mark.asyncio
+async def test_booking_description_with_embedded_day_action_remains_reference() -> None:
+    proposal = await DeterministicTextInferenceProvider().propose(
+        "北京随手记。预约说明写着 Day 1 去故宫博物院。"
+    )
+
+    palace = next(
+        item for item in proposal.mentions if item.atomic_place_name == "故宫博物院"
+    )
+    assert palace.role == ActivityRole.REFERENCE
+    assert palace.day_index is None
+
+
+@pytest.mark.asyncio
+async def test_booking_colon_and_conditional_option_never_become_planned_cards() -> None:
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    resolver = RecordingResolver()
+    source = (
+        "北京两日游。Day 1 去故宫博物院。"
+        "预约说明：Day 2 去天坛公园完成预约，不是当天行程。"
+        "如果还有时间可以去颐和园。"
+    )
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        resolver,
+    ).run(source)
+    roles = {
+        item.atomic_place_name: item.role
+        for item in proposal.mentions
+        if item.atomic_place_name
+    }
+
+    assert roles["天坛公园"] == ActivityRole.REFERENCE
+    assert roles["颐和园"] == ActivityRole.OPTIONAL
+    assert resolver.calls == [("北京", "故宫博物院")]
+    assert [
+        activity.name
+        for day in output.public_result.days
+        for activity in day.activities
+    ] == ["故宫博物院"]
+
+
+@pytest.mark.asyncio
+async def test_non_atomic_choices_keep_clean_optional_place_names() -> None:
+    source = (
+        "北京两日游。Day 1 去故宫博物院或者颐和园二选一。"
+        "Day 2 去景山公园/北海公园看体力决定。"
+    )
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    assert [
+        (item.atomic_place_name, item.role, item.day_index)
+        for item in proposal.mentions
+        if item.atomic_place_name
+    ] == [
+        ("故宫博物院", ActivityRole.OPTIONAL, None),
+        ("颐和园", ActivityRole.OPTIONAL, None),
+        ("景山公园", ActivityRole.OPTIONAL, None),
+        ("北海公园", ActivityRole.OPTIONAL, None),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_reported_cross_city_provider_result_is_not_auto_matched() -> None:
+    source = "北京一日游。Day 1 去故宫博物院。"
+
+    class WrongCityResolver:
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            assert city == "北京"
+            return ResolvedPlace(
+                canonical_place_id="wrong-city-palace",
+                name=atomic_place_name,
+                category="景点",
+                area_or_address="上海市黄浦区测试地址",
+                provider_binding={
+                    "provider": "wrong-city-test",
+                    "city": "上海市",
+                    "external_calls": 1,
+                },
+            )
+
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        WrongCityResolver(),
+    ).run(source)
+
+    activity = next(
+        item
+        for item in output.activities
+        if item.compiled.mention.atomic_place_name == "故宫博物院"
+    )
+    assert activity.place is None
+    assert activity.resolution_status.value == "NEEDS_CONFIRMATION"
+    assert activity.resolver_receipt["status"] == "NO_UNIQUE_MATCH"
+    assert activity.resolver_receipt["failure_category"] == "CROSS_CITY_PROVIDER_RESULT"
 
 
 @pytest.mark.asyncio
@@ -694,6 +1285,8 @@ def test_source_cipher_is_randomized_and_bound_to_source_identity() -> None:
 async def test_all_card_commands_create_stale_map_projection_without_provider_side_effects() -> None:
     current = (await build_full_text_pipeline().run(FULL_BEIJING_TEXT)).public_result
     first_token = current.days[0].activities[0].activity_token
+    photo_url = "https://store.is.autonavi.com/showpic/palace.jpg"
+    current.days[0].activities[0].photo_url = photo_url
 
     inserted = apply_public_command(
         current,
@@ -725,6 +1318,7 @@ async def test_all_card_commands_create_stale_map_projection_without_provider_si
             target_position=1,
         ),
     )
+    assert moved.result.days[2].activities[1].photo_url == photo_url
     assert moved.changed_days == ["Day 1", "Day 3"]
     assert [item.name for item in moved.result.days[2].activities] == [
         "颐和园",
@@ -740,6 +1334,7 @@ async def test_all_card_commands_create_stale_map_projection_without_provider_si
             name="故宫入口待确认",
         ),
     )
+    assert edited.result.days[0].activities[0].photo_url is None
     assert edited.result.days[0].activities[0].status == "NEEDS_CONFIRMATION"
     assert edited.result.days[0].activities[0].area_or_address == "地点待确认"
 
@@ -757,6 +1352,8 @@ async def test_all_card_commands_create_stale_map_projection_without_provider_si
             }
         ),
     )
+    assert replaced.result.days[0].activities[0].photo_url is None
+    assert current.days[0].activities[0].photo_url == photo_url
     assert replaced.result.days[0].activities[0].name == "北海公园"
     assert replaced.result.days[0].activities[0].status == "NEEDS_CONFIRMATION"
 
@@ -794,6 +1391,19 @@ def test_signed_capability_is_tamper_evident_and_access_log_path_is_redacted() -
     redacted = redact_trip_understanding_path(path)
     assert redacted == "/api/v3/trip-understandings/{public_resource_id}/result?x=1"
     assert "visible-resource-secret" not in redacted
+    share_paths = (
+        "/api/v3/shares/share-real/exchange",
+        "/api/v3/me/shares/share-real",
+        "/api/share/share-real/responses",
+    )
+    for share_path in share_paths:
+        redacted_share_path = redact_trip_understanding_path(share_path)
+        assert "share-real" not in redacted_share_path
+        assert redacted_share_path in {
+            "/api/v3/shares/{share_ref}/exchange",
+            "/api/v3/me/shares/{share_ref}",
+            "/api/share/{share_token}/responses",
+        }
 
 
 @pytest.mark.asyncio
@@ -859,6 +1469,291 @@ async def test_create_replay_conflict_cross_session_and_durable_result() -> None
     events = await repository.list_events(resource, after_event_id=1)
     assert [item.event_type for item in events] == ["progress", "result_available"]
     assert [item.event_id for item in events] == [2, 3]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_progress_is_bounded_monotonic_and_safe() -> None:
+    updates = []
+
+    async def collect(update) -> None:
+        updates.append(update)
+
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT, progress_callback=collect)
+
+    assert output.public_result.status == "READY"
+    assert updates[0].phase == "CARDS_AVAILABLE"
+    assert 1 <= len(updates) <= 4
+    checked = [item.progress.places_checked for item in updates]
+    assert checked == sorted(checked)
+    assert checked[-1] == updates[-1].progress.places_total
+    for update in updates:
+        public = update.snapshot.model_dump(mode="json")
+        assert update.snapshot.status == "PARTIAL_RESULT"
+        assert update.snapshot.available_actions == []
+        assert all(
+            card.status == "NEEDS_CONFIRMATION" and card.available_actions == []
+            for day in update.snapshot.days
+            for card in day.activities
+        )
+        assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(_walk_keys(public))
+
+
+@pytest.mark.asyncio
+async def test_cancel_without_snapshot_is_terminal_and_rejects_late_worker() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="1" * 64,
+        idempotency_key="cancel-empty-create",
+        now=now,
+    )
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="1" * 64,
+        now=now,
+    )
+    job = await repository.claim_next(
+        worker_id="cancel-empty-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert job is not None
+
+    late_updates = []
+
+    async def collect_late_update(update) -> None:
+        late_updates.append(update)
+
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT, progress_callback=collect_late_update)
+    assert late_updates
+
+    stopped = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-empty",
+        now=now + timedelta(seconds=1),
+    )
+    assert stopped.cancelled.status == "STOPPED_EMPTY"
+    assert stopped.cancelled.has_editable_result is False
+    assert stopped.opaque_etag is None
+
+    refreshed = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="1" * 64,
+        now=now + timedelta(seconds=1),
+    )
+    assert refreshed.state == "CANCELLED"
+    assert await repository.get_result(refreshed) is None
+    assert await repository.renew_lease(
+        job,
+        now=now + timedelta(seconds=2),
+        lease_seconds=30,
+    ) is False
+    events_after_cancel = list(repository.events[resource.understanding_id])
+    progress_keys_after_cancel = repository.progress_event_keys.copy()
+    progress_bindings_after_cancel = repository.progress_internal_bindings.copy()
+    assert await repository.record_progress(
+        job,
+        late_updates[-1],
+        now=now + timedelta(seconds=2),
+    ) is False
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_job(job, output, now=now + timedelta(seconds=2))
+    await repository.fail_job(
+        job,
+        category="LATE_WORKER",
+        now=now + timedelta(seconds=2),
+    )
+    assert repository.jobs[job.job_id]["status"] == "CANCELLED"
+    assert repository.events[resource.understanding_id] == events_after_cancel
+    assert repository.progress_event_keys == progress_keys_after_cancel
+    assert repository.progress_internal_bindings == progress_bindings_after_cancel
+    assert repository.side_effect_count == 0
+    assert repository.map_jobs == {}
+    assert repository.stay_jobs == {}
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_retry_was_queued_never_claims_provider_was_not_started() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="7" * 64,
+        idempotency_key="cancel-after-retry-create",
+        now=now,
+    )
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="7" * 64,
+        now=now,
+    )
+    job = await repository.claim_next(
+        worker_id="retrying-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert job is not None
+
+    await repository.fail_job(
+        job,
+        category="TRANSIENT_PROVIDER_FAILURE",
+        now=now + timedelta(milliseconds=500),
+        allow_retry=True,
+        provider_binding={
+            "inference": {"external_calls": 1, "outcome": "UNKNOWN"},
+        },
+    )
+    assert repository.jobs[job.job_id]["status"] == "QUEUED"
+    assert repository.jobs[job.job_id]["attempt"] == 1
+
+    await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-after-retry",
+        now=now + timedelta(seconds=1),
+    )
+    binding = repository.cancellation_bindings[resource.understanding_id]
+
+    assert binding["outcome"] == "UNKNOWN_AFTER_CANCEL"
+    assert binding.get("external_calls") != 0
+
+
+@pytest.mark.asyncio
+async def test_cancel_promotes_progress_snapshot_to_editable_partial() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="2" * 64,
+        idempotency_key="cancel-draft-create",
+        now=now,
+    )
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="2" * 64,
+        now=now,
+    )
+    job = await repository.claim_next(
+        worker_id="cancel-draft-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert job is not None
+
+    async def persist(update) -> None:
+        accepted = await repository.record_progress(
+            job,
+            update,
+            now=now + timedelta(milliseconds=100),
+        )
+        assert accepted is True
+
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT, progress_callback=persist)
+    stopped = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-draft",
+        now=now + timedelta(seconds=1),
+    )
+    assert stopped.cancelled.status == "STOPPED_WITH_DRAFT"
+    assert stopped.opaque_etag is not None
+    assert repository.map_jobs == {}
+    assert repository.stay_jobs == {}
+
+    replay = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-draft",
+        now=now + timedelta(seconds=2),
+    )
+    assert replay.replayed is True
+    assert replay.opaque_etag == stopped.opaque_etag
+    again = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-draft-again",
+        now=now + timedelta(seconds=2),
+    )
+    assert again.cancelled.status == "ALREADY_FINISHED"
+
+    refreshed = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="2" * 64,
+        now=now + timedelta(seconds=2),
+    )
+    assert refreshed.state == "PARTIAL"
+    stored = await repository.get_result(refreshed)
+    assert stored is not None
+    assert stored.result.status == "PARTIAL_RESULT"
+    assert stored.result.available_actions == ["EDIT_ASSUMPTIONS", "EDIT_CARDS"]
+    assert all(
+        card.status == "NEEDS_CONFIRMATION"
+        and card.area_or_address == "地点待确认"
+        for day in stored.result.days
+        for card in day.activities
+    )
+    draft_input = repository.g03_pipeline_inputs[
+        (refreshed.understanding_id, 2)
+    ]
+    assert draft_input["destination"] == {
+        "name": "北京",
+        "status": "CANCELLED_DRAFT_SOFT",
+    }
+    assert {item["key"] for item in draft_input["assumptions"]} == {
+        "calendar",
+        "party_size",
+    }
+    assert all(
+        item["source"] == "CANCELLED_DRAFT_SOFT"
+        for item in draft_input["assumptions"]
+    )
+
+    first = stored.result.days[0].activities[0]
+    moved = await service.apply_command(
+        refreshed,
+        ActivityMoveCommand(
+            command_type="ACTIVITY_MOVE",
+            activity_token=first.activity_token,
+            target_day_index=3,
+            target_position=0,
+        ),
+        expected_etag=stored.opaque_etag,
+        idempotency_key="cancel-draft-move",
+        now=now + timedelta(seconds=3),
+    )
+    assert moved.applied.status == "APPLIED"
+    moved_input = repository.g03_pipeline_inputs[
+        (refreshed.understanding_id, 3)
+    ]
+    assert moved_input["destination"]["name"] == "北京"
+    materialized = await service.materialize_trip(
+        refreshed,
+        expected_etag=moved.opaque_etag,
+        idempotency_key="cancel-draft-materialize",
+        now=now + timedelta(seconds=3),
+    )
+    assert materialized.view.status == "READY"
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_job(job, output, now=now + timedelta(seconds=3))
+    assert repository.side_effect_count == 0
+
+    await service.delete_trip(
+        refreshed,
+        capability_hash="2" * 64,
+        user_id=None,
+        idempotency_key="cancel-draft-delete",
+        now=now + timedelta(seconds=4),
+    )
+    assert not repository.cancel_idempotency
+    assert not repository.progress_event_keys
+    assert not repository.progress_internal_bindings
+    assert refreshed.understanding_id not in repository.cancellation_bindings
 
 
 @pytest.mark.asyncio
@@ -944,7 +1839,7 @@ async def test_expired_lease_is_reclaimed_and_stale_worker_cannot_commit() -> No
         now=now,
         ttl_hours=24,
     )
-    first = await repository.claim_next(worker_id="worker-old", now=now, lease_seconds=5)
+    first = await repository.claim_next(worker_id="reused-worker", now=now, lease_seconds=5)
     assert first is not None
     assert await repository.claim_next(
         worker_id="worker-early",
@@ -952,12 +1847,15 @@ async def test_expired_lease_is_reclaimed_and_stale_worker_cannot_commit() -> No
         lease_seconds=5,
     ) is None
     replacement = await repository.claim_next(
-        worker_id="worker-new",
+        worker_id="reused-worker",
         now=now + timedelta(seconds=6),
         lease_seconds=30,
     )
     assert replacement is not None
     assert replacement.attempt == 2
+    await repository.fail_job(first, category="STALE_FAILURE", now=now + timedelta(seconds=7))
+    assert repository.jobs[first.job_id]["status"] == "RUNNING"
+    assert repository.jobs[first.job_id]["attempt"] == 2
     output = await TripUnderstandingPipeline(
         FixedBeijingDemoInferenceProvider(),
         FixedBeijingPlaceResolver(),
@@ -1066,8 +1964,29 @@ async def test_understanding_lease_takeover_never_repeats_external_inference() -
         now=now + timedelta(seconds=1),
     )
     stored = await repository.get_result(resource)
-    assert stored is not None
-    assert stored.result.status == "PARTIAL_RESULT"
+    assert stored is None
+    assert repository.jobs[abandoned.job_id]["status"] == "FAILED"
+    assert repository.jobs[abandoned.job_id]["last_error_category"] == "LEASE_TAKEOVER_UNKNOWN_OUTCOME"
+    assert repository.resources[created.accepted.public_resource_id]["state"] == "FAILED"
+    assert not await worker.run_once("later-worker", now=now + timedelta(minutes=1))
+    assert provider.calls == 0
+
+    # A new explicit user request may run inference; the old uncertain call is not replayed.
+    retried = await service.create_full(
+        CreateFullRequest.model_validate(
+            {"mode": "FULL", "source": {"type": "TEXT", "text": NORMAL_LONG_TEXT}}
+        ),
+        owner_user_id="takeover-owner",
+        idempotency_key="takeover-user-retry",
+        now=now + timedelta(minutes=2),
+    )
+    assert await worker.run_once("new-request-worker", now=now + timedelta(minutes=2))
+    assert provider.calls == 1
+    retry_resource = await service.authorize(
+        retried.accepted.public_resource_id, capability_hash=None,
+        user_id="takeover-owner", now=now + timedelta(minutes=3),
+    )
+    assert await repository.get_result(retry_resource) is not None
 
 
 @pytest.mark.asyncio
@@ -1199,7 +2118,7 @@ async def test_map_lease_takeover_and_late_old_revision_are_isolated() -> None:
         now=now + timedelta(seconds=1),
     )
     old_claim = await repository.claim_next_map(
-        worker_id="old-map-worker",
+        worker_id="reused-map-worker",
         now=now + timedelta(seconds=2),
         lease_seconds=5,
     )
@@ -1207,11 +2126,18 @@ async def test_map_lease_takeover_and_late_old_revision_are_isolated() -> None:
     old_plan = await repository.load_map_plan(old_claim)
     old_output = await MapRenderer().render(old_plan, observed_at=now + timedelta(seconds=2))
     replacement = await repository.claim_next_map(
-        worker_id="new-map-worker",
+        worker_id="reused-map-worker",
         now=now + timedelta(seconds=8),
         lease_seconds=30,
     )
     assert replacement is not None
+    await repository.fail_map_job(
+        old_claim,
+        category="STALE_MAP_FAILURE",
+        now=now + timedelta(seconds=9),
+    )
+    assert repository.map_jobs[old_claim.map_job_id]["status"] == "BUILDING"
+    assert repository.map_jobs[old_claim.map_job_id]["attempt"] == 2
     with pytest.raises(JobLeaseLostError):
         await repository.complete_map_job(
             old_claim,

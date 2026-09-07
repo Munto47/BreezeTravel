@@ -4,6 +4,7 @@ const http = require('http')
 const crypto = require('crypto')
 const jwt = require('jsonwebtoken')
 const WebSocket = require('ws')
+const Y = require('yjs')
 const { docs, getPersistence, setupWSConnection } = require('y-websocket/bin/utils')
 
 const bootGeneration = Object.freeze({
@@ -68,10 +69,17 @@ function createServer(options = {}) {
   const cleanupSecret = options.cleanupSecret || process.env.YJS_E2E_CLEANUP_SECRET || ''
   const restartGateMode = String(options.restartGateMode ?? process.env.YJS_RESTART_GATE_MODE ?? 'false') === 'true'
   let cleanupSecretConsumed = false
+  let closing = false
+  let closePromise = null
   if (!secret) throw new Error('JWT_SECRET_KEY is required')
 
   const connectionsByIp = new Map()
   const server = http.createServer(async (req, res) => {
+    if (closing) {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Connection': 'close' })
+      res.end(JSON.stringify({ detail: 'service stopping' }))
+      return
+    }
     const url = new URL(req.url, 'http://localhost')
     const singleCleanup = req.method === 'DELETE' && url.pathname.startsWith('/__e2e/doc/')
     const batchCleanup = req.method === 'DELETE' && url.pathname === '/__e2e/docs'
@@ -153,6 +161,11 @@ function createServer(options = {}) {
   const wss = new WebSocket.Server({ noServer: true, maxPayload })
 
   server.on('upgrade', (req, socket, head) => {
+    if (closing) {
+      socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n')
+      socket.destroy()
+      return
+    }
     const ip = req.socket.remoteAddress || 'unknown'
     if ((connectionsByIp.get(ip) || 0) >= maxPerIp) {
       socket.write('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n')
@@ -187,12 +200,80 @@ function createServer(options = {}) {
     setupWSConnection(ws, req, { docName: roomFromRequest(req), gc: true })
   })
 
-  return { server, wss, listen: () => server.listen(port, host) }
+  const close = (timeoutMs = 5000) => {
+    if (closePromise) return closePromise
+    closing = true
+    closePromise = (async () => {
+      const persistence = getPersistence()
+      if (persistence?.provider?.storeUpdate) {
+        const durableSnapshots = Array.from(
+          docs.entries(),
+          ([name, doc]) => [name, Y.encodeStateAsUpdate(doc)],
+        )
+        for (const [name, update] of durableSnapshots) {
+          await persistence.provider.storeUpdate(name, update)
+        }
+      }
+      const httpClosed = new Promise(resolve => {
+        if (!server.listening) {
+          resolve()
+          return
+        }
+        server.close(() => resolve())
+      })
+      const clientsClosed = Promise.all(Array.from(wss.clients, ws => new Promise(resolve => {
+        if (ws.readyState === WebSocket.CLOSED) {
+          resolve()
+          return
+        }
+        ws.once('close', resolve)
+        ws.close(1001, 'service stopping')
+      })))
+      let shutdownTimer
+      const timeout = new Promise((_, reject) => {
+        shutdownTimer = setTimeout(() => reject(new Error('Yjs graceful shutdown timed out')), timeoutMs)
+      })
+      let shutdownError = null
+      try {
+        await Promise.race([clientsClosed, timeout])
+      } catch (error) {
+        shutdownError = error
+        for (const ws of wss.clients) ws.terminate()
+      } finally {
+        clearTimeout(shutdownTimer)
+      }
+      await httpClosed
+      if (persistence?.provider?.destroy) await persistence.provider.destroy()
+      if (shutdownError) throw shutdownError
+    })()
+    return closePromise
+  }
+
+  return { server, wss, listen: () => server.listen(port, host), close }
 }
 
 if (require.main === module) {
   const instance = createServer()
   instance.listen()
+  let stopping = false
+  const stop = async () => {
+    if (stopping) return
+    stopping = true
+    try {
+      await instance.close()
+      process.exitCode = 0
+    } catch (_) {
+      process.exitCode = 1
+    } finally {
+      if (process.connected) process.disconnect()
+    }
+  }
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGBREAK']) {
+    process.once(signal, () => { void stop() })
+  }
+  process.on('message', message => {
+    if (message === 'shutdown') void stop()
+  })
 }
 
 module.exports = {

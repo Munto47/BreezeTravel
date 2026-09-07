@@ -1,0 +1,68 @@
+import type { ActivityCardView } from './trip-understanding-v3'
+
+export type PlacePhotoType = 'restaurant' | 'hotel' | 'historic' | 'modern' | 'mountain' | 'water' | 'park' | 'museum' | 'street'
+export const PLACE_PHOTO_LABELS: Record<PlacePhotoType, string> = {
+  restaurant: '餐饮', hotel: '酒店', historic: '古建筑', modern: '现代建筑',
+  mountain: '山岳', water: '水景', park: '园林公园', museum: '展馆', street: '街道',
+}
+
+export function placePhotoType(card: Pick<ActivityCardView, 'name' | 'category'>): PlacePhotoType | null {
+  const name = card.name.replace(/\s/g, '')
+  // Resolved business category takes precedence over words in business names:
+  // a lakefront hotel or a restaurant called "Mountain" is not a landscape.
+  if (/住宿|酒店|宾馆|旅馆|民宿/.test(card.category)) return 'hotel'
+  if (/餐饮|餐厅|饭店|咖啡|小吃/.test(card.category)) return 'restaurant'
+  if (/酒店|宾馆|旅馆|民宿/.test(name)) return 'hotel'
+  if (/(?:路|街|巷|胡同)(?:步行街|街区|商圈)?$/.test(name)) return 'street'
+  if (/故宫|天坛|雍和宫|颐和园|圆明园|长城|古建|古镇|古城|会址|祠堂|寺庙|寺$|寺院|宫殿|庙$|城墙/.test(name)) return 'historic'
+  if (/博物馆|博物院|美术馆|艺术馆|纪念馆|展览馆|科技馆/.test(name)) return 'museum'
+  if (/CCTV|央视|大裤衩|中国尊|大厦|大楼|摩天|商城|购物中心|金融中心|商务中心|写字楼|环球中心|上海中心|东方明珠|国贸|体育场|体育馆/i.test(name)) return 'modern'
+  if (/(?:山|山脉|山峰|峰|峡谷|山风景区|山景区)$/.test(name)) return 'mountain'
+  if (/滨江|滨河|滨海|湖畔|河畔|海滩|沙滩|海岸|瀑布|水库|(?:湖|江|河|海|泉)$/.test(name)) return 'water'
+  if (/公园|植物园|园林|花园|豫园|绿地/.test(name)) return 'park'
+  // With no reliable subtype, retain the neutral artwork. Do not turn an
+  // unfamiliar building, bridge or attraction into an arbitrary landscape.
+  return null
+}
+
+export const PLACE_PHOTO_COUNT = 10
+type PhotoCard = Pick<ActivityCardView, 'name' | 'category'> & Partial<Pick<ActivityCardView, 'city' | 'area_or_address'>>
+
+export function placePhotoKey(card: PhotoCard) {
+  return [card.city, card.name, card.category, card.area_or_address]
+    .map(value => (value || '').normalize('NFKC').replace(/\s/g, '')).join('|')
+}
+
+function photoOffset(key: string) {
+  let hash = 2166136261
+  for (const char of key) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+  return (hash >>> 0) % PLACE_PHOTO_COUNT
+}
+
+export function placeTypePhoto(card: PhotoCard, offset = photoOffset(placePhotoKey(card))) {
+  const type = placePhotoType(card)
+  const suffix = offset === 0 ? '' : `-${String(offset + 1).padStart(2, '0')}`
+  return type ? { type, src: `/place-types/${type}${suffix}.jpg`, label: PLACE_PHOTO_LABELS[type] } : null
+}
+
+// Allocate within this itinerary, never in mutable global/browser state.
+// Sorting identities makes refresh and drag order irrelevant. Repeated visits
+// to the same place keep their picture; distinct places exhaust the pool before reuse.
+export function allocatePlacePhotos(cards: PhotoCard[]) {
+  const unique = new Map(cards.map(card => [placePhotoKey(card), card]))
+  const usage = new Map<PlacePhotoType, number[]>()
+  const selected = new Map<string, ReturnType<typeof placeTypePhoto>>()
+  for (const key of [...unique.keys()].sort()) {
+    const card = unique.get(key)!
+    const type = placePhotoType(card)
+    if (!type) continue
+    const counts = usage.get(type) || Array<number>(PLACE_PHOTO_COUNT).fill(0)
+    const minimum = Math.min(...counts)
+    let offset = photoOffset(key)
+    while (counts[offset] > minimum) offset = (offset + 1) % PLACE_PHOTO_COUNT
+    counts[offset]++
+    usage.set(type, counts)
+    selected.set(key, placeTypePhoto(card, offset))
+  }
+  return selected
+}

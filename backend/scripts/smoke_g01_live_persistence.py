@@ -160,6 +160,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         raise ValueError("isolated database name is invalid")
     admin = await asyncpg.connect(args.database_admin_url)
     pool: asyncpg.Pool | None = None
+    pipeline = None
     try:
         await admin.execute(f'CREATE DATABASE "{database_name}"')
         database_url = _database_url(args.database_admin_url, database_name)
@@ -405,14 +406,18 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             "human_evidence": False,
         }
     finally:
-        if pool is not None:
-            await pool.close()
-        await admin.execute(
-            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1",
-            database_name,
-        )
-        await admin.execute(f'DROP DATABASE IF EXISTS "{database_name}"')
-        await admin.close()
+        try:
+            if pipeline is not None:
+                await pipeline.aclose()
+        finally:
+            if pool is not None:
+                await pool.close()
+            await admin.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1",
+                database_name,
+            )
+            await admin.execute(f'DROP DATABASE IF EXISTS "{database_name}"')
+            await admin.close()
 
 
 def main() -> int:

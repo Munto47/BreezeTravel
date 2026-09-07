@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Brain, Save, Trash2 } from 'lucide-react'
+import { Save, Trash2 } from 'lucide-react'
 
 import {
   type DataConsentView,
@@ -20,21 +20,27 @@ const EMPTY: PreferenceMemoryView = {
   hotel_preferences: [],
   intensity: null,
 }
-const DEFAULT_CONSENTS: DataConsentView = {
-  memory_enabled: false,
-  feedback_enabled: false,
-  training_eval_enabled: false,
-}
 const DINING = [
-  ['LOCAL', '当地风味'], ['VEGETARIAN', '素食'], ['HALAL', '清真'],
-  ['NO_SPICY', '少辣'], ['QUICK', '便捷就餐'],
+  ['LOCAL', '当地风味'],
+  ['VEGETARIAN', '素食'],
+  ['HALAL', '清真'],
+  ['NO_SPICY', '少辣'],
+  ['QUICK', '便捷就餐'],
 ] as const
 const HOTEL = [
-  ['CHAIN', '连锁酒店'], ['NEAR_TRANSIT', '靠近公交'],
-  ['QUIET', '安静'], ['CENTRAL', '市中心'],
+  ['CHAIN', '连锁酒店'],
+  ['NEAR_TRANSIT', '靠近公交'],
+  ['QUIET', '安静'],
+  ['CENTRAL', '市中心'],
 ] as const
 
-function Toggle({ checked, label, description, disabled, onChange }: {
+function Toggle({
+  checked,
+  label,
+  description,
+  disabled,
+  onChange,
+}: {
   checked: boolean
   label: string
   description: string
@@ -42,37 +48,73 @@ function Toggle({ checked, label, description, disabled, onChange }: {
   onChange: () => void
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-3">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-slate-800">{label}</p>
-        <p className="mt-1 text-[11px] leading-5 text-slate-500">{description}</p>
+    <div className="profile-consent">
+      <div>
+        <h3>{label}</h3>
+        <p className="profile-help">{description}</p>
       </div>
-      <button type="button" aria-label={`切换${label}`} aria-pressed={checked} disabled={disabled} onClick={onChange} className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${checked ? 'bg-violet-600' : 'bg-slate-300'}`}>
-        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${checked ? 'left-6' : 'left-1'}`} />
+      <button
+        type="button"
+        aria-label={`切换${label}`}
+        aria-pressed={checked}
+        disabled={disabled}
+        onClick={onChange}
+        className={`profile-toggle${checked ? ' is-on' : ''}`}
+      >
+        <span className="profile-toggle-track" aria-hidden="true">
+          <span />
+        </span>
+        <span className="profile-toggle-text">
+          {checked ? '已开启' : '已关闭'}
+        </span>
       </button>
     </div>
   )
 }
 
 export default function MemorySettingsPanel() {
-  const [consents, setConsents] = useState<DataConsentView>(DEFAULT_CONSENTS)
+  const [consents, setConsents] = useState<DataConsentView | null>(null)
   const [preference, setPreference] = useState<PreferenceMemoryView>(EMPTY)
   const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    Promise.all([readDataConsents(), readPreferenceMemory()])
+    let active = true
+    setLoading(true)
+    setLoadFailed(false)
+    setMessage('')
+    readDataConsents()
+      .then(
+        async (nextConsents) =>
+          [
+            nextConsents,
+            nextConsents.memory_enabled ? await readPreferenceMemory() : null,
+          ] as const,
+      )
       .then(([nextConsents, nextPreference]) => {
+        if (!active) return
         setConsents(nextConsents)
         setPreference(nextPreference ?? EMPTY)
       })
-      .catch(() => setMessage('偏好设置暂时无法读取。'))
-      .finally(() => setLoading(false))
-  }, [])
+      .catch(() => {
+        if (active) setLoadFailed(true)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [loadAttempt])
 
-  const toggleConsent = async (purpose: 'memory' | 'feedback' | 'training-eval', enabled: boolean) => {
-    if (busy) return
+  const toggleConsent = async (
+    purpose: 'memory' | 'feedback' | 'training-eval',
+    enabled: boolean,
+  ) => {
+    if (busy || loading || loadFailed || !consents) return
     setBusy(true)
     setMessage('')
     try {
@@ -88,7 +130,7 @@ export default function MemorySettingsPanel() {
   }
 
   const save = async () => {
-    if (busy || !consents.memory_enabled) return
+    if (busy || !consents?.memory_enabled) return
     setBusy(true)
     try {
       setPreference(await savePreferenceMemory(preference))
@@ -114,45 +156,217 @@ export default function MemorySettingsPanel() {
     }
   }
 
-  const toggleList = (field: 'dining_preferences' | 'hotel_preferences', value: string) => {
+  const toggleList = (
+    field: 'dining_preferences' | 'hotel_preferences',
+    value: string,
+  ) => {
     setPreference((current) => {
       const selected = current[field] as string[]
       const next = selected.includes(value)
         ? selected.filter((item) => item !== value)
-        : selected.length < 3 ? [...selected, value] : selected
+        : selected.length < 3
+          ? [...selected, value]
+          : selected
       return { ...current, [field]: next }
     })
   }
 
   return (
-    <section className="mt-6 overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm" data-testid="g06-memory-settings">
-      <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50"><Brain className="h-4 w-4 text-violet-600" /></div>
-        <div><p className="text-sm font-semibold text-gray-800">旅行偏好与数据用途</p><p className="mt-1 text-[11px] text-gray-500">全部默认关闭，三项选择互不代表。</p></div>
-      </div>
-      <div className="space-y-3 p-4">
-        <Toggle checked={consents.memory_enabled} disabled={loading || busy} label="记住结构化偏好" description="只保存步行、出发时间、餐饮、酒店和行程强度；不保存攻略、截图或聊天。" onChange={() => void toggleConsent('memory', !consents.memory_enabled)} />
-        <Toggle checked={consents.feedback_enabled} disabled={loading || busy} label="允许保存产品反馈" description="仅记录纠正、采纳或不采纳等最小事件，不含原文。" onChange={() => void toggleConsent('feedback', !consents.feedback_enabled)} />
-        <Toggle checked={consents.training_eval_enabled} disabled={loading || busy} label="允许用于训练或评测" description="这是单独选择；提交产品反馈不会自动开启。" onChange={() => void toggleConsent('training-eval', !consents.training_eval_enabled)} />
-      </div>
-      {consents.memory_enabled ? (
-        <div className="border-t border-slate-100 p-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="text-xs font-medium text-slate-700">可接受单段步行（分钟）<input data-testid="walking-tolerance" type="number" min={5} max={120} value={preference.walking_tolerance_minutes ?? ''} onChange={(event) => setPreference((current) => ({ ...current, walking_tolerance_minutes: event.target.value ? Number(event.target.value) : null }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 px-3" /></label>
-            <label className="text-xs font-medium text-slate-700">希望出发时间<input data-testid="preferred-start-time" type="time" value={preference.preferred_start_time ?? ''} onChange={(event) => setPreference((current) => ({ ...current, preferred_start_time: event.target.value || null }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 px-3" /></label>
-            <label className="text-xs font-medium text-slate-700">行程强度<select data-testid="trip-intensity" value={preference.intensity ?? ''} onChange={(event) => setPreference((current) => ({ ...current, intensity: (event.target.value || null) as PreferenceMemoryView['intensity'] }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 px-3"><option value="">未设置</option><option value="RELAXED">轻松</option><option value="BALANCED">均衡</option><option value="FULL">充实</option></select></label>
-          </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <fieldset><legend className="text-xs font-semibold text-slate-700">餐饮偏好（最多3项）</legend><div className="mt-2 flex flex-wrap gap-2">{DINING.map(([value, label]) => <button type="button" key={value} aria-pressed={preference.dining_preferences.includes(value)} onClick={() => toggleList('dining_preferences', value)} className={`rounded-full border px-3 py-1.5 text-xs ${preference.dining_preferences.includes(value) ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-600'}`}>{label}</button>)}</div></fieldset>
-            <fieldset><legend className="text-xs font-semibold text-slate-700">酒店偏好（最多3项）</legend><div className="mt-2 flex flex-wrap gap-2">{HOTEL.map(([value, label]) => <button type="button" key={value} aria-pressed={preference.hotel_preferences.includes(value)} onClick={() => toggleList('hotel_preferences', value)} className={`rounded-full border px-3 py-1.5 text-xs ${preference.hotel_preferences.includes(value) ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-600'}`}>{label}</button>)}</div></fieldset>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button data-testid="save-preferences" type="button" disabled={busy} onClick={() => void save()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4" />保存偏好</button>
-            <button data-testid="clear-preferences" type="button" disabled={busy} onClick={() => void clear()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-600 disabled:opacity-50"><Trash2 className="h-4 w-4" />清空偏好</button>
+    <section
+      className="profile-section profile-memory"
+      aria-labelledby="preference-settings-title"
+      data-testid="g06-memory-settings"
+    >
+      <h2 id="preference-settings-title">旅行偏好与数据用途</h2>
+      <p className="profile-help">全部默认关闭，每项选择单独生效。</p>
+      {loading && (
+        <p role="status" className="profile-help">
+          正在读取偏好设置…
+        </p>
+      )}
+      {loadFailed && (
+        <div className="profile-notice">
+          <p role="alert">
+            偏好设置暂时无法读取，当前选择还未确认。请重新读取后再修改。
+          </p>
+          <div className="profile-button-row">
+            <button
+              type="button"
+              className="e-button"
+              onClick={() => setLoadAttempt((current) => current + 1)}
+            >
+              重新读取偏好设置
+            </button>
           </div>
         </div>
-      ) : null}
-      {message ? <p role="status" className="border-t border-slate-100 px-4 py-3 text-xs text-slate-600">{message}</p> : null}
+      )}
+      {!loading && !loadFailed && consents && (
+        <>
+          <div className="profile-consent-list">
+            <Toggle
+              checked={consents.memory_enabled}
+              disabled={loading || busy}
+              label="记住结构化偏好"
+              description="只保存步行、出发时间、餐饮、酒店和行程强度；不保存攻略或聊天。"
+              onChange={() =>
+                void toggleConsent('memory', !consents.memory_enabled)
+              }
+            />
+            <Toggle
+              checked={consents.feedback_enabled}
+              disabled={loading || busy}
+              label="允许保存产品反馈"
+              description="仅记录纠正、采纳或不采纳等最小事件，不含原文。"
+              onChange={() =>
+                void toggleConsent('feedback', !consents.feedback_enabled)
+              }
+            />
+            <Toggle
+              checked={consents.training_eval_enabled}
+              disabled={loading || busy}
+              label="允许用于训练或评测"
+              description="这是单独选择；提交产品反馈不会自动开启。"
+              onChange={() =>
+                void toggleConsent(
+                  'training-eval',
+                  !consents.training_eval_enabled,
+                )
+              }
+            />
+          </div>
+          {consents.memory_enabled && (
+            <div className="profile-preference-fields">
+              <div className="profile-fields profile-fields-three">
+                <label>
+                  可接受单段步行（分钟）
+                  <input
+                    data-testid="walking-tolerance"
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={preference.walking_tolerance_minutes ?? ''}
+                    onChange={(event) =>
+                      setPreference((current) => ({
+                        ...current,
+                        walking_tolerance_minutes: event.target.value
+                          ? Number(event.target.value)
+                          : null,
+                      }))
+                    }
+                    disabled={busy}
+                  />
+                </label>
+                <label>
+                  希望出发时间
+                  <input
+                    data-testid="preferred-start-time"
+                    type="time"
+                    value={preference.preferred_start_time ?? ''}
+                    onChange={(event) =>
+                      setPreference((current) => ({
+                        ...current,
+                        preferred_start_time: event.target.value || null,
+                      }))
+                    }
+                    disabled={busy}
+                  />
+                </label>
+                <label>
+                  行程强度
+                  <select
+                    data-testid="trip-intensity"
+                    value={preference.intensity ?? ''}
+                    onChange={(event) =>
+                      setPreference((current) => ({
+                        ...current,
+                        intensity: (event.target.value ||
+                          null) as PreferenceMemoryView['intensity'],
+                      }))
+                    }
+                    disabled={busy}
+                  >
+                    <option value="">未设置</option>
+                    <option value="RELAXED">轻松</option>
+                    <option value="BALANCED">均衡</option>
+                    <option value="FULL">充实</option>
+                  </select>
+                </label>
+              </div>
+              <div className="profile-preference-groups">
+                <fieldset>
+                  <legend>
+                    餐饮偏好 <span className="profile-help">最多 3 项</span>
+                  </legend>
+                  <div className="profile-options">
+                    {DINING.map(([value, label]) => (
+                      <button
+                        type="button"
+                        key={value}
+                        disabled={busy}
+                        aria-pressed={preference.dining_preferences.includes(
+                          value,
+                        )}
+                        onClick={() => toggleList('dining_preferences', value)}
+                        className="profile-option"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>
+                    酒店偏好 <span className="profile-help">最多 3 项</span>
+                  </legend>
+                  <div className="profile-options">
+                    {HOTEL.map(([value, label]) => (
+                      <button
+                        type="button"
+                        key={value}
+                        disabled={busy}
+                        aria-pressed={preference.hotel_preferences.includes(
+                          value,
+                        )}
+                        onClick={() => toggleList('hotel_preferences', value)}
+                        className="profile-option"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+              <div className="profile-button-row">
+                <button
+                  data-testid="save-preferences"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void save()}
+                  className="e-button e-button-primary"
+                >
+                  <Save aria-hidden="true" />
+                  保存偏好
+                </button>
+                <button
+                  data-testid="clear-preferences"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void clear()}
+                  className="e-button"
+                >
+                  <Trash2 aria-hidden="true" />
+                  清空偏好
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {message && (
+        <p role="status" className="profile-notice">
+          {message}
+        </p>
+      )}
     </section>
   )
 }

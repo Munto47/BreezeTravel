@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import jwt
 import pytest
+from unittest.mock import AsyncMock
 
 
 fastapi = pytest.importorskip("fastapi")
@@ -13,7 +15,17 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api import trip_understandings_v3  # noqa: E402
+from app.trip_understanding.demo import (  # noqa: E402
+    DEMO_SOURCE_TEXT,
+    FixedBeijingDemoInferenceProvider,
+    FixedBeijingPlaceResolver,
+)
+from app.trip_understanding.collaboration_import import (  # noqa: E402
+    CollaborationImportSource,
+    CollaborationRouteUnavailableError,
+)
 from app.trip_understanding.map_worker import MapRenderWorker  # noqa: E402
+from app.trip_understanding.pipeline import TripUnderstandingPipeline  # noqa: E402
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository  # noqa: E402
 from app.trip_understanding.service import TripUnderstandingApplicationService  # noqa: E402
 from app.trip_understanding.worker import TripUnderstandingWorker  # noqa: E402
@@ -30,6 +42,89 @@ def _client():
         trip_understandings_v3.get_trip_understanding_repository
     ] = lambda: repository
     return TestClient(app), repository, app
+
+
+def test_collaboration_route_creates_private_text_job_and_replays(monkeypatch) -> None:
+    client, repository, app = _client()
+    source = CollaborationImportSource(
+        source_text="北京1日行程。\nDay 1\n09:00-11:00 去故宫博物院（景点）。",
+        request_hash="a" * 64,
+        internal_idempotency_key="collaboration_" + "b" * 64,
+        internal_binding={
+            "status": "NOT_RUN",
+            "source_origin": "COLLABORATION",
+            "room_ref_hash": "c" * 64,
+            "saved_itinerary_ref_hash": "d" * 64,
+            "saved_content_hash": "e" * 64,
+            "normalized_text_hash": "f" * 64,
+        },
+    )
+    loader = AsyncMock(return_value=source)
+    monkeypatch.setattr(trip_understandings_v3, "load_collaboration_import", loader)
+
+    unauthenticated = client.post(
+        "/api/v3/trip-understandings/from-collaboration",
+        headers={"Idempotency-Key": "transfer-once"},
+        json={"room_id": "room-secret"},
+    )
+    assert unauthenticated.status_code == 401
+    loader.assert_not_awaited()
+
+    app.dependency_overrides[get_current_user] = lambda: "account-owner"
+    created = client.post(
+        "/api/v3/trip-understandings/from-collaboration",
+        headers={"Idempotency-Key": "transfer-once"},
+        json={"room_id": "room-secret"},
+    )
+    assert created.status_code == 202
+    assert created.headers["Location"] == created.json()["result_url"]
+    assert "Idempotency-Replayed" not in created.headers
+    job = next(iter(repository.jobs.values()))
+    assert repository.sources[job["job_id"]].text == source.source_text
+    assert repository.progress_internal_bindings[(job["understanding_id"], 1)] == source.internal_binding
+    assert "room-secret" not in repr(repository.progress_internal_bindings)
+
+    replay = client.post(
+        "/api/v3/trip-understandings/from-collaboration",
+        headers={"Idempotency-Key": "transfer-once"},
+        json={"room_id": "room-secret"},
+    )
+    assert replay.status_code == 202
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    assert replay.json()["public_resource_id"] == created.json()["public_resource_id"]
+    assert len(repository.jobs) == 1
+
+    loader.return_value = CollaborationImportSource(
+        **{**source.__dict__, "request_hash": "9" * 64},
+    )
+    changed = client.post(
+        "/api/v3/trip-understandings/from-collaboration",
+        headers={"Idempotency-Key": "transfer-once"},
+        json={"room_id": "room-secret"},
+    )
+    assert changed.status_code == 409
+    assert changed.json()["detail"]["code"] == "IDEMPOTENCY_KEY_REUSED"
+
+
+def test_collaboration_route_requires_usable_saved_result(monkeypatch) -> None:
+    client, _repository, app = _client()
+    app.dependency_overrides[get_current_user] = lambda: "account-owner"
+    monkeypatch.setattr(
+        trip_understandings_v3,
+        "load_collaboration_import",
+        AsyncMock(side_effect=CollaborationRouteUnavailableError("private detail")),
+    )
+    response = client.post(
+        "/api/v3/trip-understandings/from-collaboration",
+        headers={"Idempotency-Key": "transfer-empty"},
+        json={"room_id": "room-secret"},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "code": "COLLABORATION_ROUTE_UNAVAILABLE",
+        "message": "请先在协同规划中保存一条可用路线",
+    }
+    assert "private detail" not in response.text
 
 
 def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
@@ -68,7 +163,18 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
 
     progress = client.get(payload["result_url"])
     assert progress.status_code == 202
-    assert set(progress.json()) == {"status", "message", "retry_after_ms"}
+    assert set(progress.json()) == {
+        "status",
+        "message",
+        "retry_after_ms",
+        "phase",
+        "event_cursor",
+        "progress",
+        "snapshot",
+    }
+    assert progress.json()["phase"] == "RECEIVED"
+    assert progress.json()["event_cursor"] == 1
+    assert progress.json()["snapshot"] is None
     asyncio.run(TripUnderstandingWorker(repository).run_once("api-test-worker"))
 
     result = client.get(payload["result_url"])
@@ -84,10 +190,26 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
     assert event_stream.status_code == 200
     assert "event: progress" in event_stream.text
     assert "event: result_available" in event_stream.text
-    resumed = client.get(payload["events_url"], headers={"Last-Event-ID": "2"})
+    event_ids = [
+        int(line.removeprefix("id: "))
+        for line in event_stream.text.splitlines()
+        if line.startswith("id: ")
+    ]
+    assert event_ids == sorted(set(event_ids))
+    resumed = client.get(
+        payload["events_url"],
+        headers={"Last-Event-ID": str(event_ids[-2])},
+    )
     assert "event: progress" not in resumed.text
     assert "event: result_available" in resumed.text
-    assert "id: 3" in resumed.text
+    assert f"id: {event_ids[-1]}" in resumed.text
+    for invalid_cursor in ("not-a-number", "-1", str(2**63)):
+        invalid_resume = client.get(
+            payload["events_url"],
+            headers={"Last-Event-ID": invalid_cursor},
+        )
+        assert invalid_resume.status_code == 400
+        assert invalid_resume.json()["detail"]["code"] == "INVALID_EVENT_CURSOR"
 
     map_preparing = client.get(
         f"/api/v3/trip-understandings/{public_resource_id}/map-renders/latest"
@@ -214,7 +336,125 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
         assert f'"{command_type}"' in openapi_text
 
 
-def test_full_api_requires_login_and_uses_user_owned_persistent_chain() -> None:
+def test_cancel_api_handles_empty_draft_progress_and_replay() -> None:
+    client, repository, _app = _client()
+    empty = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "cancel-api-empty-create"},
+        json={"mode": "DEMO"},
+    ).json()
+    missing_key = client.post(
+        f"/api/v3/trip-understandings/{empty['public_resource_id']}/cancel"
+    )
+    assert missing_key.status_code == 400
+    stopped_empty = client.post(
+        f"/api/v3/trip-understandings/{empty['public_resource_id']}/cancel",
+        headers={"Idempotency-Key": "cancel-api-empty"},
+    )
+    assert stopped_empty.status_code == 200
+    assert stopped_empty.json()["status"] == "STOPPED_EMPTY"
+    assert "etag" not in stopped_empty.headers
+    cancelled_result = client.get(empty["result_url"])
+    assert cancelled_result.status_code == 409
+    assert cancelled_result.json()["detail"]["code"] == "UNDERSTANDING_CANCELLED"
+    empty_replay = client.post(
+        f"/api/v3/trip-understandings/{empty['public_resource_id']}/cancel",
+        headers={"Idempotency-Key": "cancel-api-empty"},
+    )
+    assert empty_replay.headers["Idempotency-Replayed"] == "true"
+    assert empty_replay.json() == stopped_empty.json()
+
+    draft = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "cancel-api-draft-create"},
+        json={"mode": "DEMO"},
+    ).json()
+
+    async def prepare_progress() -> None:
+        now = datetime.now(timezone.utc)
+        job = await repository.claim_next(
+            worker_id="cancel-api-draft-worker",
+            now=now,
+            lease_seconds=30,
+        )
+        assert job is not None
+
+        async def persist(update) -> None:
+            assert await repository.record_progress(job, update, now=now)
+
+        await TripUnderstandingPipeline(
+            FixedBeijingDemoInferenceProvider(),
+            FixedBeijingPlaceResolver(),
+        ).run(DEMO_SOURCE_TEXT, progress_callback=persist)
+
+    asyncio.run(prepare_progress())
+    progress = client.get(draft["result_url"])
+    assert progress.status_code == 202
+    assert progress.json()["snapshot"] is not None
+    assert progress.json()["phase"] in {"CARDS_AVAILABLE", "CHECKING_PLACES"}
+    stopped_draft = client.post(
+        f"/api/v3/trip-understandings/{draft['public_resource_id']}/cancel",
+        headers={"Idempotency-Key": "cancel-api-draft"},
+    )
+    assert stopped_draft.status_code == 200
+    assert stopped_draft.json()["status"] == "STOPPED_WITH_DRAFT"
+    assert stopped_draft.headers["etag"].startswith('"tu3_')
+    editable = client.get(draft["result_url"])
+    assert editable.status_code == 200
+    assert editable.headers["etag"] == stopped_draft.headers["etag"]
+    assert editable.json()["available_actions"] == [
+        "EDIT_ASSUMPTIONS",
+        "EDIT_CARDS",
+    ]
+    assert all(
+        card["status"] == "NEEDS_CONFIRMATION"
+        for day in editable.json()["days"]
+        for card in day["activities"]
+    )
+
+
+def test_public_full_contract_accepts_text_only() -> None:
+    client, _repository, app = _client()
+    app.dependency_overrides[get_optional_user] = lambda: "text-only-user"
+
+    rejected = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "screenshot-source-rejected"},
+        json={
+            "mode": "FULL",
+            "source": {"type": "SCREENSHOT_BATCH", "batch_ref": "legacy-batch"},
+        },
+    )
+
+    assert rejected.status_code == 422
+    openapi_text = json.dumps(app.openapi(), ensure_ascii=False)
+    assert "ScreenshotBatchSourceRequest" not in openapi_text
+    assert "screenshot-batches" not in openapi_text
+
+    checked_in = json.loads(
+        (
+            Path(__file__).resolve().parents[2]
+            / "packages/trip-check-client/openapi.current.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert all(
+        path == "/health"
+        or path.startswith(("/api/v3/", "/api/auth/", "/api/user/"))
+        for path in checked_in["paths"]
+    )
+    public_contract = json.dumps(checked_in, ensure_ascii=False)
+    for internal_name in (
+        "Screenshot",
+        "TripWorkspace",
+        "AuditReport",
+        "EvidenceSnapshot",
+        "RepairOption",
+        "RunSpec",
+    ):
+        assert internal_name not in public_contract
+
+
+def test_full_api_accepts_anonymous_text_and_supports_account_owned_chain() -> None:
     client, repository, app = _client()
     text = """北京三日行程
 Day 1：故宫博物院、景山公园。
@@ -229,8 +469,10 @@ Day 3：颐和园、圆明园。
         headers={"Idempotency-Key": "full-anonymous"},
         json=request_body,
     )
-    assert anonymous.status_code == 401
-    assert anonymous.json()["detail"]["code"] == "LOGIN_REQUIRED"
+    assert anonymous.status_code == 202
+    assert "HttpOnly" in anonymous.headers["set-cookie"]
+    asyncio.run(TripUnderstandingWorker(repository).run_once("anonymous-full-worker"))
+    assert client.get(anonymous.json()["result_url"]).json()["ownership"] == "ANONYMOUS"
 
     app.dependency_overrides[get_optional_user] = lambda: "user-a"
     created = client.post(
@@ -301,7 +543,7 @@ async def test_full_service_replay_conflict_and_two_active_job_limit() -> None:
         )
 
 
-def test_demo_claim_rotates_id_revokes_cookie_and_replays_without_cookie() -> None:
+def test_demo_claim_rotates_id_keeps_session_cookie_and_replays_without_cookie() -> None:
     client, repository, app = _client()
     created = client.post(
         "/api/v3/trip-understandings",
@@ -325,10 +567,11 @@ def test_demo_claim_rotates_id_revokes_cookie_and_replays_without_cookie() -> No
     assert new_id != old_id
     assert claimed.headers["location"].endswith(f"/{new_id}/result")
     assert claimed.headers["etag"] == old_result.headers["etag"]
-    assert "Max-Age=0" in claimed.headers["set-cookie"]
+    assert "set-cookie" not in claimed.headers  # Other anonymous drafts retain access.
     assert client.get(f"/api/v3/trip-understandings/{old_id}/result").status_code == 410
     assert client.get(f"/api/v3/trip-understandings/{new_id}/result").status_code == 200
 
+    client.cookies.clear()
     replay = client.post(
         f"/api/v3/trip-understandings/{old_id}/claim",
         headers={"Idempotency-Key": "claim-demo"},
@@ -380,6 +623,7 @@ def test_source_delete_keeps_cards_and_is_owner_only() -> None:
     assert replay.headers["Idempotency-Replayed"] == "true"
 
     app.dependency_overrides[get_current_user] = lambda: "user-b"
+    app.dependency_overrides[get_optional_user] = lambda: "user-b"
     assert client.delete(
         f"/api/v3/trip-understandings/{resource_id}/source",
         headers={"Idempotency-Key": "source-delete-other"},

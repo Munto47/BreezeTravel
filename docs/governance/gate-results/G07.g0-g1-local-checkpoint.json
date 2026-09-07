@@ -1,0 +1,80 @@
+{
+  "schema_version": "g07-local-g0-g1-checkpoint-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "checkpoint_status": "PASS",
+  "final_candidate_admissible": false,
+  "subject": {
+    "commit": "4afb86210aafe03a6cebe4dac3da9cf2365a6c58",
+    "tree": "34a7c8463f6f745a93cf1628061dae303c03a7ef",
+    "remote_ref": "refs/heads/codex/g07-candidate",
+    "remote_commit_readback": "4afb86210aafe03a6cebe4dac3da9cf2365a6c58",
+    "remote_tree_readback": "34a7c8463f6f745a93cf1628061dae303c03a7ef"
+  },
+  "bindings": {
+    "candidate_gate_contract_sha256": "f8d6f20da8d781af8894f45c11ebd10576e373fcbd45cc76c82c47e46421122a",
+    "run_spec_sha256": "a683b74e960b637e924d614a0667c752a43c88de3e494532e69819a616f04227",
+    "verification_matrix_sha256": "86581f0c06f93aedb7332e4daed0395bd9788db29b469795d7d399df0666fedc",
+    "threat_model_sha256": "31dd413fd83fdd8fb6727ab44b4109921bbf6636b7e185d233a05590472bf77f",
+    "product_fingerprint": "c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b"
+  },
+  "checks": [
+    {
+      "gate_id": "G0",
+      "command": "python -m pytest -q tests/test_product_delivery_governance.py tests/test_product_work_packages_v3.py tests/test_governance_agent_gate_transition.py tests/test_g07_candidate_gate.py tests/test_g07_release_manifest.py --timeout=180",
+      "result": "38 passed, 0 failed",
+      "exit_code": 0
+    },
+    {
+      "gate_id": "G0",
+      "command": "python -m scripts.validate_core_mainline --base-ref ff36a10ecae98088742e9722da3f4bf3676f6d04",
+      "result": "PASS; product progress NONE; owner review required for current G07 frozen assets",
+      "exit_code": 0
+    },
+    {
+      "gate_id": "G1",
+      "command": "python -m pytest -q --timeout=180",
+      "result": "2556 passed, 44 skipped, 0 failed, 51 warnings in 553.17s",
+      "exit_code": 0
+    },
+    {
+      "gate_id": "G1",
+      "command": "python -m ruff check .",
+      "result": "All checks passed",
+      "exit_code": 0
+    },
+    {
+      "gate_id": "G1_BROWSER_DISCOVERY",
+      "command": "npm run test:e2e:g07 -- --list",
+      "result": "46 tests in 7 files discovered",
+      "exit_code": 0
+    }
+  ],
+  "preserved_failure": {
+    "subject_commit": "98f1f15a8970e08c6f4eee3dd8a22eb96d325f5a",
+    "command": "python -m pytest -q --timeout=180",
+    "result": "2554 passed, 44 skipped, 2 failed",
+    "causes": [
+      "candidate browser script changed the historical G06 product fingerprint",
+      "authority path verification did not read an archived Goal from ancestor history"
+    ],
+    "repair_policy": "historical G06 receipt and product fingerprint were not rewritten"
+  },
+  "evidence_level": "LOCAL_AUTOMATED_EXACT_TIP_WITH_REMOTE_SUBJECT_READBACK",
+  "not_run": [
+    "G2_POSTGRESQL",
+    "G3_FIXED_SNAPSHOT",
+    "G4_LIVE_PROVIDER",
+    "G5_BROWSER_PERFORMANCE",
+    "G6_MANIFEST",
+    "G7_AGENT_GATE",
+    "G8_HUMAN_STOP",
+    "H1",
+    "PUBLIC_NETWORK",
+    "PRODUCTION",
+    "COMMERCIAL",
+    "RELEASE",
+    "DEPLOYMENT",
+    "MAIN_MERGE"
+  ],
+  "completed_at": "2026-09-01T01:06:28.5747787+08:00"
+}

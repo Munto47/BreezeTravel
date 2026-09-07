@@ -149,19 +149,40 @@ async def create_room(body: CreateRoomRequest, current_user: Optional[str] = Dep
     nickname = body.nickname
 
     pool = await get_pool()
-    async with pool.acquire() as conn:
-        # 创建房间（幂等）
-        await conn.execute(
+    async with pool.acquire() as conn, conn.transaction():
+        created = await conn.fetchrow(
             """
             INSERT INTO rooms (room_id, thread_id, trip_city, trip_days, phase)
             VALUES ($1, $2, $3, $4, 'exploring')
             ON CONFLICT (room_id) DO NOTHING
+            RETURNING room_id
             """,
             room_id,
             thread_id,
             body.trip_city,
             body.trip_days,
         )
+        if created is None:
+            existing = await conn.fetchrow(
+                """
+                SELECT r.thread_id, rm.role
+                FROM rooms r
+                LEFT JOIN room_members rm
+                  ON rm.room_id = r.room_id AND rm.user_id = $2
+                WHERE r.room_id = $1
+                """,
+                room_id,
+                user_id,
+            )
+            if (
+                existing is None
+                or existing["thread_id"] != thread_id
+                or existing["role"] != "owner"
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="房间标识已被使用，请重新创建",
+                )
 
         # 注册创建者（如果提供了 user_id）
         if user_id:
@@ -204,7 +225,7 @@ async def join_room(room_id: str, body: JoinRoomRequest, current_user: Optional[
     nickname = (body.nickname or "旅行者").strip() or "旅行者"
 
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire() as conn, conn.transaction():
         # 核心操作：查询房间（必须成功）
         room = await conn.fetchrow(
             "SELECT thread_id, trip_city, trip_days FROM rooms WHERE room_id = $1",
@@ -213,30 +234,25 @@ async def join_room(room_id: str, body: JoinRoomRequest, current_user: Optional[
         if not room:
             raise HTTPException(status_code=404, detail=f"房间 {room_id} 不存在")
 
-        # 非核心操作：注册用户 + 加入记录（失败不阻断）
-        try:
-            await conn.execute(
-                """
-                INSERT INTO users (user_id, nickname, updated_at)
-                VALUES ($1, $2, NOW())
-                ON CONFLICT (user_id) DO UPDATE
-                  SET nickname = EXCLUDED.nickname, updated_at = NOW()
-                """,
-                user_id,
-                nickname,
-            )
-            await conn.execute(
-                """
-                INSERT INTO room_members (room_id, user_id, role)
-                VALUES ($1, $2, 'member')
-                ON CONFLICT DO NOTHING
-                """,
-                room_id,
-                user_id,
-            )
-        except Exception as e:
-            # 用户/成员表可能不存在（旧数据库），不影响加入房间
-            print(f"[JoinRoom] 用户记录写入失败（非致命）：{e}")
+        await conn.execute(
+            """
+            INSERT INTO users (user_id, nickname, updated_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (user_id) DO UPDATE
+              SET nickname = EXCLUDED.nickname, updated_at = NOW()
+            """,
+            user_id,
+            nickname,
+        )
+        await conn.execute(
+            """
+            INSERT INTO room_members (room_id, user_id, role)
+            VALUES ($1, $2, 'member')
+            ON CONFLICT DO NOTHING
+            """,
+            room_id,
+            user_id,
+        )
 
     return {
         "status": "ok",

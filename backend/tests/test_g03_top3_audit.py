@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -11,6 +12,8 @@ from app.audit.models import (
     AuditReport,
     AuditSeverity,
     AuditStatus,
+    EvidenceFact,
+    EvidenceFreshness,
     EvidenceSnapshot,
 )
 from app.api.trip_understandings_v3 import get_trip_understanding_repository
@@ -72,6 +75,14 @@ def _audit_report(findings: list[AuditFinding]) -> tuple[AuditReport, EvidenceSn
         itinerary_revision=1,
         policy_version="g03-evidence-v1",
         created_at=observed_at,
+        facts=[EvidenceFact(fact_id=fact_id, snapshot_id="snapshot-g03-ordering",
+            subject_type="ROUTE_EDGE", subject_id=finding.finding_id, fact_type="ROUTE_MODE_SET",
+            value={"selected_duration_minutes": 120, "selected_mode": "walking",
+                "walking": "AVAILABLE", "transit": "AVAILABLE"}, provider="CONTROLLED_SORTING_FIXTURE",
+            observed_at=observed_at, response_hash="b"*64, confidence=1,
+            valid_until=datetime.now(timezone.utc) + timedelta(hours=1),
+            freshness_status=EvidenceFreshness.FRESH)
+            for finding in findings for fact_id in finding.evidence_fact_ids],
     )
     return (
         AuditReport(
@@ -112,6 +123,7 @@ def _finding(
         affected_days=[day],
         affected_stop_ids=[f"stop-{finding_id}"],
         repairable=repairable,
+        evidence_fact_ids=[f"route-{finding_id}"] if reason_code in {"ROUTE_TOO_LONG", "STAY_COMMUTE_LONG"} else [],
     )
 
 
@@ -196,7 +208,11 @@ def test_public_top3_mapping_order_and_resolved_item_backfill_are_stable() -> No
     assert refilled.remaining_must_adjust == 0
 
 
-def test_g03_public_materialize_top3_preview_adopt_and_full_postcheck() -> None:
+def test_g03_public_materialize_top3_preview_adopt_and_full_postcheck(monkeypatch) -> None:
+    # Keep the full public-field/text scan deterministic: opaque URL-safe
+    # randomness can coincidentally spell "uid" without exposing internal data.
+    # Hex uses the same secure random bytes and still exercises every field.
+    monkeypatch.setattr(secrets, "token_urlsafe", lambda n=32: secrets.token_hex(n))
     repository = InMemoryTripUnderstandingRepository()
     app.dependency_overrides[get_trip_understanding_repository] = lambda: repository
     client = TestClient(app)
@@ -219,14 +235,14 @@ def test_g03_public_materialize_top3_preview_adopt_and_full_postcheck() -> None:
         assert asyncio.run(map_worker.run_once("g03-map")) is True
         provider_effects_before = repository.map_provider_effect_count
 
-        login_required = client.post(
+        anonymous_materialized = client.post(
             f"/api/v3/trip-understandings/{resource_id}/materialize",
             headers={
                 "Idempotency-Key": "g03-materialize-without-login",
                 "If-Match": initial_etag,
             },
         )
-        assert login_required.status_code == 401
+        assert anonymous_materialized.status_code == 200
         app.dependency_overrides[get_current_user] = lambda: "g03-owner"
 
         materialized = client.post(
@@ -262,7 +278,10 @@ def test_g03_public_materialize_top3_preview_adopt_and_full_postcheck() -> None:
             },
         )
         assert second_key.status_code == 200
-        assert len(repository.g03_history[repository.resources[resource_id]["understanding_id"]]) == 1
+        history = repository.g03_history[repository.resources[resource_id]["understanding_id"]]
+        assert len(history) == 3  # New operation keys explicitly refresh evidence.
+        assert len({item["itinerary"].content_hash for item in history}) == 1
+        assert len({item["report"].report_id for item in history}) == 3
 
         checks = client.get(
             f"/api/v3/trip-understandings/{resource_id}/checks"
@@ -322,7 +341,9 @@ def test_g03_public_materialize_top3_preview_adopt_and_full_postcheck() -> None:
         )
         assert refreshed.headers["etag"] == adopted.headers["etag"]
         assert refreshed.json()["map"]["status"] == "NEEDS_UPDATE"
-        assert refreshed.json()["days"][0]["activities"][1]["name"] == "午餐时间"
+        meal = refreshed.json()["days"][0]["activities"][1]
+        assert meal["name"] == "用餐休息"
+        assert meal["start_time"] is None and meal["visit_duration_minutes"] is None
         assert client.get(
             f"/api/v3/trip-understandings/{resource_id}/checks"
         ).json() == adopted_payload["checks"]

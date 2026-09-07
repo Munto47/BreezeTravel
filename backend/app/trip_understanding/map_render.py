@@ -26,7 +26,8 @@ ROUTE_FIXTURE_SHA256 = hashlib.sha256(_ROUTE_FIXTURE_BYTES).hexdigest()
 _ROUTE_FIXTURE = json.loads(_ROUTE_FIXTURE_BYTES.decode("utf-8"))
 ROUTE_CONFIG_SHA256 = canonical_sha256(
     {
-        "selection_policy": _ROUTE_FIXTURE["selection_policy"],
+        "selection_policy": "walking-at-most-30-minutes-otherwise-transit-v2",
+        "stop_policy": "confirmed-visible-stops-v2",
         "modes": ["walking", "transit"],
         "walking_endpoint": "https://restapi.amap.com/v3/direction/walking",
         "transit_endpoint": "https://restapi.amap.com/v3/direction/transit/integrated",
@@ -44,6 +45,7 @@ class PlanRevisionRef(StrictModel):
 
 
 class MapStop(StrictModel):
+    activity_token: str | None = None
     day_index: int = Field(ge=1, le=14)
     day_label: str
     sequence_index: int = Field(ge=0)
@@ -144,6 +146,8 @@ class PublicRouteModeView(StrictModel):
 
 
 class PublicMapEdgeView(StrictModel):
+    from_activity_token: str | None = None
+    to_activity_token: str | None = None
     from_name: str
     to_name: str
     selected_mode: Literal["walking", "transit"] | None = None
@@ -153,14 +157,30 @@ class PublicMapEdgeView(StrictModel):
 
 
 class PublicMapDayView(StrictModel):
+    day_index: int | None = None
     label: str
     routes: list[PublicMapEdgeView]
+
+
+class PublicMapPosition(StrictModel):
+    longitude: float
+    latitude: float
+    coordinate_system: Literal["GCJ02"] = "GCJ02"
+
+
+class PublicMapPoint(StrictModel):
+    activity_token: str
+    day_label: str
+    sequence_index: int
+    name: str
+    position: PublicMapPosition | None = None
 
 
 class MapRenderView(StrictModel):
     status: Literal["PREPARING", "AVAILABLE", "NEEDS_UPDATE", "LIMITED", "UNAVAILABLE"]
     message: str
     days: list[PublicMapDayView] = Field(default_factory=list)
+    points: list[PublicMapPoint] = Field(default_factory=list)
     available_actions: list[Literal["VIEW_MAP", "RENDER_MAP"]] = Field(default_factory=list)
 
     def readiness(self) -> MapReadinessView:
@@ -196,13 +216,11 @@ def choose_route_mode(
     walking: InternalRouteModeFact,
     transit: InternalRouteModeFact,
 ) -> Literal["walking", "transit"] | None:
-    if walking.status == "AVAILABLE" and transit.status == "AVAILABLE":
-        assert walking.duration_minutes is not None
-        assert transit.duration_minutes is not None
-        if walking.duration_minutes <= transit.duration_minutes + 10:
-            return "walking"
-        return "transit"
-    if walking.status == "AVAILABLE":
+    if (
+        walking.status == "AVAILABLE"
+        and walking.duration_minutes is not None
+        and walking.duration_minutes <= 30
+    ):
         return "walking"
     if transit.status == "AVAILABLE":
         return "transit"
@@ -359,6 +377,11 @@ class MapRenderer:
         started_at = observed_at or datetime.now(timezone.utc)
         by_day: dict[int, list[MapStop]] = defaultdict(list)
         for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
+            # Keep the immutable plan binding intact, but route only the
+            # confirmed stops displayed by the itinerary. Hidden mentions
+            # must not interrupt adjacency or receive provider calls.
+            if stop.resolution_status != "AUTO_MATCHED" or not stop.canonical_place_id:
+                continue
             by_day[stop.day_index].append(stop)
         edges: list[InternalMapEdge] = []
         for day_index in sorted(by_day):

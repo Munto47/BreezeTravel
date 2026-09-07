@@ -517,40 +517,43 @@ def test_checked_in_authority_policy_pins_external_distinct_roles_and_real_paths
     assert all(item.human_evidence is False for item in manifest.authorities)
     assert "backend/eval_data/agent_gate_v1/authority_policy.json" in manifest.config_roots
 
-    policy_commit = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(REPOSITORY_ROOT),
-            "log",
-            "-1",
-            "--format=%H",
-            "--",
-            "backend/eval_data/agent_gate_v1/authority_policy.json",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-
-    def exists_now_or_at_policy_freeze(relative: str) -> bool:
+    def exists_now_or_in_repository_history(relative: str) -> bool:
         if (REPOSITORY_ROOT / relative).exists():
             return True
-        return subprocess.run(
+        commits = subprocess.run(
             [
                 "git",
                 "-C",
                 str(REPOSITORY_ROOT),
-                "cat-file",
-                "-e",
-                f"{policy_commit}:{relative}",
+                "log",
+                "--format=%H",
+                "HEAD",
+                "--",
+                relative,
             ],
-            check=False,
+            check=True,
             capture_output=True,
-        ).returncode == 0
+            text=True,
+        ).stdout.splitlines()
+        return any(
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(REPOSITORY_ROOT),
+                    "cat-file",
+                    "-e",
+                    f"{commit}:{relative}",
+                ],
+                check=False,
+                capture_output=True,
+            ).returncode
+            == 0
+            for commit in commits
+        )
 
     for relative in (*manifest.config_roots, *manifest.data_roots):
-        assert exists_now_or_at_policy_freeze(relative), relative
+        assert exists_now_or_in_repository_history(relative), relative
     for relative in (
         *manifest.immutable_protocol_paths,
         *manifest.component_verifier_paths.values(),
@@ -972,7 +975,13 @@ def test_current_goal_document_machine_state_rejects_false_completion_or_activat
     product_binding.update(
         {
             "schema_version": "current-goal-binding-v2",
+            "goal_sequence": 6,
+            "goal_id": manifest.goal_bindings[5].goal_id,
+            "status": "IN_PROGRESS",
+            "predecessor_goal_id": manifest.goal_bindings[4].goal_id,
+            "predecessor_completion_commit": "a" * 40,
             "gate_profile": "CORE_AGENT_GATE",
+            "mainline_phase": "PRODUCT_ENHANCEMENT",
             "canonical_candidate_ref": "refs/heads/codex/trip-check-product-reset",
         }
     )

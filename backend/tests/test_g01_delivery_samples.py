@@ -22,7 +22,7 @@ EXPECTED_DESTINATIONS = {
     "G01-TC-013": "上海",
     "G01-TC-025": "杭州",
     "G01-TC-037": "成都",
-    "G01-TC-046": "目的地待确认",
+    "G01-TC-046": "北京、上海",
 }
 FORBIDDEN_PUBLIC_KEYS = {
     "raw_text",
@@ -87,9 +87,13 @@ async def test_fixed_five_delivery_samples_execute_with_conservative_public_resu
 
     assert all(
         mention.resolution_status != "AUTO_MATCHED"
-        for case_id in ("G01-TC-037", "G01-TC-046")
-        for mention in predictions[case_id].mentions
+        for mention in predictions["G01-TC-037"].mentions
     )
+    assert {
+        mention.canonical_city
+        for mention in predictions["G01-TC-046"].mentions
+        if mention.resolution_status == "AUTO_MATCHED"
+    } == {"北京", "上海"}
     assert any(
         mention.resolution_status == "NEEDS_CONFIRMATION"
         for case_id in ("G01-TC-037", "G01-TC-046")

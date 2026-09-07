@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from app.config import Settings
+from app.audit.evidence_service import EvidenceObservation
 from app.trip_check.provider_integrity import ProviderCallReceipt
 from evals.trip_check_v1.p6.contracts_v1 import P5_GATE_MANIFEST_HASH, P6ContractError, digest
 from evals.trip_check_v1.p6.live_provider_runner import (
@@ -82,7 +83,7 @@ def _settings() -> Settings:
     )
 
 
-def _fake_live_runner(*, fallback: bool = False):  # noqa: ANN202
+def _fake_live_runner(*, fallback: bool = False, impossible_route: bool = False):  # noqa: ANN202
     async def run(*, commit_sha, output, settings, max_live_calls):  # noqa: ANN001, ANN202
         operations = list(EXPECTED_OPERATION_COUNTS)
         cases = []
@@ -115,7 +116,45 @@ def _fake_live_runner(*, fallback: bool = False):  # noqa: ANN202
             (city_root / "provider_receipts.json").write_text(
                 json.dumps(receipts), encoding="utf-8"
             )
-            (city_root / "evidence_observations.json").write_text("[]", encoding="utf-8")
+            edge_id = f"{city}-stop-1->{city}-stop-2"
+            route_values = {
+                "walking": {"mode": "walking", "duration_minutes": 18, "distance_km": 1.4, "transfer_count": None},
+                "transit": {"mode": "transit", "duration_minutes": 14, "distance_km": 2.8, "transfer_count": 0},
+                "bicycling": {"mode": "bicycling", "duration_minutes": 9, "distance_km": 1.8, "transfer_count": None},
+                "driving": {"mode": "driving", "duration_minutes": 12, "distance_km": 2.2, "transfer_count": None},
+            }
+            if impossible_route:
+                route_values["walking"] = {
+                    "mode": "walking",
+                    "duration_minutes": 1,
+                    "distance_km": 2.2,
+                    "transfer_count": None,
+                }
+            observed_at = datetime.now(timezone.utc)
+            observations = [
+                EvidenceObservation(
+                    subject_type="ROUTE_OPTION",
+                    subject_id=f"{edge_id}:{mode}",
+                    fact_type="ROUTE_OPTION",
+                    value=value,
+                    provider="amap",
+                    observed_at=observed_at,
+                ).model_dump(mode="json")
+                for mode, value in route_values.items()
+            ]
+            observations.append(
+                EvidenceObservation(
+                    subject_type="ROUTE_EDGE",
+                    subject_id=edge_id,
+                    fact_type="ROUTE_TIME",
+                    value=route_values["walking"],
+                    provider="amap",
+                    observed_at=observed_at,
+                ).model_dump(mode="json")
+            )
+            (city_root / "evidence_observations.json").write_text(
+                json.dumps(observations), encoding="utf-8"
+            )
             cases.append({"city": city, "status": "PASS", "receipt_count": 6, "failure_categories": []})
         manifest = {
             "schema_version": "trip-check-p3-live-provider-manifest-v1",

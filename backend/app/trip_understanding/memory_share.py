@@ -158,13 +158,10 @@ def build_share_projection(result: UserFacingTripResult) -> ShareProjectionView:
                         name=activity.name,
                         area_or_address=activity.area_or_address,
                         time_hint=activity.time_hint,
-                        note=(
-                            "可直接查看"
-                            if activity.status == "READY"
-                            else "地点待确认"
-                        ),
+                        note="可直接查看",
                     )
                     for activity in day.activities
+                    if activity.status == "READY"
                 ],
             )
             for day in result.days
