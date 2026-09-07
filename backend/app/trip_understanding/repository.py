@@ -418,6 +418,7 @@ def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
             "lodging_event": mention.lodging_event,
             "lodging_scope": mention.lodging_scope,
             "lodging_role_uncertain": mention.lodging_role_uncertain,
+            "lodging_excluded_nights": mention.lodging_excluded_nights,
             "choice_group_token": opaque_group(mention.choice_group_id),
             "branch_token": opaque_group(mention.branch_id),
             "branch_label": mention.branch_label,

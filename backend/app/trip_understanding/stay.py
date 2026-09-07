@@ -20,7 +20,9 @@ from app.schemas.place import PlaceCategory
 from app.trip_understanding.candidates import _CITY_BOUNDS
 from app.trip_understanding.city_scope import CityScopeLookup
 from app.trip_understanding.amap_place import _admin_matches
-from app.trip_understanding.overnight_context import lodging_role_message, overnight_segments, stay_context_hash
+from app.trip_understanding.overnight_context import (
+    excludes_hotel, hotel_identity, lodging_exclusion_message, lodging_role_message, overnight_segments, stay_context_hash,
+)
 from app.trip_understanding.errors import PlaceProviderUnavailableError, RouteProviderUnavailableError
 from app.trip_understanding.map_render import (
     InternalRouteModeFact,
@@ -259,6 +261,8 @@ class StaySegmentPlan(StrictModel):
     anchors: list[StayAnchor] = Field(default_factory=list)
     preserved_hotels: list[str] = Field(default_factory=list)
     pending_lodging_roles: list[str] = Field(default_factory=list)
+    excluded_place_ids: list[str] = Field(default_factory=list)
+    unconfirmed_exclusions: list[str] = Field(default_factory=list)
     uncertain: bool = False
     expected_boundary_count: int = 0
     missing_boundaries: list[dict[str, object]] = Field(default_factory=list)
@@ -910,8 +914,14 @@ class StayRecommendationEngine:
                         "overnight_days": segment.overnight_days,
                         "preserved_hotels": segment.preserved_hotels, "status": "UNAVAILABLE",
                         "pending_lodging_roles": segment.pending_lodging_roles,
+                        "excluded_place_ids": segment.excluded_place_ids,
+                        "unconfirmed_exclusions": segment.unconfirmed_exclusions,
                         "expected_boundary_count": segment.expected_boundary_count,
                         "missing_boundary_count": len(segment.missing_boundaries), "missing_boundaries": segment.missing_boundaries}
+            if segment.unconfirmed_exclusions:
+                metadata.update(status="LIMITED", message=lodging_exclusion_message(segment.unconfirmed_exclusions))
+                segment_results.append(metadata)
+                continue
             if segment.pending_lodging_roles:
                 metadata.update(status="LIMITED", message=lodging_role_message(segment.pending_lodging_roles))
                 segment_results.append(metadata)
@@ -950,7 +960,8 @@ class StayRecommendationEngine:
                 administrative_calls += getattr(found, "administrative_calls", 0)
                 for candidate in found:
                     brand = self.brand_registry.match(candidate.name)
-                    if brand is None or candidate.category != "住宿" or _city(candidate.city) != _city(segment.city):
+                    if (brand is None or candidate.category != "住宿" or _city(candidate.city) != _city(segment.city)
+                            or excludes_hotel(segment, candidate.canonical_place_id)):
                         continue
                     identity = self.brand_registry.identity(candidate, brand)
                     if identity.get("property_identity") != "OFFICIAL_NAME_ADDRESS":
@@ -989,7 +1000,8 @@ class StayRecommendationEngine:
                     searched.append(f"区域：{area.canonical_name}")
                     for candidate in found:
                         brand = self.brand_registry.match(candidate.name)
-                        if brand is None or candidate.category != "住宿" or _city(candidate.city) != _city(segment.city):
+                        if (brand is None or candidate.category != "住宿" or _city(candidate.city) != _city(segment.city)
+                                or excludes_hotel(segment, candidate.canonical_place_id)):
                             continue
                         identity = self.brand_registry.identity(candidate, brand)
                         if identity.get("property_identity") != "OFFICIAL_NAME_ADDRESS":
@@ -1011,7 +1023,8 @@ class StayRecommendationEngine:
                 properties = self.brand_registry.property_seeds(segment.city, *center)
                 # One verified Huazhu branch plus one other verified chain.
                 # A second brand in Huazhu does not replace another group.
-                verified_seeds = [p for p in properties if p.get("provider_matches")]
+                verified_seeds = [p for p in properties if p.get("provider_matches")
+                    and not any(hotel_identity(m.get("poi_id")) in segment.excluded_place_ids for m in p["provider_matches"])]
                 seeds = [next((p for p in verified_seeds
                     if (self.brand_registry.metadata.get(p["brand"], {}).get("group") == "华住") == preferred), None)
                     for preferred in (True, False)]
@@ -1033,7 +1046,8 @@ class StayRecommendationEngine:
                     searched.append(f"门店：{property_seed['name']}")
                     for candidate in found:
                         brand = self.brand_registry.match(candidate.name)
-                        if brand is None or candidate.category != "住宿" or _city(candidate.city) != _city(segment.city):
+                        if (brand is None or candidate.category != "住宿" or _city(candidate.city) != _city(segment.city)
+                                or excludes_hotel(segment, candidate.canonical_place_id)):
                             continue
                         identity = self.brand_registry.identity(candidate, brand)
                         if identity.get("property_identity") != "OFFICIAL_NAME_ADDRESS" or identity.get("property_status") != "LISTED":
@@ -1061,6 +1075,8 @@ class StayRecommendationEngine:
             message = "按每晚返回和次日出发比较住宿" if status == "READY" else "部分住宿或通勤信息尚未核对完整"
             if len(scored) < 3:
                 message = f"已核验且有可用通勤信息的连锁酒店仅{len(scored)}家；其余门店尚未核实，不补入建议"
+            if segment.excluded_place_ids:
+                message = "已按原文另住要求排除原门店；" + message
             metadata.update(status=status, message=message, searched_scopes=searched,
                 unverified_branch_count=len(unverified), verified_branch_count=len(recalled))
             segment_results.append(metadata)
@@ -1093,6 +1109,7 @@ def stay_plan_from_map(plan: MapRenderPlan) -> StayRecommendationPlan | None:
     segments = [StaySegmentPlan(segment_key=s.key, city=s.city, overnight_days=s.overnight_days,
         anchors=[StayAnchor(day_index=day, direction=direction, stop=stop) for day, direction, stop in s.anchors],
         preserved_hotels=s.preserved_hotels, pending_lodging_roles=s.pending_lodging_roles,
+        excluded_place_ids=s.excluded_place_ids, unconfirmed_exclusions=s.unconfirmed_exclusions,
         uncertain=s.uncertain, expected_boundary_count=s.expected_boundary_count,
         missing_boundaries=s.missing_boundaries) for s in contexts]
     anchors = [a for s in segments for a in s.anchors]

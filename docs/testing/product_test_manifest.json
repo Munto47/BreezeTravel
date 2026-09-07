@@ -47,8 +47,11 @@
         "tests/test_daily_dining_boundaries.py",
         "tests/test_dining_area_fallback.py",
         "tests/test_explicit_trip_scope_metadata.py",
+        "tests/test_day_destination_city_evidence.py",
         "tests/test_lodging_metadata_repair.py",
-        "tests/test_lodging_role_context.py"
+        "tests/test_lodging_exclusion_semantics.py",
+        "tests/test_lodging_role_context.py",
+        "tests/test_stay_lodging_exclusions.py"
       ]
     },
     "postgres": {

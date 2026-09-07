@@ -49,3 +49,5 @@ time_evidence 必须包含当前地点和它自己的时间依据，不引用其
 原文明示早餐、午餐、晚餐、下午茶或夜宵时，餐饮项的 meal_role 分别填写 BREAKFAST/LUNCH/DINNER/SNACK。没有餐别依据留 null；不能根据饭店名称或猜出的钟点推断餐别。只有“午餐”等无具体店的安排也应保留为 category=餐饮、place_name=null 的活动，保留原日和执行顺序。
 
 只有住宿项需要 lodging_event：明确入住/住宿是OVERNIGHT，退房是CHECK_OUT，从酒店出发是DEPARTURE，回店取行李是LUGGAGE_PICKUP；退房、出发和取行李不代表当晚入住。lodging_evidence逐字引用包含当前酒店、动作、否定/条件和住宿范围的短原文；未知不填，不能根据酒店名称推断。明确某晚入住时lodging_scope=DAY，明确全程统一住一家时=WHOLE_TRIP；全程约束只保留一项，没有入住日期时day_index可为null，不编造每天入住。建议或否定的酒店不成为已选住宿。首日清晨从酒店出发、末日回酒店取行李是各自有原文依据的实际访问，按发生日和顺序保留。
+
+仅对已有具名住宿：原文明示今晚另找一家、不再住原店时，lodging_excluded_nights填明确受影响的夜晚编号，lodging_exclusion_evidence逐字引用包含本次旧酒店和换住决定的原文，可跨同日句子；普通退房、条件另换、否定另换不产生排除。不扩展成品牌排除，不猜未说明的夜晚；原酒店实际退房/取行李访问仍按原日期顺序保留。

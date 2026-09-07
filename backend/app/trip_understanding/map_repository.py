@@ -128,6 +128,7 @@ def _plan_for_result(
                     lodging_event=getattr(card, "lodging_event", None),
                     lodging_scope=getattr(card, "lodging_scope", None),
                     lodging_role_uncertain=getattr(card, "lodging_role_uncertain", False),
+                    lodging_excluded_nights=getattr(card, "lodging_excluded_nights", []),
                     # PublicResultProjector uses this exact reserved label for
                     # mentions without a concrete atomic place. An unmatched
                     # hotel with its own name must keep its lodging constraint.
@@ -237,7 +238,7 @@ def plan_with_stay_anchor(
     overnight_days: list[int],
     source_constraint: bool = False,
 ) -> MapRenderPlan:
-    from app.trip_understanding.overnight_context import is_hotel, is_overnight_hotel, is_boundary_visit, normalized_city, overnight_segments
+    from app.trip_understanding.overnight_context import excludes_hotel, is_hotel, is_overnight_hotel, is_boundary_visit, normalized_city, overnight_segments
 
     by_day: dict[int, list[MapStop]] = defaultdict(list)
     for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
@@ -245,6 +246,7 @@ def plan_with_stay_anchor(
     expanded: list[MapStop] = []
     allowed = {night for segment in overnight_segments(plan)
         if segment.city == normalized_city(selected_city) and not segment.uncertain
+        and not excludes_hotel(segment, selected_place_id)
         and (not segment.preserved_hotels or source_constraint and selected_name in segment.preserved_hotels)
         for night in segment.overnight_days}
     overnight = set(overnight_days) & allowed

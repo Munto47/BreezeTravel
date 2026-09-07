@@ -54,6 +54,7 @@ class MapStop(StrictModel):
     lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
     lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
     lodging_role_uncertain: bool = False
+    lodging_excluded_nights: list[int] = Field(default_factory=list)
     source_place_is_placeholder: bool = False
     is_stay_anchor: bool = False
     canonical_place_id: str | None = None

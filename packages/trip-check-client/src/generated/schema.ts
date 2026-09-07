@@ -811,6 +811,8 @@ export interface components {
             locked: boolean;
             /** Lodging Event */
             lodging_event?: ("OVERNIGHT" | "CHECK_OUT" | "DEPARTURE" | "LUGGAGE_PICKUP") | null;
+            /** Lodging Excluded Nights */
+            lodging_excluded_nights?: number[];
             /**
              * Lodging Role Uncertain
              * @default false

@@ -48,9 +48,10 @@ export default function SourceLodging({ cards, resource, disabled, onCommand }: 
   if (!cards.length) return null
   return <section data-testid="source-lodging" aria-labelledby="source-lodging-heading" className="my-3 rounded-2xl border border-sky-100 bg-white p-4 text-slate-700">
     <h2 id="source-lodging-heading" ref={heading} tabIndex={-1} className="flex items-center gap-2 text-sm font-semibold text-sky-900"><BedDouble aria-hidden="true" className="h-4 w-4" />全程住宿</h2>
-    <p className="mt-1 text-xs leading-6 text-slate-500">保留原文安排，按每天返店和次日出发连接路线。</p>
+    <p className="mt-1 text-xs leading-6 text-slate-500">保留原文住宿安排，按实际过夜日期连接返店和次日出发路线。</p>
     {cards.map(card => <article key={card.activity_token} data-testid="source-lodging-card" className="relative mt-3 rounded-xl border border-slate-100 p-3">
       <h3 className="text-sm font-semibold">{card.name}</h3>
+      {!!card.lodging_excluded_nights?.length && <p className="mt-1 text-xs leading-6 text-slate-600">第{[...new Set(card.lodging_excluded_nights)].sort((a, b) => a - b).join('、')}晚原文安排另住，不返回这家酒店。</p>}
       <details className="mt-1 text-sm">
         <summary className="min-h-11 cursor-pointer py-3 text-sky-800">查看住宿</summary>
         <p className="pb-2 leading-6">{card.city ? `${card.city} · ` : ''}{card.area_or_address || '地址暂缺'}</p>

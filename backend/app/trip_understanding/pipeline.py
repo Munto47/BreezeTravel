@@ -1079,6 +1079,10 @@ class EvidenceCompiler:
                 claims.append(SourceClaimRecord(claim_id=str(uuid4()), activity_id=activity_id, claim_type="ROLE",
                     span_start=mention.lodging_evidence_start, span_end=mention.lodging_evidence_end,
                     quote=source_text[mention.lodging_evidence_start:mention.lodging_evidence_end]))
+            if mention.lodging_exclusion_evidence_start is not None and mention.lodging_exclusion_evidence_end is not None:
+                claims.append(SourceClaimRecord(claim_id=str(uuid4()), activity_id=activity_id, claim_type="ROLE",
+                    span_start=mention.lodging_exclusion_evidence_start, span_end=mention.lodging_exclusion_evidence_end,
+                    quote=source_text[mention.lodging_exclusion_evidence_start:mention.lodging_exclusion_evidence_end]))
         return compiled, claims, {
             "compiler": "trip-understanding-evidence-compiler-v1",
             "unicode_basis": "CODE_POINT_HALF_OPEN",
@@ -1193,6 +1197,7 @@ class PublicResultProjector:
                         meal_role=mention.meal_role,
                         lodging_event=mention.lodging_event, lodging_scope=mention.lodging_scope,
                         lodging_role_uncertain=mention.lodging_role_uncertain,
+                        lodging_excluded_nights=mention.lodging_excluded_nights,
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
@@ -1889,7 +1894,8 @@ class TripUnderstandingPipeline:
             for issue in proposal.diagnostics
             if issue.category not in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE",
                 "UNSUPPORTED_TIMING_REMOVED", "UNSUPPORTED_CITY_REMOVED", "UNSUPPORTED_DAY_LABEL_REMOVED", "UNSUPPORTED_DAY_COUNT",
-                "REDUNDANT_CITY_HINT_REMOVED", "LODGING_EVIDENCE_SCOPE_MISMATCH"}
+                "REDUNDANT_CITY_HINT_REMOVED", "LODGING_EVIDENCE_SCOPE_MISMATCH", "LODGING_EXCLUSION_SCOPE_MISMATCH",
+                "LODGING_EXCLUSION_EVIDENCE_MISSING"}
         }
         public_result = public_result.model_copy(update={"coverage": TripRecognitionCoverage(
             recognized_place_count=len(recognized), confirmed_place_count=confirmed,

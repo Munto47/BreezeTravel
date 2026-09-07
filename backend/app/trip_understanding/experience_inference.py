@@ -13,7 +13,7 @@ import re
 import time
 from bisect import bisect_left
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from openai import APIError, AsyncOpenAI
 from pydantic import Field, ValidationError, field_validator
@@ -62,6 +62,10 @@ class SemanticActivity(ActivityTiming):
         description="仅OVERNIGHT：原文明确全程统一酒店为WHOLE_TRIP，明确本晚为DAY；未知省略。")
     lodging_evidence: str | None = Field(default=None, max_length=500,
         description="仅有住宿事件时逐字引用包含当前酒店、动作和范围的短原文；否定/备选不能当已选住宿。")
+    lodging_excluded_nights: list[Annotated[int, Field(ge=1, le=14)]] = Field(default_factory=list, max_length=14,
+        description="仅原文明示不再住当前具体酒店、当晚另换一家时列对应晚序号；普通退房、条件另换、否定另换为空。")
+    lodging_exclusion_evidence: str | None = Field(default=None, max_length=800,
+        description="非空排除晚序号时，连续逐字引用包含当前旧酒店、明确另住决定及适用晚的原文，可跨同日句子。")
     time_evidence: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=40)
     city_evidence: str | None = Field(default=None, max_length=500)
@@ -1109,7 +1113,42 @@ def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActiv
                     source[left + match.end():],
                 )]
 
+    def explicit_day_destination(left: int, right: int) -> bool | None:
+        # A dated city heading is explicit source scope. A later standalone
+        # city mention supersedes an earlier origin; the day is not blindly
+        # assigned to its heading when actual visits span several cities.
+        headings = list(re.finditer(
+            r"^[ \t#*\"“”'‘’]*(?P<label>(?:Day|D)\s*\d{1,2}(?!\d)|第\s*[一二两三四五六七八九十\d]{1,3}\s*天)",
+            source, re.M | re.I))
+        heading = next((value for value in reversed(headings) if value.start() <= start), None)
+        if heading is None or _explicit_day_count(heading["label"]) != item.day_index:
+            return None
+        day_end = next((value.start() for value in headings if value.start() > heading.start()), len(source))
+        if not heading.start() <= left < right <= day_end:
+            return None
+        title = re.match(r"[ \t：:|\-—]*" + re.escape(city) + r"(?:市)?(?=$|[\s：:|*，,。])", source[heading.end():])
+        if title is None:
+            return None
+        before = [(position, name) for name in DOMESTIC_CITY_NAMES
+            for position in city_offsets(name, heading.end(), start)]
+        if not before or max(before)[1] != city:
+            return False
+        if any(name != city for _position, name in before):
+            latest_city = max(before)[0]
+            if not re.search(r"(?:到|抵达|返回|→|->)\s*$", source[max(heading.end(), latest_city - 12):latest_city]):
+                # Merely mentioning the destination in a comparison or aside
+                # cannot move a prior city's actual visits into that city.
+                return False
+        # An origin station before the destination city is reached cannot
+        # inherit that destination just because its name appears on that day.
+        if item.category == "交通节点" and city_offsets(city, end, day_end):
+            return False
+        return True
+
     for left, right in occurrences:
+        day_scope = explicit_day_destination(left, right) if city_offsets(city, left, right) else None
+        if day_scope is not None:
+            return (city, evidence, False) if day_scope else (None, evidence, True)
         other_cities = [name for name in DOMESTIC_CITY_NAMES if name != city and city_offsets(name, left, right)]
         if other_cities:
             continue
@@ -1435,6 +1474,82 @@ def _bound_lodging_evidence(anchors: SourceAnchorIndex, item: SemanticActivity,
     return span if span and (span[0] < name_start or span[1] > name_end) else None
 
 
+LODGING_REPLACEMENT_CUE = re.compile(r"另(?:找|选|换|住)|换(?:一家|一间|个|家|酒店|住处)|改住|不再住|不要再住|不住这家|排除这家")
+
+
+def _lodging_context_bounds(source: str, start: int, end: int) -> tuple[int, int]:
+    # Keep same-day cross-sentence replacement decisions available to the
+    # model, without feeding it another day's hotel just because it is nearby.
+    heading = r"第\s*[一二两三四五六七八九十\d]{1,3}\s*天(?!晚上|晚间)|(?:Day|D)\s*\d+"
+    previous_days = list(re.finditer(heading, source[:start], re.I))
+    left = max(previous_days[-1].start() if previous_days else 0, start - 180)
+    right = min(len(source), end + 600)
+    later_day = re.search(heading, source[end:right], re.I)
+    if later_day:
+        right = end + later_day.start()
+    return left, right
+
+
+def _lodging_replacement_clause(evidence: str, name_start: int, name_end: int) -> str | None:
+    # This is a source guard/review trigger, never a night or hotel selector.
+    # The model still has to supply the exact affected hotel and night numbers.
+    decision = LODGING_REPLACEMENT_CUE.search(evidence, name_end)
+    if decision is None:
+        before_name = list(LODGING_REPLACEMENT_CUE.finditer(evidence[:name_start]))
+        decision = next((match for match in reversed(before_name) if name_start - match.end() <= 4), None)
+    if decision is None:
+        return None
+    left = max(evidence.rfind(mark, 0, decision.start()) for mark in "。；;\n") + 1
+    right = min((position for mark in "。；;\n" if (position := evidence.find(mark, decision.end())) >= 0), default=len(evidence))
+    clause = evidence[left:right]
+    before = evidence[left:decision.start()]
+    target_text = re.split(r"[，,。；;\n]", evidence[decision.end():right], maxsplit=1)[0]
+    if (re.search(r"如果|假如|若|要是|可能|考虑|视情况|看情况|必要时|允许时|再决定|否则", clause)
+        or re.search(r"(?:不|别|无需|不用|不必|不会|不想|不打算|没有必要)(?:再)?\s*$", before)
+        or re.search(r"餐厅|餐馆|饭馆|商场|景点", target_text)):
+        return None
+    return clause
+
+
+def _unreviewed_lodging_exclusion(anchors: SourceAnchorIndex, item: SemanticActivity,
+                                  start: int, end: int) -> bool:
+    if item.category != "住宿" or item.role != ActivityRole.PLANNED or not item.place_name or item.lodging_excluded_nights:
+        return False
+    relative = _literal_place_span(anchors.source[start:end], item.place_name)
+    if relative is None:
+        return False
+    left, right = _lodging_context_bounds(anchors.source, start, end)
+    return _lodging_replacement_clause(anchors.source[left:right], start + relative[0] - left,
+        start + relative[1] - left) is not None
+
+
+def _bound_lodging_exclusion(anchors: SourceAnchorIndex, item: SemanticActivity,
+                              start: int, end: int) -> tuple[int, int] | None:
+    if item.category != "住宿" or item.role != ActivityRole.PLANNED or not item.place_name or not item.lodging_excluded_nights:
+        return None
+    relative = _literal_place_span(anchors.source[start:end], item.place_name)
+    if relative is None:
+        return None
+    span = _bound_role_evidence(anchors, item.lodging_exclusion_evidence, start + relative[0], start + relative[1])
+    if span is None:
+        return None
+    evidence = anchors.source[span[0]:span[1]]
+    clause = _lodging_replacement_clause(evidence, start + relative[0] - span[0], start + relative[1] - span[0])
+    if clause is None:
+        return None
+    numbers = r"[一二两三四五六七八九十\d]{1,3}"
+    explicit = {_explicit_day_count("第" + match[1] + "天") for match in re.finditer(
+        rf"第\s*({numbers})\s*(?:晚|夜|天(?:晚上|晚间))", clause)}
+    for match in re.finditer(rf"第\s*({numbers})\s*(?:至|到|[-–—])\s*第?\s*({numbers})\s*(?:晚|夜)", clause):
+        first, last = (_explicit_day_count("第" + match[i] + "天") for i in (1, 2))
+        if 1 <= first <= last <= 14:
+            explicit.update(range(first, last + 1))
+    crossed_day = re.search(r"第\s*[一二两三四五六七八九十\d]{1,3}\s*天|(?:Day|D)\s*\d+",
+        anchors.source[end:span[1]], re.I)
+    implicit = {item.day_index} if item.day_index is not None and crossed_day is None and not re.search(r"明晚|后晚|明天|后天", clause) else set()
+    return span if set(item.lodging_excluded_nights) <= (explicit or implicit) else None
+
+
 def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> InferenceProposal:
     if allow_partial:
         draft = draft.model_copy(deep=True)
@@ -1699,11 +1814,20 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
         lodging_span = _bound_lodging_evidence(anchors, item, start, end)
         lodging_event = item.lodging_event if lodging_span else None
         lodging_scope = item.lodging_scope if lodging_event == "OVERNIGHT" else None
+        exclusion_span = _bound_lodging_exclusion(anchors, item, start, end)
+        exclusion_invalid = bool(item.role == ActivityRole.PLANNED and item.category == "住宿"
+            and item.place_name and item.lodging_excluded_nights and not exclusion_span)
+        exclusion_missing = _unreviewed_lodging_exclusion(anchors, item, start, end)
         lodging_role_uncertain = bool(item.role == ActivityRole.PLANNED and item.category == "住宿"
             and item.place_name and not lodging_span)
         if lodging_role_uncertain:
             diagnostics.append(SemanticDiagnostic(category="LODGING_EVIDENCE_SCOPE_MISMATCH",
                 field=f"activities[{index}].lodging_evidence", span_start=start, span_end=end))
+            unprocessed += 1
+        if exclusion_invalid or exclusion_missing:
+            lodging_role_uncertain = True
+            diagnostics.append(SemanticDiagnostic(category="LODGING_EXCLUSION_SCOPE_MISMATCH" if exclusion_invalid else "LODGING_EXCLUSION_EVIDENCE_MISSING",
+                field=f"activities[{index}].lodging_exclusion_evidence", span_start=start, span_end=end))
             unprocessed += 1
         if item.role == ActivityRole.PLANNED and day is None:
             day = 1
@@ -1798,6 +1922,10 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             meal_role=_source_meal_role(source, start, end) if item.category == "餐饮" else None,
             lodging_event=lodging_event, lodging_scope=lodging_scope,
             lodging_role_uncertain=lodging_role_uncertain,
+            lodging_excluded_nights=sorted(set(item.lodging_excluded_nights)) if exclusion_span else [],
+            lodging_exclusion_evidence=item.lodging_exclusion_evidence if exclusion_span else None,
+            lodging_exclusion_evidence_start=exclusion_span[0] if exclusion_span else None,
+            lodging_exclusion_evidence_end=exclusion_span[1] if exclusion_span else None,
             lodging_evidence=item.lodging_evidence if lodging_span else None,
             lodging_evidence_start=lodging_span[0] if lodging_span else None,
             lodging_evidence_end=lodging_span[1] if lodging_span else None,

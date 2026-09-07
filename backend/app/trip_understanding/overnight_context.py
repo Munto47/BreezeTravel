@@ -33,6 +33,20 @@ def lodging_role_message(names: list[str]) -> str:
     return f"「{'、'.join(names)}」的入住、退房或取行李用途还需确认；暂不判断这晚住宿或推荐替换酒店"
 
 
+def lodging_exclusion_message(names: list[str]) -> str:
+    return f"原文要求另住，但「{'、'.join(names)}」的具体门店尚未核实；确认原店后再排除并推荐其他酒店"
+
+
+def hotel_identity(place_id: str | None) -> str:
+    # Legacy AMap bindings may carry their provider prefix. Never match names
+    # or brands to exclude a different branch.
+    return (place_id or "").removeprefix("amap:")
+
+
+def excludes_hotel(segment, place_id: str | None) -> bool:
+    return hotel_identity(place_id) in segment.excluded_place_ids
+
+
 def is_boundary_visit(stop: MapStop) -> bool:
     return (not is_hotel(stop) or unconfirmed_lodging_role(stop)
             or stop.lodging_event in {"CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"})
@@ -49,6 +63,7 @@ def stay_context_hash(plan: MapRenderPlan) -> str:
                "city": s.city, "category": s.category, "lodging_event": s.lodging_event,
                "source_place_is_placeholder": s.source_place_is_placeholder,
                "lodging_role_uncertain": s.lodging_role_uncertain,
+               "lodging_excluded_nights": sorted(set(s.lodging_excluded_nights)),
                "lodging_scope": s.lodging_scope, "status": s.resolution_status,
                "longitude": s.longitude, "latitude": s.latitude}
               for s in sorted(plan.stops, key=lambda s: (s.day_index, s.sequence_index))
@@ -57,6 +72,7 @@ def stay_context_hash(plan: MapRenderPlan) -> str:
         "status": s.resolution_status, "event": s.lodging_event, "scope": s.lodging_scope,
         "source_place_is_placeholder": s.source_place_is_placeholder,
         "lodging_role_uncertain": s.lodging_role_uncertain,
+        "lodging_excluded_nights": sorted(set(s.lodging_excluded_nights)),
         "longitude": s.longitude, "latitude": s.latitude} for s in plan.lodging_constraints]
     return hashlib.sha256(json.dumps({"day_count": plan.day_count or max((s.day_index for s in plan.stops), default=0),
         "stops": values, "lodging_constraints": constraints}, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
@@ -74,6 +90,8 @@ class OvernightSegment:
     expected_boundary_count: int = 2
     missing_boundaries: list[dict] = field(default_factory=list)
     pending_lodging_roles: list[str] = field(default_factory=list)
+    excluded_place_ids: list[str] = field(default_factory=list)
+    unconfirmed_exclusions: list[str] = field(default_factory=list)
 
 
 def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
@@ -84,16 +102,24 @@ def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
     day_count = plan.day_count or max(days, default=0)
     if day_count < 2:
         return []
+    source_hotels = [s for s in [*plan.stops, *plan.lodging_constraints]
+        if not s.is_stay_anchor and is_hotel(s) and not s.source_place_is_placeholder]
     segments: list[OvernightSegment] = []
     for night in range(1, day_count):
         current, following = days.get(night, []), days.get(night + 1, [])
-        hotels = [s for s in current if is_overnight_hotel(s)]
+        excluded = sorted({hotel_identity(s.canonical_place_id) for s in source_hotels
+            if night in s.lodging_excluded_nights and confirmed(s)})
+        unknown_exclusions = list(dict.fromkeys(s.name for s in source_hotels
+            if night in s.lodging_excluded_nights and not confirmed(s)))
+        hotels = [s for s in current if is_overnight_hotel(s) and hotel_identity(s.canonical_place_id) not in excluded]
         pending_roles = [s for s in current if unconfirmed_lodging_role(s)]
         # A source-backed departure/checkout at the next day's beginning refers
         # to the preceding night. Day 1 never invents an arrival-night stay.
         if following and unconfirmed_lodging_role(following[0]):
             pending_roles.append(following[0])
-        if following and is_hotel(following[0]) and not following[0].source_place_is_placeholder and not following[0].lodging_role_uncertain and following[0].lodging_event in {"CHECK_OUT", "DEPARTURE"}:
+        if (following and is_hotel(following[0]) and not following[0].source_place_is_placeholder
+                and not following[0].lodging_role_uncertain and following[0].lodging_event in {"CHECK_OUT", "DEPARTURE"}
+                and hotel_identity(following[0].canonical_place_id) not in excluded):
             hotels.append(following[0])
         # Choose the real endpoints before checking identity. Never substitute an
         # earlier/later confirmed stop for an unresolved endpoint.
@@ -105,6 +131,7 @@ def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
         for hotel in plan.lodging_constraints:
             hotel_city = normalized_city(hotel.city)
             if (is_overnight_hotel(hotel) and hotel.lodging_event == "OVERNIGHT" and hotel.lodging_scope == "WHOLE_TRIP"
+                    and hotel_identity(hotel.canonical_place_id) not in excluded
                     and hotel_city and (not endpoint_cities or endpoint_cities == {hotel_city})):
                 hotels.append(hotel)
         hotel_cities = {normalized_city(s.city) for s in hotels if s.city}
@@ -117,7 +144,8 @@ def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
                 else "CITY_UNKNOWN" if not normalized_city(endpoint.city) else "OVERNIGHT_CITY_UNCONFIRMED" if not city
                 else "DIFFERENT_CITY" if normalized_city(endpoint.city) != city
                 else "HOTEL_UNCONFIRMED" if hotel_unconfirmed
-                else "LODGING_ROLE_UNCONFIRMED" if pending else None)
+                else "LODGING_ROLE_UNCONFIRMED" if pending
+                else "LODGING_REPLACEMENT_UNCONFIRMED" if unknown_exclusions else None)
             if reason:
                 missing.append({"day": day, "direction": direction, "name": endpoint.name if endpoint else None, "reason": reason})
         uncertain = bool(missing)
@@ -133,7 +161,9 @@ def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
             segments[-1].overnight_days.append(night)
             segments[-1].anchors.extend(anchors)
             segments[-1].expected_boundary_count += 2
+            segments[-1].excluded_place_ids = sorted(set(segments[-1].excluded_place_ids) | set(excluded))
         else:
             key = "stay_" + hashlib.sha256(f"{night}:{city or 'unknown'}".encode()).hexdigest()[:24]
-            segments.append(OvernightSegment(key, city, [night], anchors, preserved, uncertain, 2, missing, pending))
+            segments.append(OvernightSegment(key, city, [night], anchors, preserved, uncertain, 2, missing, pending,
+                excluded, unknown_exclusions))
     return segments

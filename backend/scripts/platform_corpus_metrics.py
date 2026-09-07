@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from math import ceil
 
 
 def _amap_id(value: str) -> str:
@@ -59,8 +60,11 @@ def compare_annotations(label: dict, observations: list[dict]) -> dict:
         "matched_places": len(pairs), "missing_places": len(expected) - len(pairs), "extra_or_misassigned_places": len(available),
         "semantic_recall": len(pairs) / len(expected) if expected else None,
         "semantic_precision": len(pairs) / len(actual) if actual else None,
-        "order_correct": ordered, "semantic_exact": len(pairs) == len(expected) == len(actual) and ordered,
-        "planned_order_correct": planned_ordered,
+        "order_correct": len(pairs) == len(expected) and ordered,
+        "retained_order_correct": ordered,
+        "semantic_exact": len(pairs) == len(expected) == len(actual) and ordered,
+        "planned_order_correct": len(planned_pairs) == planned_expected and planned_ordered,
+        "retained_planned_order_correct": planned_ordered,
         "planned_exact": len(planned_pairs) == planned_expected == planned_observed and planned_ordered,
         "poi_labeled_count": identity_total, "poi_identity_correct": correct_identity, "wrong_auto_confirmations": wrong_identity,
         "by_role": by_role, "by_hierarchy": by_hierarchy}
@@ -84,7 +88,7 @@ def summarize_measurements(rows: list[dict]) -> dict:
         hierarchy_matched = sum(row.get("by_hierarchy", {}).get(hierarchy, {}).get("matched", 0) for row in annotated)
         by_hierarchy[hierarchy] = {"expected": total, "matched": hierarchy_matched, "recall": hierarchy_matched / total if total else None}
     def percentile(fraction):
-        return elapsed[min(len(elapsed) - 1, int((len(elapsed) - 1) * fraction))] if elapsed else None
+        return elapsed[max(0, ceil(len(elapsed) * fraction) - 1)] if elapsed else None
     return {"runs": len(rows), "completed": sum(row["status"] == "COMPLETED" for row in rows),
         "errors": sum(row["status"] != "COMPLETED" for row in rows), "annotated_runs": len(annotated), "by_role": by_role,
         "by_hierarchy": by_hierarchy,
@@ -101,6 +105,7 @@ def summarize_measurements(rows: list[dict]) -> dict:
         "wrong_auto_confirmations": (sum(row["wrong_auto_confirmations"] for row in annotated)
             if any(row["poi_labeled_count"] for row in annotated) else None),
         "latency_p50_ms": percentile(0.5), "latency_p95_ms": percentile(0.95),
+        "latency_percentile_method": "nearest_rank", "latency_count": len(elapsed),
         "error_categories": dict(Counter(row.get("error_category", "UNKNOWN") for row in rows if row["status"] != "COMPLETED")),
         "model_calls": sum(row.get("usage", {}).get("external_calls") or 0 for row in rows),
         "usage_complete": all(row.get("usage", {}).get("input_tokens") is not None

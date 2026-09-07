@@ -150,7 +150,13 @@ async def measure(args) -> int:
     raw_directory = args.output.with_suffix("").with_name(args.output.stem + "-raw-calls")
     capture_context = {"case_id": None, "repeat": 0, "call": 0}
     original_create = model.client.chat.completions.create
+    thinking_budget = getattr(args, "thinking_budget", None)
     async def recorded_create(**kwargs):
+        if thinking_budget is not None:
+            # Explicit private experiment, with the runtime answer cap and deadline
+            # unchanged. No account, service or production model configuration changes.
+            kwargs["extra_body"] = {**(kwargs.get("extra_body") or {}),
+                "enable_thinking": True, "thinking_budget": thinking_budget}
         capture_context["call"] += 1
         path = raw_directory / f"{capture_context['case_id']}-r{capture_context['repeat']}-call{capture_context['call']:02d}.json"
         if path.exists():
@@ -160,7 +166,8 @@ async def measure(args) -> int:
             "model": kwargs.get("model"), "max_tokens": kwargs.get("max_tokens"), "status": "STARTED",
             "temperature": kwargs.get("temperature"), "extra_body": kwargs.get("extra_body"),
             "response_format": kwargs.get("response_format")}
-        save_json(path, record)
+        if args.record_raw_calls:
+            save_json(path, record)
         try:
             response = await original_create(**kwargs)
             record.update(status="COMPLETED", choices=[{"finish_reason": choice.finish_reason,
@@ -171,8 +178,9 @@ async def measure(args) -> int:
             record.update(status="FAILED", error_category=type(error).__name__)
             raise
         finally:
-            save_json(path, record)
-    if args.record_raw_calls:
+            if args.record_raw_calls:
+                save_json(path, record)
+    if args.record_raw_calls or thinking_budget is not None:
         model.client.chat.completions.create = recorded_create
     resolver = AmapPlaceResolver(api_key=values.get("AMAP_API_KEY") or "") if args.mode == "full" else None
     pipeline = TripUnderstandingPipeline(model, resolver) if resolver else None
@@ -185,6 +193,8 @@ async def measure(args) -> int:
         "prompt_override": bool(args.prompt_path), "prompt_sha256": hashlib.sha256(model.prompt.encode()).hexdigest(),
         "original_prompt_sha256": original_prompt_sha256,
         "raw_calls_recorded": args.record_raw_calls,
+        "thinking_budget_override": thinking_budget,
+        "answer_token_cap": model.max_output_tokens,
         "model": model.model, "provenance": "platform_generated", "measurement": "SEMANTIC_AND_POI_NO_API_OR_ROUTES" if resolver else "SEMANTIC_ONLY",
         "cases": [], "gold_source": "independent_annotations" if labels else "NONE", "labels_sha256": labels_sha256,
         "labels_source_sha256": labels_source_sha256}
@@ -274,6 +284,8 @@ def main():
     parser.add_argument("--labels", type=Path)
     parser.add_argument("--prompt-path", type=Path,
         help="Private experiment only: override this provider instance's prompt without modifying runtime files")
+    parser.add_argument("--thinking-budget", type=int, choices=(512, 1024, 2048),
+        help="Private same-model experiment only: enable bounded thinking; retain runtime answer cap and deadline")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=("semantic", "full"), default="semantic")
     parser.add_argument("--repeat", type=int, choices=(1, 2, 3, 4, 5), default=1)

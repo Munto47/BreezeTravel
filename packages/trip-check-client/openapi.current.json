@@ -263,6 +263,16 @@
             ],
             "title": "Lodging Event"
           },
+          "lodging_excluded_nights": {
+            "items": {
+              "maximum": 14.0,
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "maxItems": 14,
+            "title": "Lodging Excluded Nights",
+            "type": "array"
+          },
           "lodging_role_uncertain": {
             "default": false,
             "title": "Lodging Role Uncertain",

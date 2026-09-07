@@ -79,6 +79,16 @@ def test_compact_experiment_keeps_actual_line_spans_and_rejects_invented_scope()
     assert len(issues) == 2
 
 
+@pytest.mark.parametrize("values, p50, p95", [([], None, None), ([10], 10, 10),
+    ([80, 10], 10, 80), ([50, 10, 40, 20, 30], 30, 50)])
+def test_small_sample_latency_uses_documented_nearest_rank(values, p50, p95):
+    result = summarize_measurements([{"status": "COMPLETED", "elapsed_ms": value} for value in values])
+    assert result["latency_p50_ms"] == p50
+    assert result["latency_p95_ms"] == p95
+    assert result["latency_count"] == len(values)
+    assert result["latency_percentile_method"] == "nearest_rank"
+
+
 def annotation():
     return {"annotation_status": "reviewed", "annotator_type": "independent_agent", "activities": [
         {"name": "公园甲", "day_index": 1, "role": "PLANNED", "expected_poi_ids": ["poi-a"]},
@@ -93,6 +103,18 @@ def test_missing_places_remain_in_semantic_and_identity_denominators():
     assert result["poi_labeled_count"] == 2
     assert result["wrong_auto_confirmations"] == 1
     assert result["semantic_exact"] is False
+    assert result["order_correct"] is False
+
+
+def test_missing_or_wrong_day_main_stop_cannot_pass_complete_date_and_order_retention():
+    label = {"annotation_status": "reviewed", "annotator_type": "independent_agent", "activities": [
+        {"name": "公园甲", "day_index": 1, "role": "PLANNED"},
+        {"name": "公园乙", "day_index": 2, "role": "PLANNED"}]}
+    for second in [[], [{"name": "公园乙", "day_index": 1, "role": "PLANNED"}]]:
+        result = compare_annotations(label, [{"name": "公园甲", "day_index": 1, "role": "PLANNED"}, *second])
+        assert result["retained_planned_order_correct"] is True
+        assert result["planned_order_correct"] is False
+        assert result["planned_exact"] is False
 
 
 def test_generation_cannot_grade_itself_and_unlabeled_reports_have_no_accuracy():

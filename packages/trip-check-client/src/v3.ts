@@ -145,6 +145,7 @@ export interface ActivityCardView {
   lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | null
   lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
   lodging_role_uncertain?: boolean
+  lodging_excluded_nights?: number[]
   meal_role?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK' | null
   city?: string | null
   photo_url?: string | null

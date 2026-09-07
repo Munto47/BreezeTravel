@@ -48,6 +48,10 @@ class ProposedMention(ActivityTiming):
     lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
     lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
     lodging_role_uncertain: bool = False
+    lodging_excluded_nights: list[Annotated[int, Field(ge=1, le=14)]] = Field(default_factory=list, max_length=14)
+    lodging_exclusion_evidence: str | None = None
+    lodging_exclusion_evidence_start: int | None = Field(default=None, ge=0)
+    lodging_exclusion_evidence_end: int | None = Field(default=None, ge=0)
     lodging_evidence: str | None = None
     lodging_evidence_start: int | None = Field(default=None, ge=0)
     lodging_evidence_end: int | None = Field(default=None, ge=0)
@@ -222,6 +226,7 @@ class ActivityCardView(ActivityTiming):
     lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
     lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
     lodging_role_uncertain: bool = False
+    lodging_excluded_nights: list[Annotated[int, Field(ge=1, le=14)]] = Field(default_factory=list, max_length=14)
     area_or_address: str
     time_hint: str | None = None
     status: Literal["READY", "NEEDS_CONFIRMATION"]

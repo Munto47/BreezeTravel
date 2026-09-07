@@ -26,6 +26,7 @@ def stop_fact(stop):
     return {"name": stop.name, "day": stop.day_index, "sequence": stop.sequence_index,
         "category": stop.category, "city": stop.city, "lodging_event": stop.lodging_event,
         "lodging_scope": stop.lodging_scope, "lodging_role_uncertain": stop.lodging_role_uncertain,
+        "lodging_excluded_nights": stop.lodging_excluded_nights,
         "generated_overnight_endpoint": stop.is_stay_anchor,
         "resolution_status": stop.resolution_status, "canonical_place_id": stop.canonical_place_id}
 
@@ -80,10 +81,17 @@ async def read(public_id):
             city=destination.get("name") if isinstance(destination, dict) else None)
         contexts = overnight_segments(plan)
         map_jobs = await read_map_jobs(conn, identifier)
+        candidates = await conn.fetch("""SELECT c.canonical_place_id,c.name,c.segment_key
+            FROM trip_stay_candidates c JOIN trip_stay_recommendation_snapshots s ON s.snapshot_id=c.snapshot_id
+            JOIN trip_stay_recommendation_jobs j ON j.stay_job_id=s.stay_job_id
+            JOIN trip_plan_revision_refs p ON p.plan_ref_id=j.plan_ref_id
+            WHERE j.understanding_id=$1 AND p.revision=$2 ORDER BY c.rank""", identifier, revision)
         return {"status": "READ", "revision": revision, "projection": "CURRENT_PERSISTED_RESULT_AND_REAL_RESOLVER_RECEIPTS",
             "stops": [stop_fact(stop) for stop in plan.stops], "lodging_constraints": [stop_fact(stop) for stop in plan.lodging_constraints],
+            "stay_candidates": [dict(candidate) for candidate in candidates],
             "nights": [{"city": c.city, "overnight_days": c.overnight_days, "preserved_hotels": c.preserved_hotels,
                 "pending_lodging_roles": c.pending_lodging_roles,
+                "excluded_place_ids": c.excluded_place_ids, "unconfirmed_exclusions": c.unconfirmed_exclusions,
                 "uncertain": c.uncertain, "expected_boundary_count": c.expected_boundary_count, "missing_boundaries": c.missing_boundaries,
                 "anchors": [{"day": day, "direction": direction, **stop_fact(stop)} for day, direction, stop in c.anchors]} for c in contexts],
             "map_jobs": map_jobs}

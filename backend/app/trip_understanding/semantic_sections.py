@@ -169,7 +169,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
         if any(item.role.value in {"PLANNED", "OPTIONAL"} and item.span_start < len(prefix) for item in output.mentions):
             return await whole_document()
         if offset and any(any(value is not None and value < len(prefix) for value in
-            (item.role_evidence_start, item.lodging_evidence_start)) for item in scoped):
+            (item.role_evidence_start, item.lodging_evidence_start, item.lodging_exclusion_evidence_start)) for item in scoped):
             # Context prepended to a later day is not contiguous with that day
             # in the full source. It cannot be persisted as a single evidence span.
             return await whole_document()
@@ -185,6 +185,8 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
                 "role_evidence_end": item.role_evidence_end + offset if item.role_evidence_end is not None else None,
                 "lodging_evidence_start": item.lodging_evidence_start + offset if item.lodging_evidence_start is not None else None,
                 "lodging_evidence_end": item.lodging_evidence_end + offset if item.lodging_evidence_end is not None else None,
+                "lodging_exclusion_evidence_start": item.lodging_exclusion_evidence_start + offset if item.lodging_exclusion_evidence_start is not None else None,
+                "lodging_exclusion_evidence_end": item.lodging_exclusion_evidence_end + offset if item.lodging_exclusion_evidence_end is not None else None,
                 "parent_mention_id": ids.get(item.parent_mention_id),
                 "choice_group_id": f"day-{day}-{item.choice_group_id}" if item.choice_group_id else None,
                 "branch_id": f"day-{day}-{item.branch_id}" if item.branch_id else None}))
