@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { confirmedDays, confirmedTripView, storedPositionCommand } from '@/lib/confirmed-trip-view'
 import * as api from '@/lib/trip-understanding-v3'
 import {
   releaseCancelledTripInput,
@@ -1785,13 +1786,14 @@ export function useTripExperience() {
   const command = (value: api.TripUnderstandingCommand) =>
     execute({
       type: 'command',
-      command: value,
+      command: storedPositionCommand(value, result),
       ...current.current,
       key: api.createTripRequestKey(),
     })
   const workspaceCommand = async (value: api.TripUnderstandingCommand) => {
     await command(value)
-    return workspaceOutcome.current
+    const outcome = workspaceOutcome.current
+    return { ...outcome, days: outcome.days ? confirmedDays(outcome.days) : undefined }
   }
   const renderMap = () =>
     execute({
@@ -1927,12 +1929,15 @@ export function useTripExperience() {
     manualEnhancementRetry.current = request
     return request
   }
+  const displayedResult = useMemo(() => confirmedTripView(result), [result])
+  const displayedProgress = useMemo(() => confirmedTripView(progressSnapshot), [progressSnapshot])
   return {
     resource,
     mode,
     isDemo,
-    result,
-    progressSnapshot,
+    result: displayedResult,
+    progressSnapshot: displayedProgress,
+    omittedPlaceCount: result?.days.reduce((total, day) => total + day.activities.filter(card => card.status !== 'READY').length, 0) || 0,
     phase,
     progress,
     streamState,

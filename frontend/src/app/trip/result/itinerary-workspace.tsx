@@ -33,6 +33,7 @@ import {
 } from '@/lib/trip-understanding-v3'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import PendingPlaceDropdown from './pending-place-dropdown'
+import PlacePhoto from './place-photo'
 import AccessibleDialog from './accessible-dialog'
 import { DAY_ACCENTS, DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
 
@@ -458,7 +459,7 @@ export default function ItineraryWorkspace({
                   </div>
 
                   <div className="min-w-0 px-4 py-4 sm:px-5">
-
+                    {!day.activities.length && <p className="py-4 text-sm text-slate-500">这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。</p>}
 
                     {layoutMode === 'LIST' ? (
                       <ol className="mt-3 grid gap-3" aria-label={`${day.label} 地点列表`}>
@@ -469,7 +470,7 @@ export default function ItineraryWorkspace({
                               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0c789d] text-xs font-bold text-white">{position + 1}</span>
                               <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
-                                <span className="text-xs text-slate-500">{activity.status === 'READY' ? '已匹配' : '待确认'}</span>
+                                <span className="text-xs text-slate-500">已确认 · 可更改</span>
                               </button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
@@ -640,7 +641,7 @@ export default function ItineraryWorkspace({
                                       ? 'rounded-full bg-emerald-50 px-2 py-1 text-emerald-700'
                                       : 'rounded-full bg-amber-50 px-2 py-1 text-amber-800'}
                                     >
-                                      {activity.status === 'READY' ? '已匹配' : '待确认'}
+                                      已确认
                                     </span>
                                     {(activity.knowledge_suggestions?.length || 0) > 0 && (
                                       <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
@@ -866,18 +867,5 @@ function DialogCloseButton({ onClick, label }: { onClick: () => void; label: str
     <button type="button" onClick={onClick} className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700" aria-label={label}>
       <X className="h-5 w-5" aria-hidden="true" />
     </button>
-  )
-}
-
-
-function PlacePhoto({card}: {card: ActivityCardView}) {
-  const [failed, setFailed] = useState(false)
-  useEffect(() => setFailed(false), [card.photo_url])
-  if (card.status !== 'READY' || !card.photo_url || failed) return null
-  return (
-    // Photo belongs to the resolved POI; never search for a replacement in the browser.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={card.photo_url} alt="" loading="lazy" referrerPolicy="no-referrer"
-      onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
   )
 }

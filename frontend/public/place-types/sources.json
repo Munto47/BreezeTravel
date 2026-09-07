@@ -1,0 +1,83 @@
+[
+  {
+    "type": "restaurant",
+    "file": "restaurant.jpg",
+    "source": "https://www.pexels.com/photo/tables-and-chairs-in-a-restaurant-9685262/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "6be9576649af41a975a8bfd6be403eb04567508d9bef399e6e5610167ecce82f",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "hotel",
+    "file": "hotel.jpg",
+    "source": "https://www.pexels.com/photo/modern-hotel-room-with-cozy-bed-and-window-view-31609726/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "443f298659d3ee7ea08a87dd8bc864a6ea7929cd7cb88c9691512e8844c2785c",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "historic",
+    "file": "historic.jpg",
+    "source": "https://www.pexels.com/photo/temple-seen-through-gate-10875506/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "9ba93a3096e4d1aa46751f371aab36cb61dc5970b49e6329994feed06cbab1f4",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "modern",
+    "file": "modern.jpg",
+    "source": "https://www.pexels.com/photo/low-angle-photo-of-glass-buildings-2599538/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "ebb1d9ebefa6fe5bef224424d0df27b423cdeccbc5afb3b3115b5665310b610b",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "park",
+    "file": "park.jpg",
+    "source": "https://www.pexels.com/photo/lush-green-park-scene-in-china-with-pathway-31682420/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "41b41cf9f7f94b4856ba449ef8f7391a10d80e55bcf7e9b7388d538ef410efd5",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "street",
+    "file": "street.jpg",
+    "source": "https://www.pexels.com/photo/people-walking-down-the-street-in-a-chinese-city-18367535/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "4bc4fd5043b444f21f99daaf98b4aee8ad306118c4e044361f91e5fe764cba88",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "mountain",
+    "file": "mountain.jpg",
+    "source": "https://www.pexels.com/photo/green-mountains-under-blue-sky-4478320/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "adf4d5507eee0950446a3a4c8250fc9506d14dd99516eeaf75c1c66bd0ecc6a1",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "water",
+    "file": "water.jpg",
+    "source": "https://www.pexels.com/photo/a-lake-surrounded-by-green-shrubs-under-cloudy-sky-7301465/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "3925630b1c65bd56879016b73d25c91e5eda518b04d8412345992a073bc4dc46",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  },
+  {
+    "type": "museum",
+    "file": "museum.jpg",
+    "source": "https://www.pexels.com/photo/interior-of-a-museum-26424630/",
+    "license": "https://www.pexels.com/license/",
+    "retrieved": "2026-09-07",
+    "sha256": "4b263e4f64e67f52e80096d6bdc6889e5a8af93d59c1fd6a683ebfe9adb0af32",
+    "usage": "Illustrative category fallback, never identity evidence or claimed exact-place photography."
+  }
+]

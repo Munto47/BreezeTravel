@@ -161,7 +161,7 @@ async function renderItinerary(
 
   context.fillStyle = '#607984'
   context.font = '400 12px "Microsoft YaHei", sans-serif'
-  context.fillText('计划内容仅供出行准备；待确认与路线过期状态已如实保留。', padding, height - 30)
+  context.fillText('仅展示已匹配地点，可随时更改；路线时效与参观条件需另行核对。', padding, height - 30)
   return canvas
 }
 

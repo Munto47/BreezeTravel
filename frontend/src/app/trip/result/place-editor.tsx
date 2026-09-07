@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import {
   queryTripPlaceCandidates,
+  readTripUnderstandingResult,
   type ActivityCardView,
   type PlaceCandidateView,
   type PlaceCandidatesView,
@@ -12,8 +13,8 @@ import {
 } from '@/lib/trip-understanding-v3'
 
 export default function PlaceEditor({
-  editorMode,
-  card,
+  editorMode: requestedMode,
+  card: suppliedCard,
   dayIndex,
   days,
   resource,
@@ -38,6 +39,10 @@ export default function PlaceEditor({
   onDirtyChange: (dirty: boolean) => void
   onPreviewCandidate: (candidate: PlaceCandidateView | null) => void
 }) {
+  const [stagedCard, setStagedCard] = useState<ActivityCardView | null>(null)
+  const [adding, setAdding] = useState(false)
+  const card = suppliedCard || stagedCard
+  const editorMode = stagedCard ? 'EDIT' : requestedMode
   const originalPosition =
     days[dayIndex]?.activities.findIndex(
       (item) => item.activity_token === card?.activity_token,
@@ -56,16 +61,13 @@ export default function PlaceEditor({
   const searchController = useRef<AbortController | null>(null)
   const moveDirty =
     targetDay !== dayIndex || targetPosition !== originalPosition
-  const nameDirty = Boolean(name.trim()) && name.trim() !== (card?.name || '')
   const cardWasReplaced = editorMode !== 'ADD' && !card
   const dirty =
     cardWasReplaced
       ? false
       : editorMode === 'ADD'
       ? Boolean(name.trim())
-      : editorMode === 'REPLACE'
-        ? nameDirty
-        : nameDirty || moveDirty || Boolean(candidate)
+      : moveDirty || Boolean(candidate)
   useEffect(() => {
     onDirtyChange(dirty)
   }, [dirty, onDirtyChange])
@@ -107,7 +109,7 @@ export default function PlaceEditor({
           setMessage(
             next.status === 'EMPTY'
               ? '没有找到合适的地点。可补充区县或完整名称，原安排会保留。'
-              : '地点查询暂时不可用，可保留待确认并稍后重试。',
+              : '地点查询暂时不可用，原有卡片保持不变，可以稍后重试。',
           )
       }
     } catch {
@@ -133,19 +135,36 @@ export default function PlaceEditor({
         onSubmit={(event) => {
           event.preventDefault()
           if (name.trim())
-            void onCommand({
-              command_type: 'ACTIVITY_INSERT',
-              day_index: dayIndex + 1,
-              position: days[dayIndex]?.activities.length || 0,
-              name: name.trim(),
-            }).then((ok) => {
-              if (ok) onApplied()
-            })
+            void (async () => {
+              if (adding) return
+              setAdding(true)
+              try {
+                const ok = await onCommand({
+                  command_type: 'ACTIVITY_INSERT',
+                  day_index: dayIndex + 1,
+                  position: days[dayIndex]?.activities.length || 0,
+                  name: name.trim(),
+                })
+                if (!ok) return
+                const controller = new AbortController()
+                const timer = setTimeout(() => controller.abort(), 15000)
+                try {
+                  const { body } = await readTripUnderstandingResult(resource, controller.signal)
+                  if (body.status === 'PROCESSING') return
+                  const inserted = body.days[dayIndex]?.activities.at(-1)
+                  if (inserted?.name === name.trim() && inserted.status !== 'READY') {
+                    setStagedCard(inserted)
+                    setQuery(inserted.name)
+                  } else setMessage('行程已变化，请关闭后重新添加。')
+                } finally { clearTimeout(timer) }
+              } catch { setMessage('未能读取新增地点，请关闭后重新读取行程。') }
+              finally { setAdding(false) }
+            })()
         }}
       >
         <p className="e-muted">
           加入{days[dayIndex]?.label}
-          。新地点先保留为待确认，确认地址后再更新路线。
+          。搜索并选择真实地点后，才会展示新卡片。
         </p>
         <label className="e-field">
           地点名称
@@ -158,103 +177,36 @@ export default function PlaceEditor({
             required
             maxLength={200}
             placeholder="输入想去的地方"
-            disabled={busy}
+            disabled={busy || adding}
           />
         </label>
-        {notice && (
+        {(notice || message) && (
           <p role="status" className="e-notice-text">
-            {notice}
+            {message || notice}
           </p>
         )}
         <div className="e-panel-actions">
           <button
             className="e-button e-button-primary"
             data-testid="save-card-editor"
-            disabled={busy || !name.trim()}
+            disabled={busy || adding || !name.trim()}
             type="submit"
           >
-            加入当天行程
+            {adding ? '正在准备搜索…' : '查找这个地点'}
           </button>
         </div>
       </form>
     )
 
-  const textEditor = (
-    <form
-      className="e-form-section"
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!nameDirty || busy) return
-        const command: TripUnderstandingCommand =
-          editorMode === 'REPLACE'
-            ? {
-                command_type: 'PLACE_REPLACE',
-                activity_token: card.activity_token,
-                replacement: {
-                  name: name.trim(),
-                  category: card.category || '地点',
-                  area_or_address: '地点待确认',
-                },
-              }
-            : {
-                command_type: 'ACTIVITY_TEXT_EDIT',
-                activity_token: card.activity_token,
-                name: name.trim(),
-              }
-        void onCommand(command).then((ok) => {
-          if (ok) onApplied()
-        })
-      }}
-    >
-      <p className="e-muted">
-        {editorMode === 'REPLACE'
-          ? '新地点会先标为待确认；核对成功前不会沿用旧地点的路线事实。'
-          : '只修改卡片文字；保存后现有路线会标记为需要更新。'}
-      </p>
-      <label className="e-field">
-        {editorMode === 'REPLACE' ? '新地点名称' : '卡片文字'}
-        <input
-          aria-label={editorMode === 'REPLACE' ? '替换地点名称' : '编辑卡片名称'}
-          data-initial-focus="true"
-          data-testid="card-editor-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-          maxLength={40}
-          disabled={busy}
-        />
-      </label>
-      <div className="e-panel-actions">
-        <button
-          className="e-button e-button-primary"
-          data-testid="save-card-editor"
-          disabled={busy || !nameDirty}
-          type="submit"
-        >
-          {busy
-            ? '正在保存…'
-            : editorMode === 'REPLACE'
-              ? '确认替换'
-              : '保存文字'}
-        </button>
-      </div>
-    </form>
-  )
-
-  if (editorMode === 'REPLACE') return textEditor
-
   return (
     <div className="e-editor">
-      {textEditor}
       <p className="e-muted">
-        {days[dayIndex]?.label} · 第 {originalPosition + 1} 站
+        {stagedCard ? `准备加入 ${days[dayIndex]?.label}` : `${days[dayIndex]?.label} · 第 ${originalPosition + 1} 站`}
       </p>
-      <p className="e-place-address">
+      {!stagedCard && <p className="e-place-address">
         {card.area_or_address || '地址尚未确认'}
-      </p>
-      {card.status !== 'READY' && (
-        <p className="e-confirmation">地点待确认，核对地址后再使用路线。</p>
-      )}
+      </p>}
+      {stagedCard && <p className="e-muted">搜索并选择地点后加入当天行程；没有结果则不展示卡片。</p>}
       {notice && (
         <p className="e-notice-text" role="status">
           {notice}
@@ -346,6 +298,7 @@ export default function PlaceEditor({
                   candidate_token: candidate.candidate_token,
                 }).then((ok) => {
                   if (ok) {
+                    if (stagedCard) { onApplied(); return }
                     selectCandidate(null)
                     setCandidates(null)
                     setMessage('地点已更新，需要时再更新路线。')
@@ -386,7 +339,7 @@ export default function PlaceEditor({
           ))}
         </details>
       )}
-      <details className="e-disclosure">
+      {!stagedCard && <details className="e-disclosure">
         <summary>移动或移除这个地点</summary>
         {(candidate) && (
           <p className="e-confirmation">
@@ -505,7 +458,7 @@ export default function PlaceEditor({
             从行程中移除
           </button>
         )}
-      </details>
+      </details>}
     </div>
   )
 }

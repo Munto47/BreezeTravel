@@ -131,7 +131,10 @@ export default function SharedItineraryPage() {
         ) : null}
       </section>
       <section className="mt-4 space-y-3" aria-label="只读行程">
-        {shared.days.map((day) => (
+        {shared.days.map((storedDay) => {
+          // Older immutable shares may still contain unresolved entries.
+          const day = { ...storedDay, activities: storedDay.activities.filter(activity => activity.note === '可直接查看') }
+          return (
           <article
             key={day.label}
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -156,7 +159,8 @@ export default function SharedItineraryPage() {
               </ol>
             )}
           </article>
-        ))}
+          )
+        })}
       </section>
       <p className="mt-4 text-center text-xs text-slate-500">
         只读分享；不提供编辑、路线计算或账号权限。

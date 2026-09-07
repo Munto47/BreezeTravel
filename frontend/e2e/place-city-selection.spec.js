@@ -24,7 +24,9 @@ function candidate(city) {
 
 async function fixture(page, options = {}) {
   const card = { activity_token: ACTIVITY, name: '星河博物馆', city: options.cardCity ?? '北京',
-    category: '景点', area_or_address: '地点待确认', status: 'NEEDS_CONFIRMATION', time_hint: null,
+    // Owner contract: only resolved cards are displayed; the same editor must
+    // still allow changing their city and choosing another verified location.
+    category: '景点', area_or_address: '合成地点地址', status: 'READY', time_hint: null,
     available_actions: ['VIEW_DETAILS', 'REPLACE', 'DELETE', 'MOVE'], knowledge_suggestions: [] }
   const state = { searches: [], commands: [], routePosts: 0, unsupported: [], etag: ETAG,
     result: { status: 'PARTIAL_RESULT', ownership: 'ANONYMOUS', is_demo: false, can_undo: false,

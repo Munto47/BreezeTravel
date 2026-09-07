@@ -590,7 +590,7 @@ export default function TripResultPage() {
                         <article className="e-progress-card" role="listitem">
                           <span>第 {index + 1} 站</span>
                           <strong>{card.name}</strong>
-                          <small>待确认</small>
+                          <small>已确认</small>
                         </article>
                       </div>
                     ))}
@@ -898,6 +898,7 @@ export default function TripResultPage() {
             </div>
           )}
           <div className="e-page-message">
+            {trip.omittedPlaceCount > 0 && <p className="e-small e-muted" data-testid="unmatched-places-note">已展示匹配到的真实地点，可随时更改。另有 {trip.omittedPlaceCount} 项未找到可靠地点，未展示为卡片。</p>}
             {trip.notice && (
               <div
                 className="e-message"
