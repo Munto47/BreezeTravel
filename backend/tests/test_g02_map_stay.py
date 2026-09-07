@@ -218,8 +218,16 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     ).recommend(plan, observed_at=observed_at)
     assert candidate_provider.scopes == [2000, 4000, 8000, None]
     assert len(one_mode.candidates) == 1
-    assert one_mode.candidates[0].missing_leg_count == 0
-    assert one_mode.candidates[0].evidence_penalty == 8 * len(plan.anchors)
+    # Only walks within the owner's 30-minute limit are usable when transit fails.
+    candidate = one_mode.candidates[0]
+    short_walks = [leg for leg in candidate.legs if leg.walking.duration_minutes <= 30]
+    long_walks = [leg for leg in candidate.legs if leg.walking.duration_minutes > 30]
+    assert len(short_walks) == 3
+    assert len(long_walks) == 1
+    assert all(leg.selected_mode == "walking" for leg in short_walks)
+    assert all(leg.selected_mode is None for leg in long_walks)
+    assert candidate.missing_leg_count == 1
+    assert candidate.evidence_penalty == 90 + 8 * 3
     assert all(
         leg.walking.status == "AVAILABLE" and leg.transit.status == "UNAVAILABLE"
         for leg in one_mode.candidates[0].legs

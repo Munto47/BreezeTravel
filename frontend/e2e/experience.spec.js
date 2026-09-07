@@ -61,19 +61,7 @@ test.afterEach(async ({ page }, testInfo) => {
   })
 })
 
-async function openDemo(page) {
-  await page.goto('/')
-  await expect(page.getByTestId('start-demo')).toBeEnabled({ timeout: 15000 })
-  await page.getByTestId('start-demo').click()
-  await page.getByTestId('create-full-trip').click()
-  await expect(page).toHaveURL(/\/trip\/result(?:#.*)?$/)
-  await expect(
-    page.getByRole('button', { name: '编辑故宫博物院', exact: true }),
-  ).toBeVisible({ timeout: 60000 })
-  await expect(page.getByText('正在检查时间与路线…')).toHaveCount(0, {
-    timeout: 30000,
-  })
-}
+const { openDemo, view, moveFirst, expectFirst, setTime, openSuggestions } = require('./support/current-experience')
 
 async function currentResult(page) {
   return page.evaluate(async () => {
@@ -105,9 +93,7 @@ for (const width of [1440, 1280, 390, 360]) {
       page.getByRole('textbox', { name: '你的攻略或行程' }),
     ).toBeVisible()
     await expect(page.getByRole('button', { name: '整理行程' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '整理行程' })).toBeEnabled({
-      timeout: 15000,
-    })
+    await expect(page.getByRole('button', { name: '整理行程' })).toBeEnabled({timeout:15000})
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -138,12 +124,9 @@ for (const width of [1440, 1280, 390, 360]) {
         fullPage: true,
       })
     if (width < 1024) {
-      await page
-        .getByRole('navigation', { name: '行程和地图' })
-        .getByRole('button', { name: '地图', exact: true })
-        .click()
+      await view(page, 'map_stay')
       await expect(
-        page.getByRole('heading', { name: '这一天，怎么走' }),
+        page.getByTestId('route-map'),
       ).toBeVisible()
       expect(
         await page.evaluate(
@@ -158,42 +141,20 @@ for (const width of [1440, 1280, 390, 360]) {
   })
 }
 
-test('time edit persists through reload and undo without automatic route calculation', async ({
-  page,
-}) => {
+test('card order persists through reload and undo without automatic route calculation', async ({ page }) => {
   let routeWrites = 0
-  page.on('request', (request) => {
-    if (
-      request.method() === 'POST' &&
-      /\/map-renders$/.test(new URL(request.url()).pathname)
-    )
-      routeWrites++
+  page.on('request', request => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/map-renders')) routeWrites++
   })
   await openDemo(page)
-  await page.locator('.e-edit-stop').first().click()
-  await page.getByLabel('开始时间', { exact: true }).fill('09:30')
-  await page.getByLabel('结束时间', { exact: true }).fill('11:30')
-  await page.getByLabel('预计停留分钟').fill('120')
-  await page.getByRole('button', { name: '应用修改' }).click()
-  await expect(page.locator('.e-context-panel')).toHaveCount(0, {
-    timeout: 30000,
-  })
-  await expect(
-    page.getByTestId('trip-days').getByText(/^09:30(?:–|$)/),
-  ).toBeVisible()
+  await moveFirst(page)
+  await expectFirst(page, '景山公园')
   expect(routeWrites).toBe(0)
   await page.reload()
-  await expect(
-    page.getByTestId('trip-days').getByText(/^09:30(?:–|$)/),
-  ).toBeVisible({ timeout: 30000 })
+  await expectFirst(page, '景山公园')
   await page.getByRole('button', { name: '撤销', exact: true }).click()
-  await expect(
-    page.getByTestId('trip-days').getByText(/^09:30(?:–|$)/),
-  ).toHaveCount(0, { timeout: 30000 })
+  await expectFirst(page, '故宫博物院')
   expect(routeWrites).toBe(0)
-  await expect(
-    page.getByRole('button', { name: '更新路线', exact: true }),
-  ).toBeEnabled()
   await page.getByRole('button', { name: '更新路线', exact: true }).click()
   await expect.poll(() => routeWrites).toBe(1)
 })
@@ -245,9 +206,7 @@ test('a lost save response retries the same operation after reload', async ({
       } else await route.continue()
     },
   )
-  await page.locator('.e-edit-stop').first().click()
-  await page.getByLabel('开始时间', { exact: true }).fill('10:15')
-  await page.getByRole('button', { name: '应用修改' }).click()
+  await moveFirst(page)
   await expect(
     page.getByRole('button', { name: '确认保存结果', exact: true }),
   ).toBeAttached({ timeout: 30000 })
@@ -261,9 +220,7 @@ test('a lost save response retries the same operation after reload', async ({
   ).toHaveCount(0, { timeout: 30000 })
   expect(keys).toHaveLength(2)
   expect(keys[1]).toBe(keys[0])
-  await expect(
-    page.getByTestId('trip-days').getByText(/^10:15(?:–|$)/),
-  ).toBeVisible()
+  await expectFirst(page, '景山公园')
 })
 
 test('@live actual map displays server-provided locations', async ({
@@ -342,28 +299,15 @@ test('a time conflict has a read-only preview and can be adopted', async ({
   page,
 }) => {
   await openDemo(page)
-  async function edit(index, start, end) {
-    await page.locator('.e-edit-stop').nth(index).click()
-    await page.getByLabel('开始时间', { exact: true }).fill(start)
-    await page.getByLabel('结束时间', { exact: true }).fill(end)
-    const minutes = (value) =>
-      Number(value.slice(0, 2)) * 60 + Number(value.slice(3))
-    await page
-      .getByLabel('预计停留分钟')
-      .fill(String(minutes(end) - minutes(start)))
-    await page.getByRole('button', { name: '应用修改' }).click()
-    await expect(page.locator('.e-context-panel')).toHaveCount(0, {
-      timeout: 30000,
-    })
-    await expect(page.getByText('正在检查时间与路线…')).toHaveCount(0, {
-      timeout: 30000,
-    })
-  }
+  const edit = (index, start, end) => setTime(page, index, start, end)
   await edit(0, '09:00', '11:00')
   await edit(1, '10:00', '11:00')
+  await page.reload()
+  await expectFirst(page, '故宫博物院')
   await page.getByRole('button', { name: '更新路线', exact: true }).click()
+  await openSuggestions(page)
   const fixConflict = page
-    .locator('.e-inline-issue.is-hard')
+    .getByTestId('suggestion-check').filter({hasText: '必须调整'})
     .getByRole('button', { name: '预览调整' })
     .first()
   await expect(fixConflict).toBeVisible({ timeout: 60000 })
@@ -376,19 +320,21 @@ test('a time conflict has a read-only preview and can be adopted', async ({
   await expect(page.locator('.e-context-panel')).toHaveCount(0, {
     timeout: 30000,
   })
-  await expect(
-    page.getByTestId('trip-days').getByText(/^10:00(?:–|$)/),
-  ).toHaveCount(0, { timeout: 30000 })
+  await expect.poll(async () => (await currentResult(page)).days).not.toEqual(before.days)
+  const after = await currentResult(page)
+  expect(after.days[0].activities.map(card => card.name)).toEqual(before.days[0].activities.map(card => card.name))
+  expect(after.days[0].activities[1].start_time).not.toBe('10:00')
+  expect(after.days[0].activities[1].start_time >= after.days[0].activities[0].end_time).toBe(true)
 })
 
 test('deleting imported text retains the itinerary and route view after reload', async ({
   page,
 }) => {
   await openDemo(page)
-  await expect(page.locator('.e-transport summary')).toContainText('步行', {
+  await expect(page.getByTestId('transport-connector').first()).toContainText('步行', {
     timeout: 30000,
   })
-  const before = await page.getByTestId('trip-days').innerText()
+  const before = (await currentResult(page)).days
   await page.getByLabel('更多行程操作').click()
   await page.getByRole('button', { name: '删除导入文字', exact: true }).click()
   await expect(page.locator('.e-context-panel')).toContainText(
@@ -400,7 +346,7 @@ test('deleting imported text retains the itinerary and route view after reload',
   })
   await page.getByLabel('更多行程操作').click()
   await expect(
-    page.getByRole('button', { name: '导入文字已删除' }),
+    page.getByRole('button', { name: '原文已删除' }),
   ).toBeDisabled()
   await page.reload()
   await expect(
@@ -409,13 +355,14 @@ test('deleting imported text retains the itinerary and route view after reload',
   await expect(page.getByText('正在检查时间与路线…')).toHaveCount(0, {
     timeout: 30000,
   })
-  expect(await page.getByTestId('trip-days').innerText()).toBe(before)
+  expect((await currentResult(page)).days).toEqual(before)
+  await view(page, 'map_stay')
   await expect(
-    page.getByRole('heading', { name: '这一天，怎么走' }),
+    page.getByTestId('route-map'),
   ).toBeVisible()
   await page.getByLabel('更多行程操作').click()
   await expect(
-    page.getByRole('button', { name: '导入文字已删除' }),
+    page.getByRole('button', { name: '原文已删除' }),
   ).toBeDisabled()
   await expect(page.getByText('这份行程已删除或过期')).toHaveCount(0)
 })
@@ -442,12 +389,8 @@ test('saving and reopening an edited account trip in another browser', async ({
       { timeout: 30000 },
     )
     .toBe(200)
-  await page.locator('.e-edit-stop').first().click()
-  await page.getByLabel('开始时间', { exact: true }).fill('09:45')
-  await page.getByRole('button', { name: '应用修改' }).click()
-  await expect(page.locator('.e-context-panel')).toHaveCount(0, {
-    timeout: 30000,
-  })
+  await moveFirst(page)
+  await expectFirst(page, '景山公园')
   await page.getByRole('button', { name: '保存到账号', exact: true }).click()
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByLabel('邮箱', { exact: true })).toBeVisible()
@@ -489,19 +432,15 @@ test('saving and reopening an edited account trip in another browser', async ({
   await expect(
     page.getByRole('button', { name: '已保存到账号', exact: true }),
   ).toBeVisible({ timeout: 30000 })
+  await expectFirst(page, '景山公园')
   await expect(
-    page.getByTestId('trip-days').getByText(/^09:45(?:–|$)/),
-  ).toBeVisible()
-  await expect(
-    page.getByText('示例行程 · 安排与路线为固定回放', { exact: false }),
+    page.getByText('示例回放', { exact: false }),
   ).toBeVisible()
   await page.reload()
   await expect(
     page.getByRole('button', { name: '已保存到账号', exact: true }),
   ).toBeVisible({ timeout: 30000 })
-  await expect(
-    page.getByTestId('trip-days').getByText(/^09:45(?:–|$)/),
-  ).toBeVisible()
+  await expectFirst(page, '景山公园')
   expect(
     (
       await page.request.get(
@@ -521,9 +460,7 @@ test('saving and reopening an edited account trip in another browser', async ({
   await expect(
     page.getByRole('button', { name: '已保存到账号', exact: true }),
   ).toBeVisible({ timeout: 30000 })
-  await expect(
-    page.getByTestId('trip-days').getByText(/^09:45(?:–|$)/),
-  ).toBeVisible()
+  await expectFirst(page, '景山公园')
   const otherBrowser = await browser.newContext()
   const otherPage = await otherBrowser.newPage()
   try {
@@ -541,21 +478,11 @@ test('saving and reopening an edited account trip in another browser', async ({
     )
     await expect(otherPage.locator('.e-trip-list-row')).toContainText('保留至')
     await otherPage.getByRole('button', { name: /^继续编辑/ }).click()
-    await expect(
-      otherPage.getByTestId('trip-days').getByText(/^09:45(?:–|$)/),
-    ).toBeVisible({ timeout: 30000 })
-    await otherPage.locator('.e-edit-stop').first().click()
-    await otherPage.getByLabel('开始时间', { exact: true }).fill('10:05')
-    await otherPage
-      .getByRole('button', { name: '应用修改', exact: true })
-      .click()
-    await expect(otherPage.locator('.e-context-panel')).toHaveCount(0, {
-      timeout: 30000,
-    })
+    await expectFirst(otherPage, '景山公园')
+    await moveFirst(otherPage)
+    await expectFirst(otherPage, '故宫博物院')
     await otherPage.reload()
-    await expect(
-      otherPage.getByTestId('trip-days').getByText(/^10:05(?:–|$)/),
-    ).toBeVisible({ timeout: 30000 })
+    await expectFirst(otherPage, '故宫博物院')
     await otherPage.getByRole('link', { name: '我的行程', exact: true }).click()
     await expect(otherPage.locator('.e-trip-list-row')).toHaveCount(1)
     for (const width of [1440, 360]) {

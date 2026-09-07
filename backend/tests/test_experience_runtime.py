@@ -485,7 +485,7 @@ def test_node_shim_is_resolved_to_the_long_lived_executable(
 
 
 def test_windows_node_probe_failure_is_fail_closed(launcher, monkeypatch):
-    monkeypatch.setattr(launcher.os, "name", "nt")
+    monkeypatch.setattr(launcher, "os", SimpleNamespace(**{**vars(os), "name": "nt"}))
     monkeypatch.setattr(
         launcher.subprocess,
         "run",
@@ -802,7 +802,8 @@ def test_windows_yjs_ctrl_break_failure_falls_back_to_owned_process_tree(
     alive = {"value": True}
     taskkill_calls = []
 
-    monkeypatch.setattr(launcher.os, "name", "nt")
+    monkeypatch.setattr(launcher, "os", SimpleNamespace(**{**vars(os), "name": "nt"}))
+    monkeypatch.setattr(launcher.signal, "CTRL_BREAK_EVENT", 1, raising=False)
     monkeypatch.setattr(launcher.os, "kill", lambda *_args: (_ for _ in ()).throw(SystemError()))
     monkeypatch.setattr(launcher, "running", lambda _record: alive["value"])
     monkeypatch.setattr(launcher, "save_state", lambda _state: None)

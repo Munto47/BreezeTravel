@@ -18,20 +18,7 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-async function openDemo(page) {
-  await page.goto('/')
-  await expect(page.getByTestId('start-demo')).toBeEnabled({ timeout: 15000 })
-  await page.getByTestId('start-demo').click()
-  await expect(page.getByTestId('trip-source-text')).toHaveValue(/北京三日慢游/)
-  await page.getByTestId('create-full-trip').click()
-  await expect(page).toHaveURL(/\/trip\/result#trip=/)
-  await expect(
-    page.getByRole('button', { name: '编辑故宫博物院', exact: true }),
-  ).toBeEnabled({ timeout: 60000 })
-  await expect(
-    page.getByText('正在检查时间与路线…', { exact: true }),
-  ).toHaveCount(0, { timeout: 30000 })
-}
+const { openDemo, view, moveFirst, expectFirst, readResult, openSuggestions } = require('./support/current-experience')
 
 test('refinement: an authoritative expiry clears only its own input recovery [mocked API]', async ({
   browser,
@@ -179,8 +166,9 @@ test('refinement: a concurrent edit rejects the old preview and can prepare a ne
   page,
 }) => {
   await openDemo(page)
+  await openSuggestions(page)
   await page
-    .locator('.e-inline-issue')
+    .getByTestId('suggestion-check')
     .getByRole('button', { name: '预览调整' })
     .first()
     .click()
@@ -220,9 +208,8 @@ test('refinement: a concurrent edit rejects the old preview and can prepare a ne
     (await (await page.request.get(base + '/result')).json()).days,
   ).toEqual(after)
   await page.getByRole('button', { name: '取消', exact: true }).click()
-  await expect(
-    page.getByTestId('trip-days').getByText('14:10', { exact: true }),
-  ).toBeVisible()
+  expect((await readResult(page)).body.days).toEqual(after)
+  await expect(page.getByTestId('itinerary-workspace')).toBeVisible()
 })
 
 async function expectNoHorizontalOverflow(page) {
@@ -260,7 +247,7 @@ test('refinement: sample prefill and replacement confirmation never submit a tri
   await expect(text).toBeFocused()
   await expect(
     page.getByText(
-      '固定示例已填入。点击整理将打开回放；修改文字后会按真实攻略整理。',
+      '示例回放',
     ),
   ).toBeVisible()
   await expect(page).toHaveURL(/\/$/)
@@ -308,50 +295,29 @@ test('refinement: editing the sample submits FULL and preserves the same failed 
   await expect(page).not.toHaveURL(/login|trip\/result/)
 })
 
-test('refinement: cancelling dirty context restores day, selected activity, scroll and keyboard focus without writes', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
+test('refinement: cancelling a new-place draft restores day, scroll and keyboard focus without writes', async ({page}) => {
+  await page.setViewportSize({width: 1440, height: 900})
   const writes = observeUserWrites(page)
   await openDemo(page)
-  const days = page.getByRole('navigation', { name: '选择行程日期' })
-  await days.getByRole('button', { name: 'Day 2', exact: true }).click()
-  const editor = page.getByRole('button', { name: '编辑前门大街', exact: true })
+  const editor = page.getByTestId('day-2-add')
   await editor.scrollIntoViewIfNeeded()
   await editor.focus()
   const scroll = await page.evaluate(() => window.scrollY)
+  const before = (await readResult(page)).body.days
   await editor.press('Enter')
-  const panel = page.getByRole('region', { name: '前门大街', exact: true })
+  const panel = page.locator('.e-context-panel')
   await expect(panel).toBeVisible()
-  await expect(
-    days.getByRole('button', { name: 'Day 1', exact: true }),
-  ).toBeDisabled()
-  await panel.getByLabel('开始时间', { exact: true }).fill('09:25')
-  await panel.getByRole('button', { name: '返回Day 2', exact: true }).click()
+  await panel.getByLabel('新增地点名称').fill('尚未提交的新地点')
+  await panel.getByRole('button', {name: '关闭编辑', exact: true}).click()
   await expect(panel.getByRole('alert')).toContainText('有尚未应用的修改')
-  await panel.getByRole('button', { name: '继续编辑', exact: true }).click()
-  await expect(panel.getByLabel('开始时间', { exact: true })).toHaveValue(
-    '09:25',
-  )
-  await panel.getByRole('button', { name: '返回Day 2', exact: true }).click()
-  await panel
-    .getByRole('button', { name: '放弃修改并返回', exact: true })
-    .click()
+  await panel.getByRole('button', {name: '继续编辑', exact: true}).click()
+  await expect(panel.getByLabel('新增地点名称')).toHaveValue('尚未提交的新地点')
+  await panel.getByRole('button', {name: '关闭编辑', exact: true}).click()
+  await panel.getByRole('button', {name: '放弃修改并返回', exact: true}).click()
   await expect(panel).toHaveCount(0)
-  await expect(
-    days.getByRole('button', { name: 'Day 2', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'true')
-  await expect(
-    page
-      .getByTestId('trip-days')
-      .locator('.e-stop-select', { hasText: '前门大街' }),
-  ).toHaveAttribute('aria-pressed', 'true')
   await expect(editor).toBeFocused()
-  await expect
-    .poll(() =>
-      page.evaluate((expected) => Math.abs(window.scrollY - expected), scroll),
-    )
-    .toBeLessThanOrEqual(4)
+  await expect.poll(() => page.evaluate(expected => Math.abs(window.scrollY - expected), scroll)).toBeLessThanOrEqual(4)
+  expect((await readResult(page)).body.days).toEqual(before)
   expect(writes).toEqual([])
 })
 
@@ -365,22 +331,16 @@ test('refinement: 320px and 640 CSS-pixel reflow keep context controls visible a
   for (const width of [320, 640]) {
     await page.setViewportSize({ width, height: 720 })
     await expectNoHorizontalOverflow(page)
-    await page
-      .getByRole('navigation', { name: '行程和地图' })
-      .getByRole('button', { name: '地图', exact: true })
-      .click()
+    await view(page, 'map_stay')
     await expect(page.getByTestId('route-map')).toBeVisible()
     await expectNoHorizontalOverflow(page)
-    await page.getByRole('button', { name: '返回行程', exact: true }).click()
-    const editor = page.getByRole('button', {
-      name: '编辑故宫博物院',
-      exact: true,
-    })
+    await view(page, 'itinerary')
+    const editor = page.getByTestId('day-1-add')
     await editor.click()
-    const panel = page.getByRole('dialog', { name: '故宫博物院', exact: true })
+    const panel = page.locator('.e-context-panel')
     await expect(panel).toBeVisible()
     await expectNoHorizontalOverflow(page)
-    await panel.getByRole('button', { name: '返回Day 1', exact: true }).focus()
+    await panel.getByRole('button', { name: '关闭编辑', exact: true }).focus()
     await page.keyboard.press('Shift+Tab')
     expect(
       await panel.evaluate((node) => node.contains(document.activeElement)),
@@ -413,31 +373,18 @@ test('refinement: 320px and 640 CSS-pixel reflow keep context controls visible a
   }
 })
 
-test('refinement: an unavailable map SDK leaves the itinerary editable [blocked SDK or unconfigured fixture]', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
-  await page.route('https://webapi.amap.com/**', (route) =>
-    route.abort('failed'),
-  )
+test('refinement: an unavailable map SDK leaves cards editable [blocked SDK or unconfigured fixture]', async ({page}) => {
+  await page.setViewportSize({width:1440,height:900})
+  await page.route('https://webapi.amap.com/**', route => route.abort('failed'))
   const writes = observeUserWrites(page)
   await openDemo(page)
-  await expect(page.getByTestId('route-map').getByRole('status')).toContainText(
-    /地图底图暂时无法加载|当前环境尚未启用地图底图/,
-    { timeout: 20000 },
-  )
-  await page
-    .getByRole('button', { name: '编辑故宫博物院', exact: true })
-    .click()
-  const panel = page.getByRole('region', { name: '故宫博物院', exact: true })
-  await panel.getByLabel('开始时间', { exact: true }).fill('09:25')
-  await panel.getByRole('button', { name: '应用修改', exact: true }).click()
-  await expect(panel).toHaveCount(0, { timeout: 30000 })
-  await expect(
-    page.getByTestId('trip-days').getByText(/^09:25(?:–|$)/),
-  ).toBeVisible()
-  expect(writes.filter((action) => action === 'commands')).toHaveLength(1)
-  expect(writes.filter((action) => action === 'map-renders')).toHaveLength(0)
+  await view(page, 'map_stay')
+  await expect(page.getByTestId('route-map').getByRole('status')).toContainText('地图暂不可用', {timeout:20000})
+  await view(page, 'itinerary')
+  await moveFirst(page)
+  await expectFirst(page, '景山公园')
+  expect(writes.filter(action => action === 'commands')).toHaveLength(1)
+  expect(writes.filter(action => action === 'map-renders')).toHaveLength(0)
 })
 
 test('refinement: original text stays outside the result DOM and optional or cancelled places stay outside the route', async ({
@@ -454,27 +401,19 @@ test('refinement: original text stays outside the result DOM and optional or can
   await page.setViewportSize({ width: 1440, height: 900 })
   await openDemo(page)
   expect(sourceReads).toBe(0)
-  const optional = page
-    .locator('details')
-    .filter({ has: page.locator('summary', { hasText: '备选地点' }) })
-  const excluded = page
-    .locator('details')
-    .filter({ has: page.locator('summary', { hasText: '已取消的安排' }) })
-  await optional.locator('summary').click()
-  await excluded.locator('summary').click()
-  await expect(optional).toContainText('南锣鼓巷')
-  await expect(excluded).toContainText('北京环球影城')
-  const days = page.getByRole('navigation', { name: '选择行程日期' })
-  for (const label of ['Day 1', 'Day 2', 'Day 3']) {
-    await days.getByRole('button', { name: label, exact: true }).click()
-    await expect(page.getByTestId('trip-days')).not.toContainText('南锣鼓巷')
-    await expect(page.getByTestId('trip-days')).not.toContainText(
-      '北京环球影城',
-    )
-  }
+  // Unverified suggestions are hidden under the owner's confirmed-card rule;
+  // verify their roles are still preserved by the authorized readback.
+  await expect(page.getByTestId('trip-days')).not.toContainText('南锣鼓巷')
+  await expect(page.getByTestId('trip-days')).not.toContainText('北京环球影城')
   const reference = await page.evaluate(() =>
     sessionStorage.getItem('bt_active_trip_ref'),
   )
+  const supplementary = await page.request.get(`/api/v3/trip-understandings/${reference}/supplementary`)
+  expect(supplementary.status()).toBe(200)
+  expect((await supplementary.json()).days.flatMap(day => day.items)).toEqual(expect.arrayContaining([
+    expect.objectContaining({name:'南锣鼓巷', role:'OPTIONAL'}),
+    expect.objectContaining({name:'北京环球影城', role:'EXCLUDED'}),
+  ]))
   const map = await page.request.get(
     `/api/v3/trip-understandings/${reference}/map-renders/latest`,
   )
@@ -624,7 +563,7 @@ test('refinement: acknowledged failure retries retained input before the home re
     expect(retry.resource).toBeUndefined()
     expect(retry.key).not.toBe(submissions[0].key)
     holdResult = true
-    await page.getByRole('link', { name: '返回首页重试', exact: true }).click()
+    await page.getByRole('link', { name: '返回首页', exact: true }).click()
     await expect(input).toHaveValue(text)
     await expect.poll(() => heldReads).toBeGreaterThan(0)
     await expect(page.locator('main').getByRole('alert')).toContainText(
@@ -714,10 +653,11 @@ for (const outcome of ['PROCESSING', 'NETWORK_INTERRUPTED']) {
     })
     await page.goto(`/trip/result#trip=${reference}`)
     await expect.poll(() => resultReads).toBeGreaterThan(0)
-    if (outcome === 'NETWORK_INTERRUPTED')
-      await expect(
-        page.getByText('连接暂时中断，可以重新读取这份行程。', { exact: true }),
-      ).toBeVisible()
+    if (outcome === 'NETWORK_INTERRUPTED') {
+      // Transient reads now retain the progress screen while reconnecting.
+      await expect(page.getByTestId('generation-stages')).toBeVisible()
+      await expect(page.getByTestId('itinerary-workspace')).toHaveCount(0)
+    }
     await page.getByRole('link', { name: '首页', exact: true }).click()
     await expect(page.getByTestId('trip-source-text')).toHaveValue(text)
     await expect(page.getByTestId('create-full-trip')).toBeEnabled()
