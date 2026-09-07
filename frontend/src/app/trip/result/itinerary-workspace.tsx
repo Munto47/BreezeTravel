@@ -469,7 +469,7 @@ export default function ItineraryWorkspace({
                               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0c789d] text-xs font-bold text-white">{position + 1}</span>
                               <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
-                                <span className="text-xs text-slate-500">{activity.status === 'READY' ? '已确认' : '待确认'}</span>
+                                <span className="text-xs text-slate-500">{activity.status === 'READY' ? '已匹配' : '待确认'}</span>
                               </button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
@@ -640,7 +640,7 @@ export default function ItineraryWorkspace({
                                       ? 'rounded-full bg-emerald-50 px-2 py-1 text-emerald-700'
                                       : 'rounded-full bg-amber-50 px-2 py-1 text-amber-800'}
                                     >
-                                      {activity.status === 'READY' ? '已确认' : '待确认'}
+                                      {activity.status === 'READY' ? '已匹配' : '待确认'}
                                     </span>
                                     {(activity.knowledge_suggestions?.length || 0) > 0 && (
                                       <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">

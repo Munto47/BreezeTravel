@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 import time
 from dataclasses import dataclass
@@ -507,6 +508,59 @@ class _CandidateDecision:
     metrics: dict[str, object]
 
 
+def _visitor_type_compatible(raw: dict[str, Any], atomic: str) -> bool:
+    """Paired provider categories, not keyword similarity or search rank.
+
+    Commercial streets and named roads are legitimate itinerary destinations.
+    A landmark bridge can carry both attraction and bridge classifications.
+    Every pair must agree; a hotel, restaurant or missing segment still fails.
+    """
+    code, label = raw.get("typecode"), raw.get("type")
+    if not isinstance(code, str) or not isinstance(label, str):
+        return False
+    if re.fullmatch(r"0610\d{2}", code) and label in {
+        "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
+    }:
+        return True
+    if code == "190301" and label == "地名地址信息;交通地名;道路名":
+        return atomic.endswith(("路", "街", "巷", "胡同"))
+    codes, labels = code.split("|"), label.split("|")
+    if len(codes) != len(labels) or len(codes) < 2:
+        return False
+    attraction = False
+    for item_code, item_label in zip(codes, labels, strict=True):
+        signal = classify_amap_type_signals(item_code, item_label)
+        if signal.complete and not signal.conflict and signal.category == PlaceCategory.ATTRACTION:
+            attraction = True
+        elif re.fullmatch(r"0610\d{2}", item_code) and item_label in {
+            "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
+        }:
+            attraction = True
+        elif not (atomic.endswith("桥") and (item_code, item_label) == ("190307", "地名地址信息;交通地名;桥")):
+            return False
+    return attraction
+
+
+def _same_road_segments(candidates: tuple[_MatchedCandidate, ...]) -> bool:
+    """Only duplicate segments of one exact road within the same district.
+
+    Never break ties between stores, attractions, districts or distant roads.
+    The provider's first eligible segment supplies the actual map coordinate.
+    """
+    if len(candidates) < 2 or any(c.raw.get("typecode") != "190301" for c in candidates):
+        return False
+    if len({(_normalized_name(str(c.raw.get("name"))), c.raw.get("adcode")) for c in candidates}) != 1:
+        return False
+    for index, left in enumerate(candidates):
+        for right in candidates[index + 1:]:
+            lon1, lat1 = map(math.radians, left.coordinates)
+            lon2, lat2 = map(math.radians, right.coordinates)
+            hav = math.sin((lat2-lat1)/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2
+            if 12742000 * math.asin(min(1, math.sqrt(hav))) > 200:
+                return False
+    return True
+
+
 def _evaluate_candidates(
     pois: list[dict[str, Any]],
     *,
@@ -594,12 +648,24 @@ def _evaluate_candidates(
         type_label = type_label_raw.strip() if isinstance(type_label_raw, str) else ""
         signals = classify_amap_type_signals(typecode, type_label)
         compatibility_basis = "PROVIDER_TYPECODE_AND_LABEL"
-        if signals.conflict:
+        visitor_type = expected_category in {None, PlaceCategory.ATTRACTION} and _visitor_type_compatible(item, atomic)
+        if ("|" in typecode or "|" in type_label) and not visitor_type:
+            category_conflict_ids.add(provider_id)
+            continue
+        if signals.conflict and not visitor_type:
             category_conflict_ids.add(provider_id)
             continue
         if expected_category == PlaceCategory.ATTRACTION and verified_technical_landmark(item, city=city, name=canonical_name):
             category = PlaceCategory.ATTRACTION
             compatibility_basis = "REVIEWED_LANDMARK_EXACT_TECHNICAL_TYPE"
+        elif visitor_type:
+            category = PlaceCategory.ATTRACTION
+            compatibility_basis = (
+                "G01_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY"
+                if expected_category is not None and _product_semantic_technical_category_is_compatible(
+                    item, atomic=atomic, expected_category=expected_category,
+                ) else "EXACT_VISITOR_PLACE_PROVIDER_TYPES"
+            )
         elif signals.complete:
             category = signals.category
         elif (
@@ -647,8 +713,10 @@ def _evaluate_candidates(
         if not candidates:
             continue
         selection_tier = tier if len(candidates) == 1 else f"AMBIGUOUS_{tier}"
-        if len(candidates) == 1:
+        if len(candidates) == 1 or _same_road_segments(candidates):
             selected = candidates[0]
+            if len(candidates) > 1:
+                selection_tier = f"{tier}_NEARBY_ROAD_SEGMENTS"
         break
 
     compatible_ids = {
@@ -665,7 +733,7 @@ def _evaluate_candidates(
         "primary_exact_candidate_count": len(by_tier["CANONICAL_EXACT"]),
         "provider_type_conflict_candidate_count": len(category_conflict_ids),
         "provider_type_incomplete_candidate_count": len(category_incomplete_ids),
-        "name_match_policy": "HIGHEST_TIER_UNIQUE_POI_ID_V5_VENUE_IDENTITY",
+        "name_match_policy": "HIGHEST_TIER_UNIQUE_OR_SAME_ROAD_V6",
         "selection_tier": selection_tier,
     }
     return _CandidateDecision(selected=selected, metrics=metrics)

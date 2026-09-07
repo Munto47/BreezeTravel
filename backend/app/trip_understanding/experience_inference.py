@@ -839,6 +839,29 @@ def _retain_explicit_optional_labels(source: str, draft: SemanticDraft) -> Seman
         original_spans = [anchors.locate(item.source_quote, item.occurrence) for item in activities]
     except ValueError:
         return draft
+    # A second, optional mention may incorrectly point back to the morning's
+    # same-named planned visit. Re-anchor only a literal duplicate with one
+    # unoccupied, source-explicit option on the same unambiguous day. Timing
+    # or commitments cannot be transferred between the two occurrences.
+    for i, item in enumerate(activities):
+        if (item.role != ActivityRole.OPTIONAL or not item.place_name or item.source_quote != item.place_name
+            or any(getattr(item, key) is not None for key in ("start_time", "end_time", "visit_duration_minutes", "time_evidence"))
+            or item.locked or item.fixed_commitment
+            or _unambiguous_literal_place_day(source, item.place_name) != item.day_index):
+            continue
+        if not any(j != i and other.role == ActivityRole.PLANNED and other.day_index == item.day_index
+                   and other.place_name == item.place_name and original_spans[j] == original_spans[i]
+                   for j, other in enumerate(activities)):
+            continue
+        targets = [(left, right) for left, right in labels if source[left:right] == item.place_name
+                   and not any(j != i and a < right and left < b for j, (a, b) in enumerate(original_spans))]
+        if len(targets) != 1:
+            continue
+        target = targets[0]
+        occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(item.place_name) + r")", anchors.visible)
+                             if anchors.indices[match.start()] < target[0])
+        activities[i] = item.model_copy(update={"occurrence": occurrence})
+        original_spans[i] = target
     for i, item in enumerate(activities):
         if not item.place_name or item.category not in {"餐饮", "地点"} or item.role not in {
             ActivityRole.PLANNED, ActivityRole.OPTIONAL,
@@ -1059,7 +1082,10 @@ def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActiv
     def city_offsets(name: str, left: int, right: int) -> list[int]:
         return [left + match.start() for match in re.finditer(re.escape(name), source[left:right])
                 if not any(begin <= left + match.start() < finish for begin, finish in place_spans)
-                and not re.match(r"(?:路|街|大学|博物馆|饭店|酒店)", source[left + match.end():])]
+                and not re.match(
+                    r"(?:路|街|大学|博物馆|饭店|酒店|风味|口味|菜|小吃|烤鸭|铜锅|涮肉|炸酱面)",
+                    source[left + match.end():],
+                )]
 
     for left, right in occurrences:
         other_cities = [name for name in DOMESTIC_CITY_NAMES if name != city and city_offsets(name, left, right)]
@@ -1294,6 +1320,40 @@ def _explicit_cancellation_conflicts(source: str, draft: SemanticDraft) -> tuple
     return issues, hints
 
 
+def _is_parent_visit_detail(source: str, place: str | None, start: int, end: int,
+                            day: int | None, preceding: list[ProposedMention]) -> bool:
+    """A generic monument or stated gate direction within one parent visit.
+
+    Keep separate visits, named monuments, different lines and travel steps.
+    This constrains a proposed role; it never supplies a new name or identity.
+    """
+    if not place:
+        return False
+    line_start = max(source.rfind(mark, 0, start) for mark in "\n。；;") + 1
+    parents = [m for m in preceding if m.role == ActivityRole.PLANNED and m.day_index == day
+               and m.atomic_place_name and line_start <= m.span_start < m.span_end <= start]
+    if not parents:
+        return False
+    parent = max(parents, key=lambda m: m.span_end)
+    if not re.search(r"(?:广场|园|博物馆|博物院)$", parent.atomic_place_name):
+        return False
+    gap = source[parent.span_end:start]
+    if len(gap) > 160 or re.search(r"然后|接着|之后|下一站|离开|出园|出馆|再去|再到|前往|步行到|走到", gap):
+        return False
+    # A gate-entry colon scopes the following internal sightseeing chain.
+    # Without that explicit framing an arrow still means independent stops.
+    internal_chain = re.search(r"(?:门进|园内路线|园内游览|馆内路线)\s*[：:]", gap) is not None
+    if ("→" in gap or "=>" in gap) and not internal_chain:
+        return False
+    ticket_detail = bool(re.search(r"联票|门票", gap) and re.search(r"打卡[^。；;\n]{0,35}$", gap)
+                         and re.search(r"(?:殿|阁|亭|坛|廊)$", place))
+    return bool(
+        internal_chain or ticket_detail
+        or (place == "纪念碑" and re.search(r"(?:看|打卡)\s*$", gap))
+        or (place.endswith("门") and re.match(r"(?:进|出)(?=$|[，,、。；;\s）)])", source[end:]))
+    )
+
+
 def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
     draft = _recover_unique_quote_occurrences(source, draft)
     draft = _retain_named_meal_locations(source, draft)
@@ -1490,6 +1550,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             # https://www.beijing.gov.cn/ywdt/zwzt/gjxxfxcs/gjf/xftyq/tyts/202404/t20240410_3615091.html
             item = item.model_copy(update={"category": "地点"})
         day = item.day_index
+        if item.role == ActivityRole.PLANNED and _is_parent_visit_detail(source, place, start, end, day, mentions):
+            item = item.model_copy(update={"role": ActivityRole.REFERENCE})
         if (start, end) in visit_labels and item.role in {ActivityRole.OPTIONAL, ActivityRole.REFERENCE}:
             item = item.model_copy(update={"role": ActivityRole.PLANNED})
         if (start, end) in optional_labels and item.role in {ActivityRole.PLANNED, ActivityRole.REFERENCE}:

@@ -337,7 +337,7 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
             # not a separate visit, e.g. 苏州街 or 乌鲁木齐中路. Such city
             # prefixes do not establish a second destination.
             road_suffix = re.match(
-                r"(?:[东南西北中]路|路(?:步行街)?|街)(?=$|[\s，,。；;：:、/／→+）)*]|逛|散步|吃饭)",
+                r"(?:[东南西北中]路|路(?:步行街)?|街)(?=$|[\s，,。；;：:、/／→+）)*]|逛|散步|吃饭|周边|附近|沿线)",
                 source_text[match.end():],
             )
             # A delimited lake name (e.g. 昆明湖 or 昆明湖游船) is also

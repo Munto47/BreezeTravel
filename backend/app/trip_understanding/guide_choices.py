@@ -58,6 +58,12 @@ _OPTIONAL_UNSAFE_NAME = re.compile(
     r"必须|先去|先到|再去|再到|的|以及|或者|和|与|地址|路口)|\d+号|单元|\d+室"
 )
 _BEVERAGE_NAME = re.compile(r"美式|拿铁|摩卡|浓缩|手冲|冰滴|冷萃|特调|热|冰|特色|精品")
+_WALK_OPTION_NAME = r"[A-Za-z\u4e00-\u9fff][A-Za-z0-9\u4e00-\u9fff·]{0,20}?(?:胡同|步行街|大街|巷|街|路)"
+_WALK_OPTIONS = re.compile(
+    rf"可以走(?:隔壁)?[ \t]*(?:\*\*)?(?P<first>{_WALK_OPTION_NAME})(?:\*\*)?"
+    rf"[ \t]*、[ \t]*(?:\*\*)?(?P<second>{_WALK_OPTION_NAME})(?:\*\*)?"
+    r"(?=$|[。！？；;，,\r\n])"
+)
 _WHOLE_DAY_REPLACEMENT = re.compile(
     rf"(?:把|将)[ \t]*{_DAY_LABEL}[ \t]*替换(?:为|成)?[ \t]*(?:\*\*)?"
     r"(?P<name>[A-Za-z\u4e00-\u9fff][A-Za-z0-9\u4e00-\u9fff·]{1,23}?)(?:\*\*)?"
@@ -277,6 +283,26 @@ def explicit_optional_labels(source: str) -> list[tuple[int, int]]:
     from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
     spans: set[tuple[int, int]] = set()
+    # An explicit pair of suggested walking streets remains two unselected
+    # options, including when both were omitted by the semantic draft. The
+    # preceding comma may separate a different, negated crowded destination.
+    for match in _WALK_OPTIONS.finditer(source):
+        if not any(_day_number(heading["label"]) for heading in _DAY_HEADING.finditer(source[:match.start()])):
+            continue
+        left = max(source.rfind(mark, 0, match.start()) for mark in "。！？；;，,\n") + 1
+        stops = [source.find(mark, match.end()) for mark in "。！？；;\n"]
+        right = min((position + 1 for position in stops if position >= 0), default=len(source))
+        line_left = source.rfind("\n", 0, match.start()) + 1
+        if (_OPTIONAL_UNSAFE_CONTEXT.search(source[left:right])
+            or re.search(r"引用|引文|原文|示例|资料|转述|去年|上次|[>\"“‘]", source[line_left:match.start()])
+            or source[:match.start()].count("```") % 2):
+            continue
+        pair = [match.span("first"), match.span("second")]
+        if any(atomic_place_rejection_reason(source[a:b]) is not None
+               or _OPTIONAL_UNSAFE_NAME.search(source[a:b])
+               or source[a:b] in {"胡同", "大街", "小路", "道路", "街道", "步行街"} for a, b in pair):
+            continue
+        spans.update(pair)
     for pattern in (_OPTIONAL_AFTER, _OPTIONAL_BEFORE):
         for match in pattern.finditer(source):
             start, end = match.span("name")

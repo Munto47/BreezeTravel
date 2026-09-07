@@ -2,12 +2,12 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "plain-text-guide-retry",
+    "id": "automatic-place-candidates-20260907",
     "work_kind": "PRODUCT",
-    "outcome": "同一上海攻略以纯文字、Markdown或缩进换行粘贴均保留逐日地点与备选，不将上午同名主站误作午餐备选已覆盖；失败不消耗匿名每日成功额度",
-    "status": "COMPLETED",
-    "verification": "Final unchanged runtime final-r5: 4/4 real API submissions across UI plain text, indented CRLF, Markdown and repeated plain text exactly matched 16 named main stops and 13 alternatives by name, day, role and order. Five model calls included one successful bounded repair; no timing degradation. All four test resources deleted with 204/410 readback. The original user browser successfully retried and displayed the same named arrays; 4 main identities confirmed, 12 pending, plus two unnamed meals. Final 1152 parsing tests, 46 memory/PostgreSQL/API/deletion tests and fixed original synthetic live model set 24/24 passed. Original text remains ignored for this authorized reproduction. Previous seven-guide and full browser suites not rerun. Local checkpoint only; no push or deployment."
+    "outcome": "自动搜索并采用可靠地点、用户按需更换；修复道路城市前缀误判及真实地点类型兼容，多个原文及排版变体端到端验证",
+    "status": "IN_PROGRESS",
+    "verification": "PARTIAL: automatic validated defaults and edit/undo/manual route controls verified. Final unchanged r8/r9: 18 live API attempts (seven owner texts plus formatting/repeat per round), 16 results, 15 exact named-main/day/order results; all 16 results retain required options and survive reload, all 18 create replays and cleanup 204/410 succeed. Shanghai example has 13/16 matched; provider unavailability can reduce coverage. Second Shanghai guide fails twice; second Beijing guide over-splits once. Final 906 targeted regressions, 15 persistence/map/deletion checks and 13 browser checks pass; two live browser cases rerun after final semantic change. Original text and diagnostics stay ignored. Overall generation stability NOT_PASSED; local checkpoint, no push/deployment. Legacy core-mainline module absent in current simplified checkout, not claimed PASS."
   },
   "packages": [],
-  "next_planned_slice": "本次纯文字失败复现已关闭；后续优先待确认地点覆盖与新增语义反例，不自动扩大餐宿推荐或上线范围"
+  "next_planned_slice": "最小化复现长攻略一次修正后的原文引用错误，处理园内眺望对象和菜名误拆；冻结代码后重跑完整七份原文及排版/重复，不以历史成功替代当前失败，不扩大上线范围"
 }

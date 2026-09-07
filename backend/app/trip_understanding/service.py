@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import asyncpg
+
 from app.trip_understanding.models import (
     ChangeAdoptOutcome,
     ChangePreviewOutcome,
@@ -402,14 +404,23 @@ class TripUnderstandingApplicationService:
         request_hash = canonical_sha256(
             {"public_resource_id": resource.public_resource_id, "action": "DELETE_TRIP"}
         )
-        return await self.repository.delete_trip(
-            resource,
-            capability_hash=capability_hash,
-            user_id=user_id,
-            idempotency_key=idempotency_key,
-            request_hash=request_hash,
-            now=now or datetime.now(timezone.utc),
-        )
+        attempted_at = now or datetime.now(timezone.utc)
+        # PostgreSQL rolls back the entire losing transaction. A map worker
+        # finishing concurrently can conflict with cascading privacy deletion;
+        # replay the same authorized, idempotent operation after that rollback.
+        for attempt in range(3):
+            try:
+                return await self.repository.delete_trip(
+                    resource,
+                    capability_hash=capability_hash,
+                    user_id=user_id,
+                    idempotency_key=idempotency_key,
+                    request_hash=request_hash,
+                    now=attempted_at,
+                )
+            except asyncpg.DeadlockDetectedError:
+                if attempt == 2:
+                    raise
 
     async def replay_trip_deletion(
         self,

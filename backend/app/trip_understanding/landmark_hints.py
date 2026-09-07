@@ -26,6 +26,14 @@ class LandmarkHint:
 
 
 HINTS = (
+    LandmarkHint("上海", "万国建筑博览群", ("外滩万国建筑群", "外滩万国建筑", "外滩万国建筑博览群"), "黄浦区", "110200", None,
+                 "https://www.shanghai.gov.cn/citywalk/20260625/9dfb6f86b9664e018607b5cc9ec9a53c.html"),
+    LandmarkHint("上海", "武康大楼", (), "徐汇区", "120302", "商务住宅;住宅区;住宅小区",
+                 "https://www.xuhui.gov.cn/zfjg_qzfbm_fgj_bmdt/20230128/509539.html"),
+    LandmarkHint("上海", "思南公馆", (), "黄浦区", "120000", "商务住宅;商务住宅相关;商务住宅相关",
+                 "https://whlyj.sh.gov.cn/cysc/20220228/25a0b870bdf34fa7a84e76d6edd2375c.html"),
+    LandmarkHint("上海", "安福路", (), "徐汇区", "190301", "地名地址信息;交通地名;道路名",
+                 "https://www.shanghai.gov.cn/citywalk/20260625/3492b1b945c146fc96c4585d7b04f00d.html"),
     LandmarkHint("北京", "中国美术馆", (), "东城区", "140100", "科教文化服务;博物馆;博物馆",
                  "https://www.namoc.org/zgmsg/cgfw/cgfw.shtml"),
     LandmarkHint("北京", "故宫博物院-神武门", ("故宫北门", "故宫博物院北门", "神武门"), "东城区", "110202", None,
