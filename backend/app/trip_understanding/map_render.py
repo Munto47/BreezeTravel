@@ -50,6 +50,8 @@ class MapStop(StrictModel):
     day_label: str
     sequence_index: int = Field(ge=0)
     name: str
+    category: str | None = None
+    is_stay_anchor: bool = False
     canonical_place_id: str | None = None
     resolution_status: Literal["AUTO_MATCHED", "NEEDS_CONFIRMATION", "UNRESOLVED"]
     city: str | None = None

@@ -8,6 +8,7 @@ import {queryTripDiningCandidates, type DiningCandidatesView, type UserFacingTri
 import type {WorkspaceCommandResult} from './itinerary-workspace'
 import {boundedTripRequest} from './use-trip-experience'
 import {findingLabel, needsRecheck} from './presentation'
+import StayCandidates from './stay-candidates'
 
 type Props = {
   resource: string; etag: string; result: UserFacingTripResult; disabled: boolean
@@ -16,6 +17,7 @@ type Props = {
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onRetry: () => void; onPreview: (item: PublicTripCheckItem) => void
   onLocate: (item: PublicTripCheckItem) => void; onStay: (token: string) => void
+  onRefreshStay: () => void
   alternativesRequest?: {dayIndex: number; trigger: HTMLButtonElement} | null
 }
 
@@ -147,8 +149,8 @@ export default function JourneySuggestions(props: Props) {
           <button type="button" className={action} disabled={busy || searching} onClick={() => void findDining()}>{searching ? '正在查找…' : '找附近餐饮'}</button></> : <p className="py-2 text-sm text-slate-500">先确认当天的一个地点。</p>}
         {dining && <><p className="py-2 text-sm text-slate-500">{stale ? '行程有调整，请重新查询。' : dining.view.message}</p>{!stale && dining.view.candidates.map(item => <article key={item.candidate_token} className="my-2 rounded-2xl bg-slate-50 p-3"><h3 className="text-sm font-semibold">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.area_or_address}</p><p className="mt-1 text-xs text-slate-500">{item.reason}</p><button className={action} disabled={busy} onClick={() => void apply({command_type:'DINING_INSERT', after_activity_token:dining.anchor, candidate_token:item.candidate_token})}>加入行程</button></article>)}</>}
       </details>
-      {!!alternatives.length && <details ref={alternativesSection} className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">备选地点 · {alternatives.length}</summary>{alternatives.map((item, index) => <div key={index} className="flex items-center justify-between gap-2 py-1 text-sm"><span>{item.name}{item.city ? ` · ${item.city}` : ''}</span><button className={action} disabled={busy} onClick={() => void apply({command_type:'ACTIVITY_INSERT', day_index:currentDayIndex+1, position:day.activities.length, name:item.name, category:item.category, city:item.city})}>加入待确认</button></div>)}</details>}
-      <details className="py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">住宿</summary><p className="py-2 text-sm text-slate-500">{stay.message}</p>{stay.candidates.map(item => <article key={item.candidate_token} className="my-2 rounded-2xl bg-slate-50 p-3"><h3 className="text-sm font-semibold">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.area_or_address}</p><p className="mt-1 text-xs text-slate-600">{item.commute_summary}</p><p className="mt-1 text-xs text-slate-500">{item.reason}</p><button className={action} disabled={busy || item.selected || stay.status === 'NEEDS_UPDATE'} onClick={() => props.onStay(item.candidate_token)}>{item.selected ? '已选择' : '选择这家住宿'}</button></article>)}</details>
+      {!!alternatives.length && <details ref={alternativesSection} className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">备选地点 · {alternatives.length}</summary>{alternatives.map((item, index) => <div key={index} className="flex items-center justify-between gap-2 py-1 text-sm"><span>{item.branch_label && <span className="mr-2 text-xs text-slate-500">{item.branch_label}</span>}{item.name}{item.city ? ` · ${item.city}` : ''}</span><button className={action} disabled={busy} onClick={() => void apply({command_type:'ACTIVITY_INSERT', day_index:currentDayIndex+1, position:day.activities.length, name:item.name, category:item.category, city:item.city})}>加入待确认</button></div>)}</details>}
+      <details className="py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">住宿</summary><p className="py-2 text-sm text-slate-500">{stay.message}</p><button className={action} disabled={busy || stay.status === 'PREPARING'} onClick={props.onRefreshStay}>{stay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button><StayCandidates stay={stay} disabled={busy} onSelect={props.onStay}/></details>
       {error && <p role="status" className="mt-2 text-sm text-slate-600">{error}</p>}
     </aside>}
   </div>

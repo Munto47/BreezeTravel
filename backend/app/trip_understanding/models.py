@@ -44,15 +44,31 @@ class ProposedMention(ActivityTiming):
     sequence_index: int = Field(ge=0)
     atomic_place_name: str | None = None
     category_hint: str | None = None
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
     time_hint: str | None = None
     city_hint: str | None = None
     city_evidence: str | None = None
+    choice_group_id: str | None = None
+    branch_id: str | None = None
+    branch_label: str | None = None
+    parent_mention_id: str | None = None
+    relation_type: Literal["INTERNAL_DETAIL"] | None = None
 
     @model_validator(mode="after")
     def valid_span(self) -> "ProposedMention":
         if self.span_end <= self.span_start:
             raise ValueError("mention span must be non-empty")
         return self
+
+
+class SemanticDiagnostic(StrictModel):
+    """Private, source-bound recovery metadata; never a public error payload."""
+
+    category: str = Field(min_length=1, max_length=80)
+    field: str = Field(default="document", max_length=120)
+    span_start: int | None = Field(default=None, ge=0)
+    span_end: int | None = Field(default=None, ge=0)
+    retryable: bool = True
 
 
 class InferenceProposal(StrictModel):
@@ -65,6 +81,7 @@ class InferenceProposal(StrictModel):
     day_labels: dict[int, str] = Field(default_factory=dict)
     day_count: int = Field(default=0, ge=0, le=14)
     unprocessed_count: int = Field(default=0, ge=0)
+    diagnostics: list[SemanticDiagnostic] = Field(default_factory=list)
 
 
 class CompiledActivity(StrictModel):
@@ -192,6 +209,7 @@ class ActivityCardView(ActivityTiming):
     activity_token: str = Field(min_length=20, max_length=80)
     name: str
     category: str
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
     area_or_address: str
     time_hint: str | None = None
     status: Literal["READY", "NEEDS_CONFIRMATION"]
@@ -206,12 +224,23 @@ class ActivityAlternativeView(StrictModel):
     name: str = Field(min_length=1, max_length=40)
     category: str = Field(min_length=1, max_length=40)
     city: str | None = None
+    activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+    choice_group_token: str | None = Field(default=None, min_length=20, max_length=80)
+    branch_token: str | None = Field(default=None, min_length=20, max_length=80)
+    branch_label: str | None = Field(default=None, max_length=40)
+
+
+class MealSlotView(StrictModel):
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"]
+    after_activity_token: str | None = None
+    before_activity_token: str | None = None
 
 
 class TripDayView(StrictModel):
     label: str
     activities: list[ActivityCardView]
     alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
+    meal_slots: list[MealSlotView] = Field(default_factory=list)
 
 
 class MapReadinessView(StrictModel):
@@ -232,6 +261,18 @@ class StayCandidateView(StrictModel):
     reason: str
     available_actions: list[Literal["CHOOSE_STAY"]]
     selected: bool = False
+    brand_group: str | None = None
+    brand_note: str | None = None
+
+
+class StaySegmentView(StrictModel):
+    segment_token: str
+    city: str | None = None
+    overnight_days: list[str] = Field(default_factory=list)
+    status: Literal["PREPARING", "AVAILABLE", "NEEDS_UPDATE", "LIMITED", "UNAVAILABLE"]
+    message: str
+    candidates: list[StayCandidateView] = Field(default_factory=list)
+    preserved_hotels: list[str] = Field(default_factory=list)
 
 
 class StaySuggestionView(StrictModel):
@@ -241,6 +282,7 @@ class StaySuggestionView(StrictModel):
     searched_scopes: list[str] = Field(default_factory=list)
     candidates: list[StayCandidateView] = Field(default_factory=list)
     available_actions: list[Literal["CHOOSE_STAY"]] = Field(default_factory=list)
+    segments: list[StaySegmentView] = Field(default_factory=list)
 
 
 class StaySelectionRequest(StrictModel):
@@ -260,6 +302,17 @@ class StaySelectionOutcome(StrictModel):
     replayed: bool = False
 
 
+class TripRecognitionCoverage(StrictModel):
+    """Counts, not source fragments or diagnostic codes, for incomplete results."""
+
+    recognized_place_count: int = Field(default=0, ge=0)
+    confirmed_place_count: int = Field(default=0, ge=0)
+    unresolved_place_count: int = Field(default=0, ge=0)
+    unclassified_mention_count: int = Field(default=0, ge=0)
+    unprocessed_count: int = Field(default=0, ge=0)
+    complete: bool = False
+
+
 class UserFacingTripResult(StrictModel):
     status: Literal["READY", "PARTIAL_RESULT", "BASIC_ONLY", "LIMITED"]
     assumptions: list[AssumptionChipView]
@@ -272,6 +325,7 @@ class UserFacingTripResult(StrictModel):
     expires_at: datetime | None = None
     is_demo: bool = False
     updated_at: datetime | None = None
+    coverage: TripRecognitionCoverage | None = None
 
 
 class MaterializedTripView(StrictModel):
@@ -653,6 +707,8 @@ class UndoCommand(StrictModel):
 class DiningInsertCommand(StrictModel):
     command_type: Literal["DINING_INSERT"]
     after_activity_token: str = Field(min_length=20, max_length=80)
+    insert_before: bool = False
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
     candidate_token: str = Field(min_length=40, max_length=6000)
 
 

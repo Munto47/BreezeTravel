@@ -68,6 +68,27 @@ def _result_status(days: list[TripDayView]) -> str:
     return "BASIC_ONLY"
 
 
+def refresh_result_coverage(result: UserFacingTripResult) -> None:
+    """Recount current cards while preserving unresolved source semantics.
+
+    Legacy results without a coverage assessment remain unassessed. Editing
+    cards cannot certify that previously omitted source text was understood.
+    """
+    if result.coverage is None:
+        return
+    cards = [card for day in result.days for card in day.activities
+             if card.name != "地点待确认" and atomic_place_rejection_reason(card.name) is None]
+    confirmed = sum(card.status == "READY" for card in cards)
+    pending_source = bool(result.coverage.unclassified_mention_count or result.coverage.unprocessed_count)
+    if pending_source and result.status != "LIMITED":
+        result.status = "PARTIAL_RESULT"
+    result.coverage = result.coverage.model_copy(update={
+        "recognized_place_count": len(cards), "confirmed_place_count": confirmed,
+        "unresolved_place_count": len(cards) - confirmed,
+        "complete": result.status == "READY" and not pending_source,
+    })
+
+
 def apply_public_command(
     current: UserFacingTripResult,
     command: TripUnderstandingCommand,
@@ -160,8 +181,9 @@ def apply_public_command(
             raise CommandTargetChangedError("dining place is already in this day")
         inserted_card = ActivityCardView(activity_token=token_factory(), name=confirmed_place.name,
             category="餐饮", area_or_address=confirmed_place.area_or_address, city=confirmed_place.city,
+            meal_role=command.meal_role,
             status="READY", available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"])
-        day.activities.insert(position + 1, inserted_card)
+        day.activities.insert(position + (0 if command.insert_before else 1), inserted_card)
         changed.add(day.label)
     elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
@@ -241,7 +263,16 @@ def apply_public_command(
             token_map[old_token] = new_token
             card.activity_token = new_token
 
+    for day in result.days:
+        current_tokens = {card.activity_token for card in day.activities}
+        for slot in day.meal_slots:
+            for field in ("after_activity_token", "before_activity_token"):
+                previous = getattr(slot, field)
+                refreshed = token_map.get(previous, previous)
+                setattr(slot, field, refreshed if refreshed in current_tokens else None)
+
     result.status = _result_status(result.days)
+    refresh_result_coverage(result)
     result.can_undo = not isinstance(command, UndoCommand)
     result.map = MapReadinessView(
         status="NEEDS_UPDATE",

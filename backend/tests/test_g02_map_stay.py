@@ -166,7 +166,7 @@ def _map_plan() -> MapRenderPlan:
 
 
 @pytest.mark.asyncio
-async def test_stay_domain_caps_twelve_and_uses_frozen_deterministic_order() -> None:
+async def test_stay_recall_twelve_scores_six_in_deterministic_order() -> None:
     provider = ManyHotelsProvider()
     plan = stay_plan_from_map(_map_plan())
     assert plan is not None
@@ -180,13 +180,14 @@ async def test_stay_domain_caps_twelve_and_uses_frozen_deterministic_order() -> 
 
     assert output.status == "READY"
     assert provider.scopes == [2000]
-    assert len(output.candidates) == 12
-    assert all(item.candidate.brand == "汉庭" for item in output.candidates)
+    assert len(output.candidates) == 6
+    assert all(item.candidate.brand is None and item.candidate.provider_binding["property_identity"] == "NAME_ONLY"
+        for item in output.candidates)
     assert [item.total_score for item in output.candidates] == sorted(
         item.total_score for item in output.candidates
     )
     assert [item.candidate.canonical_place_id for item in output.candidates] == [
-        f"hotel-{index:02d}" for index in range(12)
+        f"hotel-{index:02d}" for index in range(6)
     ]
     assert len(output.candidates[0].legs) == 4
     assert output.provider_binding["route_external_calls"] == 0
@@ -222,12 +223,12 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     candidate = one_mode.candidates[0]
     short_walks = [leg for leg in candidate.legs if leg.walking.duration_minutes <= 30]
     long_walks = [leg for leg in candidate.legs if leg.walking.duration_minutes > 30]
-    assert len(short_walks) == 3
-    assert len(long_walks) == 1
+    assert len(short_walks) == 2
+    assert len(long_walks) == 2
     assert all(leg.selected_mode == "walking" for leg in short_walks)
     assert all(leg.selected_mode is None for leg in long_walks)
-    assert candidate.missing_leg_count == 1
-    assert candidate.evidence_penalty == 90 + 8 * 3
+    assert candidate.missing_leg_count == 2
+    assert candidate.evidence_penalty == 90 * 2 + 8 * 2
     assert all(
         leg.walking.status == "AVAILABLE" and leg.transit.status == "UNAVAILABLE"
         for leg in one_mode.candidates[0].legs
@@ -403,7 +404,8 @@ def test_g02_public_map_stay_selection_and_stale_journey() -> None:
         payload = suggestions.json()
         assert payload["status"] in {"AVAILABLE", "LIMITED"}
         assert 1 <= len(payload["candidates"]) <= 3
-        assert all(candidate["brand"] for candidate in payload["candidates"])
+        assert all(candidate["brand_note"] for candidate in payload["candidates"])
+        assert all(candidate["brand_group"] is None for candidate in payload["candidates"] if not candidate["brand"])
 
         provider_effects = repository.map_provider_effect_count
         selected = client.post(
@@ -446,11 +448,13 @@ def test_g02_public_map_stay_selection_and_stale_journey() -> None:
         assert refreshed_map["status"] == "AVAILABLE"
         overnight_routes = [
             route
-            for day in refreshed_map["days"][:2]
+            for day in refreshed_map["days"]
             for route in day["routes"]
         ]
         assert sum(route["from_name"] == selected_name for route in overnight_routes) == 2
         assert sum(route["to_name"] == selected_name for route in overnight_routes) == 2
+        assert refreshed_map["days"][0]["routes"][0]["from_name"] != selected_name
+        assert refreshed_map["days"][-1]["routes"][0]["from_name"] == selected_name
         assert repository.map_provider_effect_count > provider_effects
         assert "price" not in json_text(updated.json()).lower()
         assert all(

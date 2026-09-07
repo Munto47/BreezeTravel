@@ -1929,6 +1929,25 @@ export function useTripExperience() {
     manualEnhancementRetry.current = request
     return request
   }
+  const stayRefreshKey = useRef<{resource:string;etag:string;key:string} | null>(null)
+  async function refreshStay() {
+    const {resource:reference, etag:tag, generation} = current.current
+    if (!reference || !tag || writing.current || pending) return
+    if (!stayRefreshKey.current || stayRefreshKey.current.resource !== reference || stayRefreshKey.current.etag !== tag)
+      stayRefreshKey.current = {resource:reference,etag:tag,key:crypto.randomUUID()}
+    writing.current = true; setBusy(true)
+    try {
+      const view = await bounded(signal => api.refreshTripUnderstandingStay(reference,tag,stayRefreshKey.current!.key,signal))
+      if (!alive.current || reference !== current.current.resource || tag !== current.current.etag || generation !== current.current.generation) return
+      stayRefreshKey.current = null
+      invalidateEnhancements()
+      stayState.current = view; setStay(view)
+      await readMapAndStay(['stay'])
+    } catch {
+      if (alive.current && reference === current.current.resource && tag === current.current.etag)
+        setNotice('住宿建议更新尚未确认，可稍后再试。')
+    } finally {writing.current = false; if (alive.current) setBusy(false)}
+  }
   const displayedResult = useMemo(() => confirmedTripView(result), [result])
   const displayedProgress = useMemo(() => confirmedTripView(progressSnapshot), [progressSnapshot])
   return {
@@ -1938,6 +1957,7 @@ export function useTripExperience() {
     result: displayedResult,
     progressSnapshot: displayedProgress,
     omittedPlaceCount: result?.days.reduce((total, day) => total + day.activities.filter(card => card.status !== 'READY').length, 0) || 0,
+    unresolvedDays: result?.days.map(day => ({...day, activities:day.activities.filter(card => card.status !== 'READY')})) || [],
     phase,
     progress,
     streamState,
@@ -1967,6 +1987,7 @@ export function useTripExperience() {
     renderMap,
     claim,
     selectStay,
+    refreshStay,
     adopt,
     openPreview,
     closePreview: () => {

@@ -25,6 +25,7 @@ from app.trip_understanding.models import (
     DestinationBasis,
     InferenceProposal,
     MapReadinessView,
+    MealSlotView,
     PipelineOutput,
     PipelineProgressUpdate,
     PlaceResolutionOutcome,
@@ -35,6 +36,7 @@ from app.trip_understanding.models import (
     StaySuggestionView,
     TripUnderstandingProgressMetrics,
     TripDayView,
+    TripRecognitionCoverage,
     UserFacingTripResult,
 )
 
@@ -1106,18 +1108,24 @@ class PublicResultProjector:
             activity
             for activity in activities
             if activity.compiled.mention.role == ActivityRole.PLANNED
+            and not (activity.compiled.mention.meal_role and not activity.compiled.mention.atomic_place_name)
         ]
         activity_day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
             default=1,
         )
-        alternatives = [activity.compiled.mention for activity in activities
+        alternatives = [activity.compiled for activity in activities
                         if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL]
         day_count = min(14, max(day_count, activity_day_count, max(day_labels or {}, default=0),
-                               max((mention.day_index or 1 for mention in alternatives), default=1)))
+                               max((item.mention.day_index or 1 for item in alternatives), default=1)))
         day_views: list[TripDayView] = []
         for day_index in range(1, day_count + 1):
             cards = []
+            meal_slots = []
+            daily = sorted((activity for activity in activities
+                if activity.compiled.mention.role == ActivityRole.PLANNED
+                and activity.compiled.mention.day_index == day_index),
+                key=lambda activity: activity.compiled.mention.sequence_index)
             for item in sorted(
                 (
                     activity
@@ -1128,6 +1136,15 @@ class PublicResultProjector:
                 key=lambda activity: activity.compiled.mention.sequence_index,
             ):
                 mention = item.compiled.mention
+                if mention.meal_role and not mention.atomic_place_name:
+                    preceding = [row for row in daily if row.compiled.mention.sequence_index < mention.sequence_index
+                                 and is_atomic_planned_place(row.compiled.mention)]
+                    following = [row for row in daily if row.compiled.mention.sequence_index > mention.sequence_index
+                                 and is_atomic_planned_place(row.compiled.mention)]
+                    meal_slots.append(MealSlotView(meal_role=mention.meal_role,
+                        after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
+                        before_activity_token=following[0].compiled.public_activity_token if following else None))
+                    continue
                 place = item.place
                 source_confirmation_required = item.resolver_receipt.get("status") in {
                     "SOURCE_CONFIRMATION_REQUIRED",
@@ -1158,25 +1175,34 @@ class PublicResultProjector:
                         photo_url=place.photo_url if place else None,
                         city=_public_activity_city(item),
                         time_hint=mention.time_hint,
+                        meal_role=mention.meal_role,
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
                     )
                 )
             choices = []
-            seen_choices: set[tuple[str, str | None]] = set()
-            for mention in alternatives:
+            seen_choices: set[tuple] = set()
+            for alternative in alternatives:
+                mention = alternative.mention
                 name = mention.atomic_place_name
                 if ((mention.day_index or 1) != day_index or not name
                     or atomic_place_rejection_reason(name) is not None):
                     continue
-                identity = (name, mention.city_hint)
+                identity = (mention.span_start, mention.span_end, mention.day_index, mention.branch_id)
                 if identity in seen_choices:
                     continue
                 seen_choices.add(identity)
-                choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint))
+                def group_token(value: str | None) -> str | None:
+                    if not value:
+                        return None
+                    return hashlib.sha256(f"{destination_name}|{value}".encode()).hexdigest()[:32]
+
+                choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint,
+                    activity_token=alternative.public_activity_token, branch_label=mention.branch_label,
+                    choice_group_token=group_token(mention.choice_group_id), branch_token=group_token(mention.branch_id)))
             day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
-                                        activities=cards, alternatives=choices))
+                                        activities=cards, alternatives=choices, meal_slots=meal_slots))
         resolved_count = sum(item.place is not None for item in planned)
         if planned and resolved_count == len(planned):
             result_status = "READY"
@@ -1838,6 +1864,21 @@ class TripUnderstandingPipeline:
             public_result = public_result.model_copy(update={"status": "LIMITED"})
         elif (fallback_used or unavailable_count) and public_result.status != "PARTIAL_RESULT":
             public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
+        recognized = [item for item in resolved if item.compiled.mention.role == ActivityRole.PLANNED
+                      and item.compiled.mention.atomic_place_name]
+        confirmed = sum(item.place is not None for item in recognized)
+        pending_semantics = {
+            (issue.span_start, issue.span_end) if issue.span_start is not None else (issue.field, issue.category)
+            for issue in proposal.diagnostics
+            if issue.category not in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE",
+                "UNSUPPORTED_TIMING_REMOVED", "UNSUPPORTED_CITY_REMOVED", "UNSUPPORTED_DAY_LABEL_REMOVED", "UNSUPPORTED_DAY_COUNT"}
+        }
+        public_result = public_result.model_copy(update={"coverage": TripRecognitionCoverage(
+            recognized_place_count=len(recognized), confirmed_place_count=confirmed,
+            unresolved_place_count=len(recognized) - confirmed,
+            unclassified_mention_count=len(pending_semantics), unprocessed_count=proposal.unprocessed_count,
+            complete=public_result.status == "READY" and not pending_semantics and not proposal.unprocessed_count,
+        )})
         resolution_receipt = {
             "policy": "atomic-planned-place-resolution-v1",
             "eligible_count": sum(item.eligible_for_place_search for item in compiled),
@@ -1864,6 +1905,15 @@ class TripUnderstandingPipeline:
             ),
             "partial_source": partial_source,
             "unprocessed_count": proposal.unprocessed_count,
+            "semantic_diagnostic_counts": dict(Counter(issue.category for issue in proposal.diagnostics)),
+            "place_failure_counts": dict(Counter(
+                "SERVICE_UNAVAILABLE" if item.resolver_receipt.get("status") == "UNAVAILABLE"
+                else "CITY_UNRESOLVED" if item.resolver_receipt.get("status") in {"CITY_SCOPE_NOT_FOUND", "CITY_SCOPE_UNAVAILABLE"}
+                else "AMBIGUOUS_IDENTITY" if "AMBIGUOUS" in str(item.resolver_receipt.get("selection_tier", ""))
+                    or item.resolver_receipt.get("status") in {"AMBIGUOUS", "LEXICON_AMBIGUOUS"}
+                else "CATEGORY_CONFLICT" if item.resolver_receipt.get("status") == "LEXICON_CATEGORY_CONFLICT"
+                else "NO_MATCH"
+                for item in resolved if item.compiled.eligible_for_place_search and item.place is None)),
             "provider_failures_exposed_publicly": 0,
         }
         internal_content = {

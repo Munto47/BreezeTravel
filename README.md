@@ -4,7 +4,7 @@
 
 使用流程：匿名粘贴文字 → 逐日安排 → 确认地点 → 查看真实地图 → 发现问题 → 预览并采纳修改 → 更新路线 → 保存、恢复与撤销。
 
-本仓是唯一产品主仓；TripCheck 为只读供体。北京、上海、杭州提供深度核验，其他国内城市提供基础整理；仅接受文本。实现与实际验证以当前状态为准，历史记录不作为新版结果。
+本仓是唯一产品主仓；TripCheck 为只读供体。本轮建设北京、上海、广州、深圳、杭州的识别、每日餐饮和逐晚住宿体验，其他国内城市保留基础识别；输入仍是粘贴文字。具体效果及未完成项以当前状态为准，历史记录不作为新版结果。
 
 在仓库根目录启动本地体验：
 
@@ -21,6 +21,9 @@
 - [当前实现状态](docs/governance/CURRENT_GOAL.md)
 - [开发约定](AGENTS.md)
 - [环境准备、配置、停止与恢复](docs/EXPERIENCE_RUNTIME.md)
+- [城市资料与来源](docs/data/CITY_KNOWLEDGE.md)
+- [真实效果评测](docs/testing/FIVE_CITY_EVALUATION.md)
+- [本地与CI共同测试清单](docs/testing/product_test_manifest.json)
 
 采用 Next.js / React、FastAPI / Pydantic、PostgreSQL、Redis 与已有后台 worker。自定义文本使用真实模型和地点服务；示例的行程、路线与住宿使用固定数据，高德底图仍需联网。新 API 入口为 `backend/app/experience_main.py`，本地数据和私有配置独立保存。历史 compose、旧房间及冻结功能不进入默认启动流程。
 

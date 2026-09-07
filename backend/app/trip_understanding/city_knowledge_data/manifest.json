@@ -1,0 +1,25 @@
+{
+  "schema_version": "city-knowledge-v1",
+  "cities": {
+    "北京": {
+      "active": "beijing/v1.jsonl",
+      "fallbacks": []
+    },
+    "上海": {
+      "active": "shanghai/v1.jsonl",
+      "fallbacks": []
+    },
+    "广州": {
+      "active": "guangzhou/v1.jsonl",
+      "fallbacks": []
+    },
+    "深圳": {
+      "active": "shenzhen/v1.jsonl",
+      "fallbacks": []
+    },
+    "杭州": {
+      "active": "hangzhou/v1.jsonl",
+      "fallbacks": []
+    }
+  }
+}

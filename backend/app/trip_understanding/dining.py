@@ -16,8 +16,11 @@ from app.trip_understanding.map_render import MapStop
 from app.trip_understanding.models import StrictModel, DiningInsertCommand, PlaceConfirmCommand
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
 from app.trip_understanding.stay import haversine_meters
+from app.trip_understanding.city_scope import CityScope, CityScopeLookup
+from app.trip_understanding.errors import PlaceProviderUnavailableError
 
 DINING_RADIUS_METERS = 1200
+_SCOPES = CityScopeLookup()
 
 
 class DiningSearchRequest(StrictModel):
@@ -34,28 +37,32 @@ class DiningCandidatesView(StrictModel):
     candidates: list[DiningCandidateView] = Field(default_factory=list, max_length=3)
 
 
-def dining_binding(activity_token: str) -> str:
-    return f"dining-after:{activity_token}"
+def dining_binding(activity_token: str, *, before: bool = False) -> str:
+    return f"dining-{'before' if before else 'after'}:{activity_token}"
 
 
 def verify_command_candidate(command, *, public_resource_id: str, expected_etag: str, now):
     if not isinstance(command, (DiningInsertCommand, PlaceConfirmCommand)):
         return None
-    binding = dining_binding(command.after_activity_token) if isinstance(command, DiningInsertCommand) else command.activity_token
+    binding = dining_binding(command.after_activity_token, before=command.insert_before) if isinstance(command, DiningInsertCommand) else command.activity_token
     return verify_candidate(command.candidate_token, public_resource_id=public_resource_id,
         activity_token=binding, expected_etag=expected_etag, now=now)
 
 
 def valid_anchor(anchor: MapStop | None) -> bool:
     return bool(anchor and anchor.resolution_status == "AUTO_MATCHED" and anchor.canonical_place_id
-                and anchor.city in _CITY_BOUNDS and anchor.longitude is not None and anchor.latitude is not None)
+                and anchor.city and re.fullmatch(r"[\u4e00-\u9fff]{2,20}", anchor.city)
+                and anchor.city != "目的地待确认" and anchor.longitude is not None and anchor.latitude is not None)
 
 
-def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str]) -> list[CandidatePlace]:
+def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], scope: CityScope | None = None) -> list[CandidatePlace]:
     if not valid_anchor(anchor):
         return []
     accepted: dict[str, tuple[float, CandidatePlace]] = {}
-    west, east, south, north = _CITY_BOUNDS[anchor.city]
+    bounds = scope.bounds if scope else _CITY_BOUNDS.get(anchor.city)
+    if not bounds:
+        return []
+    west, east, south, north = bounds
     for row in rows:
         if not isinstance(row, dict):
             continue
@@ -65,7 +72,7 @@ def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str]) -
             continue
         if atomic_place_rejection_reason(name) or not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", name):
             continue
-        if not _admin_matches(row, expected_city=anchor.city, expected_district=None):
+        if not (scope.matches(row) if scope else _admin_matches(row, expected_city=anchor.city, expected_district=None)):
             continue
         signals = classify_amap_type_signals(str(row.get("typecode") or ""), str(row.get("type") or ""))
         if not signals.complete or signals.conflict or signals.category != PlaceCategory.FOOD:
@@ -77,28 +84,43 @@ def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str]) -
         if not 0 <= distance <= DINING_RADIUS_METERS:
             continue
         address = row.get("address")
-        place = CandidatePlace(canonical_place_id=canonical, city=anchor.city, name=name, category="餐饮",
+        business = row.get("business")
+        area = row.get("business_area") or (business.get("business_area") if isinstance(business, dict) else None)
+        area = area if isinstance(area, str) and re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9·、（）() -]{1,40}", area) else None
+        place = CandidatePlace(canonical_place_id=canonical, city=anchor.city, name=name, category="餐饮", business_area=area,
             area_or_address=address[:120] if isinstance(address, str) and address else str(row.get("adname") or anchor.city)[:120],
             position=GCJ02Position(longitude=coordinates[0], latitude=coordinates[1]))
         accepted[canonical] = (distance, place)
     return [place for _, place in sorted(accepted.values(), key=lambda item: (item[0], item[1].name))[:3]]
 
 
-async def search_dining(*, anchor: MapStop, excluded_ids: set[str]) -> list[CandidatePlace] | None:
+async def search_dining(*, anchor: MapStop, excluded_ids: set[str], receipt: dict | None = None) -> list[CandidatePlace] | None:
+    receipt = receipt if receipt is not None else {}
+    receipt.update(poi_http_attempts=0, district_http_attempts=0)
     settings = get_settings()
     if not valid_anchor(anchor) or not settings.amap_api_key or settings.trip_understanding_provider_mode != "live":
         return None
     # Existing AMap POI 2.0, one request. No route, rating, price or opening-hour inference.
     params = {"key": settings.amap_api_key, "location": f"{anchor.longitude:.6f},{anchor.latitude:.6f}",
         "radius": DINING_RADIUS_METERS, "types": "050000", "sortrule": "distance", "page_size": 25, "page_num": 1,
-        "region": anchor.city, "city_limit": "true", "output": "json"}
+        "region": anchor.city, "city_limit": "true", "output": "json", "show_fields": "business"}
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
+            scope = None
+            if anchor.city not in _CITY_BOUNDS:
+                scope_receipt = {}
+                try:
+                    scope = await _SCOPES.get(anchor.city, client=client, api_key=settings.amap_api_key, timeout=4.0, receipt=scope_receipt)
+                finally:
+                    receipt["district_http_attempts"] = scope_receipt.get("external_calls", 0)
+                if scope is None:
+                    return None
+            receipt["poi_http_attempts"] += 1
             response = await client.get("https://restapi.amap.com/v5/place/around", params=params)
             response.raise_for_status()
             payload = response.json()
         if not isinstance(payload, dict) or payload.get("status") != "1" or not isinstance(payload.get("pois"), list):
             return None
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError, PlaceProviderUnavailableError):
         return None
-    return select_dining_rows(payload["pois"], anchor=anchor, excluded_ids=excluded_ids)
+    return select_dining_rows(payload["pois"], anchor=anchor, excluded_ids=excluded_ids, scope=scope)

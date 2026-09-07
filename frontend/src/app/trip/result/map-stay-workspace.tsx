@@ -13,6 +13,7 @@ import PendingPlaceDropdown from './pending-place-dropdown'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
 import RoutePlayback from './route-playback'
 import { DAY_COLORS } from './result-presentation'
+import StayCandidates from './stay-candidates'
 
 type GeometryPoint = { longitude: number; latitude: number }
 
@@ -30,6 +31,7 @@ export default function MapStayWorkspace({
   onRouteMode,
   onRetryMap,
   onSelectStay,
+  onRefreshStay,
   resource,
   onCommand,
 }: {
@@ -46,6 +48,7 @@ export default function MapStayWorkspace({
   onRouteMode: (mode: 'recommended' | 'walking' | 'transit') => void
   onRetryMap: () => void
   onSelectStay: (token: string) => void
+  onRefreshStay: () => void
   resource: string
   onCommand: (command: import('@/lib/trip-understanding-v3').TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
 }) {
@@ -60,7 +63,6 @@ export default function MapStayWorkspace({
   )
   const currentStay = stay || result.stay
   const mapUnavailable = (mapView?.status || result.map.status) === 'UNAVAILABLE'
-  const stayUnavailable = currentStay.status === 'UNAVAILABLE'
   const dayColor = DAY_COLORS[dayIndex % DAY_COLORS.length]
   const currentRoutes = mapView && ['AVAILABLE', 'LIMITED'].includes(mapView.status)
     ? mapView.days.flatMap((day) => {
@@ -187,27 +189,10 @@ export default function MapStayWorkspace({
 
           </div></details>
           <details className="fluid-map-popover" data-testid="stay-panel"><summary>住宿</summary><div className="fluid-map-popover-content" aria-label="住宿建议">
-            {stayUnavailable && <button data-testid="retry-stay" type="button" className="e-button" disabled={disabled} onClick={onRetryMap}>重试</button>}
+            <button data-testid="retry-stay" type="button" className="e-button" disabled={disabled || currentStay.status === 'PREPARING'} onClick={onRefreshStay}>{currentStay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button>
                       <p className="mt-2 text-sm leading-6 text-slate-600">{currentStay.message}</p>
           {currentStay.area_summary && <p className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-slate-700">{currentStay.area_summary}</p>}
-          <div className="mt-4 space-y-3">
-            {currentStay.candidates.map((candidate) => (
-              <article key={candidate.candidate_token} className="rounded-2xl border border-slate-200 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">{candidate.name}</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{candidate.area_or_address}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-600">{candidate.commute_summary}</p>
-                <button
-                  data-testid="choose-stay"
-                  type="button"
-                  disabled={disabled || candidate.selected}
-                  onClick={() => onSelectStay(candidate.candidate_token)}
-                  className="mt-3 min-h-12 w-full rounded-xl border border-[#0c789d]/20 bg-sky-50 text-sm font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50"
-                >
-                  {candidate.selected ? '已选择' : '选择这家住宿'}
-                </button>
-              </article>
-            ))}
-          </div>
+          <StayCandidates stay={currentStay} disabled={disabled} onSelect={onSelectStay}/>
 
           </div></details>
         </div>

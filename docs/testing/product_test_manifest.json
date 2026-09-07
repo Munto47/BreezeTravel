@@ -1,0 +1,100 @@
+{
+  "schema_version": "product-test-manifest-v1",
+  "purpose": "Deterministic regression only; live accuracy and owner usability are measured separately.",
+  "suites": {
+    "backend": {
+      "runner": "pytest",
+      "directory": "backend",
+      "files": [
+        "tests/test_experience_delivery_contract.py",
+        "tests/test_trip_understanding_v3.py",
+        "tests/test_trip_understanding_v3_api.py",
+        "tests/test_experience_inference.py",
+        "tests/test_experience_runtime.py",
+        "tests/test_experience_twelve_tasks.py",
+        "tests/test_experience_timing_candidates.py",
+        "tests/test_amap_trip_understanding.py",
+        "tests/test_place_identity_safety.py",
+        "tests/test_experience_source_anchors.py",
+        "tests/test_amap_route_trip_understanding.py",
+        "tests/test_g03r_place_resolution.py",
+        "tests/test_g02_map_stay.py",
+        "tests/test_g03_top3_audit.py",
+        "tests/test_g06_memory_share_targeted.py",
+        "tests/test_city_knowledge.py",
+        "tests/test_semantic_partial_recovery.py",
+        "tests/test_experience_text_fidelity.py",
+        "tests/test_place_day_stability.py",
+        "tests/test_place_partial_timing.py",
+        "tests/test_place_city_selection.py",
+        "tests/test_landmark_matching.py",
+        "tests/test_dining_recommendations.py",
+        "tests/test_daily_dining.py",
+        "tests/test_stay_overnight_segments.py",
+        "tests/test_guide_review_regressions.py",
+        "tests/test_platform_corpus_tools.py",
+        "tests/test_domestic_city_places.py",
+        "tests/test_recognition_coverage_commands.py",
+        "tests/test_g03r_place_lexicon.py",
+        "tests/test_focused_semantic_repair.py",
+        "tests/test_stay_manual_refresh.py",
+        "tests/test_semantic_day_sections.py",
+        "tests/test_place_query_resilience.py"
+      ]
+    },
+    "postgres": {
+      "runner": "pytest",
+      "directory": "backend",
+      "files": [
+        "tests/test_trip_understanding_v3_postgres.py",
+        "tests/test_g01_map_positive_postgres.py",
+        "tests/test_g02_map_stay_postgres.py",
+        "tests/test_g03_top3_audit_postgres.py",
+        "tests/test_g06_memory_share_postgres.py",
+        "tests/test_experience_v3_journey.py",
+        "tests/test_experience_source_deletion.py",
+        "tests/test_experience_source_api.py",
+        "tests/test_experience_retention.py",
+        "tests/test_experience_readback.py",
+        "tests/test_schedule_propagation.py",
+        "tests/test_daily_dining.py",
+        "tests/test_dining_recommendations.py",
+        "tests/test_stay_overnight_segments.py",
+        "tests/test_stay_manual_refresh.py"
+      ]
+    },
+    "browser-core": {
+      "runner": "playwright",
+      "directory": "frontend",
+      "files": [
+        "e2e/experience.spec.js"
+      ],
+      "args": [
+        "--grep-invert",
+        "@live"
+      ]
+    },
+    "browser-refinement": {
+      "runner": "playwright",
+      "directory": "frontend",
+      "files": [
+        "e2e/experience-refinement.spec.js"
+      ],
+      "args": [
+        "--grep-invert",
+        "@live"
+      ]
+    },
+    "browser-confirmed": {
+      "runner": "playwright",
+      "directory": "frontend",
+      "files": [
+        "e2e/confirmed-place-cards.spec.js"
+      ],
+      "args": [
+        "--grep-invert",
+        "@live"
+      ]
+    }
+  }
+}

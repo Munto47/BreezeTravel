@@ -14,6 +14,7 @@ import type {
   PublicTripChecksView,
   PlaceCandidatesView,
   DiningCandidatesView,
+  DailyDiningView,
   StaySelectionAppliedView,
   StaySuggestionView,
   TripUnderstandingAcceptedView,
@@ -204,6 +205,15 @@ export class TripCheckClient {
     )
   }
 
+  async getDailyDining(publicResourceId: string): Promise<TransportResponse<DailyDiningView>> {
+    return this.json<DailyDiningView>('GET', `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/daily-dining`)
+  }
+
+  async refreshDailyDining(publicResourceId: string, etag: string, idempotencyKey: string): Promise<TransportResponse<DailyDiningView>> {
+    return this.json<DailyDiningView>('POST', `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/daily-dining`, undefined,
+      {ifMatch:etag,idempotencyKey})
+  }
+
   async requestTripUnderstandingMap(
     publicResourceId: string,
     etag: string,
@@ -217,6 +227,11 @@ export class TripCheckClient {
         { ifMatch: etag, idempotencyKey },
       )
     ).data
+  }
+
+  async refreshTripUnderstandingStaySuggestions(publicResourceId: string, etag: string, idempotencyKey: string): Promise<StaySuggestionView> {
+    return (await this.json<StaySuggestionView>('POST',`/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`,undefined,
+      {ifMatch:etag,idempotencyKey})).data
   }
 
   async getTripUnderstandingStaySuggestions(

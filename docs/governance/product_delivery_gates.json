@@ -1,9 +1,11 @@
 {
   "schema_version": "experience-delivery-v1",
-  "goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
+  "goal_id": "FIVE-CITY-EXPERIENCE",
   "deep_cities": [
     "北京",
     "上海",
+    "广州",
+    "深圳",
     "杭州"
   ],
   "core_scenarios": [
@@ -66,6 +68,46 @@
       "id": "hangzhou-edit_recovery",
       "city": "杭州",
       "scenario": "edit_recovery"
+    },
+    {
+      "id": "guangzhou-normal",
+      "city": "广州",
+      "scenario": "normal"
+    },
+    {
+      "id": "guangzhou-ambiguous",
+      "city": "广州",
+      "scenario": "ambiguous"
+    },
+    {
+      "id": "guangzhou-schedule_conflict",
+      "city": "广州",
+      "scenario": "schedule_conflict"
+    },
+    {
+      "id": "guangzhou-edit_recovery",
+      "city": "广州",
+      "scenario": "edit_recovery"
+    },
+    {
+      "id": "shenzhen-normal",
+      "city": "深圳",
+      "scenario": "normal"
+    },
+    {
+      "id": "shenzhen-ambiguous",
+      "city": "深圳",
+      "scenario": "ambiguous"
+    },
+    {
+      "id": "shenzhen-schedule_conflict",
+      "city": "深圳",
+      "scenario": "schedule_conflict"
+    },
+    {
+      "id": "shenzhen-edit_recovery",
+      "city": "深圳",
+      "scenario": "edit_recovery"
     }
   ],
   "required_checks": [
@@ -76,40 +118,22 @@
     "browser"
   ],
   "delivery_levels": {
-    "R0": {
+    "LOCAL_IMPLEMENTATION": {
       "purpose": "OWNER_LOCAL_EXPERIENCE",
-      "text_cases": {
-        "safe": 40,
-        "minimum_exact": 28
-      },
       "required_outcomes": [
-        "THREE_OWNER_TEXT_GUIDES_RETURN_CARDS_OR_HONEST_PARTIAL_RESULTS",
-        "TWO_OF_THREE_USABLE_AFTER_SMALL_EDITS",
-        "ONE_COMPLETE_EDIT_MANUAL_ROUTE_TOP3_PNG_JOURNEY",
-        "FIXTURE_COLLABORATION_LOOP",
-        "PROGRESSIVE_STOP_RECONNECT_AND_PLAYBACK"
+        "FIVE_CITY_CONFIRMED_PLACES_AND_VISIBLE_UNRESOLVED_COUNTS",
+        "DAILY_DINING_SUGGEST_SELECT_REFRESH_UNDO",
+        "OVERNIGHT_SEGMENTS_HOTEL_IDENTITY_AND_BOUNDED_ROUTE_CALLS",
+        "EDIT_MANUAL_ROUTE_REFRESH_AND_PNG",
+        "COLLABORATION_COMPATIBILITY"
       ]
     },
-    "R1": {
-      "purpose": "CONTROLLED_USE",
-      "text_cases": {
-        "safe": 40,
-        "minimum_exact": 36
-      },
+    "REAL_EVALUATION": {
+      "purpose": "MEASURED_PRODUCT_QUALITY",
       "required_outcomes": [
-        "LIVE_QWEN_AMAP_TRIP_CHECK_LOOP",
-        "LIVE_COLLABORATION_AI_DRIVING_LOOP",
-        "TWO_USER_SYNC_REOPEN_AND_IMPORT"
-      ]
-    },
-    "R2": {
-      "purpose": "HARDENED_CANDIDATE",
-      "text_cases": {
-        "safe": 40,
-        "minimum_exact": 40
-      },
-      "required_outcomes": [
-        "RESPONSIVE_ACCESSIBILITY_PROVIDER_AND_CANDIDATE_MATRIX"
+        "SEPARATE_CONTROLLED_LIVE_MODEL_LIVE_MAP_PLATFORM_INPUT_AND_HUMAN_EVIDENCE",
+        "SAME_SOURCE_FAMILY_HOLDOUT_ISOLATION",
+        "RETAIN_ALL_COMPLEX_CASE_RUNS_AND_FAILURES"
       ]
     }
   },
@@ -138,12 +162,31 @@
   ],
   "deferred": [
     "natural_language_editing",
-    "sourced_rag",
     "new_trip_check_automatic_same_day_route_optimization",
-    "candidate_scale_statistical_evaluation",
     "candidate_signing",
     "sealed_blind",
     "public_deployment",
     "human_recruitment"
-  ]
+  ],
+  "quality_targets": {
+    "main_stop_recall_min": 0.95,
+    "main_stop_precision_min": 0.99,
+    "day_order_accuracy_min": 0.98,
+    "correct_visible_coverage_min": 0.95,
+    "holdout_usable_without_major_correction_min": 0.9,
+    "eligible_day_dining_candidate_coverage_min": 0.9,
+    "hidden_items_in_denominator": true
+  },
+  "recommendation_requirements": {
+    "dining": "SUGGEST_BEFORE_ADOPTION_NO_DUPLICATE_EXPLICIT_LUNCH",
+    "stay": "LAST_STOP_DAY_D_TO_HOTEL_TO_FIRST_STOP_DAY_D_PLUS_1",
+    "preserve_explicit_hotels": true,
+    "preferred_group": "华住",
+    "preferred_average_leg_tolerance_minutes": 10,
+    "recall_per_segment": 12,
+    "measured_per_segment": 6,
+    "display_per_segment": 3,
+    "route_calls_per_stay_segment": 96,
+    "route_concurrency": 4
+  }
 }

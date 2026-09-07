@@ -62,7 +62,9 @@ async def test_g03_postgres_old_db_upgrade_materialize_concurrent_adopt_and_post
                 """
             )
             for migration in migrations:
-                if migration.name >= "031_day_index_trip_bridge.sql":
+                # Exercise the legacy bridge upgrade independently while keeping
+                # the current worker's additive dining/stay schema available.
+                if migration.name == "031_day_index_trip_bridge.sql":
                     continue
                 await migration_connection.execute(
                     migration.read_text(encoding="utf-8")

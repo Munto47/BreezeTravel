@@ -19,14 +19,15 @@ from openai import APIError, AsyncOpenAI
 from pydantic import Field, ValidationError, field_validator
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
-from app.trip_understanding.guide_choices import choice_scopes, explicit_binary_choice_clauses, explicit_optional_labels, explicit_visit_labels
+from app.trip_understanding.guide_choices import choice_scopes, explicit_binary_choice_clauses, explicit_choice_branches, explicit_optional_labels, explicit_visit_labels
 from app.trip_understanding.models import (
     ActivityRole, ActivityTiming, DestinationBasis, InferenceProposal,
-    ProposedMention, StrictModel,
+    ProposedMention, SemanticDiagnostic, StrictModel,
 )
 from app.trip_understanding.pipeline import DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
 from app.trip_understanding.place_labels import normalized_place_label
 from app.trip_understanding.timing_evidence import validated_timing
+from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, merge_preserved_activities
 
 
 PROMPT_PATH = Path(__file__).with_name("experience_inference_prompt.md")
@@ -50,6 +51,7 @@ class SemanticActivity(ActivityTiming):
     role: ActivityRole
     day_index: int | None = Field(default=None, ge=1, le=14)
     category: Literal["景点", "餐饮", "住宿", "交通节点", "地点"] = "地点"
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
     time_evidence: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=40)
     city_evidence: str | None = Field(default=None, max_length=500)
@@ -1369,7 +1371,20 @@ def _is_explicit_dish_description(source: str, place: str | None, start: int, en
         or re.match(r"(?:[^，,。；;]{0,8})?(?:本地|当地|地方)特色(?:小吃|菜|嗦粉|面食|美食)", after))
 
 
-def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
+def _source_meal_role(source: str, start: int, end: int) -> str | None:
+    """An explicit local meal word can classify a meal; a venue name cannot."""
+    left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
+    right = min((pos for mark in "\n。；;，," if (pos := source.find(mark, end)) >= 0), default=len(source))
+    clause = source[left:right]
+    roles = {role for pattern, role in ((r"早餐|早饭|早点", "BREAKFAST"),
+        (r"午餐|午饭|中饭", "LUNCH"), (r"晚餐|晚饭", "DINNER"),
+        (r"下午茶|夜宵|宵夜", "SNACK")) if re.search(pattern, clause)}
+    return next(iter(roles)) if len(roles) == 1 else None
+
+
+def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> InferenceProposal:
+    if allow_partial:
+        draft = draft.model_copy(deep=True)
     draft = _recover_unique_quote_occurrences(source, draft)
     draft = _retain_named_meal_locations(source, draft)
     draft = _expand_source_bound_lists(source, draft)
@@ -1532,8 +1547,36 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
                 repair_hints.append(json.dumps({"source_quote": literal, "occurrence": occurrence}, ensure_ascii=False))
             elif labels is visit_labels and explicit_days > 1 and any(item.day_index is None for item in matched):
                 issues.append({"field": "activities.explicit_labels", "category": "MISSING_EXPLICIT_DAY"})
-    if issues:
+    if issues and not allow_partial:
         raise SourceAnchorValidationError(issues, repair_hints, repair_draft=draft)
+    diagnostics: list[SemanticDiagnostic] = []
+    invalid_indices: set[int] = set()
+    for issue in issues:
+        field = str(issue["field"])
+        activity_index = re.match(r"activities\[(\d+)\]", field)
+        span = None
+        if activity_index:
+            index = int(activity_index[1])
+            if issue["category"] in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE"}:
+                # A bad optional time must not erase a correctly anchored place
+                # just because another activity also has a semantic problem.
+                draft.activities[index] = draft.activities[index].model_copy(update={
+                    "start_time": None, "end_time": None, "visit_duration_minutes": None,
+                    "timing_source": "UNSPECIFIED", "locked": False, "fixed_commitment": False, "time_evidence": None,
+                })
+            else:
+                invalid_indices.add(index)
+            if index < len(located) and located[index] != (0, 0):
+                span = located[index]
+        diagnostics.append(SemanticDiagnostic(category=str(issue["category"]), field=field,
+            span_start=span[0] if span else None, span_end=span[1] if span else None))
+    if any(issue["field"] == "activities.binary_choice" for issue in issues):
+        # An incomplete two-choice heading must never silently select its one
+        # surviving PLANNED member. Keep it unresolved until semantics settle.
+        for index, (item, (start, end)) in enumerate(zip(draft.activities, located, strict=True)):
+            if item.role == ActivityRole.PLANNED and any(left <= start < end <= right
+                    for left, right, _day in explicit_binary_choice_clauses(source)):
+                invalid_indices.add(index)
     place_spans = [
         (start + relative[0], start + relative[1])
         for item, (start, end) in zip(draft.activities, located, strict=True)
@@ -1542,10 +1585,13 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
     mentions: list[ProposedMention] = []
     seen: set[tuple[int, int, ActivityRole, int | None]] = set()
     sequences: dict[int, int] = {}
-    unprocessed = len(draft.unprocessed_quotes)
+    unprocessed = len(draft.unprocessed_quotes) + len(diagnostics)
     seen_places: set[tuple[str, int | None]] = set()
     execution_roles: dict[tuple[int, int, int | None], ActivityRole] = {}
+    branches = explicit_choice_branches(source)
     for index, (item, (start, end)) in enumerate(zip(draft.activities, located, strict=True)):
+        if index in invalid_indices:
+            continue
         place = item.place_name.strip() if item.place_name else None
         if place is not None:
             relative_start, relative_end = _literal_place_span(source[start:end], place)
@@ -1565,7 +1611,10 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             # https://www.beijing.gov.cn/ywdt/zwzt/gjxxfxcs/gjf/xftyq/tyts/202404/t20240410_3615091.html
             item = item.model_copy(update={"category": "地点"})
         day = item.day_index
-        if item.role == ActivityRole.PLANNED and _is_parent_visit_detail(source, place, start, end, day, mentions):
+        parent_mention_id = None
+        if item.role in {ActivityRole.PLANNED, ActivityRole.REFERENCE} and _is_parent_visit_detail(source, place, start, end, day, mentions):
+            parent_mention_id = next((mention.mention_id for mention in reversed(mentions)
+                if mention.role == ActivityRole.PLANNED and mention.day_index == day and mention.span_end <= start), None)
             item = item.model_copy(update={"role": ActivityRole.REFERENCE})
         if (start, end) in visit_labels and item.role in {ActivityRole.OPTIONAL, ActivityRole.REFERENCE}:
             item = item.model_copy(update={"role": ActivityRole.PLANNED})
@@ -1587,6 +1636,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
         if item.role == ActivityRole.PLANNED and day is None:
             day = 1
             unprocessed += 1
+        if item.role != ActivityRole.REFERENCE:
+            parent_mention_id = None
         if place and item.role == ActivityRole.PLANNED and (place, day) in seen_places:
             line_start = max(source.rfind(mark, 0, start) for mark in ("\n", "。", "；", ";")) + 1
             prefix = source[line_start:start]
@@ -1608,6 +1659,15 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
                 revisits = [match for match in re.finditer(r"再(?:次)?(?:去|到|访|游|回)|重访|两次|两趟|分别", clause)
                             if not re.search(r"(?:不|未|没|没有|不要|不会|不能|不必|无需|无须|勿|别)\s*$", clause[:match.start()])]
                 if not revisits:
+                    if allow_partial:
+                        # Neither role is trustworthy. Remove both interpretations
+                        # of this occurrence, keeping a private source-bound issue.
+                        mentions = [mention for mention in mentions if
+                            (mention.span_start, mention.span_end, mention.day_index) != key]
+                        diagnostics.append(SemanticDiagnostic(category="SOURCE_ROLE_CONFLICT",
+                            field=f"activities[{index}].role", span_start=start, span_end=end))
+                        unprocessed += 1
+                        continue
                     raise SourceAnchorValidationError(
                         [{"field": f"activities[{index}].role", "category": "SOURCE_ROLE_CONFLICT"}],
                         [json.dumps({"source_quote": item.source_quote, "occurrence": item.occurrence,
@@ -1632,28 +1692,48 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             # reject mixed-city ambiguity and city names embedded in POIs.
             city_evidence = None
         unprocessed += int(timing_removed) + int(city_removed)
+        if timing_removed:
+            diagnostics.append(SemanticDiagnostic(category="UNSUPPORTED_TIMING_REMOVED",
+                field=f"activities[{index}].timing", span_start=start, span_end=end))
+        if city_removed:
+            diagnostics.append(SemanticDiagnostic(category="UNSUPPORTED_CITY_REMOVED",
+                field=f"activities[{index}].city", span_start=start, span_end=end))
         group = day or 0
         sequence = sequences.get(group, 0)
         sequences[group] = sequence + 1
         start_time, end_time = timing.get("start_time"), timing.get("end_time")
         hint = f"{start_time}–{end_time}" if start_time and end_time else start_time
+        branch = next((branch for branch in branches if branch.start <= start < end <= branch.end
+                       and (branch.day is None or branch.day == day)), None)
         mentions.append(ProposedMention(
-            mention_id=f"activity-{len(mentions) + 1}",
+            mention_id=f"activity-{index + 1}",
             raw_text=source[start:end], span_start=start, span_end=end,
             role=item.role, day_index=day, sequence_index=sequence,
             atomic_place_name=place, category_hint=item.category,
+            meal_role=_source_meal_role(source, start, end) if item.category == "餐饮" else None,
             time_hint=hint, city_hint=city, city_evidence=city_evidence, **timing,
+            choice_group_id=branch.group_id if branch else None,
+            branch_id=branch.branch_id if branch else None,
+            branch_label=branch.label if branch else None,
+            parent_mention_id=parent_mention_id,
+            relation_type="INTERNAL_DETAIL" if parent_mention_id else None,
         ))
     labels: dict[int, str] = {}
+    valid_parent_ids = {mention.mention_id for mention in mentions if mention.role == ActivityRole.PLANNED}
+    mentions = [mention.model_copy(update={"parent_mention_id": None, "relation_type": None})
+                if mention.parent_mention_id and mention.parent_mention_id not in valid_parent_ids else mention
+                for mention in mentions]
     for index, label in enumerate(draft.day_labels, 1):
         if label and label in source and label.strip() not in labels.values() and re.fullmatch(r"[\d年月日号./\-一二三四五六七八九十星期周\s]+", label):
             labels[index] = label.strip()
         elif label:
             unprocessed += 1
+            diagnostics.append(SemanticDiagnostic(category="UNSUPPORTED_DAY_LABEL_REMOVED", field=f"day_labels[{index - 1}]"))
     supported_days = max(_explicit_day_count(anchors.visible), max(labels, default=0),
                          max((mention.day_index or 0 for mention in mentions), default=0), 1)
     if len(draft.day_labels) > supported_days or supported_days > 14:
         unprocessed += 1
+        diagnostics.append(SemanticDiagnostic(category="UNSUPPORTED_DAY_COUNT", field="day_labels"))
     explicit_destination = draft.destination in source_destination_cities(source) or any(
         mention.city_hint == draft.destination and mention.city_evidence for mention in mentions
     )
@@ -1663,7 +1743,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
         destination_basis=(DestinationBasis.EXPLICIT if explicit_destination
                            else DestinationBasis.SOFT_ASSUMPTION),
         day_labels=labels, day_count=min(supported_days, 14), unprocessed_count=unprocessed,
-        mentions=mentions, binding={"semantic_policy": SEMANTIC_POLICY},
+        mentions=mentions, diagnostics=diagnostics, binding={"semantic_policy": SEMANTIC_POLICY},
     )
 
 
@@ -1729,6 +1809,77 @@ def _repair_prompt(source: str, previous: str, error: ValueError) -> str:
     }, ensure_ascii=False)
 
 
+def _known_source_places(source: str) -> list[dict]:
+    from app.trip_understanding.city_knowledge import source_place_hints
+
+    return source_place_hints(source, limit=160)
+
+
+def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: InferenceProposal,
+                               hints: list[dict]) -> InferenceProposal:
+    """Known nouns are coverage questions, never automatic planned visits."""
+    covered = [(mention.span_start, mention.span_end) for mention in proposal.mentions]
+    covered.extend((issue.span_start, issue.span_end) for issue in proposal.diagnostics
+                   if issue.span_start is not None and issue.span_end is not None)
+    anchors = SourceAnchorIndex(source)
+    for quote in draft.unprocessed_quotes:
+        try:
+            covered.append(anchors.locate(quote))
+        except ValueError:
+            pass  # Already handled by source validation; this is not accepted.
+    diagnostics = [SemanticDiagnostic(category="KNOWN_PLACE_UNCLASSIFIED", field="source.coverage",
+        span_start=hint["span_start"], span_end=hint["span_end"])
+        for hint in hints if not explicit_reference_context(source, hint["span_start"], hint["span_end"])
+        and not any(left <= hint["span_start"] < hint["span_end"] <= right
+                                     for left, right in covered)]
+    if not diagnostics:
+        return proposal
+    return proposal.model_copy(update={"diagnostics": [*proposal.diagnostics, *diagnostics],
+        "unprocessed_count": proposal.unprocessed_count + len(diagnostics)})
+
+
+def _recover_partial_proposal(source: str, draft: SemanticDraft,
+                              extra_category: str | None = None) -> InferenceProposal | None:
+    try:
+        proposal = proposal_from_draft(source, draft, allow_partial=True)
+    except (ValueError, ValidationError):
+        return None
+    if not any(mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} for mention in proposal.mentions):
+        return None
+    if extra_category:
+        proposal = proposal.model_copy(update={
+            "diagnostics": [*proposal.diagnostics, SemanticDiagnostic(category=extra_category)],
+            "unprocessed_count": proposal.unprocessed_count + 1,
+        })
+    return proposal
+
+
+def _retain_repair_omissions(source: str, original: SemanticDraft, proposal: InferenceProposal) -> InferenceProposal:
+    """Removing an invalid item from repair is not proof it was not a visit."""
+    anchors = SourceAnchorIndex(source)
+    diagnostics = []
+    for item in original.activities:
+        if item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
+            continue
+        try:
+            start, end = anchors.locate(item.source_quote, item.occurrence)
+        except ValueError:
+            continue  # An ungrounded invented quote is not a new source fact.
+        relative = _literal_place_span(source[start:end], item.place_name)
+        if relative:
+            start, end = start + relative[0], start + relative[1]
+        if any((mention.span_start <= start < end <= mention.span_end)
+               or (item.place_name and mention.atomic_place_name == normalized_place_label(item.place_name))
+               for mention in proposal.mentions):
+            continue
+        diagnostics.append(SemanticDiagnostic(category="REPAIR_OMITTED_SOURCE_ITEM", field="activities.repair",
+            span_start=start, span_end=end))
+    if not diagnostics:
+        return proposal
+    return proposal.model_copy(update={"diagnostics": [*proposal.diagnostics, *diagnostics],
+        "unprocessed_count": proposal.unprocessed_count + len(diagnostics)})
+
+
 class ExperienceQwenProvider:
     def __init__(
         self, *, api_key: str, base_url: str, model: str,
@@ -1736,12 +1887,14 @@ class ExperienceQwenProvider:
         input_cny_per_million: float | None = None,
         output_cny_per_million: float | None = None,
         client: Any | None = None,
+        enable_day_sections: bool = True,
     ) -> None:
         if not api_key or not model or not base_url.startswith("https://"):
             raise ValueError("Live inference requires configured HTTPS credentials and model")
         if deadline_seconds <= 0 or max_output_tokens < 256:
             raise ValueError("Invalid inference budget")
         self.model = model
+        self.enable_day_sections = enable_day_sections
         self.deadline_seconds = deadline_seconds
         self.max_output_tokens = max_output_tokens
         self.rates = (input_cny_per_million, output_cny_per_million)
@@ -1761,13 +1914,22 @@ class ExperienceQwenProvider:
     async def propose(self, source_text: str) -> InferenceProposal:
         # The deadline measures a Provider run, excluding queue backpressure.
         async with self._slots:
+            if self.enable_day_sections and len(source_text) >= 900 and 2 <= _explicit_day_count(source_text) <= 14:
+                from app.trip_understanding.semantic_sections import propose_by_day
+
+                return await propose_by_day(self, source_text)
             return await self._propose(source_text)
 
-    async def _propose(self, source_text: str) -> InferenceProposal:
+    async def _propose(self, source_text: str, task_instruction: str = "", call_sink: list | None = None) -> InferenceProposal:
         started = time.perf_counter()
-        calls: list[dict[str, object]] = []
+        calls: list[dict[str, object]] = [] if call_sink is None else call_sink
+        source_places = _known_source_places(source_text)
+        place_context = ("\n原文已知地点名词提示（仅供核对遗漏，不表示实际到访；说明、否定、备选均须按原文处理；"
+            "不确定放入unprocessed_quotes）：\n" + json.dumps(
+                [{"name": item["name"], "start": item["span_start"], "end": item["span_end"]} for item in source_places],
+                ensure_ascii=False)) if source_places else ""
         messages = [
-            {"role": "system", "content": self.prompt + "\nJSON Schema:\n" + json.dumps(self.schema, ensure_ascii=False)},
+            {"role": "system", "content": self.prompt + place_context + "\n" + task_instruction + "\nJSON Schema:\n" + json.dumps(self.schema, ensure_ascii=False)},
             {"role": "user", "content": source_text},
         ]
         failure = "INVALID_STRUCTURED_OUTPUT"
@@ -1776,6 +1938,10 @@ class ExperienceQwenProvider:
         restored_draft_attempt: int | None = None
         degraded_timing = 0
         grounded_days = 0
+        recovery_draft: SemanticDraft | None = None
+        recovery_partial: InferenceProposal | None = None
+        final_draft: SemanticDraft | None = None
+        semantic_partial_used = False
         try:
             async with asyncio.timeout(self.deadline_seconds):
                 for attempt in range(2):
@@ -1797,15 +1963,34 @@ class ExperienceQwenProvider:
                     call["reported_model"] = getattr(response, "model", None)
                     content = response.choices[0].message.content or ""
                     call["response_sha256"] = hashlib.sha256(content.encode()).hexdigest()
+                    draft: SemanticDraft | None = None
                     try:
                         if getattr(response.choices[0], "finish_reason", None) == "length":
+                            salvage = complete_activities_from_truncated_json(content)
+                            if salvage is not None:
+                                try:
+                                    draft = SemanticDraft.model_validate(salvage)
+                                except ValidationError:
+                                    draft = None
                             raise ValueError("OUTPUT_TRUNCATED")
                         draft = _expand_source_bound_lists(source_text, SemanticDraft.model_validate_json(content))
+                        if attempt == 1 and recovery_draft is not None and recovery_partial is not None:
+                            draft = merge_preserved_activities(source_text, recovery_draft, recovery_partial, draft)
                         proposal = proposal_from_draft(source_text, draft)
+                        if attempt == 1 and recovery_draft is not None:
+                            proposal = _retain_repair_omissions(source_text, recovery_draft, proposal)
+                        final_draft = draft
                     except (ValueError, ValidationError) as exc:
                         failure = "INVALID_STRUCTURED_OUTPUT" if isinstance(exc, ValidationError) else str(exc)
                         call["outcome"] = failure
                         call["validation_errors"] = _validation_issues(exc)
+                        checked_recovery = getattr(exc, "repair_draft", None) or draft
+                        if checked_recovery is not None:
+                            recovered = _recover_partial_proposal(source_text, checked_recovery,
+                                "OUTPUT_TRUNCATED" if str(exc) == "OUTPUT_TRUNCATED" else None)
+                            if recovered is not None and (recovery_partial is None or
+                                    len(recovered.mentions) > len(recovery_partial.mentions)):
+                                recovery_draft, recovery_partial = checked_recovery, recovered
                         if attempt == 1 and isinstance(exc, SourceAnchorValidationError) and exc.issues and all(
                             issue["category"] == "MISSING_EXPLICIT_DAY" for issue in exc.issues
                         ):
@@ -1822,6 +2007,7 @@ class ExperienceQwenProvider:
                                     for index, item in enumerate(checked_draft.activities)
                                 ]})
                                 proposal = proposal_from_draft(source_text, cleaned)
+                                final_draft = cleaned
                                 grounded_days = len(affected)
                                 break
                         if isinstance(exc, SourceAnchorValidationError) and exc.issues and all(
@@ -1854,6 +2040,7 @@ class ExperienceQwenProvider:
                                 candidate = candidate.model_copy(update={"unprocessed_count": candidate.unprocessed_count + len(affected)})
                                 if attempt == 1:
                                     proposal, degraded_timing = candidate, len(affected)
+                                    final_draft = cleaned
                                     break
                                 validated_partial = (candidate, len(affected))
                         if attempt == 0:
@@ -1876,7 +2063,15 @@ class ExperienceQwenProvider:
                 calls[-1]["outcome"] = failure
         if proposal is None and validated_partial is not None:
             proposal, degraded_timing = validated_partial
+            final_draft = recovery_draft
             restored_draft_attempt = 1
+        if proposal is None and recovery_partial is not None:
+            proposal = recovery_partial
+            final_draft = recovery_draft
+            semantic_partial_used = True
+            restored_draft_attempt = 1
+        if proposal is not None and final_draft is not None:
+            proposal = _with_coverage_diagnostics(source_text, final_draft, proposal, source_places)
         known_usage = all(isinstance(c.get("input_tokens"), int) and isinstance(c.get("output_tokens"), int) for c in calls)
         input_tokens = sum(int(c["input_tokens"]) for c in calls) if known_usage else None
         output_tokens = sum(int(c["output_tokens"]) for c in calls) if known_usage else None
@@ -1891,13 +2086,17 @@ class ExperienceQwenProvider:
             "temperature": SEMANTIC_TEMPERATURE,
             "repair_prompt_sha256": hashlib.sha256(REPAIR_INSTRUCTION.encode()).hexdigest(),
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),
-            "fallback_used": bool(degraded_timing or grounded_days), "degraded_timing_activities": degraded_timing,
+            "fallback_used": bool(degraded_timing or grounded_days or semantic_partial_used), "degraded_timing_activities": degraded_timing,
+            "semantic_partial_recovery": semantic_partial_used,
+            "semantic_diagnostic_counts": ({category: sum(issue.category == category for issue in proposal.diagnostics)
+                for category in sorted({issue.category for issue in proposal.diagnostics})} if proposal is not None else {}),
+            "known_source_place_count": len(source_places),
             "source_grounded_day_activities": grounded_days,
             "restored_validated_draft_attempt": restored_draft_attempt,
             "latency_ms": round((time.perf_counter() - started) * 1000, 2),
             "input_tokens": input_tokens, "output_tokens": output_tokens,
             "estimated_cost_cny": cost, "calls": calls,
-            "outcome": ("PARTIAL_RESULT" if degraded_timing else "SUCCESS") if proposal is not None else failure,
+            "outcome": ("PARTIAL_RESULT" if degraded_timing or proposal.unprocessed_count else "SUCCESS") if proposal is not None else failure,
         }
         if proposal is None:
             raise InferenceProviderUnavailableError(

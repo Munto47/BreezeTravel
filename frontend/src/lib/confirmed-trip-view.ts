@@ -5,8 +5,8 @@ import type { TripUnderstandingCommand, UserFacingTripResult } from './trip-unde
 export function confirmedDays(days: UserFacingTripResult['days']) {
   return days.map(day => ({ ...day,
     activities: day.activities.filter(card => card.status === 'READY'),
-    // These are source suggestions, not searched/verified places.
-    alternatives: [],
+    // Source alternatives stay in their separate, explicitly unconfirmed panel.
+    alternatives: day.alternatives || [],
   }))
 }
 

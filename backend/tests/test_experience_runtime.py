@@ -450,6 +450,7 @@ def test_runtime_ports_accept_valid_process_or_persisted_overrides(launcher, mon
     private_env = tmp_path / "experience.env"
     private_env.write_text('EXPERIENCE_API_PORT="18106"\n', encoding="utf-8")
     monkeypatch.setattr(launcher, "ENV_FILE", private_env)
+    monkeypatch.delenv("EXPERIENCE_API_PORT", raising=False)
     assert launcher.resolve_port("EXPERIENCE_API_PORT", 8006) == 18106
 
     monkeypatch.setenv("EXPERIENCE_API_PORT", "18116")

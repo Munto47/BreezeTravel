@@ -37,7 +37,15 @@ function fixtureResult() {
 }
 async function fixture(page, options = {}) {
   const original = fixtureResult()
-  const state = { result: structuredClone(original), commands: [], searches: [], mapPosts: 0, version: 0 }
+  const state = { result: structuredClone(original), commands: [], searches: [], mapPosts: 0, diningPosts:0, stays:[], version: 0 }
+  if (options.meals) {
+    state.result.days[0].activities = [card('青溪公园','景点','READY','park'),card('青溪博物馆','景点','READY','museum')]
+    state.result.days[1].activities = [card('原文午餐餐厅','餐饮','READY','lunch')]
+  }
+  if (options.segments) state.result.stay = { ...state.result.stay, status:'LIMITED', message:'按过夜行程分别选择住宿。',
+    segments:['广州','深圳'].map((city,index) => ({segment_token:`segment-${index}`,city,overnight_days:[`Day ${index+1}`],status:'AVAILABLE',message:'比较当晚最后一站和次日第一站。',preserved_hotels:[],candidates:[{
+      candidate_token:`stay-synthetic-${index}-00000000`,name:`合成${city}连锁酒店`,brand:'合成品牌',brand_note:'合成门店核验说明',category:'住宿',area_or_address:'合成测试地址',commute_summary:'部分通勤尚未确认',reason:'合成建议',available_actions:['CHOOSE_STAY'],selected:false,
+    }]})) }
   if (options.brokenPhoto) state.result.days[0].activities[1].photo_url = 'https://store.is.autonavi.com/synthetic-broken.jpg'
   if (options.allMissing) state.result.days.forEach(d => d.activities.forEach(c => { c.status = 'NEEDS_CONFIRMATION' }))
   if (options.historicPlaces) {
@@ -66,6 +74,20 @@ async function fixture(page, options = {}) {
     }, 202) : reply(state.result)
     if (action === '/map-renders/latest') return reply({ ...state.result.map, points: [], days: state.result.map.days || [] })
     if (action === '/stay-suggestions') return reply(state.result.stay)
+    if (action === '/stay-selection') {
+      state.stays.push(request.postDataJSON().candidate_token)
+      state.result.stay.segments.flatMap(s=>s.candidates).forEach(c=>{c.selected=state.stays.includes(c.candidate_token)})
+      state.version++
+      return reply({status:'APPLIED',selected_stay:'合成酒店',overnight_days:['Day 1'],map_readiness:'NEEDS_UPDATE'})
+    }
+    if (action === '/daily-dining') {
+      if (request.method()==='POST') state.diningPosts++
+      if (!options.meals) return reply({status:'UNAVAILABLE',message:'合成用餐查询未配置。',days:[]})
+      if (state.version && !state.diningPosts) return reply({status:'NEEDS_UPDATE',message:'行程已调整，请更新用餐建议。',days:[]})
+      return reply({status:'AVAILABLE',message:'中途用餐建议',days:[{day_index:1,label:'Day 1',status:'AVAILABLE',message:'选择后才加入行程。',area:'合成商圈',next_name:'青溪博物馆',after_activity_token:state.result.days[0].activities[0].activity_token,candidates:[{
+        candidate_token:'synthetic-daily-meal-token',name:'合成中途餐厅',area_or_address:'合成商圈店址',reason:'经此店前往下一站约多6分钟。',extra_minutes:6,recommended:true,
+      }]},{day_index:2,label:'Day 2',status:'EXISTING',message:'已安排原文午餐餐厅，可在地点卡片更换。',candidates:[]}]})
+    }
     if (action === '/supplementary') return reply({ status: 'AVAILABLE', days: [] })
     if (action === '/materialize') return reply({ status: 'READY', message: '行程已准备。', calendar: '按日期', party_size: 2, checks_available: true })
     if (action === '/checks') return reply({ status: 'STILL_NEEDS_CONFIRMATION', message: '路线资料不足。', items: [], remaining_must_adjust: 0, available_actions: [] })
@@ -86,6 +108,10 @@ async function fixture(page, options = {}) {
         days[command.target_day_index - 1].activities.splice(command.target_position, 0, moved)
       } else if (command.command_type === 'ACTIVITY_INSERT') {
         days[command.day_index - 1].activities.splice(command.position, 0, card(command.name, '地点', 'NEEDS_CONFIRMATION', 'new'))
+      } else if (command.command_type === 'DINING_INSERT') {
+        const day = days.find(d=>d.activities.some(c=>c.activity_token===command.after_activity_token))
+        const index = day.activities.findIndex(c=>c.activity_token===command.after_activity_token)
+        day.activities.splice(index+1,0,card('合成中途餐厅','餐饮','READY','daily-meal'))
       } else return reply({}, 400)
       state.version++; state.result.can_undo = command.command_type !== 'UNDO'
       state.result.map = { status: 'NEEDS_UPDATE', message: '路线需要手动更新。', available_actions: ['RENDER_MAP'] }
@@ -102,7 +128,7 @@ async function fixture(page, options = {}) {
 test('filter preserves original records, truthful status, empty days and positional commands', () => {
   const raw = fixtureResult(), before = JSON.stringify(raw), shown = view.confirmedTripView(raw)
   expect(shown.days.map(d => d.activities.length)).toEqual([9, 0])
-  expect(shown.days[0].alternatives).toEqual([])
+  expect(shown.days[0].alternatives).toEqual(raw.days[0].alternatives)
   expect(shown.status).toBe('PARTIAL_RESULT')
   expect(JSON.stringify(raw)).toBe(before)
   const token = raw.days[0].activities[1].activity_token
@@ -130,7 +156,8 @@ for (const width of [1440, 1280, 390, 360]) test(`confirmed-only cards and nine 
     await expect.poll(() => photo.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true)
   }
   await expect(page.getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
-  await expect(page.getByTestId('day-alternatives-1')).toHaveCount(0)
+  await expect(page.getByTestId('day-alternatives-1')).toHaveCount(1)
+  await expect(page.getByRole('heading',{name:'尚未查询的备选',exact:true})).toHaveCount(0)
   await expect(page.getByTestId('unmatched-places-note')).toContainText('3 项')
   await expect(page.getByText('类型配图', { exact: true })).toHaveCount(0)
   await page.reload()
@@ -292,5 +319,57 @@ test('adding a place searches before a new confirmed card appears', async ({ pag
   await page.getByRole('button', { name: '使用这个地点', exact: true }).click()
   await expect(page.getByRole('heading', { name: '雨湖餐厅', exact: true })).toBeVisible()
   expect(state.commands.map(c => c.command_type)).toEqual(['ACTIVITY_INSERT', 'PLACE_CONFIRM'])
+  expect(state.mapPosts).toBe(0)
+})
+
+
+for (const width of [1440,390]) test(`daily dining adopts once and editing requires explicit update at ${width}px`, async ({page}) => {
+  await page.setViewportSize({width,height:900})
+  const state = await fixture(page,{meals:true})
+  const meals = page.getByTestId('daily-meal-card')
+  await expect(meals).toHaveCount(2)
+  await expect(meals.first()).toContainText('合成商圈')
+  await expect(meals.nth(1)).toContainText('已安排原文午餐餐厅')
+  await expect(meals.nth(1).getByRole('button',{name:'加入行程'})).toHaveCount(0)
+  expect(state.commands).toHaveLength(0)
+  await meals.first().getByRole('button',{name:'加入行程'}).dblclick()
+  await expect(page.getByRole('heading',{name:'合成中途餐厅',exact:true})).toBeVisible()
+  expect(state.commands.filter(c=>c.command_type==='DINING_INSERT')).toHaveLength(1)
+  await expect(meals.first()).toContainText('行程已调整')
+  expect(state.mapPosts).toBe(0)
+  expect(state.diningPosts).toBe(0)
+  await meals.first().getByRole('button',{name:'更新用餐建议'}).click()
+  await expect.poll(()=>state.diningPosts).toBe(1)
+  expect(state.mapPosts).toBe(0)
+  await page.screenshot({path:`test-results/daily-dining-${width}.png`,fullPage:true})
+})
+
+test('unresolved places can be recovered without showing unconfirmed main cards',async ({page})=>{
+  const state = await fixture(page)
+  await page.getByTestId('unmatched-places-note').click()
+  const recover = page.getByTestId('unresolved-places')
+  await recover.getByRole('button',{name:'未匹配的地点一 · 北京 · 确认地点',exact:true}).click()
+  await recover.getByRole('button',{name:'搜索',exact:true}).click()
+  await recover.getByRole('button',{name:/雨湖餐厅.*合成新地址/}).click()
+  await recover.getByRole('button',{name:'使用这个地点',exact:true}).click()
+  await expect(page.getByRole('heading',{name:'雨湖餐厅',exact:true})).toBeVisible()
+  await expect(page.getByTestId('unmatched-places-note')).toContainText('2 项')
+  expect(state.commands[0].command_type).toBe('PLACE_CONFIRM')
+  expect(state.mapPosts).toBe(0)
+})
+
+test('all overnight cities stay visible and a choice retains the remaining segment',async ({page})=>{
+  await page.setViewportSize({width:1440,height:900})
+  const state=await fixture(page,{segments:true})
+  await page.getByTestId('desktop-nav-map_stay').click()
+  await page.getByTestId('stay-panel').locator('summary').click()
+  const panel=page.getByTestId('stay-panel')
+  await expect(panel.getByTestId('stay-segment')).toHaveCount(2)
+  await expect(panel).toContainText('合成广州连锁酒店')
+  await expect(panel).toContainText('合成深圳连锁酒店')
+  await expect(panel).toContainText('部分通勤尚未确认')
+  await panel.getByTestId('choose-stay').first().click()
+  await expect.poll(()=>state.stays.length).toBe(1)
+  await expect(panel.getByTestId('choose-stay').nth(1)).toBeEnabled()
   expect(state.mapPosts).toBe(0)
 })

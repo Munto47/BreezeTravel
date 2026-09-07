@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import re
@@ -27,6 +28,7 @@ from app.trip_understanding._three_city_place_lexicon import (
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
 from app.trip_understanding.city_scope import CityScope, CityScopeLookup
+from app.trip_understanding.city_knowledge import get_city_knowledge
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace, safe_poi_photo_url
 from app.trip_understanding.pipeline import atomic_place_rejection_reason, canonical_sha256
@@ -803,6 +805,9 @@ def _minimal_call_receipt(
         "latency_ms": receipt.get("latency_ms", 0.0),
         "observed_at": receipt.get("observed_at", "NOT_COMPLETED"),
         "typecodes": receipt.get("typecodes", []),
+        "external_calls": receipt.get("external_calls", 1),
+        "retry_count": receipt.get("retry_count", 0),
+        "retry_events": receipt.get("retry_events", []),
         "raw_provider_response_retained": False,
     }
 
@@ -833,7 +838,8 @@ def _combine_rewrite_receipts(
             sum(float(call["latency_ms"]) for call in calls),
             3,
         ),
-        "external_calls": 2,
+        "external_calls": int(primary.get("external_calls", 1)) + int(rewrite.get("external_calls", 1)),
+        "retry_count": int(primary.get("retry_count", 0)) + int(rewrite.get("retry_count", 0)),
         "rewrite_count": 1,
         "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
         "primary_typecodes": primary.get("typecodes", []),
@@ -853,6 +859,8 @@ class AmapPlaceResolver:
         endpoint: str = AMAP_POI_V2_ENDPOINT,
         deadline_seconds: float = 3.0,
         client: httpx.AsyncClient | None = None,
+        success_cache_seconds: float = 900.0,
+        success_cache_size: int = 256,
     ) -> None:
         if not api_key:
             raise ValueError("Amap API key is required")
@@ -866,6 +874,10 @@ class AmapPlaceResolver:
         self.client = client
         self._owned_client: httpx.AsyncClient | None = None
         self._city_scopes = CityScopeLookup()
+        self._success_cache_seconds = max(0.0, min(success_cache_seconds, 3600.0))
+        self._success_cache_size = max(0, min(success_cache_size, 1024))
+        self._success_cache: dict[tuple, tuple[float, PlaceResolutionOutcome]] = {}
+        self._inflight: dict[tuple, asyncio.Task] = {}
 
     async def city_scope(self, city: str, receipt: dict | None = None) -> CityScope | None:
         return await self._city_scopes.get(city, client=self._http_client(), api_key=self.api_key, timeout=self.deadline_seconds, receipt=receipt)
@@ -878,6 +890,13 @@ class AmapPlaceResolver:
         return self._owned_client
 
     async def aclose(self) -> None:
+        pending = list(self._inflight.values())
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        self._inflight.clear()
+        self._success_cache.clear()
         if self._owned_client is not None:
             await self._owned_client.aclose()
             self._owned_client = None
@@ -951,12 +970,33 @@ class AmapPlaceResolver:
         }
         started = time.perf_counter()
         observed_at = datetime.now(UTC)
+        attempts = 0
+        retry_events = []
         try:
-            response = await self._http_client().get(
-                self.endpoint,
-                params=params,
-                timeout=self.deadline_seconds,
-            )
+            for attempt in range(2):
+                remaining = self.deadline_seconds - (time.perf_counter() - started)
+                if remaining <= 0:
+                    raise httpx.ReadTimeout("POI query deadline exhausted")
+                attempts += 1
+                try:
+                    try:
+                        response = await asyncio.wait_for(self._http_client().get(
+                            self.endpoint, params=params, timeout=remaining), timeout=remaining)
+                    except TimeoutError as error:
+                        raise httpx.ReadTimeout("POI query deadline exhausted") from error
+                    # Retry transport and temporary upstream failures once inside
+                    # the original deadline. Quota/auth/invalid data are not retried.
+                    if attempt == 0 and response.status_code in {502, 503, 504}:
+                        retry_events.append({"attempt": attempts, "reason": "TEMPORARY_HTTP", "http_status": response.status_code})
+                        budget_left = self.deadline_seconds - (time.perf_counter() - started)
+                        await asyncio.sleep(min(0.05, max(0, budget_left / 10)))
+                        continue
+                    break
+                except httpx.TransportError as error:
+                    if attempt or time.perf_counter() - started >= self.deadline_seconds:
+                        raise
+                    retry_events.append({"attempt": attempts, "reason": type(error).__name__})
+                    await asyncio.sleep(0)
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as exc:
@@ -965,8 +1005,11 @@ class AmapPlaceResolver:
                 provider_binding={
                     **request_binding,
                     "latency_ms": round((time.perf_counter() - started) * 1000, 3),
+                    "retry_events": retry_events,
+                    "retry_count": max(0, attempts - 1),
+                    "external_calls": attempts,
                 },
-                external_call_count=1,
+                external_call_count=attempts,
             ) from exc
         except (httpx.HTTPError, ValueError) as exc:
             raise PlaceProviderUnavailableError(
@@ -974,8 +1017,11 @@ class AmapPlaceResolver:
                 provider_binding={
                     **request_binding,
                     "latency_ms": round((time.perf_counter() - started) * 1000, 3),
+                    "retry_events": retry_events,
+                    "retry_count": max(0, attempts - 1),
+                    "external_calls": attempts,
                 },
-                external_call_count=1,
+                external_call_count=attempts,
             ) from exc
 
         latency_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -983,7 +1029,7 @@ class AmapPlaceResolver:
             raise PlaceProviderUnavailableError(
                 "INVALID_PROVIDER_RESPONSE",
                 provider_binding={**request_binding, "latency_ms": latency_ms},
-                external_call_count=1,
+                external_call_count=attempts,
             )
         base_receipt: dict[str, object] = {
             **request_binding,
@@ -992,7 +1038,9 @@ class AmapPlaceResolver:
             "http_status": response.status_code,
             "latency_ms": latency_ms,
             "observed_at": observed_at.isoformat().replace("+00:00", "Z"),
-            "external_calls": 1,
+            "external_calls": attempts,
+            "retry_events": retry_events,
+            "retry_count": max(0, attempts - 1),
         }
         if payload.get("status") != "1" or payload.get("infocode") not in {None, "10000"}:
             raise PlaceProviderUnavailableError(
@@ -1001,10 +1049,13 @@ class AmapPlaceResolver:
                     **base_receipt,
                     "infocode": str(payload.get("infocode") or "NOT_EXPOSED_BY_PROVIDER"),
                 },
-                external_call_count=1,
+                external_call_count=attempts,
             )
         raw_pois = payload.get("pois")
-        pois = [item for item in raw_pois if isinstance(item, dict)] if isinstance(raw_pois, list) else []
+        if not isinstance(raw_pois, list) or any(not isinstance(item, dict) for item in raw_pois):
+            raise PlaceProviderUnavailableError("INVALID_PROVIDER_RESPONSE", provider_binding=base_receipt,
+                external_call_count=attempts)
+        pois = raw_pois
         return pois, base_receipt
 
     @staticmethod
@@ -1044,7 +1095,65 @@ class AmapPlaceResolver:
         )
         return PlaceResolutionOutcome(place=place, receipt=provider_binding)
 
+    @staticmethod
+    def _reused(outcome: PlaceResolutionOutcome, mode: str) -> PlaceResolutionOutcome:
+        copy = outcome.model_copy(deep=True)
+        receipt = {**copy.receipt, "external_calls": 0, "cache_reuse": mode,
+            "source_external_calls": copy.receipt.get("external_calls", 0)}
+        if "calls" in receipt:
+            receipt["source_calls"] = receipt.pop("calls")
+        if "retry_events" in receipt:
+            receipt["source_retry_events"] = receipt.pop("retry_events")
+            receipt["retry_count"] = 0
+        if isinstance(receipt.get("city_scope"), dict):
+            scope_receipt = dict(receipt["city_scope"])
+            receipt["city_scope"] = {**scope_receipt, "external_calls": 0, "cache_hit": True,
+                "calls": [], "source_calls": scope_receipt.get("calls", [])}
+        place = copy.place.model_copy(update={"provider_binding": receipt}) if copy.place else None
+        return copy.model_copy(update={"receipt": receipt, "place": place})
+
     async def resolve(
+        self, *, city: str, atomic_place_name: str, category_hint: str | None = None,
+        _allow_lexical_category: bool = True,
+    ) -> PlaceResolutionOutcome:
+        key = (_normalized_city(city), atomic_place_name.strip(), category_hint, _allow_lexical_category)
+        cached = self._success_cache.get(key)
+        if cached is not None:
+            if time.monotonic() - cached[0] < self._success_cache_seconds:
+                return self._reused(cached[1], "SUCCESS_CACHE")
+            self._success_cache.pop(key, None)
+        task = self._inflight.get(key)
+        if task is not None:
+            try:
+                outcome = await asyncio.shield(task)
+            except PlaceProviderUnavailableError as error:
+                reused = self._reused(PlaceResolutionOutcome(receipt={**error.provider_binding,
+                    "external_calls": error.external_call_count}), "INFLIGHT_COALESCED")
+                raise PlaceProviderUnavailableError(error.category, provider_binding=reused.receipt,
+                    external_call_count=0) from None
+            return self._reused(outcome, "INFLIGHT_COALESCED")
+
+        async def run():
+            try:
+                outcome = await self._resolve_uncached(city=city, atomic_place_name=atomic_place_name,
+                    category_hint=category_hint, _allow_lexical_category=_allow_lexical_category)
+                # Missing/ambiguous/unavailable outcomes never poison later retry.
+                if outcome.place is not None and self._success_cache_seconds and self._success_cache_size:
+                    if len(self._success_cache) >= self._success_cache_size:
+                        self._success_cache.pop(next(iter(self._success_cache)))
+                    self._success_cache[key] = (time.monotonic(), outcome.model_copy(deep=True))
+                return outcome
+            finally:
+                self._inflight.pop(key, None)
+
+        task = asyncio.create_task(run())
+        self._inflight[key] = task
+        # If the initiating waiter disconnects, consume eventual exceptions while
+        # keeping a concurrent waiter's shared provider operation alive.
+        task.add_done_callback(lambda finished: finished.exception() if not finished.cancelled() else None)
+        return await asyncio.shield(task)
+
+    async def _resolve_uncached(
         self,
         *,
         city: str,
@@ -1081,6 +1190,10 @@ class AmapPlaceResolver:
 
         lexicon = get_three_city_place_lexicon()
         lookup = lexicon.lookup(city=normalized_city, name=atomic) if lexicon.available else None
+        knowledge = get_city_knowledge()
+        reviewed_lookup = knowledge.query_lookup(city=normalized_city, name=atomic)
+        if reviewed_lookup.matches:
+            lookup = reviewed_lookup
         if lookup is not None and lookup.tier is LexiconMatchTier.VENUE_SUFFIX_EQUIVALENT:
             # The query lexicon also offers stem-only suggestions. They cannot
             # supply a missing venue identity before provider confirmation.
@@ -1095,6 +1208,8 @@ class AmapPlaceResolver:
             "lexicon_status": "UNAVAILABLE" if not lexicon.available else "MISS",
             "lexicon_match_tier": LexiconMatchTier.NONE.value,
             "lexicon_rewrite_applied": False,
+            "lexicon_provenance": "OFFICIAL_NAME_ONLY" if reviewed_lookup.matches else "LEGACY_LEAD",
+            "knowledge_version": knowledge.versions.get(normalized_city),
             **({"city_scope": city_receipt} if city_receipt else {}),
         }
         query_name = atomic
@@ -1214,12 +1329,12 @@ class AmapPlaceResolver:
                         **failure,
                         "primary_request_sha256": primary_receipt["request_sha256"],
                         "primary_response_sha256": primary_receipt["response_sha256"],
-                        "external_calls": 1 + exc.external_call_count,
+                        "external_calls": int(primary_receipt.get("external_calls", 1)) + exc.external_call_count,
                         "rewrite_count": 1,
                         "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
                         "raw_provider_response_retained": False,
                     },
-                    external_call_count=1 + exc.external_call_count,
+                    external_call_count=int(primary_receipt.get("external_calls", 1)) + exc.external_call_count,
                 ) from exc
             rewrite_decision = _evaluate_candidates(
                 rewrite_pois,

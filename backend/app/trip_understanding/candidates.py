@@ -21,6 +21,7 @@ from app.trip_understanding.amap_place import (
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
 from app.trip_understanding.models import StrictModel
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
+from app.trip_understanding.city_knowledge import get_city_knowledge
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
 
@@ -43,6 +44,7 @@ class CandidatePlace(StrictModel):
     category: str
     area_or_address: str
     position: GCJ02Position
+    business_area: str | None = None
 
     def receipt(self) -> dict:
         return {"status": "USER_CONFIRMED", "provider": "AMAP_POI_V2",
@@ -56,6 +58,7 @@ class PublicPlaceCandidate(StrictModel):
     category: str
     area_or_address: str
     position: GCJ02Position
+    business_area: str | None = None
 
 
 class CandidateSearchView(StrictModel):
@@ -98,12 +101,22 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
         return []
     expected = _expected_category(category_hint)
     hint = landmark_hint(city, query.strip()) if expected in {None, PlaceCategory.ATTRACTION} else None
+    reviewed = get_city_knowledge().query_lookup(city=city, name=query.strip())
+    entry = reviewed.unique
+    if entry is not None and (len(entry.canonical_name) > 40 or expected not in {None, PlaceCategory(entry.category)}):
+        entry = None
+    # A colliding alias stays the user's literal search, with ordinary candidate
+    # filtering. The name catalog cannot pick one physical place for the user.
+    if reviewed.matches:
+        hint = None
+    canonical = entry.canonical_name if entry else hint.name if hint else query.strip()
+    aliases = entry.aliases if entry else hint.aliases if hint else ()
     provider = AmapPlaceResolver(api_key=settings.amap_api_key)
     try:
         scope = await provider.city_scope(city) if city not in _CITY_BOUNDS else None
         if city not in _CITY_BOUNDS and scope is None:
             return []
-        rows, _receipt = await provider._query_provider(city=city, query_name=hint.name if hint else query.strip(),
+        rows, _receipt = await provider._query_provider(city=city, query_name=canonical,
             original_atomic=query.strip(), category_basis="USER_SEARCH", typecodes=[], lexicon_binding={})
     except PlaceProviderUnavailableError:
         return None
@@ -143,8 +156,6 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
             area_or_address=str(address)[:120] if isinstance(address, str) and address else str(row.get("adname") or city),
             position=GCJ02Position(longitude=coordinates[0], latitude=coordinates[1]))
     # Rank before truncation; generic keyword search still offers related POIs.
-    canonical = hint.name if hint else query.strip()
-    aliases = hint.aliases if hint else ()
     tiers = {"CANONICAL_EXACT": 0, "SAFE_ALIAS_EXACT": 1, "VENUE_SUFFIX_EQUIVALENT": 2}
     return sorted(places.values(), key=lambda place: tiers.get(_name_match_tier(
         {"name": place.name}, canonical_name=canonical, safe_aliases=aliases, city=city), 3))[:6]

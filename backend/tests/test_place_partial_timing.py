@@ -3,7 +3,6 @@ import json
 
 import pytest
 
-from app.trip_understanding.errors import InferenceProviderUnavailableError
 from app.trip_understanding.full_text import ControlledSnapshotPlaceResolver
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
 from tests.test_experience_inference import Client, provider
@@ -52,6 +51,10 @@ async def test_unverified_timing_cannot_rescue_an_invented_place():
     bad["activities"][0]["place_name"] = "原文不存在的分店"
     payload = json.dumps(bad, ensure_ascii=False)
     client = Client(payload, payload)
-    with pytest.raises(InferenceProviderUnavailableError):
-        await provider(client).propose(SOURCE)
+    result = await TripUnderstandingPipeline(provider(client), ControlledSnapshotPlaceResolver()).run(SOURCE)
+    assert [mention.atomic_place_name for mention in result.proposal.mentions] == ["景山公园"]
+    assert result.public_result.status == "PARTIAL_RESULT"
+    assert result.resolution_receipt["attempted_count"] == 1
+    assert result.proposal.diagnostics
+    assert all(item.place is None or item.place.name != "原文不存在的分店" for item in result.activities)
     assert len(client.calls) == 2

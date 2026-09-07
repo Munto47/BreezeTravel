@@ -28,6 +28,9 @@ def test_http_explicit_city_overrides_card_without_changing_other_cards_or_auto_
     calls = []
     async def search(**kwargs):
         calls.append(kwargs)
+        if kwargs["city"] == "成都":
+            return [CandidatePlace(canonical_place_id="synthetic-chengdu-poi", city="成都", name="星河公园",
+                category="景点", area_or_address="武侯区", position=GCJ02Position(longitude=104.04, latitude=30.64))]
         return [shanghai_place()]
     app.dependency_overrides[api.get_place_candidate_search] = lambda: search
     with TestClient(app) as client:
@@ -44,8 +47,10 @@ def test_http_explicit_city_overrides_card_without_changing_other_cards_or_auto_
         cards = before.json()["days"][0]["activities"]
         token = cards[0]["activity_token"]
         body = {"activity_token": token, "query": "上海博物馆东馆", "city": "上海"}
-        assert client.post(base + "/place-candidates", json={**body, "city": "成都"}).status_code == 422
-        assert calls == []
+        ordinary_city = client.post(base + "/place-candidates", json={**body, "city": "成都", "query": "星河公园"})
+        assert ordinary_city.status_code == 200
+        assert calls[-1]["city"] == "成都"
+        assert ordinary_city.json()["candidates"][0]["name"] == "星河公园"
         # Old clients can omit the optional field and retain the current city.
         assert client.post(base + "/place-candidates", json={"activity_token": token, "query": "故宫"}).status_code == 200
         assert calls[-1]["city"] == "北京"

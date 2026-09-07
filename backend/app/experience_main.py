@@ -42,6 +42,7 @@ from app.trip_understanding.map_worker import (
 )
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 from app.trip_understanding.worker import TripUnderstandingWorker, build_configured_full_pipeline
+from app.trip_understanding.dining_jobs import DailyDiningWorker
 from app.utils.auth import get_optional_user
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,7 @@ async def lifespan(app: FastAPI):
             tasks.extend([
                 asyncio.create_task(_work_loop(understanding, stop, cfg.trip_understanding_worker_poll_seconds)),
                 asyncio.create_task(_work_loop(maps, stop, cfg.map_render_worker_poll_seconds)),
+                asyncio.create_task(_work_loop(DailyDiningWorker(repository), stop, cfg.map_render_worker_poll_seconds)),
                 asyncio.create_task(_maintain(repository, stop, cfg.experience_maintenance_seconds)),
             ])
         app.state.ready = True

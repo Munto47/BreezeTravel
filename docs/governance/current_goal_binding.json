@@ -1,8 +1,8 @@
 {
   "schema_version": "experience-goal-v1",
-  "goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
+  "goal_id": "FIVE-CITY-EXPERIENCE",
   "status": "IN_PROGRESS",
-  "stage": 3,
+  "stage": 5,
   "product_contract_path": "docs/product/PROJECT_CHARTER.md",
   "implementation_plan_path": "docs/governance/IMPLEMENTATION_PLAN.md",
   "gate_profile": "EXPERIENCE_DELIVERY",

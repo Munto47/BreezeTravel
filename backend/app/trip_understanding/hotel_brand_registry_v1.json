@@ -1,28 +1,273 @@
 {
-  "schema_version": "hotel-brand-registry-v1",
-  "source_policy": "versioned-product-curation-no-price-or-quality-claims",
+  "schema_version": "hotel-brand-registry-v2",
+  "source_policy": "official-brand-and-property-identity-no-price-availability-or-quality-guarantee",
   "brands": [
-    {"brand": "亚朵", "aliases": ["亚朵"]},
-    {"brand": "桔子", "aliases": ["桔子水晶", "桔子酒店"]},
-    {"brand": "汉庭", "aliases": ["汉庭"]},
-    {"brand": "全季", "aliases": ["全季"]},
-    {"brand": "如家", "aliases": ["如家"]},
-    {"brand": "和颐", "aliases": ["和颐"]},
-    {"brand": "宜必思", "aliases": ["宜必思"]},
-    {"brand": "城市便捷", "aliases": ["城市便捷"]},
-    {"brand": "洲际", "aliases": ["洲际"]},
-    {"brand": "万豪", "aliases": ["万豪"]},
-    {"brand": "希尔顿", "aliases": ["希尔顿"]},
-    {"brand": "开元", "aliases": ["开元"]},
-    {"brand": "维景", "aliases": ["维景"]},
-    {"brand": "华尔道夫", "aliases": ["华尔道夫"]},
-    {"brand": "瑰丽", "aliases": ["瑰丽"]},
-    {"brand": "瑜舍", "aliases": ["瑜舍"]},
-    {"brand": "W酒店", "aliases": ["W酒店", "万象城W"]},
-    {"brand": "瑞吉", "aliases": ["瑞吉"]},
-    {"brand": "香格里拉", "aliases": ["香格里拉"]},
-    {"brand": "君悦", "aliases": ["君悦"]},
-    {"brand": "北京饭店", "aliases": ["北京饭店"]},
-    {"brand": "西湖国宾馆", "aliases": ["西湖国宾馆"]}
+    {
+      "brand": "亚朵",
+      "aliases": [
+        "亚朵"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "桔子",
+      "aliases": [
+        "桔子水晶",
+        "桔子酒店"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://hrewards.huazhu.com/hotel/brand",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "汉庭",
+      "aliases": [
+        "汉庭"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://hrewards.huazhu.com/hotel/brand",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "全季",
+      "aliases": [
+        "全季"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://hrewards.huazhu.com/hotel/brand",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "如家",
+      "aliases": [
+        "如家"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "和颐",
+      "aliases": [
+        "和颐"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "宜必思",
+      "aliases": [
+        "宜必思"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "城市便捷",
+      "aliases": [
+        "城市便捷"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "洲际",
+      "aliases": [
+        "洲际"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "万豪",
+      "aliases": [
+        "万豪"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "希尔顿",
+      "aliases": [
+        "希尔顿"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "开元",
+      "aliases": [
+        "开元"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "维景",
+      "aliases": [
+        "维景"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "华尔道夫",
+      "aliases": [
+        "华尔道夫"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "瑰丽",
+      "aliases": [
+        "瑰丽"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "瑜舍",
+      "aliases": [
+        "瑜舍"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "W酒店",
+      "aliases": [
+        "W酒店",
+        "万象城W"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "瑞吉",
+      "aliases": [
+        "瑞吉"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "香格里拉",
+      "aliases": [
+        "香格里拉"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "君悦",
+      "aliases": [
+        "君悦"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "北京饭店",
+      "aliases": [
+        "北京饭店"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "西湖国宾馆",
+      "aliases": [
+        "西湖国宾馆"
+      ],
+      "priority": 1
+    }
+  ],
+  "properties": [
+    {
+      "city": "北京",
+      "brand": "汉庭",
+      "name": "汉庭北京前门大街酒店",
+      "name_tokens": [
+        "汉庭",
+        "前门大街"
+      ],
+      "address": "北京市西城区西经路1号",
+      "address_tokens": [
+        "西经路1号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/1000501",
+      "checked_at": "2026-09-07",
+      "status": "LISTED"
+    },
+    {
+      "city": "上海",
+      "brand": "汉庭",
+      "name": "汉庭上海南京路步行街中心酒店",
+      "name_tokens": [
+        "汉庭",
+        "南京路步行街",
+        "中心"
+      ],
+      "address": "上海市黄浦区浙江中路400号",
+      "address_tokens": [
+        "浙江中路400号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000048",
+      "checked_at": "2026-09-07",
+      "status": "LISTED"
+    },
+    {
+      "city": "广州",
+      "brand": "全季",
+      "name": "全季广州北京路步行街大德路酒店",
+      "name_tokens": [
+        "全季",
+        "北京路",
+        "大德路"
+      ],
+      "address": "广州市越秀区大德路318号",
+      "address_tokens": [
+        "大德路318号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9019752",
+      "checked_at": "2026-09-07",
+      "status": "LISTED"
+    },
+    {
+      "city": "深圳",
+      "brand": "全季",
+      "name": "全季深圳华强北体育中心酒店",
+      "name_tokens": [
+        "全季",
+        "华强北",
+        "体育中心"
+      ],
+      "address": "华强北路4014号",
+      "address_tokens": [
+        "华强北路4014号"
+      ],
+      "source_url": "https://m.huazhu.com/list/shenzhen-SZHQBSYQ-quanji",
+      "checked_at": "2026-09-07",
+      "status": "LISTED"
+    },
+    {
+      "city": "杭州",
+      "brand": "全季",
+      "name": "全季杭州西湖湖滨步行街酒店",
+      "name_tokens": [
+        "全季",
+        "西湖",
+        "湖滨步行街"
+      ],
+      "address": "杭州市上城区延安路303号",
+      "address_tokens": [
+        "延安路303号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9001570",
+      "checked_at": "2026-09-07",
+      "status": "LISTED"
+    },
+    {
+      "city": "杭州",
+      "brand": "全季",
+      "name": "全季杭州西湖湖滨酒店",
+      "name_tokens": [
+        "全季",
+        "西湖湖滨"
+      ],
+      "address": "杭州市上城区开元路66号",
+      "address_tokens": [
+        "开元路66号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000118",
+      "checked_at": "2026-09-07",
+      "status": "SUSPENDED"
+    }
   ]
 }

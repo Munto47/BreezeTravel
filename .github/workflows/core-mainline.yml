@@ -63,23 +63,7 @@ jobs:
       - name: Verify API, places, privacy, edits and map behavior
         working-directory: backend
         run: >-
-          python -m pytest -q
-          tests/test_experience_delivery_contract.py
-          tests/test_trip_understanding_v3.py
-          tests/test_trip_understanding_v3_api.py
-          tests/test_experience_inference.py
-          tests/test_experience_runtime.py
-          tests/test_experience_twelve_tasks.py
-          tests/test_experience_timing_candidates.py
-          tests/test_amap_trip_understanding.py
-          tests/test_place_identity_safety.py
-          tests/test_experience_source_anchors.py
-          tests/test_amap_route_trip_understanding.py
-          tests/test_g03r_place_resolution.py
-          tests/test_g02_map_stay.py
-          tests/test_g03_top3_audit.py
-          tests/test_g06_memory_share_targeted.py
-          --junitxml=product-backend.xml
+          python -m scripts.run_product_checks backend -- --junitxml=product-backend.xml
       - name: Preserve backend results
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,19 +112,7 @@ jobs:
       - name: Verify durable state, concurrency, map edits and deletion
         working-directory: backend
         run: >-
-          python -m pytest -q
-          tests/test_trip_understanding_v3_postgres.py
-          tests/test_g01_map_positive_postgres.py
-          tests/test_g02_map_stay_postgres.py
-          tests/test_g03_top3_audit_postgres.py
-          tests/test_g06_memory_share_postgres.py
-          tests/test_experience_v3_journey.py
-          tests/test_experience_source_deletion.py
-          tests/test_experience_source_api.py
-          tests/test_experience_retention.py
-          tests/test_experience_readback.py
-          tests/test_schedule_propagation.py
-          --junitxml=product-postgres.xml
+          python -m scripts.run_product_checks postgres -- --junitxml=product-postgres.xml
       - name: Confirm database checks actually ran
         working-directory: backend
         run: |
@@ -250,7 +222,7 @@ jobs:
           PY
       - name: Verify local browser journeys without external credentials
         working-directory: frontend
-        run: npx playwright test e2e/experience.spec.js -c playwright.experience.config.js --grep-invert @live
+        run: python ../backend/scripts/run_product_checks.py browser-core
       - name: Preserve core browser result before the next suite
         if: always()
         run: cp frontend/test-results/experience-report.json frontend/experience-core-report.json
@@ -265,7 +237,13 @@ jobs:
         run: sleep 60
       - name: Verify progressive disclosure, recovery and narrow layouts
         working-directory: frontend
-        run: npx playwright test e2e/experience-refinement.spec.js -c playwright.experience.config.js
+        run: python ../backend/scripts/run_product_checks.py browser-refinement
+      - name: Preserve refinement browser result
+        if: always()
+        run: cp frontend/test-results/experience-report.json frontend/experience-refinement-report.json
+      - name: Verify confirmed cards, daily meals and segmented hotel suggestions
+        working-directory: frontend
+        run: python ../backend/scripts/run_product_checks.py browser-confirmed
       - name: Preserve browser results
         if: always()
         uses: actions/upload-artifact@v4
@@ -274,6 +252,7 @@ jobs:
           path: |
             frontend/test-results
             frontend/experience-core-report.json
+            frontend/experience-refinement-report.json
           if-no-files-found: ignore
 
   core-mainline:

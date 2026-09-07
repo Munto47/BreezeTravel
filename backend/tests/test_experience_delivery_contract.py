@@ -46,10 +46,10 @@ def contract_root(tmp_path: Path) -> Path:
     })
     _write(tmp_path, CONTRACT_PATH, {
         "schema_version": "experience-delivery-v1", "goal_id": "TC-EXPERIENCE-V1",
-        "deep_cities": ["北京", "上海", "杭州"],
+        "deep_cities": ["北京", "上海", "广州", "深圳", "杭州"],
         "core_scenarios": [
             {"id": f"{city}-{scenario}", "city": city, "scenario": scenario}
-            for city in ("北京", "上海", "杭州")
+            for city in ("北京", "上海", "广州", "深圳", "杭州")
             for scenario in ("normal", "ambiguous", "schedule_conflict", "edit_recovery")
         ],
         "required_checks": ["contract", "backend", "postgres", "frontend", "browser"],
@@ -82,6 +82,10 @@ def test_contract_pass_does_not_claim_product_or_browser_delivery(contract_root:
     (BINDING_PATH, "product_contract_path", "../outside.md"),
     (BINDING_PATH, "implementation_plan_path", "missing.md"),
     (CONTRACT_PATH, "deep_cities", ["北京", "上海", "上海"]),
+    (CONTRACT_PATH, "deep_cities", []),
+    (CONTRACT_PATH, "deep_cities", ["北京", None]),
+    (CONTRACT_PATH, "deep_cities", [" 北京"]),
+    (CONTRACT_PATH, "deep_cities", ["北京", "成都"]),
     (CONTRACT_PATH, "required_checks", ["contract"]),
     (REGISTRY_PATH, "active_slice", {}),
 ])
@@ -96,11 +100,22 @@ def test_each_safety_boundary_must_remain(contract_root: Path, missing: str) -> 
     assert validate_experience_delivery(contract_root)["verdict"] == "FAIL"
 
 
-def test_twelve_rows_cannot_hide_a_missing_city_scenario(contract_root: Path) -> None:
+def test_row_count_cannot_hide_a_missing_city_scenario(contract_root: Path) -> None:
     document = json.loads((contract_root / CONTRACT_PATH).read_text(encoding="utf-8"))
     document["core_scenarios"][-1] = {**document["core_scenarios"][0], "id": "different-id"}
     _write(contract_root, CONTRACT_PATH, document)
     assert validate_experience_delivery(contract_root)["verdict"] == "FAIL"
+
+
+def test_declared_cities_and_extra_scenarios_do_not_require_a_fixed_count(contract_root: Path) -> None:
+    document = json.loads((contract_root / CONTRACT_PATH).read_text(encoding="utf-8"))
+    document["deep_cities"].append("成都")
+    document["core_scenarios"].extend({"id": f"chengdu-{scenario}", "city": "成都", "scenario": scenario}
+        for scenario in ("normal", "ambiguous", "schedule_conflict", "edit_recovery", "partial_provider_failure"))
+    _write(contract_root, CONTRACT_PATH, document)
+    result = validate_experience_delivery(contract_root)
+    assert result["verdict"] == "PASS" and result["core_scenario_count"] == 25
+    assert result["product_delivery"] == "NOT_RUN"
 
 
 def test_duplicate_scenario_ids_fail(contract_root: Path) -> None:

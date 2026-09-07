@@ -122,6 +122,7 @@ def _plan_for_result(
                     day_label=day.label,
                     sequence_index=sequence_index,
                     name=card.name,
+                    category=card.category,
                     canonical_place_id=canonical_place_id,
                     resolution_status=resolution_status,
                     city=str(resolver_receipt.get("city") or card.city or city or "") or None,
@@ -189,39 +190,57 @@ def plan_with_stay_anchor(
     latitude: float,
     overnight_days: list[int],
 ) -> MapRenderPlan:
-    cities = {stop.city.strip().removesuffix("市") for stop in plan.stops if stop.city}
-    if len(cities) != 1 or selected_city.strip().removesuffix("市") not in cities:
-        return plan
+    from app.trip_understanding.overnight_context import is_hotel, normalized_city, overnight_segments
+
     by_day: dict[int, list[MapStop]] = defaultdict(list)
     for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
         by_day[stop.day_index].append(stop)
     expanded: list[MapStop] = []
-    overnight = set(overnight_days)
+    allowed = {night for segment in overnight_segments(plan)
+        if segment.city == normalized_city(selected_city) and not segment.uncertain and not segment.preserved_hotels
+        for night in segment.overnight_days}
+    overnight = set(overnight_days) & allowed
     for day_index in sorted(by_day):
         day_stops = by_day[day_index]
-        if day_index in overnight and day_stops:
+        starts_here = day_index - 1 in overnight
+        ends_here = day_index in overnight
+        # Preserve the user's original hotel and never connect across cities.
+        original_hotels = [stop for stop in day_stops if is_hotel(stop) and not stop.is_stay_anchor]
+        visits = [stop for stop in day_stops if not is_hotel(stop)]
+        starts_here = bool(starts_here and visits and normalized_city(visits[0].city) == normalized_city(selected_city))
+        ends_here = bool(ends_here and visits and normalized_city(visits[-1].city) == normalized_city(selected_city) and not original_hotels)
+        if (starts_here or ends_here) and day_stops:
             hotel = MapStop(
                 day_index=day_index,
                 day_label=day_stops[0].day_label,
                 sequence_index=0,
                 name=selected_name,
+                category="住宿",
+                is_stay_anchor=True,
                 canonical_place_id=selected_place_id,
                 resolution_status="AUTO_MATCHED",
                 city=selected_city,
                 longitude=longitude,
                 latitude=latitude,
             )
-            expanded.append(hotel)
+            if starts_here and not (is_hotel(day_stops[0]) and day_stops[0].canonical_place_id == selected_place_id):
+                expanded.append(hotel)
             expanded.extend(
                 stop.model_copy(update={"sequence_index": index})
                 for index, stop in enumerate(day_stops, start=1)
             )
-            expanded.append(hotel.model_copy(update={"sequence_index": len(day_stops) + 1}))
+            if ends_here and not (is_hotel(day_stops[-1]) and day_stops[-1].canonical_place_id == selected_place_id):
+                expanded.append(hotel.model_copy(update={"sequence_index": len(day_stops) + 1}))
         else:
             expanded.extend(
                 stop.model_copy(update={"sequence_index": index})
                 for index, stop in enumerate(day_stops)
             )
+    # Multiple selected segments can touch the same day. Reindex only that day.
+    counters: dict[int, int] = defaultdict(int)
+    for index, stop in enumerate(expanded):
+        expanded[index] = stop.model_copy(update={"sequence_index": counters[stop.day_index]})
+        counters[stop.day_index] += 1
     stop_set_hash = canonical_sha256(
         [
             {
@@ -426,7 +445,7 @@ class PostgresMapRenderRepositoryMixin:
             bindings,
             city=city if isinstance(city, str) else None,
         )
-        selection = await conn.fetchrow(
+        selections = await conn.fetch(
             """
             SELECT s.* FROM trip_stay_selections s
             JOIN trip_plan_revision_refs p ON p.plan_ref_id = s.target_plan_ref_id
@@ -436,17 +455,12 @@ class PostgresMapRenderRepositoryMixin:
             understanding_id,
             revision,
         )
-        if selection is None:
-            return plan
-        return plan_with_stay_anchor(
-            plan,
-            selected_place_id=selection["selected_place_id"],
-            selected_name=selection["selected_name"],
-            selected_city=selection["selected_city"],
-            longitude=float(selection["longitude"]),
-            latitude=float(selection["latitude"]),
-            overnight_days=list(selection["overnight_days"]),
-        )
+        for selection in selections:
+            plan = plan_with_stay_anchor(plan, selected_place_id=selection["selected_place_id"],
+                selected_name=selection["selected_name"], selected_city=selection["selected_city"],
+                longitude=float(selection["longitude"]), latitude=float(selection["latitude"]),
+                overnight_days=list(selection["overnight_days"]))
+        return plan
 
     async def _ensure_map_job(
         self,
@@ -1222,16 +1236,11 @@ class InMemoryMapRenderRepositoryMixin:
         selection = getattr(self, "stay_selections", {}).get((understanding_id, revision))
         if selection is None:
             return plan
-        view = selection["view"]
-        return plan_with_stay_anchor(
-            plan,
-            selected_place_id=selection["selected_place_id"],
-            selected_name=view.name,
-            selected_city=selection["selected_city"],
-            longitude=selection["longitude"],
-            latitude=selection["latitude"],
-            overnight_days=selection["overnight_days"],
-        )
+        for item in [selection, *selection.get("additional_selections", [])]:
+            plan = plan_with_stay_anchor(plan, selected_place_id=item["selected_place_id"],
+                selected_name=item["selected_name"], selected_city=item["selected_city"],
+                longitude=item["longitude"], latitude=item["latitude"], overnight_days=item["overnight_days"])
+        return plan
 
     def _ensure_memory_map_job(
         self,

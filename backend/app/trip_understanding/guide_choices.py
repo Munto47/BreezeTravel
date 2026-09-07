@@ -210,6 +210,37 @@ def choice_scopes(source: str) -> list[tuple[int, int, int | None]]:
     return sorted(scopes)
 
 
+@dataclass(frozen=True)
+class ChoiceBranch:
+    group_id: str
+    branch_id: str
+    label: str
+    start: int
+    end: int
+    day: int | None
+
+
+def explicit_choice_branches(source: str) -> list[ChoiceBranch]:
+    """Retain the structure of unselected alternatives, never choose one.
+
+    Use the same source scopes that already guard OPTIONAL roles. A settled
+    choice or ambiguous heading cannot acquire a new branch identity here.
+    IDs are private source positions, converted to opaque tokens at projection.
+    """
+    result = []
+    for left, right, day in choice_scopes(source):
+        headings = list(_BRANCH_HEADING.finditer(source, left, right))
+        if len(headings) < 2:
+            continue
+        group_id = f"choice-{left}-{right}"
+        for index, heading in enumerate(headings):
+            end = headings[index + 1].start() if index + 1 < len(headings) else right
+            label = unicodedata.normalize("NFKC", heading["label"]).upper()
+            result.append(ChoiceBranch(group_id, f"{group_id}-{heading.start()}",
+                                       f"方案{label}", heading.end(), end, day))
+    return result
+
+
 def explicit_binary_choice_clauses(source: str) -> list[tuple[int, int, int]]:
     """Bound two unselected clauses in a literal day heading, without NER.
 

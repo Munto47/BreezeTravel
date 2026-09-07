@@ -177,14 +177,14 @@ class ThreeCityPlaceLexicon:
             for entry in city_entries
             if normalize_place_name(entry.canonical_name) == normalized_name
         )
-        if canonical:
-            return PlaceLexiconLookup(LexiconMatchTier.CANONICAL_EXACT, canonical)
-
         aliases = tuple(
             entry
             for entry in city_entries
             if any(normalize_place_name(alias) == normalized_name for alias in entry.aliases)
         )
+        if canonical:
+            return PlaceLexiconLookup(LexiconMatchTier.CANONICAL_EXACT,
+                canonical + tuple(entry for entry in aliases if entry not in canonical))
         if aliases:
             return PlaceLexiconLookup(LexiconMatchTier.SAFE_ALIAS_EXACT, aliases)
 
@@ -425,7 +425,26 @@ def load_three_city_place_lexicon(
     strict: bool = False,
 ) -> ThreeCityPlaceLexicon:
     try:
-        return ThreeCityPlaceLexicon(entries=_read_entries(Path(path)))
+        if strict:
+            # Historical artifact audit only. Runtime growth/availability must
+            # never depend on the former exact city/category quotas.
+            return ThreeCityPlaceLexicon(entries=_read_entries(Path(path)))
+        entries, duplicates, partial = {}, set(), False
+        for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entry = _parse_entry(json.loads(line))
+                if entry.entry_id in entries or entry.entry_id in duplicates:
+                    entries.pop(entry.entry_id, None)
+                    duplicates.add(entry.entry_id)
+                    raise LexiconValidationError("DUPLICATE_ID")
+                entries[entry.entry_id] = entry
+            except (ValueError, TypeError, KeyError):
+                partial = True
+        if not entries:
+            return ThreeCityPlaceLexicon.unavailable("LEXICON_INVALID")
+        return ThreeCityPlaceLexicon(entries=tuple(entries.values()), error_code="LEXICON_PARTIAL" if partial else None)
     except FileNotFoundError:
         if strict:
             raise LexiconValidationError("LEXICON_MISSING") from None

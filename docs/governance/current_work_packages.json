@@ -1,13 +1,44 @@
 {
   "schema_version": "experience-work-packages-v1",
-  "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
+  "active_goal_id": "FIVE-CITY-EXPERIENCE",
   "active_slice": {
-    "id": "domestic-city-generation-resilience-20260907",
+    "id": "five-city-experience-20260907",
     "work_kind": "PRODUCT",
     "status": "IN_PROGRESS",
-    "outcome": "普通地级市经真实行政区核验搜索POI；票种/菜品不再造成整份失败，地点可更换。生成硬失败已改善，完整召回与服务波动尚未收口。",
-    "verification": "412 backend checks including isolated PostgreSQL, 19 browser checks, build, TypeScript, Ruff and diff passed. Final live API: 9/9 partial results and identical refresh, cleanup 204/410; 8/9 candidate searches available. Beijing 10 places, Xinyu generally 7 with one 3-place degraded run; Chengdu 4/5, Suzhou 2/5. Real Chrome generation, replace, refresh and undo verified. Overall resilience PARTIAL."
+    "outcome": "五城完整地点识别、每日中途餐饮建议采纳、按连续过夜城市选择连锁酒店；保留局部失败、原有酒店、编辑后手动更新路线。",
+    "verification": "住宿、手动刷新与合同共 122 项受控及真实 PostgreSQL 检查通过，包含并发、幂等、原酒店保留、过期分钟清除、固定演示隔离及行程/账户删除；同版真实模型/地图效果与完整浏览器验收仍需独立记录。"
   },
-  "packages": [],
-  "next_planned_slice": "逐项区分语义遗漏、身份歧义和服务不可用；为服务失败保留证据并实施有界恢复，恢复明确分支与园内明细，不把部分生成等同完整稳定，不扩大部署。"
+  "packages": [
+    {
+      "id": "recognition-recovery",
+      "status": "IN_PROGRESS",
+      "outcome": "保留语义角色、分支和再访，有限恢复遗漏与服务失败，公开未完成计数"
+    },
+    {
+      "id": "five-city-knowledge",
+      "status": "IN_PROGRESS",
+      "outcome": "五城地点、商圈与住宿区资料保留来源和关系，统一行政核验"
+    },
+    {
+      "id": "daily-dining",
+      "status": "IN_PROGRESS",
+      "outcome": "每日附近区域和具体餐馆建议，采纳后进入行程，刷新撤销及失效保护"
+    },
+    {
+      "id": "overnight-stay",
+      "status": "IN_PROGRESS",
+      "outcome": "逐夜首末站、连续城市住宿段、门店身份、华住优先与请求预算"
+    },
+    {
+      "id": "browser-integration",
+      "status": "IN_PROGRESS",
+      "outcome": "桌面手机卡片、餐饮住宿及手动路线更新完整用户路径"
+    },
+    {
+      "id": "real-evaluation",
+      "status": "IN_PROGRESS",
+      "outcome": "区分受控与真实证据、来源家族隔离，同版五城真实效果与失败清单"
+    }
+  ],
+  "next_planned_slice": "完成同版真实效果与桌面/手机端到端核验，记录未达标项并继续修复；本地保存可恢复检查点，不扩大部署。"
 }

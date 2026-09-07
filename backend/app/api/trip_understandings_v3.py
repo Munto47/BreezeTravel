@@ -16,6 +16,8 @@ from app.trip_understanding.candidates import CandidateSearchRequest, CandidateS
 from app.trip_understanding.dining import (
     DiningSearchRequest, DiningCandidatesView, DiningCandidateView, dining_binding, search_dining, valid_anchor,
 )
+from app.trip_understanding.daily_dining import DailyDiningView
+from app.trip_understanding.dining_jobs import read_daily_dining
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
@@ -424,6 +426,42 @@ async def find_dining_candidates(
         message="附近餐饮" if candidates else "暂未找到合适的附近餐饮，可换一站再看看。", candidates=candidates)
 
 
+@router.get("/{public_resource_id}/daily-dining", response_model=DailyDiningView)
+async def get_daily_dining(public_resource_id: str, request: Request, response: Response,
+                           repository: RepositoryDep, current_user: OptionalUserDep):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    try:
+        view, etag = await read_daily_dining(repository, resource)
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "no-store"
+    return view
+
+
+@router.post("/{public_resource_id}/daily-dining", response_model=DailyDiningView)
+async def refresh_daily_dining(public_resource_id: str, request: Request, response: Response,
+                               repository: RepositoryDep, current_user: OptionalUserDep):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    expected = _require_if_match(request.headers.get("If-Match"))
+    key = request.headers.get("Idempotency-Key", "")
+    if not key or len(key) > 200:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_IDEMPOTENCY_KEY", "message": "请重新更新建议"})
+    try:
+        view, etag = await read_daily_dining(repository, resource, request_key=key, expected_etag=expected)
+    except RevisionConflictError:
+        raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后重试"}) from None
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "no-store"
+    return view
+
+
 @router.get(
     "/{public_resource_id}/result",
     responses={
@@ -650,6 +688,37 @@ async def get_stay_suggestions(
     )
     response.headers["Cache-Control"] = "no-store"
     return await repository.get_stay_view(resource)
+
+
+@router.post(
+    "/{public_resource_id}/stay-suggestions", response_model=StaySuggestionView,
+)
+async def refresh_stay_suggestions(public_resource_id: str, request: Request, response: Response,
+    repository: RepositoryDep, current_user: OptionalUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
+    expected, key = _require_if_match(if_match), _require_idempotency_key(idempotency_key)
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    try:
+        view, etag, replayed = await repository.refresh_stay_suggestions(resource, expected_etag=expected,
+            idempotency_key=key, now=datetime.now(timezone.utc))
+    except RevisionConflictError:
+        raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后再试"}) from None
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "STAY_NOT_READY", "message": "行程地点尚未准备好"}) from None
+    except IdempotencyConflictError:
+        raise HTTPException(status_code=409, detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新更新住宿建议"}) from None
+    except IdempotencyInProgressError:
+        raise HTTPException(status_code=409, detail={"code": "REQUEST_IN_PROGRESS", "message": "住宿建议正在更新"}) from None
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        raise _resource_error(exc) from exc
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "no-store"
+    if replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return view
 
 
 @router.post(

@@ -11,7 +11,6 @@ BINDING_PATH = "docs/governance/current_goal_binding.json"
 REGISTRY_PATH = "docs/governance/current_work_packages.json"
 CONTRACT_PATH = "docs/governance/product_delivery_gates.json"
 SCENARIOS = {"normal", "ambiguous", "schedule_conflict", "edit_recovery"}
-DEEP_CITIES = {"北京", "上海", "杭州"}
 REQUIRED_CHECKS = {"contract", "backend", "postgres", "frontend", "browser"}
 REQUIRED_SAFETY_INVARIANTS = {
     "PLACE_IDENTITY",
@@ -94,10 +93,12 @@ def validate_experience_delivery(root: Path) -> dict[str, Any]:
             require(isinstance(active.get(key), str) and bool(active[key].strip()), f"Active slice needs {key}")
     require(isinstance(registry.get("packages"), list), "Packages must be a list")
     cities = contract.get("deep_cities")
-    require(isinstance(cities, list) and len(cities) == 3 and all(isinstance(city, str) for city in cities)
-            and set(cities) == DEEP_CITIES, "Deep cities must be Beijing, Shanghai and Hangzhou")
+    valid_cities = (isinstance(cities, list) and bool(cities)
+        and all(isinstance(city, str) and bool(city.strip()) and city == city.strip() for city in cities))
+    require(valid_cities and len(cities) == len(set(cities)), "Deep cities must be nonempty, unique city names")
+    declared_cities = set(cities) if valid_cities else set()
     scenarios = contract.get("core_scenarios")
-    require(isinstance(scenarios, list) and len(scenarios) == 12, "Exactly 12 core scenarios are required")
+    require(isinstance(scenarios, list) and bool(scenarios), "Core scenarios are required")
     pairs: list[tuple[str, str]] = []
     ids: list[str] = []
     if isinstance(scenarios, list):
@@ -109,10 +110,12 @@ def validate_experience_delivery(root: Path) -> dict[str, Any]:
             require(isinstance(identifier, str) and bool(identifier.strip()), "Each scenario needs an id")
             if isinstance(identifier, str):
                 ids.append(identifier)
+            require(isinstance(city, str) and bool(city.strip()), "Each scenario needs a city")
+            require(isinstance(scenario, str) and bool(scenario.strip()), "Each scenario needs a scenario type")
             if isinstance(city, str) and isinstance(scenario, str):
                 pairs.append((city, scenario))
-    require(len(ids) == len(set(ids)) == 12, "Scenario ids must be unique")
-    require(len(pairs) == 12 and set(pairs) == {(city, scenario) for city in DEEP_CITIES for scenario in SCENARIOS},
+    require(len(ids) == len(set(ids)), "Scenario ids must be unique")
+    require({(city, scenario) for city in declared_cities for scenario in SCENARIOS}.issubset(pairs),
             "Each deep city needs normal, ambiguous, schedule_conflict and edit_recovery coverage")
     for key, required in (("required_checks", REQUIRED_CHECKS), ("safety_invariants", REQUIRED_SAFETY_INVARIANTS)):
         values = contract.get(key)

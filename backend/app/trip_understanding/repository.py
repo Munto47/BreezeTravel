@@ -162,6 +162,7 @@ def _cancelled_snapshot_semantics(
 
 async def _delete_understanding_business_rows(conn: Any, understanding_id: str) -> None:
     """Delete one v3 aggregate in FK-safe order inside the caller transaction."""
+    await conn.execute("DELETE FROM trip_daily_dining_jobs WHERE understanding_id=$1", understanding_id)
     internal_room_id = await conn.fetchval(
         """
         SELECT tw.room_id
@@ -394,13 +395,33 @@ async def _insert_screenshot_cleanup_receipts(
 
 
 def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
-    """Persist structural semantics without duplicating verbatim source quotes."""
+    """Persist structure without source-bearing fields in immutable revisions.
+
+    Source deletion erases encrypted source claims, not this immutable row.
+    Never put quote text, source offsets or position-derived branch IDs here.
+    """
+    def opaque_group(value: str | None) -> str | None:
+        return canonical_sha256({"source_hash": output.source_hash, "group": value})[:32] if value else None
+
     return {
         "schema_version": output.proposal.schema_version,
         "source_hash": output.proposal.source_hash,
         "destination_name": output.proposal.destination_name,
         "mention_count": len(output.proposal.mentions),
         "binding": output.proposal.binding,
+        "structure": [{
+            "mention_id": mention.mention_id,
+            "role": mention.role.value,
+            "day_index": mention.day_index,
+            "sequence_index": mention.sequence_index,
+            "meal_role": mention.meal_role,
+            "choice_group_token": opaque_group(mention.choice_group_id),
+            "branch_token": opaque_group(mention.branch_id),
+            "branch_label": mention.branch_label,
+            "parent_mention_id": mention.parent_mention_id,
+            "relation_type": mention.relation_type,
+        } for mention in output.proposal.mentions],
+        "diagnostics": [issue.model_dump(exclude={"span_start", "span_end"}) for issue in output.proposal.diagnostics],
         "verbatim_quotes": "ENCRYPTED_IN_SOURCE_CLAIMS",
     }
 
@@ -3266,7 +3287,8 @@ class PostgresTripUnderstandingRepository(
                 DELETE FROM trip_understanding_idempotency_records
                 WHERE scope <> $1
                   AND (
-                    scope IN ($2, $3)
+                    (split_part(scope, ':', 1) = 'understanding' AND split_part(scope, ':', 2) = $2)
+                    OR scope = $3
                     OR response_json ->> 'public_resource_id' = $4
                     OR response_json ->> 'public_resource_id' IN (
                       SELECT public_resource_id
@@ -3277,7 +3299,7 @@ class PostgresTripUnderstandingRepository(
                   )
                 """,
                 scope,
-                f"understanding:{resource.understanding_id}:command",
+                resource.understanding_id,
                 f"understanding:{resource.understanding_id}:delete-source",
                 resource.public_resource_id,
             )
@@ -3648,10 +3670,11 @@ class PostgresTripUnderstandingRepository(
                 await conn.execute(
                     """
                     DELETE FROM trip_understanding_idempotency_records
-                    WHERE scope IN ($1, $2)
+                    WHERE (split_part(scope, ':', 1) = 'understanding' AND split_part(scope, ':', 2) = $1)
+                       OR scope = $2
                        OR response_json ->> 'public_resource_id' = $3
                     """,
-                    f"understanding:{row['understanding_id']}:command",
+                    row["understanding_id"],
                     f"understanding:{row['understanding_id']}:delete-source",
                     row["public_resource_id"],
                 )
@@ -4620,6 +4643,8 @@ class PostgresTripUnderstandingRepository(
                 result_revision,
                 now=now,
             )
+            from app.trip_understanding.dining_jobs import enqueue_initial_dining
+            await enqueue_initial_dining(conn, job.understanding_id, result_revision)
             event_payload = PublicEventPayload(
                 status=terminal_state,
                 message="卡片已可用",

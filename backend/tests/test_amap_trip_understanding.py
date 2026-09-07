@@ -93,7 +93,9 @@ async def test_amap_owned_client_is_reused_and_closed(monkeypatch) -> None:
 
     assert all(outcome.place is not None for outcome in outcomes)
     assert len(created) == 1
-    assert len(observed) == 2
+    assert len(observed) == 1
+    assert sum(outcome.receipt["external_calls"] for outcome in outcomes) == 1
+    assert outcomes[1].receipt["cache_reuse"] == "INFLIGHT_COALESCED"
     assert created[0].is_closed is False
     await resolver.aclose()
     assert created[0].is_closed is True
@@ -474,7 +476,8 @@ async def test_amap_timeout_preserves_redacted_city_and_atomic_query_binding() -
 
     binding = captured.value.provider_binding
     assert captured.value.category == "DEADLINE_EXCEEDED"
-    assert captured.value.external_call_count == 1
+    assert captured.value.external_call_count == 2
+    assert binding["retry_events"] == [{"attempt": 1, "reason": "ReadTimeout"}]
     assert binding["city"] == "杭州"
     assert binding["city_limit"] is True
     assert len(str(binding["query_sha256"])) == 64

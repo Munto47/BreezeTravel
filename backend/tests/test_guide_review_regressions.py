@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.trip_understanding.errors import InferenceProviderUnavailableError
 from app.trip_understanding.experience_inference import (
     ExperienceQwenProvider,
     SemanticDraft,
@@ -233,10 +232,11 @@ async def test_repair_hints_stay_in_current_model_request_not_bindings_logs_or_n
     if repair_succeeds:
         binding = (await provider.propose(source)).binding
     else:
-        with pytest.raises(InferenceProviderUnavailableError) as raised:
-            await provider.propose(source)
-        binding = raised.value.provider_binding
-        assert missing_name not in str(raised.value)
+        partial = await provider.propose(source)
+        binding = partial.binding
+        assert binding["outcome"] == "PARTIAL_RESULT"
+        assert partial.unprocessed_count > 0
+        assert [mention.atomic_place_name for mention in partial.mentions] == ["星河公园"]
     assert len(requests) == 2
     assert len(requests[0]["messages"]) == 2
     assert requests[1]["messages"][-1]["role"] == "user"

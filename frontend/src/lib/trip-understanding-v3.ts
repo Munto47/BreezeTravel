@@ -50,6 +50,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  meal_role?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK' | null
   city?: string | null
   photo_url?: string | null
   activity_token: string
@@ -132,6 +133,14 @@ export interface StayCandidateView {
   reason: string
   available_actions: Array<'CHOOSE_STAY'>
   selected: boolean
+  brand_group?: string | null
+  brand_note?: string | null
+}
+
+export interface StaySegmentView {
+  segment_token: string; city?: string | null; overnight_days: string[]
+  status: StaySuggestionView['status']; message: string
+  candidates: StayCandidateView[]; preserved_hotels?: string[]
 }
 
 export interface StaySuggestionView {
@@ -141,9 +150,11 @@ export interface StaySuggestionView {
   searched_scopes: string[]
   candidates: StayCandidateView[]
   available_actions: Array<'CHOOSE_STAY'>
+  segments?: StaySegmentView[]
 }
 
 export interface UserFacingTripResult {
+  coverage?: {recognized_place_count: number; confirmed_place_count: number; unresolved_place_count: number; unclassified_mention_count: number; unprocessed_count: number; complete: boolean} | null
   can_undo?: boolean
   ownership?: 'ANONYMOUS' | 'ACCOUNT'
   expires_at?: string | null
@@ -151,7 +162,9 @@ export interface UserFacingTripResult {
   is_demo?: boolean
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
-  days: Array<{ label: string; activities: ActivityCardView[]; alternatives?: Array<{name: string; category: string; city?: string | null}> }>
+  days: Array<{ label: string; activities: ActivityCardView[];
+    meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK';after_activity_token?:string|null;before_activity_token?:string|null}>;
+    alternatives?: Array<{name: string; category: string; city?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; activity_token?: string | null}> }>
   map: {
     status:
       | 'PREPARING'
@@ -163,6 +176,7 @@ export interface UserFacingTripResult {
     available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
   }
   stay: {
+    segments?: StaySegmentView[]
     status: StaySuggestionView['status']
     message: string
     area_summary: string | null
@@ -174,7 +188,7 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
-  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string }
+  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK' }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
       changes: Array<{
@@ -783,6 +797,26 @@ export interface DiningCandidatesView {
   candidates: Array<PlaceCandidateView & { reason: string }>
 }
 
+export interface DailyMealView {
+  day_index: number; label: string; status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'EXISTING' | 'NEEDS_CONFIRMATION'
+  message: string; after_activity_token?: string | null; next_name?: string | null
+  insert_before?: boolean; meal_role?: 'LUNCH' | null
+  existing_activity_token?: string | null; area?: string | null
+  candidates: Array<{candidate_token: string; name: string; area_or_address: string; business_area?: string | null; reason: string; extra_minutes?: number | null; recommended: boolean}>
+}
+export interface DailyDiningView {
+  status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'UNAVAILABLE'
+  message: string; days: DailyMealView[]
+}
+export async function readDailyDining(resource: string, signal?: AbortSignal, refresh?: {etag: string; key: string}): Promise<{body: DailyDiningView; etag: string}> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/daily-dining`, {
+    credentials: 'include', signal, method: refresh ? 'POST' : 'GET',
+    headers: {...authorizationHeaders(), ...(refresh ? {'If-Match':refresh.etag, 'Idempotency-Key':refresh.key} : {})},
+  })
+  if (!response.ok) throw new Error('DAILY_DINING_UNAVAILABLE')
+  return {body: await response.json(), etag: response.headers.get('ETag') || ''}
+}
+
 export async function queryTripDiningCandidates(resource: string, activity: string, signal?: AbortSignal): Promise<{body: DiningCandidatesView; etag: string}> {
   const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/dining-candidates`, {
     method: 'POST', credentials: 'include', signal,
@@ -839,6 +873,15 @@ export async function readTripUnderstandingStay(
     },
   )
   if (!response.ok) throw new Error('STAY_UNAVAILABLE')
+  return response.json() as Promise<StaySuggestionView>
+}
+
+export async function refreshTripUnderstandingStay(publicResourceId: string, etag: string, key: string, signal?: AbortSignal): Promise<StaySuggestionView> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`, {
+    method:'POST', credentials:'include', cache:'no-store', signal,
+    headers:{...authorizationHeaders(), 'If-Match':`"${etag}"`, 'Idempotency-Key':key},
+  })
+  if (!response.ok) throw new Error(response.status === 409 ? 'REVISION_CONFLICT' : 'STAY_UNAVAILABLE')
   return response.json() as Promise<StaySuggestionView>
 }
 

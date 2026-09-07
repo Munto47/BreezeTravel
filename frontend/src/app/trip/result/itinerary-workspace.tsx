@@ -73,6 +73,7 @@ type ItineraryWorkspaceProps = {
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdd: (dayIndex: number, position: number) => void
   onAlternatives?: (dayIndex: number, trigger: HTMLButtonElement) => void
+  renderDaySuggestion?: (dayIndex: number) => ReactNode
 }
 
 
@@ -88,6 +89,7 @@ export default function ItineraryWorkspace({
   onCommand,
   onAdd,
   onAlternatives,
+  renderDaySuggestion,
 }: ItineraryWorkspaceProps) {
   const reduceMotion = useReducedMotion()
   const [localDays, setLocalDays] = useState(days)
@@ -460,6 +462,7 @@ export default function ItineraryWorkspace({
                   </div>
 
                   <div className="min-w-0 px-4 py-4 sm:px-5">
+                    {renderDaySuggestion?.(dayIndex)}
                     {!day.activities.length && <p className="py-4 text-sm text-slate-500">这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。</p>}
 
                     {layoutMode === 'LIST' ? (

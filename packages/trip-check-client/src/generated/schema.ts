@@ -461,6 +461,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/daily-dining": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Daily Dining */
+        get: operations["get_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_get"];
+        put?: never;
+        /** Refresh Daily Dining */
+        post: operations["refresh_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}/dining-candidates": {
         parameters: {
             query?: never;
@@ -659,7 +677,8 @@ export interface paths {
         /** Get Stay Suggestions */
         get: operations["get_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_get"];
         put?: never;
-        post?: never;
+        /** Refresh Stay Suggestions */
+        post: operations["refresh_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -749,8 +768,16 @@ export interface components {
         };
         /** ActivityAlternativeView */
         ActivityAlternativeView: {
+            /** Activity Token */
+            activity_token?: string | null;
+            /** Branch Label */
+            branch_label?: string | null;
+            /** Branch Token */
+            branch_token?: string | null;
             /** Category */
             category: string;
+            /** Choice Group Token */
+            choice_group_token?: string | null;
             /** City */
             city?: string | null;
             /** Name */
@@ -782,6 +809,8 @@ export interface components {
              * @default false
              */
             locked: boolean;
+            /** Meal Role */
+            meal_role?: ("BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") | null;
             /** Name */
             name: string;
             /** Photo Url */
@@ -1023,7 +1052,7 @@ export interface components {
             /** Activity Token */
             activity_token: string;
             /** City */
-            city?: ("北京" | "上海" | "杭州") | null;
+            city?: string | null;
             /** Query */
             query: string;
         };
@@ -1097,6 +1126,69 @@ export interface components {
             mode: "FULL";
             source: components["schemas"]["TextSourceRequest"];
         };
+        /** DailyDiningView */
+        DailyDiningView: {
+            /** Days */
+            days?: components["schemas"]["DailyMealView"][];
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "UNAVAILABLE";
+        };
+        /** DailyMealCandidate */
+        DailyMealCandidate: {
+            /** Area Or Address */
+            area_or_address: string;
+            /** Business Area */
+            business_area?: string | null;
+            /** Candidate Token */
+            candidate_token: string;
+            /** Extra Minutes */
+            extra_minutes?: number | null;
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Recommended
+             * @default false
+             */
+            recommended: boolean;
+        };
+        /** DailyMealView */
+        DailyMealView: {
+            /** After Activity Token */
+            after_activity_token?: string | null;
+            /** Area */
+            area?: string | null;
+            /** Candidates */
+            candidates?: components["schemas"]["DailyMealCandidate"][];
+            /** Day Index */
+            day_index: number;
+            /** Existing Activity Token */
+            existing_activity_token?: string | null;
+            /**
+             * Insert Before
+             * @default false
+             */
+            insert_before: boolean;
+            /** Label */
+            label: string;
+            /** Meal Role */
+            meal_role?: "LUNCH" | null;
+            /** Message */
+            message: string;
+            /** Next Name */
+            next_name?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "EMPTY" | "UNAVAILABLE" | "EXISTING" | "NEEDS_CONFIRMATION";
+        };
         /** DataConsentView */
         DataConsentView: {
             /**
@@ -1119,6 +1211,8 @@ export interface components {
         DiningCandidateView: {
             /** Area Or Address */
             area_or_address: string;
+            /** Business Area */
+            business_area?: string | null;
             /** Candidate Token */
             candidate_token: string;
             /** Category */
@@ -1152,6 +1246,13 @@ export interface components {
              * @enum {string}
              */
             command_type: "DINING_INSERT";
+            /**
+             * Insert Before
+             * @default false
+             */
+            insert_before: boolean;
+            /** Meal Role */
+            meal_role?: ("BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") | null;
         };
         /** DiningSearchRequest */
         DiningSearchRequest: {
@@ -1294,6 +1395,18 @@ export interface components {
              * @constant
              */
             status: "READY";
+        };
+        /** MealSlotView */
+        MealSlotView: {
+            /** After Activity Token */
+            after_activity_token?: string | null;
+            /** Before Activity Token */
+            before_activity_token?: string | null;
+            /**
+             * Meal Role
+             * @enum {string}
+             */
+            meal_role: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
         };
         /** PlaceConfirmCommand */
         PlaceConfirmCommand: {
@@ -1442,6 +1555,8 @@ export interface components {
         PublicPlaceCandidate: {
             /** Area Or Address */
             area_or_address: string;
+            /** Business Area */
+            business_area?: string | null;
             /** Candidate Token */
             candidate_token: string;
             /** Category */
@@ -1638,6 +1753,10 @@ export interface components {
             available_actions: "CHOOSE_STAY"[];
             /** Brand */
             brand: string;
+            /** Brand Group */
+            brand_group?: string | null;
+            /** Brand Note */
+            brand_note?: string | null;
             /** Candidate Token */
             candidate_token: string;
             /** Category */
@@ -1657,6 +1776,26 @@ export interface components {
             selected: boolean;
             /** Transfer Count */
             transfer_count: number;
+        };
+        /** StaySegmentView */
+        StaySegmentView: {
+            /** Candidates */
+            candidates?: components["schemas"]["StayCandidateView"][];
+            /** City */
+            city?: string | null;
+            /** Message */
+            message: string;
+            /** Overnight Days */
+            overnight_days?: string[];
+            /** Preserved Hotels */
+            preserved_hotels?: string[];
+            /** Segment Token */
+            segment_token: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
         };
         /** StaySelectionAppliedView */
         StaySelectionAppliedView: {
@@ -1683,7 +1822,7 @@ export interface components {
             candidate_token: string;
         };
         /** StaySuggestionView */
-        StaySuggestionView: {
+        "StaySuggestionView-Input": {
             /** Area Summary */
             area_summary?: string | null;
             /** Available Actions */
@@ -1694,6 +1833,28 @@ export interface components {
             message: string;
             /** Searched Scopes */
             searched_scopes?: string[];
+            /** Segments */
+            segments?: components["schemas"]["StaySegmentView"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
+        };
+        /** StaySuggestionView */
+        "StaySuggestionView-Output": {
+            /** Area Summary */
+            area_summary?: string | null;
+            /** Available Actions */
+            available_actions?: "CHOOSE_STAY"[];
+            /** Candidates */
+            candidates?: components["schemas"]["StayCandidateView"][];
+            /** Message */
+            message: string;
+            /** Searched Scopes */
+            searched_scopes?: string[];
+            /** Segments */
+            segments?: components["schemas"]["StaySegmentView"][];
             /**
              * Status
              * @enum {string}
@@ -1764,6 +1925,44 @@ export interface components {
             alternatives?: components["schemas"]["ActivityAlternativeView"][];
             /** Label */
             label: string;
+            /** Meal Slots */
+            meal_slots?: components["schemas"]["MealSlotView"][];
+        };
+        /**
+         * TripRecognitionCoverage
+         * @description Counts, not source fragments or diagnostic codes, for incomplete results.
+         */
+        TripRecognitionCoverage: {
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /**
+             * Confirmed Place Count
+             * @default 0
+             */
+            confirmed_place_count: number;
+            /**
+             * Recognized Place Count
+             * @default 0
+             */
+            recognized_place_count: number;
+            /**
+             * Unclassified Mention Count
+             * @default 0
+             */
+            unclassified_mention_count: number;
+            /**
+             * Unprocessed Count
+             * @default 0
+             */
+            unprocessed_count: number;
+            /**
+             * Unresolved Place Count
+             * @default 0
+             */
+            unresolved_place_count: number;
         };
         /** TripUnderstandingAcceptedView */
         TripUnderstandingAcceptedView: {
@@ -1868,6 +2067,7 @@ export interface components {
              * @default false
              */
             can_undo: boolean;
+            coverage?: components["schemas"]["TripRecognitionCoverage"] | null;
             /** Days */
             days: components["schemas"]["TripDayView"][];
             /** Expires At */
@@ -1889,7 +2089,7 @@ export interface components {
              * @enum {string}
              */
             status: "READY" | "PARTIAL_RESULT" | "BASIC_ONLY" | "LIMITED";
-            stay: components["schemas"]["StaySuggestionView"];
+            stay: components["schemas"]["StaySuggestionView-Input"];
             /** Updated At */
             updated_at?: string | null;
         };
@@ -2880,6 +3080,72 @@ export interface operations {
             };
         };
     };
+    get_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyDiningView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyDiningView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     find_dining_candidates_api_v3_trip_understandings__public_resource_id__dining_candidates_post: {
         parameters: {
             query?: never;
@@ -3332,7 +3598,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StaySuggestionView"];
+                    "application/json": components["schemas"]["StaySuggestionView-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySuggestionView-Output"];
                 };
             };
             /** @description Validation Error */

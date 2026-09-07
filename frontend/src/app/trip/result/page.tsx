@@ -33,6 +33,8 @@ import ItineraryPngExport from './itinerary-png-export'
 import ItineraryWorkspace from './itinerary-workspace'
 import MapStayWorkspace from './map-stay-workspace'
 import JourneySuggestions from './journey-suggestions'
+import {DailyMealCard, useDailyDining} from './daily-dining'
+import UnresolvedPlaces from './unresolved-places'
 import ResultNavigation from './result-navigation'
 import { type ResultViewId } from './result-presentation'
 import {
@@ -44,6 +46,7 @@ import '../../experience.css'
 
 export default function TripResultPage() {
   const trip = useTripExperience()
+  const dailyDining = useDailyDining(trip.result ? trip.resource : null, trip.etag)
   const router = useRouter()
   const { user, hydrate, logout } = useAuthStore()
   const [dayIndex, setDayIndex] = useState(0)
@@ -832,6 +835,7 @@ export default function TripResultPage() {
                   onPreview={openPreview}
                   onLocate={locateFinding}
                   onStay={token => void trip.selectStay(token)}
+                  onRefreshStay={() => void trip.refreshStay()}
                   alternativesRequest={alternativesRequest}
                 />
                 <details className="e-more">
@@ -898,7 +902,7 @@ export default function TripResultPage() {
             </div>
           )}
           <div className="e-page-message">
-            {trip.omittedPlaceCount > 0 && <p className="e-small e-muted" data-testid="unmatched-places-note">已展示匹配到的真实地点，可随时更改。另有 {trip.omittedPlaceCount} 项未找到可靠地点，未展示为卡片。</p>}
+            <UnresolvedPlaces days={trip.unresolvedDays} coverage={result.coverage} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand}/>
             {trip.notice && (
               <div
                 className="e-message"
@@ -939,6 +943,10 @@ export default function TripResultPage() {
                     onRender={() => void trip.renderMap()}
                     toolbar={<ItineraryPngExport result={result} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
+                    renderDaySuggestion={dayIndex => <DailyMealCard
+                      day={dailyDining.value?.days.find(day => day.day_index===dayIndex)}
+                      state={dailyDining.value} disabled={disabled || dirty || dailyDining.busy}
+                      onRefresh={() => void dailyDining.refresh()} onCommand={trip.workspaceCommand}/>}
                     disabled={disabled || dirty}
                     routesPending={hideOldRoutes}
                     mapView={displayMap}
@@ -974,6 +982,7 @@ export default function TripResultPage() {
                   onSelect={setSelected}
                   onRouteMode={setRouteMode}
                   onRetryMap={() => void trip.retryMap()}
+                  onRefreshStay={() => void trip.refreshStay()}
                   onSelectStay={(token) => void trip.selectStay(token)}
                   resource={trip.resource}
                   onCommand={trip.workspaceCommand}
