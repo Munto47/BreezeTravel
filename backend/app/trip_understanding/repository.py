@@ -846,7 +846,20 @@ class PostgresTripUnderstandingRepository(
                 active = await conn.fetchval("SELECT COUNT(*) FROM trip_understandings WHERE anonymous_session_id = $1 AND state = 'PROCESSING'", session_id)
                 if active >= 1:
                     raise ConcurrentJobLimitError("anonymous session already has an active request")
-                created = await conn.fetchval("SELECT COUNT(*) FROM trip_understanding_idempotency_records WHERE scope = $1 AND state = 'COMPLETED' AND created_at >= $2 AND response_headers_json->>'source_type' = 'TEXT'", scope, anonymous_day_start(now))
+                created = await conn.fetchval(
+                    """
+                    SELECT COUNT(*) FROM trip_understanding_idempotency_records i
+                    LEFT JOIN trip_understandings u
+                      ON u.public_resource_id = i.response_json->>'public_resource_id'
+                    WHERE i.scope IN ($1, $3) AND i.state = 'COMPLETED'
+                      AND i.created_at >= $2
+                      AND i.response_headers_json->>'source_type' = 'TEXT'
+                      AND COALESCE(u.state, '') <> 'FAILED'
+                    """,
+                    scope,
+                    anonymous_day_start(now),
+                    f"anonymous:{session_id}:allowance",
+                )
                 if created >= 3:
                     raise AnonymousDailyLimitError("anonymous daily allowance reached")
             await conn.execute("UPDATE trip_understanding_anonymous_sessions SET expires_at=GREATEST(expires_at,$2) WHERE session_id=$1", session_id, expires_at)
@@ -3185,7 +3198,7 @@ class PostgresTripUnderstandingRepository(
                 return DeletionOutcome(replayed=True)
             row = await conn.fetchrow(
                 """
-                SELECT u.public_resource_id, u.owner_user_id, u.anonymous_session_id, u.source_expires_at,
+                SELECT u.public_resource_id, u.owner_user_id, u.anonymous_session_id, u.source_expires_at, u.state,
                        s.capability_hash
                 FROM trip_understandings u
                 LEFT JOIN trip_understanding_anonymous_sessions s
@@ -3221,6 +3234,33 @@ class PostgresTripUnderstandingRepository(
                     "request_hash": request_hash,
                 }
             )
+            # Keep only an anonymous count after privacy deletion, without the
+            # source hash or public resource ID. Failed attempts consume none.
+            if row["state"] != "FAILED":
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_idempotency_records (
+                        scope, key_hash, request_hash, state, response_status,
+                        response_json, response_headers_json, created_at, completed_at
+                    )
+                    SELECT regexp_replace(scope, ':create$', ':allowance'), key_hash,
+                           $2, 'COMPLETED', 204, '{}'::jsonb,
+                           jsonb_build_object('source_type', 'TEXT'), created_at, $3
+                    FROM trip_understanding_idempotency_records
+                    WHERE scope LIKE 'anonymous:%:create' AND state = 'COMPLETED'
+                      AND response_headers_json->>'source_type' = 'TEXT'
+                      AND (response_json->>'public_resource_id' = $1
+                        OR response_json->>'public_resource_id' IN (
+                            SELECT public_resource_id
+                            FROM trip_understanding_resource_tombstones
+                            WHERE reason = 'CLAIMED' AND replacement_public_resource_id = $1
+                        ))
+                    ON CONFLICT (scope, key_hash) DO NOTHING
+                    """,
+                    resource.public_resource_id,
+                    _sha256_text("anonymous-allowance-count"),
+                    now,
+                )
             await conn.execute(
                 """
                 DELETE FROM trip_understanding_idempotency_records
@@ -3299,8 +3339,14 @@ class PostgresTripUnderstandingRepository(
                         SELECT 1 FROM trip_understandings u
                         WHERE u.anonymous_session_id = s.session_id
                       )
+                      AND NOT EXISTS (
+                        SELECT 1 FROM trip_understanding_idempotency_records i
+                        WHERE i.scope = 'anonymous:' || s.session_id::text || ':allowance'
+                          AND i.created_at >= $2
+                      )
                     """,
                     row["anonymous_session_id"],
+                    anonymous_day_start(now),
                 )
         return DeletionOutcome()
 
@@ -4742,6 +4788,9 @@ class InMemoryTripUnderstandingRepository(
                 )
             return CreateOutcome(accepted=existing[1], replayed=True)
         if source_text is not None:
+            for resource in self.resources.values():
+                if resource.get("capability_hash") == capability_hash and resource["state"] == "FAILED":
+                    self._release_failed_anonymous_allowance(resource)
             active = sum(row.get("capability_hash") == capability_hash and row["state"] == "PROCESSING" for row in self.resources.values())
             if active >= 1:
                 raise ConcurrentJobLimitError("anonymous session already has an active request")
@@ -4767,6 +4816,7 @@ class InMemoryTripUnderstandingRepository(
             "current_revision": 1,
             "updated_at": now,
             "is_demo": source_text is None,
+            "anonymous_creation_time": now if source_text is not None else None,
         }
         self.resources_by_understanding[understanding_id] = public_resource_id
         job_id = str(uuid4())
@@ -5878,6 +5928,8 @@ class InMemoryTripUnderstandingRepository(
                 raise ResourceAccessDeniedError("trip deletion is not authorized")
             authorization_kind = "ANONYMOUS"
             authorization_hash = capability_hash
+        if row["state"] == "FAILED":
+            self._release_failed_anonymous_allowance(row)
         self._delete_map_memory(resource.understanding_id)
         self._delete_stay_memory(resource.understanding_id)
         self._delete_g03_memory(resource.understanding_id)
@@ -6527,6 +6579,16 @@ class InMemoryTripUnderstandingRepository(
         )
         return False
 
+    def _release_failed_anonymous_allowance(self, resource: dict[str, Any]) -> None:
+        created_at = resource.get("anonymous_creation_time")
+        session = self.sessions.get(resource.get("capability_hash"))
+        if created_at is None or session is None:
+            return
+        starts = session.get("creation_times", [])
+        if created_at in starts:
+            starts.remove(created_at)
+        resource["anonymous_creation_time"] = None
+
     async def fail_job(
         self,
         job: TripUnderstandingJobRecord,
@@ -6561,6 +6623,7 @@ class InMemoryTripUnderstandingRepository(
             if public_id and public_id in self.resources:
                 self.resources[public_id]["state"] = "FAILED"
                 self.resources[public_id]["current_revision"] = job.revision + 1
+                self._release_failed_anonymous_allowance(self.resources[public_id])
             events = self.events.setdefault(job.understanding_id, [])
             events.append(PublicEventRecord(event_id=len(events)+1, event_type="progress",
                 payload=PublicEventPayload(status="FAILED", message="这次没有整理完成，可以重新尝试")))

@@ -86,8 +86,9 @@ def test_a_separately_classified_sibling_keeps_its_role_without_a_duplicate(sibl
 
 
 @pytest.mark.parametrize("draft_role", ["PLANNED", "OPTIONAL"])
-def test_a_choice_area_caption_is_reference_but_its_named_children_remain_options(draft_role):
-    source = branches("星河湾，逛星河湾美术馆、云岭书院。")
+@pytest.mark.parametrize("ending", ["。", "\n", "\r\n"])
+def test_a_choice_area_caption_is_reference_but_its_named_children_remain_options(draft_role, ending):
+    source = branches("星河湾，逛星河湾美术馆、云岭书院" + ending)
     proposal = propose(source, [row(name, role=draft_role) for name in ["星河湾", "星河湾美术馆", "云岭书院", "青溪公园"]])
     assert identities(proposal) == [("星河湾", "REFERENCE"), ("星河湾美术馆", "OPTIONAL"),
                                      ("云岭书院", "OPTIONAL"), ("青溪公园", "OPTIONAL")]

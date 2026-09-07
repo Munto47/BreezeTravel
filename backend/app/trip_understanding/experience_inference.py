@@ -650,7 +650,7 @@ def _retain_choice_area_context(source: str, draft: SemanticDraft) -> SemanticDr
         # A meal in B cannot borrow the road visit that exists only in A.
         left = branch_left[-1]
         following = source[end:right]
-        caption = re.match(r"[，,]\s*逛(?P<places>[A-Za-z0-9\u4e00-\u9fff·]+(?:、[A-Za-z0-9\u4e00-\u9fff·]+){1,5})(?=[。；;！\n]|$)", following)
+        caption = re.match(r"[，,]\s*逛(?P<places>[A-Za-z0-9\u4e00-\u9fff·]+(?:、[A-Za-z0-9\u4e00-\u9fff·]+){1,5})(?=[。；;！\r\n]|$)", following)
         clause_start = max(source.rfind(mark, left, start) for mark in "\n。；;，,：:") + 1
         bare_caption = re.fullmatch(r"[\s\d①②③④⑤⑥⑦⑧⑨⑩.、()（）\-•]*", source[max(left, clause_start):start]) is not None
         venue_label = re.search(r"(?:公园|馆|院|寺|宫|塔|店|湖|桥)$", item.place_name) is not None
@@ -815,18 +815,60 @@ def _retain_explicit_optional_labels(source: str, draft: SemanticDraft) -> Seman
 
     Only the existing guarded explicit-option recognizer can supply a label.
     It needs an unambiguous source day with other model-proposed activities;
-    existing names, revised plans and unresolved source anchors are untouched.
+    Existing source occurrences, revised plans and unresolved anchors are
+    untouched. A prior visit to the same name does not cover a later option.
     """
     if re.search(r"更正|改期|改到|改为|改成|调整|推迟|取消|倒着|反着|逆序|对调|交换|已选|最终|不执行|"
                  r"参考|引用|原文|引文|资料|转述|示例|去年|上次|```|~~~", source):
         return draft
     anchors = SourceAnchorIndex(source)
     activities = list(draft.activities)
-    for start, end in explicit_optional_labels(source):
+    labels = explicit_optional_labels(source)
+
+    def meal_pair(span: tuple[int, int]) -> list[tuple[int, int]]:
+        pair = [(left, right) for left, right in labels if span[0] <= left < right <= span[1]]
+        if len(pair) != 2 or any(not re.search(r"[路街]$", source[left:right]) for left, right in pair):
+            return []
+        between = _markdown_visible(source[pair[0][1]:pair[1][0]])[0].strip(" *")
+        return pair if between in {"/", "／"} else []
+
+    # A model can name just one member but quote the whole meal choice. Locate
+    # that member at this occurrence before recovering its separate sibling.
+    # This never narrows references, another place's claim or multi-line text.
+    try:
+        original_spans = [anchors.locate(item.source_quote, item.occurrence) for item in activities]
+    except ValueError:
+        return draft
+    for i, item in enumerate(activities):
+        if not item.place_name or item.category not in {"餐饮", "地点"} or item.role not in {
+            ActivityRole.PLANNED, ActivityRole.OPTIONAL,
+        }:
+            continue
+        span = original_spans[i]
+        pair = meal_pair(span)
+        member = next(((left, right) for left, right in pair if source[left:right] == item.place_name), None)
+        if member is None or re.search(r"[\r\n]", source[span[0]:span[1]]) or any(
+            _unambiguous_literal_place_day(source, source[left:right]) != item.day_index for left, right in pair
+        ) or any(j != i and left < pair[-1][1] and pair[0][0] < right
+                 for j, (left, right) in enumerate(original_spans)):
+            continue
+        occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(item.place_name) + r")", anchors.visible)
+                             if anchors.indices[match.start()] < member[0])
+        activities[i] = item.model_copy(update={"source_quote": item.place_name, "occurrence": occurrence})
+
+    def unnamed_meal_options(item: SemanticActivity, span: tuple[int, int], day: int) -> bool:
+        # The whole named meal choice can already be an unnamed meal activity.
+        # Retain that meal and its timing, and add the literal options without
+        # interpreting arbitrary overlapping descriptions as visit permission.
+        if item.place_name is not None or item.category != "餐饮" or item.day_index != day or item.role not in {
+            ActivityRole.PLANNED, ActivityRole.OPTIONAL,
+        }:
+            return False
+        return bool(meal_pair(span))
+
+    for start, end in labels:
         name = source[start:end]
-        if atomic_place_rejection_reason(name) is not None or any(
-            item.place_name and normalized_place_label(item.place_name) == normalized_place_label(name) for item in activities
-        ):
+        if atomic_place_rejection_reason(name) is not None:
             continue
         day = _unambiguous_literal_place_day(source, name)
         if day is None:
@@ -835,14 +877,20 @@ def _retain_explicit_optional_labels(source: str, draft: SemanticDraft) -> Seman
             spans = [anchors.locate(item.source_quote, item.occurrence) for item in activities]
         except ValueError:
             continue
-        if any(left < end and start < right for left, right in spans):
+        if any(left < end and start < right and not unnamed_meal_options(activities[i], (left, right), day)
+               for i, (left, right) in enumerate(spans)):
             continue
         indices = [i for i, item in enumerate(activities) if item.day_index == day and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}]
-        if not indices or [spans[i][0] for i in indices] != sorted(spans[i][0] for i in indices):
+        lanes = [[i for i in indices if activities[i].role == role]
+                 for role in (ActivityRole.PLANNED, ActivityRole.OPTIONAL)]
+        if not indices or any([spans[i][0] for i in lane] != sorted(spans[i][0] for i in lane) for lane in lanes):
             continue
         occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(name) + r")", anchors.visible)
                              if anchors.indices[match.start()] < start)
-        insertion = next((i for i in indices if spans[i][0] > start), indices[-1] + 1)
+        # Drafts may group main stops and options separately. Their own order
+        # matters; an optional meal does not have to interrupt the main array.
+        insertion_indices = lanes[1] or indices
+        insertion = next((i for i in insertion_indices if spans[i][0] > start), insertion_indices[-1] + 1)
         activities.insert(insertion, SemanticActivity(source_quote=name, place_name=name, occurrence=occurrence,
             role=ActivityRole.OPTIONAL, day_index=day, category="地点"))
         if len(activities) > 160:
@@ -1185,10 +1233,15 @@ def _unambiguous_literal_place_day(source: str, place: str | None) -> int | None
 
 
 def _nearby_meal_recommendation_spans(source: str) -> set[tuple[int, int]]:
-    """Locate a nearby meal shortlist, without choosing a restaurant branch."""
+    """Locate an explicit meal shortlist, without choosing a restaurant branch."""
     visible, indices = _markdown_visible(source)
     result: set[tuple[int, int]] = set()
-    for match in re.finditer(r"(?:午饭|晚饭|午餐|晚餐)[ \t]*[:：][ \t]*附近(?P<names>[^，,。；;\n]{2,100})", visible):
+    meal = r"(?:午饭|晚饭|午餐|晚餐|中午|晚上)[ \t]*[:：]"
+    patterns = (
+        meal + r"[ \t]*附近(?P<names>[^，,。；;\r\n]{2,100})",
+        meal + r"[^。；;\r\n]{1,100}?[，,][ \t]*(?:推荐[：:]?|吃老字号[：:])[ \t]*(?P<names>[^，,。；;\r\n]{2,100})",
+    )
+    for match in (match for pattern in patterns for match in re.finditer(pattern, visible)):
         parts = match["names"].split("、")
         if not 2 <= len(parts) <= 8 or any(atomic_place_rejection_reason(normalized_place_label(part.strip())) is not None for part in parts):
             continue
@@ -1328,6 +1381,19 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
                 place_end = start + relative_span[1]
                 if _omits_attached_place_qualifier(anchors, place_end):
                     issues.append({"field": f"activities[{index}].place_name", "category": "PLACE_QUALIFIER_OMITTED"})
+                    # Give the bounded semantic repair the actual adjacent
+                    # campus/branch label, not another copy of the short name.
+                    # This is request-local source data, never a verified POI.
+                    visible_end = bisect_left(anchors.indices, place_end)
+                    attached = re.match(r"[（(][^（）()\r\n]{1,80}[）)]", anchors.visible[visible_end:])
+                    if attached:
+                        literal = place + attached[0]
+                        qualified = normalized_place_label(literal)
+                        if atomic_place_rejection_reason(qualified) is None:
+                            occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(literal) + r")", anchors.visible)
+                                                 if anchors.indices[match.start()] < start + relative_span[0])
+                            repair_hints.append(json.dumps({"field": f"activities[{index}].place_name",
+                                "source_quote": literal, "place_name": qualified, "occurrence": occurrence}, ensure_ascii=False))
             # A planned sightseeing/location item containing an explicit list
             # must be returned one atomic place per activity. Rejecting the
             # bundled draft asks the model's bounded repair pass to preserve
@@ -1428,7 +1494,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             item = item.model_copy(update={"role": ActivityRole.PLANNED})
         if (start, end) in optional_labels and item.role in {ActivityRole.PLANNED, ActivityRole.REFERENCE}:
             item = item.model_copy(update={"role": ActivityRole.OPTIONAL})
-        if (start, end) in meal_references and item.category == "餐饮" and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
+        if any(left == start and end <= right for left, right in meal_references) and item.category == "餐饮" and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
             item = item.model_copy(update={"role": ActivityRole.REFERENCE})
         # Explicit unselected branches constrain the model's proposed role.
         # Source ranges never select a default branch or move cancelled visits.

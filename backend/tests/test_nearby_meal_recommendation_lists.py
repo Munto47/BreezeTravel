@@ -116,3 +116,48 @@ async def test_nearby_attraction_visits_after_lunch_are_not_restaurant_recommend
     assert queries == names
     assert all(mention.role.value == "PLANNED" for mention in output.proposal.mentions)
     assert [card.name for card in output.public_result.days[0].activities] == names
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("clause", [
+    "中午：步行到青禾路，吃老字号：青溪餐厅、望星面馆，买点小吃。",
+    "晚上：青禾路吃粤菜，推荐青溪餐厅、望星面馆，尝点心。",
+])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+@pytest.mark.parametrize("role", ["PLANNED", "OPTIONAL"])
+async def test_dining_recommendations_after_an_explicit_street_keep_the_street_only(clause, newline, role):
+    rows = [_activity("青禾路", category="地点"), *[_activity(name, role=role) for name in FOOD_NAMES]]
+    _, output, queries = await _run(clause + newline, rows)
+    assert queries == ["青禾路"]
+    assert [mention.role.value for mention in output.proposal.mentions] == ["PLANNED", "REFERENCE", "REFERENCE"]
+    assert [card.name for card in output.public_result.days[0].activities] == ["青禾路"]
+    assert output.public_result.days[0].alternatives == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("decision", ["已预订两家", "两家都去", "依次各吃一份"])
+async def test_a_selected_food_crawl_after_recommendations_remains_planned(decision):
+    _, output, queries = await _run(f"晚餐：青禾路吃粤菜，推荐青溪餐厅、望星面馆，{decision}。",
+                                    [_activity("青禾路", category="地点"), *[_activity(name) for name in FOOD_NAMES]])
+    assert queries == ["青禾路", *FOOD_NAMES]
+    assert [mention.role.value for mention in output.proposal.mentions] == ["PLANNED", "PLANNED", "PLANNED"]
+
+
+@pytest.mark.asyncio
+async def test_later_booked_visit_is_not_removed_by_an_earlier_recommendation_of_the_same_name():
+    clause = "中午：青禾路吃粤菜，推荐青溪餐厅、望星面馆。\n晚餐：已订青溪餐厅。"
+    _, output, queries = await _run(clause, [_activity("青禾路", category="地点"),
+        *[_activity(name, role="OPTIONAL") for name in FOOD_NAMES], _activity("青溪餐厅", occurrence=2)])
+    assert queries == ["青禾路", "青溪餐厅"]
+    assert [mention.role.value for mention in output.proposal.mentions] == ["PLANNED", "REFERENCE", "REFERENCE", "PLANNED"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("names", [FOOD_NAMES, ["青溪餐厅生煎", "望星面馆麻酱面"]])
+async def test_brand_or_brand_with_food_is_still_a_suggestion_at_the_same_list_position(names):
+    clause = "中午：步行到青禾路，吃老字号：青溪餐厅生煎、望星面馆麻酱面携程"
+    _, output, queries = await _run(clause, [_activity("青禾路", category="地点"),
+        *[_activity(name, role="OPTIONAL") for name in names]])
+    assert queries == ["青禾路"]
+    assert [mention.role.value for mention in output.proposal.mentions] == ["PLANNED", "REFERENCE", "REFERENCE"]
+    assert output.public_result.days[0].alternatives == []

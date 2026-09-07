@@ -83,11 +83,18 @@ _MEAL_STREET_UNSAFE = re.compile(
     r"先去|再去|先到|再到|已选|已决定|已经选择|最终|更正"
 )
 _VISIT_STEM = r"[A-Za-z\u4e00-\u9fff][A-Za-z0-9\u4e00-\u9fff·]{1,18}"
-_VISIT_END = r"(?=$|[ \t。！？；;，,、\n）)])"
+_VISIT_END = r"(?=$|[ \t。！？；;，,、\r\n）)])"
+# A meal heading and an exact street followed by a bounded eating clause are
+# enough to retain that street. Cuisine names are open-ended; non-meal senses
+# and completed/negative eating descriptions must not become visit labels.
+_MEAL_ACTION = (
+    r"(?:用餐|就餐|吃(?!(?:亏|惊|力|紧|苦|饱|撑|闭门羹|官司|回扣|罚单|老本|一堑|"
+    r"了|过|完|不|得))[^\W\d_]{1,12})"
+)
 _VISIT_PATTERNS = (
-    re.compile(r"^[ \t]*(?:[-*•][ \t]+)?(?:中午|午餐|晚餐)[ \t]*[:：][ \t]*(?:\*\*)?"
+    re.compile(r"^[ \t]*(?:[-*•][ \t]+)?(?:中午|午餐|晚餐|晚上)[ \t]*[:：][ \t]*(?:\*\*)?"
                r"(?!(?:前往|先去|再去|步行到|走到|沿着|就近|随便|某|在|从|到|去))"
-               rf"(?P<name>{_MEAL_STREET_NAME})(?:\*\*)?[ \t]*(?:吃午饭|吃晚饭|吃饭|用餐|就餐|吃小吃|吃清真美食){_VISIT_END}", re.M),
+               rf"(?P<name>{_MEAL_STREET_NAME})(?:\*\*)?[ \t]*(?P<meal_action>{_MEAL_ACTION}){_VISIT_END}", re.M),
     re.compile(rf"(?:^|[。！？；;，,\n：:])[ \t]*(?:[-•][ \t]*)?"
                rf"顺着[ \t]*(?:\*\*)?(?P<name>{_VISIT_STEM}路)(?:\*\*)?[ \t]*慢慢走{_VISIT_END}"),
     re.compile(rf"(?:^|[。！？；;，,\n：:])[ \t]*(?:[-•][ \t]*)?(?:\*\*)?"
@@ -343,7 +350,7 @@ def explicit_optional_labels(source: str) -> list[tuple[int, int]]:
 
 
 def explicit_visit_labels(source: str) -> list[tuple[int, int]]:
-    """Locate three narrow walking/visiting clauses, without creating a POI.
+    """Locate explicit meal-street and walking clauses, without creating a POI.
 
     This only supports an omission check or a proposed mention's role. It
     assigns no day and does not select a branch: callers must still apply
@@ -375,6 +382,13 @@ def explicit_visit_labels(source: str) -> list[tuple[int, int]]:
                 or _VISIT_SOFT_CONTEXT.search(context)
                 or _OPTIONAL_UNSAFE_CONTEXT.search(prefix)
                 or _VISIT_SOFT_CONTEXT.search(prefix)
+                or source[:match.start()].count("```") % 2
+                or re.search(r'(?:引用|引文|原文|示例|资料)[：:]\s*$|["“‘]\s*$', source[:match.start()])
+                or ("meal_action" in match.groupdict() and re.search(
+                    r"撤销|作废|如果|假如|要是|若(?:有|能|下雨)|有空|有时间|看情况|时间充裕|"
+                    r"改到|改为|改期|延期|推迟|改天|另一天|择日|日期未定|以后再|下次再",
+                    source[left:sentence_end],
+                ))
             ):
                 continue
             spans.add((start, end))
