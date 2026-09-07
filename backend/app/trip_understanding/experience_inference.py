@@ -988,6 +988,10 @@ def _explicit_markdown_place_groups(source: str) -> tuple[tuple[str, ...], ...]:
     for match in re.finditer(r"(?:\*\*|__)(?P<body>[^\r\n]{3,80}?)(?:\*\*|__)", source):
         body = match.group("body").strip()
         lead_in = source[max(0, match.start() - 32):match.start()]
+        # Typography does not make ticket products or dishes into locations.
+        # This is a completeness check for place lists, not an entity extractor.
+        if re.search(r"(?:必点|必吃|菜品|菜肴|小吃|美食|点单|必买|购票|票种|门票)[：:\s]*$", lead_in):
+            continue
         if re.search(r"(?:不想|可以|可选|备选|推荐|例如|比如|隔壁)[^。！？；\n]{0,24}$", lead_in):
             continue
         if not re.search(r"\+|、|，|,|/|／", body) or re.search(r"[（）()：:；;。！？]", body):
@@ -1354,6 +1358,17 @@ def _is_parent_visit_detail(source: str, place: str | None, start: int, end: int
     )
 
 
+def _is_explicit_dish_description(source: str, place: str | None, start: int, end: int) -> bool:
+    """An explicitly described dish cannot establish a same-named shop visit."""
+    if not place or re.search(r"(?:店|馆|铺|餐厅|酒楼|饭庄|食堂)$", place):
+        return False
+    left = max(source.rfind(mark, 0, start) for mark in "\n。；;") + 1
+    right = min((pos for mark in "\n。；;" if (pos := source.find(mark, end)) >= 0), default=len(source))
+    before, after = source[left:start].rstrip("* _"), source[end:right].lstrip("* _，,：:")
+    return bool(re.search(r"(?:必点|菜品|菜肴|小吃)[：:\s]*$", before)
+        or re.match(r"(?:[^，,。；;]{0,8})?(?:本地|当地|地方)特色(?:小吃|菜|嗦粉|面食|美食)", after))
+
+
 def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
     draft = _recover_unique_quote_occurrences(source, draft)
     draft = _retain_named_meal_locations(source, draft)
@@ -1557,6 +1572,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
         if (start, end) in optional_labels and item.role in {ActivityRole.PLANNED, ActivityRole.REFERENCE}:
             item = item.model_copy(update={"role": ActivityRole.OPTIONAL})
         if any(left == start and end <= right for left, right in meal_references) and item.category == "餐饮" and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
+            item = item.model_copy(update={"role": ActivityRole.REFERENCE})
+        if _is_explicit_dish_description(source, place, start, end):
             item = item.model_copy(update={"role": ActivityRole.REFERENCE})
         # Explicit unselected branches constrain the model's proposed role.
         # Source ranges never select a default branch or move cancelled visits.

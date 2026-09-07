@@ -2,12 +2,12 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "visible-routes-30-minute-threshold-20260907",
+    "id": "domestic-city-generation-resilience-20260907",
     "work_kind": "PRODUCT",
-    "status": "COMPLETED",
-    "outcome": "提示2.5秒轮换；已确认可见地点直接连接，30分钟以内显示步行，否则显示公交，原始记录与手动地图更新边界保留。",
-    "verification": "PASS: 69 backend checks, 19 frontend/browser checks, production build, TypeScript, Ruff, diff; six live AMAP route edges refreshed through owner Chrome page. No driving API or deployment."
+    "status": "IN_PROGRESS",
+    "outcome": "普通地级市经真实行政区核验搜索POI；票种/菜品不再造成整份失败，地点可更换。生成硬失败已改善，完整召回与服务波动尚未收口。",
+    "verification": "412 backend checks including isolated PostgreSQL, 19 browser checks, build, TypeScript, Ruff and diff passed. Final live API: 9/9 partial results and identical refresh, cleanup 204/410; 8/9 candidate searches available. Beijing 10 places, Xinyu generally 7 with one 3-place degraded run; Chengdu 4/5, Suzhou 2/5. Real Chrome generation, replace, refresh and undo verified. Overall resilience PARTIAL."
   },
   "packages": [],
-  "next_planned_slice": "最小化复现长攻略一次修正后的原文引用错误，处理园内眺望对象和菜名误拆；冻结代码后重跑完整七份原文及排版/重复，不以历史成功替代当前失败，不扩大上线范围"
+  "next_planned_slice": "逐项区分语义遗漏、身份歧义和服务不可用；为服务失败保留证据并实施有界恢复，恢复明确分支与园内明细，不把部分生成等同完整稳定，不扩大部署。"
 }

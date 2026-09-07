@@ -26,6 +26,8 @@ class LandmarkHint:
 
 
 HINTS = (
+    LandmarkHint("北京", "北京大栅栏", ("前门大栅栏", "大栅栏"), "西城区", "061000", None,
+                 "https://www.beijing.gov.cn/ywdt/zwzt/gjxxfxcs/gjf/xftyq/tyts/202404/t20240410_3615091.html"),
     LandmarkHint("上海", "万国建筑博览群", ("外滩万国建筑群", "外滩万国建筑", "外滩万国建筑博览群"), "黄浦区", "110200", None,
                  "https://www.shanghai.gov.cn/citywalk/20260625/9dfb6f86b9664e018607b5cc9ec9a53c.html"),
     LandmarkHint("上海", "武康大楼", (), "徐汇区", "120302", "商务住宅;住宅区;住宅小区",

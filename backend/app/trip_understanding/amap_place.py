@@ -26,13 +26,13 @@ from app.trip_understanding._three_city_place_lexicon import (
     venue_suffix_equivalent,
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
+from app.trip_understanding.city_scope import CityScope, CityScopeLookup
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace, safe_poi_photo_url
 from app.trip_understanding.pipeline import atomic_place_rejection_reason, canonical_sha256
 
 
 AMAP_POI_V2_ENDPOINT = "https://restapi.amap.com/v5/place/text"
-_DEEP_CITIES = frozenset({"北京", "上海", "杭州"})
 _FORBIDDEN_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
 _SENTENCE_MARKERS = frozenset("。！？；\n")
 _PROVIDER_STATUS_SUFFIX_RE = re.compile(
@@ -354,6 +354,16 @@ def _name_match_tier(
     if safe_alias_values & primary_values:
         return "SAFE_ALIAS_EXACT"
 
+    # Administrative honors do not change a named forest park's identity.
+    if re.fullmatch(r".{2,}国家森林公园", canonical_name) and primary == canonical_name.replace("国家森林公园", "森林公园"):
+        return "VENUE_SUFFIX_EQUIVALENT"
+    # A provider may prefix a museum with its enclosing park. Require the
+    # separate address field to name that exact parent; never strip branches.
+    parent, separator, child = primary.partition("-")
+    if (separator and child == canonical_name and raw.get("address") == parent
+            and parent.endswith(("公园", "景区")) and canonical_name.endswith(("博物馆", "纪念馆"))):
+        return "VENUE_SUFFIX_EQUIVALENT"
+
     # Untrusted provider aliases cannot erase a campus, branch or child POI.
     # Source-backed explicit aliases above still need full city/type validation.
     if _identity_qualified(primary) or _identity_qualified(canonical_name) or "广场" in primary:
@@ -449,7 +459,10 @@ def _admin_matches(
     *,
     expected_city: str,
     expected_district: str | None,
+    scope: CityScope | None = None,
 ) -> bool:
+    if scope is not None:
+        return scope.matches(raw, expected_district)
     city = _normalized_city(expected_city)
     rule = _CITY_ADMIN_RULES.get(city)
     if rule is None:
@@ -524,6 +537,8 @@ def _visitor_type_compatible(raw: dict[str, Any], atomic: str) -> bool:
         return True
     if code == "190301" and label == "地名地址信息;交通地名;道路名":
         return atomic.endswith(("路", "街", "巷", "胡同"))
+    if code == "080500" and label == "体育休闲服务;休闲场所;休闲场所":
+        return atomic.endswith(("古镇", "小镇"))
     codes, labels = code.split("|"), label.split("|")
     if len(codes) != len(labels) or len(codes) < 2:
         return False
@@ -561,6 +576,25 @@ def _same_road_segments(candidates: tuple[_MatchedCandidate, ...]) -> bool:
     return True
 
 
+def _same_visitor_street(candidates: tuple[_MatchedCandidate, ...], atomic: str) -> bool:
+    """A road and visitor POI can locate the same short named street."""
+    if len(candidates) < 2 or not atomic.endswith(("路", "街", "巷", "胡同")):
+        return False
+    if len({(c.raw.get("name"), c.raw.get("adcode")) for c in candidates}) != 1:
+        return False
+    codes = {c.raw.get("typecode") for c in candidates}
+    if "190301" not in codes or not codes.issubset({"190301", "061000", "061001", "110200"}):
+        return False
+    for left in candidates:
+        for right in candidates:
+            lon1, lat1 = map(math.radians, left.coordinates)
+            lon2, lat2 = map(math.radians, right.coordinates)
+            hav = math.sin((lat2-lat1)/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2
+            if 12742000 * math.asin(min(1, math.sqrt(hav))) > 400:
+                return False
+    return True
+
+
 def _evaluate_candidates(
     pois: list[dict[str, Any]],
     *,
@@ -570,6 +604,7 @@ def _evaluate_candidates(
     expected_category: PlaceCategory | None,
     expected_district: str | None,
     atomic: str,
+    scope: CityScope | None = None,
 ) -> _CandidateDecision:
     name_matches: list[tuple[dict[str, Any], str]] = []
     alias_match_ids: set[str] = set()
@@ -602,6 +637,7 @@ def _evaluate_candidates(
             item,
             expected_city=city,
             expected_district=expected_district,
+            scope=scope,
         ):
             continue
         admin_match_ids.add(provider_id)
@@ -692,7 +728,7 @@ def _evaluate_candidates(
         coordinates = _coordinates(item.get("location"))
         if coordinates is None:
             continue
-        west, east, south, north = _CITY_BOUNDS[_normalized_city(city)]
+        west, east, south, north = scope.bounds if scope else _CITY_BOUNDS[_normalized_city(city)]
         if not (west <= coordinates[0] <= east and south <= coordinates[1] <= north):
             continue
         by_tier[tier].setdefault(
@@ -713,7 +749,10 @@ def _evaluate_candidates(
         if not candidates:
             continue
         selection_tier = tier if len(candidates) == 1 else f"AMBIGUOUS_{tier}"
-        if len(candidates) == 1 or _same_road_segments(candidates):
+        if _same_visitor_street(candidates, atomic):
+            selected = next(c for c in candidates if c.raw.get("typecode") != "190301") if any(c.raw.get("typecode") != "190301" for c in candidates) else candidates[0]
+            selection_tier = f"{tier}_SAME_VISITOR_STREET"
+        elif len(candidates) == 1 or _same_road_segments(candidates):
             selected = candidates[0]
             if len(candidates) > 1:
                 selection_tier = f"{tier}_NEARBY_ROAD_SEGMENTS"
@@ -826,6 +865,10 @@ class AmapPlaceResolver:
         self.deadline_seconds = deadline_seconds
         self.client = client
         self._owned_client: httpx.AsyncClient | None = None
+        self._city_scopes = CityScopeLookup()
+
+    async def city_scope(self, city: str, receipt: dict | None = None) -> CityScope | None:
+        return await self._city_scopes.get(city, client=self._http_client(), api_key=self.api_key, timeout=self.deadline_seconds, receipt=receipt)
 
     def _http_client(self) -> httpx.AsyncClient:
         if self.client is not None:
@@ -1025,13 +1068,15 @@ class AmapPlaceResolver:
                 )
             )
         normalized_city = _normalized_city(city)
-        if normalized_city not in {_normalized_city(value) for value in _DEEP_CITIES}:
+        city_receipt: dict = {}
+        scope = await self.city_scope(city, city_receipt) if normalized_city not in _CITY_BOUNDS else None
+        if normalized_city not in _CITY_BOUNDS and scope is None:
             return PlaceResolutionOutcome(
-                receipt=self._no_call_receipt(
+                receipt={**self._no_call_receipt(
                     city=city,
                     atomic_place_name=atomic,
-                    status="BASIC_CITY_CONFIRMATION_REQUIRED",
-                )
+                    status="CITY_SCOPE_NOT_FOUND",
+                ), "city_scope": city_receipt},
             )
 
         lexicon = get_three_city_place_lexicon()
@@ -1050,6 +1095,7 @@ class AmapPlaceResolver:
             "lexicon_status": "UNAVAILABLE" if not lexicon.available else "MISS",
             "lexicon_match_tier": LexiconMatchTier.NONE.value,
             "lexicon_rewrite_applied": False,
+            **({"city_scope": city_receipt} if city_receipt else {}),
         }
         query_name = atomic
         safe_aliases: tuple[str, ...] = ()
@@ -1143,6 +1189,7 @@ class AmapPlaceResolver:
             expected_category=expected_category,
             expected_district=expected_district,
             atomic=atomic,
+            scope=scope,
         )
         primary_receipt = {**primary_base, **primary_decision.metrics}
         if primary_decision.selected is not None:
@@ -1182,6 +1229,7 @@ class AmapPlaceResolver:
                 expected_category=expected_category,
                 expected_district=expected_district,
                 atomic=atomic,
+                scope=scope,
             )
             rewrite_receipt = {**rewrite_base, **rewrite_decision.metrics}
             combined_receipt = _combine_rewrite_receipts(

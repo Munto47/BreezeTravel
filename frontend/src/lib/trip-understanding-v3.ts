@@ -758,7 +758,7 @@ export async function queryTripPlaceCandidates(
   activityToken: string,
   query: string,
   signal?: AbortSignal,
-  city?: '北京' | '上海' | '杭州',
+  city?: string,
 ): Promise<PlaceCandidatesView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,

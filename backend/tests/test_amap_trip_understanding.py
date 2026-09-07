@@ -423,13 +423,13 @@ async def test_amap_missing_hint_uses_only_unambiguous_atomic_category_markers(
 @pytest.mark.parametrize(
     ("city", "atomic"),
     [
-        ("成都", "武侯祠"),
+        ("", "武侯祠"),
         ("北京", "https://example.invalid/place"),
         ("北京", "预约说明"),
         ("北京", "去故宫。然后吃饭"),
     ],
 )
-async def test_amap_non_deep_city_or_non_atomic_text_makes_zero_calls(
+async def test_amap_invalid_city_or_non_atomic_text_makes_zero_calls(
     city: str,
     atomic: str,
 ) -> None:

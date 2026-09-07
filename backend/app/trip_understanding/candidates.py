@@ -16,6 +16,7 @@ from app.constraints.amap_types import classify_amap_type_signals
 from app.schemas.place import PlaceCategory
 from app.trip_understanding.amap_place import (
     AmapPlaceResolver, _admin_matches, _coordinates, _expected_category, _CATEGORY_LABELS, _name_match_tier, _CITY_BOUNDS,
+    _visitor_type_compatible,
 )
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
 from app.trip_understanding.models import StrictModel
@@ -26,7 +27,7 @@ from app.trip_understanding.pipeline import atomic_place_rejection_reason
 class CandidateSearchRequest(StrictModel):
     activity_token: str = Field(min_length=20, max_length=80)
     query: str = Field(min_length=1, max_length=40)
-    city: Literal["北京", "上海", "杭州"] | None = None
+    city: str | None = Field(default=None, min_length=2, max_length=20, pattern=r"^[\u4e00-\u9fff]+$")
 
 
 class GCJ02Position(StrictModel):
@@ -90,7 +91,8 @@ def verify_candidate(token: str, *, public_resource_id: str, activity_token: str
 
 async def search_candidates(*, city: str, query: str, category_hint: str | None) -> list[CandidatePlace] | None:
     settings = get_settings()
-    if city not in {"北京", "上海", "杭州"} or not settings.amap_api_key or settings.trip_understanding_provider_mode != "live":
+    city = city.strip().removesuffix("市")
+    if not settings.amap_api_key or settings.trip_understanding_provider_mode != "live":
         return None
     if not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", query.strip()):
         return []
@@ -98,6 +100,9 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
     hint = landmark_hint(city, query.strip()) if expected in {None, PlaceCategory.ATTRACTION} else None
     provider = AmapPlaceResolver(api_key=settings.amap_api_key)
     try:
+        scope = await provider.city_scope(city) if city not in _CITY_BOUNDS else None
+        if city not in _CITY_BOUNDS and scope is None:
+            return []
         rows, _receipt = await provider._query_provider(city=city, query_name=hint.name if hint else query.strip(),
             original_atomic=query.strip(), category_basis="USER_SEARCH", typecodes=[], lexicon_binding={})
     except PlaceProviderUnavailableError:
@@ -110,13 +115,16 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
         poi_id = str(row.get("id") or "").strip()
         if not poi_id or atomic_place_rejection_reason("".join(name.split())) or not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", name):
             continue
-        if not _admin_matches(row, expected_city=city, expected_district=None):
+        if not _admin_matches(row, expected_city=city, expected_district=None, scope=scope):
             continue
         signals = classify_amap_type_signals(str(row.get("typecode") or ""), str(row.get("type") or ""))
         category = signals.category
-        if signals.conflict:
+        visitor = expected in {None, PlaceCategory.ATTRACTION} and _visitor_type_compatible(row, name)
+        if visitor:
+            category = PlaceCategory.ATTRACTION
+        if signals.conflict and not visitor:
             continue
-        if not signals.complete or category == PlaceCategory.UNKNOWN:
+        if not visitor and (not signals.complete or category == PlaceCategory.UNKNOWN):
             if expected in {None, PlaceCategory.ATTRACTION} and verified_technical_landmark(row, city=city, name=query):
                 category = PlaceCategory.ATTRACTION
             else:
@@ -126,7 +134,7 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
         coordinates = _coordinates(row.get("location"))
         if not coordinates or not (73 <= coordinates[0] <= 136 and 18 <= coordinates[1] <= 54):
             continue
-        west, east, south, north = _CITY_BOUNDS[city]
+        west, east, south, north = scope.bounds if scope else _CITY_BOUNDS[city]
         if not (west <= coordinates[0] <= east and south <= coordinates[1] <= north):
             continue
         address = row.get("address")

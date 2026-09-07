@@ -266,7 +266,12 @@ async def test_repeated_place_routes_keep_each_occurrences_own_duration(kind):
                 snapshot = await PostgresAuditRepository(repo._pool).get_snapshot_with_conn(conn, snapshot_id)
         by_edge = {fact.subject_id: fact.value["selected_duration_minutes"] for fact in snapshot.facts if fact.fact_type == "ROUTE_MODE_SET"}
         assert [by_edge[f"{_stable_stop_id(left.activity_token)}->{_stable_stop_id(right.activity_token)}"]
-            for left, right in zip(cards, cards[1:])] == [12, 34, 98]
+            for left, right in zip(cards, cards[1:])] == [12, 54, 118]
         conflicts = [item for item in (await repo.get_trip_checks(resource)).items if item.title == "这段时间来不及"]
-        assert len(conflicts) == 1
-        assert conflicts[0].affected_activity_tokens == [cards[2].activity_token, cards[3].activity_token]
+        # The owner's 30-minute rule selects transit (54/118 minutes) on
+        # both later edges; each must retain its own occurrence and conflict.
+        assert len(conflicts) == 2
+        assert {tuple(item.affected_activity_tokens) for item in conflicts} == {
+            (cards[1].activity_token, cards[2].activity_token),
+            (cards[2].activity_token, cards[3].activity_token),
+        }

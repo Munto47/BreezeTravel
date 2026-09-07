@@ -318,7 +318,10 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
     if mention.city_evidence is not None:
         return ("目的地待确认",)
     destination = proposal.destination_name.strip().removesuffix("市")
-    if destination not in DOMESTIC_CITY_NAMES:
+    # This vocabulary detects conflicting city mentions; it is not a coverage
+    # whitelist. The live resolver verifies an arbitrary city with AMap admin
+    # data before a city-limited POI query, including soft model destinations.
+    if destination == "目的地待确认" or not re.fullmatch(r"[\u4e00-\u9fff]{2,20}", destination):
         return ("目的地待确认",)
     destination_mentions = list(re.finditer(re.escape(destination), source_text))
     if destination_mentions and all(

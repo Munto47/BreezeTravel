@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { PROVINCES } from '@/data/cities'
 import { queryTripPlaceCandidates, type ActivityCardView, type PlaceCandidateView, type TripUnderstandingCommand } from '@/lib/trip-understanding-v3'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
 
@@ -11,7 +12,7 @@ export default function PendingPlaceDropdown({card,resource,disabled,onCommand,o
   onClose:()=>void
 }) {
   const [query,setQuery]=useState(card.name==='地点待确认'?'':card.name)
-  const [city,setCity]=useState<''|'北京'|'上海'|'杭州'>(card.city==='北京'||card.city==='上海'||card.city==='杭州'?card.city:'')
+  const [city,setCity]=useState(card.city||'')
   const [items,setItems]=useState<PlaceCandidateView[]>([])
   const [selected,setSelected]=useState<PlaceCandidateView|null>(null)
   const [message,setMessage]=useState('')
@@ -77,7 +78,7 @@ export default function PendingPlaceDropdown({card,resource,disabled,onCommand,o
         style={{width:'100%',minHeight:44,padding:'8px',border:'1px solid #d4e9f0',borderRadius:12,background:'#fff',color:'inherit',fontSize:13}}
         onChange={event=>{clearSearch();setCity(event.target.value as typeof city)}}>
         <option value="">跟随行程</option>
-        <option value="北京">北京</option><option value="上海">上海</option><option value="杭州">杭州</option>
+        {Array.from(new Set([...(card.city?[card.city]:[]),...PROVINCES.flatMap(province=>province.cities)])).map(name=><option key={name} value={name}>{name}</option>)}
       </select>
     </label>
     <form onSubmit={event=>{event.preventDefault();void search()}}>
