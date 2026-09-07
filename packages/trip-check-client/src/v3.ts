@@ -58,6 +58,7 @@ export interface TripUnderstandingCancelView {
 }
 
 export type TripUnderstandingCommand =
+  | { command_type: 'LODGING_RECOVER'; pending_token: string; candidate_token: string; intent: LodgingRecoveryIntent }
   | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK' }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
@@ -142,7 +143,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
-  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | null
+  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | 'VISIT_ONLY' | null
   lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
   lodging_role_uncertain?: boolean
   lodging_excluded_nights?: number[]
@@ -181,6 +182,8 @@ export interface StaySegmentView {
 }
 
 export interface UserFacingTripResult {
+  pending_lodgings?: PendingLodgingView[]
+  lodging_constraints?: LodgingConstraintView[]
   coverage?: components['schemas']['TripRecognitionCoverage'] | null
   can_undo?: boolean
   ownership?: 'ANONYMOUS' | 'ACCOUNT'
@@ -332,6 +335,12 @@ export interface TripSourceView {
 }
 
 export interface TripSupplementaryView {
+  pending_lodgings?: Array<{
+    pending_token: string
+    name: string
+    city: string | null
+    status: 'NEEDS_CONFIRMATION'
+  }>
   status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
   days: Array<{
     day_index: number | null
@@ -342,6 +351,24 @@ export interface TripSupplementaryView {
       role: 'OPTIONAL' | 'EXCLUDED'
     }>
   }>
+}
+
+export interface PendingLodgingView {
+  pending_token: string
+  status: 'NEEDS_CONFIRMATION'
+  unprocessed_count: number
+}
+
+export interface LodgingRecoveryIntent {
+  kind: 'WHOLE_TRIP' | 'NIGHTS' | 'VISIT_ONLY'
+  overnight_days?: number[]
+  day_index?: number | null
+  before_activity_token?: string | null
+}
+
+export interface LodgingConstraintView extends ActivityCardView {
+  scope: 'WHOLE_TRIP' | 'NIGHTS'
+  overnight_days: number[]
 }
 
 export interface PublicTripChecksView {

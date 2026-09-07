@@ -19,7 +19,7 @@ from app.trip_understanding.amap_place import (
     _visitor_type_compatible,
 )
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
-from app.trip_understanding.models import StrictModel
+from app.trip_understanding.models import StrictModel, LodgingRecoveryIntent
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.city_knowledge import get_city_knowledge
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
@@ -29,6 +29,13 @@ class CandidateSearchRequest(StrictModel):
     activity_token: str = Field(min_length=20, max_length=80)
     query: str = Field(min_length=1, max_length=40)
     city: str | None = Field(default=None, min_length=2, max_length=20, pattern=r"^[\u4e00-\u9fff]+$")
+
+
+class PendingLodgingCandidateRequest(StrictModel):
+    pending_token: str = Field(min_length=20, max_length=80)
+    query: str = Field(min_length=1, max_length=40)
+    city: str | None = Field(default=None, min_length=2, max_length=20, pattern=r"^[\u4e00-\u9fff]+$")
+    intent: LodgingRecoveryIntent
 
 
 class GCJ02Position(StrictModel):

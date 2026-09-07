@@ -63,7 +63,7 @@ async def read(public_id):
             "semantic_diagnostic_counts":inference.get("semantic_diagnostic_counts",{}),
             "initial_activities":[dict(row) for row in activities],
             "model_usage":{key:inference.get(key) for key in ("model","external_calls","input_tokens","output_tokens","estimated_cost_cny","latency_ms")},
-            "model_calls":[{key:call.get(key) for key in ("attempt","stage","outcome","latency_ms","input_tokens","output_tokens")}
+            "model_calls":[{key:call.get(key) for key in ("attempt","stage","outcome","latency_ms","input_tokens","output_tokens","validation_errors")}
                 for call in inference.get("calls",[]) if isinstance(call,dict)],
             "understanding_jobs":[{"status":row["status"],"attempt":row["attempt"],"failure_category":row["last_error_category"],
                 **job_times(row),"all_attempt_metrics_complete":row["attempt"] <= 1 and bool(inference.get("calls"))

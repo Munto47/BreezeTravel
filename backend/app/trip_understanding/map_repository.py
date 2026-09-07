@@ -28,6 +28,7 @@ from app.trip_understanding.map_render import (
     MapRenderRequestOutcome,
     MapRenderView,
     MapStop,
+    MapLodgingConstraint,
     PlanRevisionRef,
     PublicMapDayView,
     PublicMapEdgeView,
@@ -103,7 +104,7 @@ def _plan_for_result(
     city: str | None = None,
 ) -> MapRenderPlan:
     stops: list[MapStop] = []
-    lodging_constraints: list[MapStop] = []
+    lodging_constraints: list[MapStop | MapLodgingConstraint] = []
     for day_index, day in enumerate(result.days, start=1):
         for sequence_index, card in enumerate(day.activities):
             canonical_place_id, stored_status, resolver_receipt = activity_bindings.get(
@@ -142,6 +143,15 @@ def _plan_for_result(
             )
             if card.category == "住宿" and getattr(card, "lodging_scope", None) == "WHOLE_TRIP" and getattr(card, "lodging_event", None) == "OVERNIGHT":
                 lodging_constraints.append(stops.pop())
+    for card in result.lodging_constraints:
+        place_id, stored_status, receipt = activity_bindings.get(card.activity_token, (None, "NEEDS_CONFIRMATION", {}))
+        longitude, latitude = _coordinates_from_receipt(receipt)
+        lodging_constraints.append(MapLodgingConstraint(activity_token=card.activity_token,
+            name=card.name, category="住宿", lodging_event="OVERNIGHT", lodging_scope=card.lodging_scope,
+            overnight_days=card.overnight_days, lodging_excluded_nights=card.lodging_excluded_nights,
+            canonical_place_id=place_id,
+            resolution_status="AUTO_MATCHED" if stored_status == "AUTO_MATCHED" and place_id else "NEEDS_CONFIRMATION",
+            city=card.city or receipt.get("city"), longitude=longitude, latitude=latitude))
     stop_set_hash = canonical_sha256(
         [
             {
@@ -175,14 +185,17 @@ def _plan_for_result(
 
 def plan_with_source_lodging(plan: MapRenderPlan) -> MapRenderPlan:
     """Source-backed nights add endpoints without inventing arrival visits."""
-    from app.trip_understanding.overnight_context import confirmed, is_hotel, overnight_segments
+    from app.trip_understanding.overnight_context import confirmed, hotel_identity, is_hotel, overnight_segments
 
     source_hotels = [*plan.lodging_constraints, *[stop for stop in plan.stops
         if not stop.is_stay_anchor and is_hotel(stop) and stop.lodging_event in {"OVERNIGHT", "CHECK_OUT", "DEPARTURE"}]]
+    seen = set()
     for hotel in source_hotels:
-        if not confirmed(hotel) or not hotel.city or hotel.lodging_role_uncertain:
+        identity = hotel_identity(hotel.canonical_place_id)
+        if not confirmed(hotel) or not hotel.city or hotel.lodging_role_uncertain or identity in seen:
             continue
-        nights = [night for segment in overnight_segments(plan) if segment.preserved_hotels == [hotel.name]
+        seen.add(identity)
+        nights = [night for segment in overnight_segments(plan) if segment.preserved_place_ids == [identity]
                   and not segment.uncertain for night in segment.overnight_days]
         plan = plan_with_stay_anchor(plan, selected_place_id=hotel.canonical_place_id, selected_name=hotel.name,
             selected_city=hotel.city, longitude=hotel.longitude, latitude=hotel.latitude,
@@ -238,7 +251,7 @@ def plan_with_stay_anchor(
     overnight_days: list[int],
     source_constraint: bool = False,
 ) -> MapRenderPlan:
-    from app.trip_understanding.overnight_context import excludes_hotel, is_hotel, is_overnight_hotel, is_boundary_visit, normalized_city, overnight_segments
+    from app.trip_understanding.overnight_context import excludes_hotel, hotel_identity, is_hotel, is_overnight_hotel, is_boundary_visit, normalized_city, overnight_segments
 
     by_day: dict[int, list[MapStop]] = defaultdict(list)
     for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
@@ -247,7 +260,7 @@ def plan_with_stay_anchor(
     allowed = {night for segment in overnight_segments(plan)
         if segment.city == normalized_city(selected_city) and not segment.uncertain
         and not excludes_hotel(segment, selected_place_id)
-        and (not segment.preserved_hotels or source_constraint and selected_name in segment.preserved_hotels)
+        and (not segment.preserved_hotels or source_constraint and segment.preserved_place_ids == [hotel_identity(selected_place_id)])
         for night in segment.overnight_days}
     overnight = set(overnight_days) & allowed
     for day_index in sorted(by_day):
@@ -273,13 +286,13 @@ def plan_with_stay_anchor(
                 longitude=longitude,
                 latitude=latitude,
             )
-            if starts_here and not (is_hotel(day_stops[0]) and day_stops[0].canonical_place_id == selected_place_id):
+            if starts_here and not (is_hotel(day_stops[0]) and hotel_identity(day_stops[0].canonical_place_id) == hotel_identity(selected_place_id)):
                 expanded.append(hotel)
             expanded.extend(
                 stop.model_copy(update={"sequence_index": index})
                 for index, stop in enumerate(day_stops, start=1)
             )
-            if ends_here and not (is_hotel(day_stops[-1]) and day_stops[-1].canonical_place_id == selected_place_id):
+            if ends_here and not (is_hotel(day_stops[-1]) and hotel_identity(day_stops[-1].canonical_place_id) == hotel_identity(selected_place_id)):
                 expanded.append(hotel.model_copy(update={"sequence_index": len(day_stops) + 1}))
         else:
             expanded.extend(
@@ -1276,6 +1289,10 @@ class InMemoryMapRenderRepositoryMixin:
                     )
                 else:
                     bindings[card.activity_token] = (None, "NEEDS_CONFIRMATION", {})
+        for card in stored.result.lodging_constraints:
+            record = saved.get(card.activity_token) or {}
+            bindings[card.activity_token] = (record.get("canonical_place_id"),
+                record.get("resolution_status", "NEEDS_CONFIRMATION"), record.get("resolver_receipt") or {})
         plan = _plan_for_result(
             understanding_id,
             revision,

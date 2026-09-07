@@ -96,7 +96,7 @@ FORBIDDEN_PUBLIC_KEYS = {
 async def test_default_understanding_worker_does_not_schedule_map_in_the_future(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    observed_at = datetime(2026, 9, 3, tzinfo=timezone.utc)
+    observed_at = datetime.now(timezone.utc)
 
     class FixedDateTime:
         @classmethod
@@ -312,7 +312,8 @@ async def test_fixed_demo_runs_the_real_compiler_resolver_projector_chain() -> N
     result = output.public_result.model_dump(mode="json")
     # The frontend now reads persisted demo identity and last-edit time; source text
     # and internal evidence still remain outside the ordinary result projection.
-    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "ownership", "expires_at", "is_demo", "updated_at", "coverage"}
+    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "ownership", "expires_at", "is_demo", "updated_at", "coverage", "pending_lodgings", "lodging_constraints"}
+    assert result["pending_lodgings"] == result["lodging_constraints"] == []
     assert result["coverage"]["confirmed_place_count"] == 6
     assert result["coverage"]["unresolved_place_count"] == 0
     assert [[card["name"] for card in day["activities"]] for day in result["days"]] == [
@@ -1412,7 +1413,7 @@ def test_signed_capability_is_tamper_evident_and_access_log_path_is_redacted() -
 async def test_create_replay_conflict_cross_session_and_durable_result() -> None:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 8, 27, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     first = await service.create_demo(
         capability_hash="a" * 64,
         idempotency_key="demo-create-1",
@@ -1507,7 +1508,7 @@ async def test_pipeline_progress_is_bounded_monotonic_and_safe() -> None:
 async def test_cancel_without_snapshot_is_terminal_and_rejects_late_worker() -> None:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     created = await service.create_demo(
         capability_hash="1" * 64,
         idempotency_key="cancel-empty-create",
@@ -1630,7 +1631,7 @@ async def test_cancel_after_retry_was_queued_never_claims_provider_was_not_start
 async def test_cancel_promotes_progress_snapshot_to_editable_partial() -> None:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     created = await service.create_demo(
         capability_hash="2" * 64,
         idempotency_key="cancel-draft-create",
@@ -1762,7 +1763,7 @@ async def test_cancel_promotes_progress_snapshot_to_editable_partial() -> None:
 async def test_claim_rotation_invalidates_preauthorized_command_and_map_replays() -> None:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 8, 27, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     created = await service.create_demo(
         capability_hash="f" * 64,
         idempotency_key="preclaim-create",
@@ -1833,7 +1834,7 @@ async def test_claim_rotation_invalidates_preauthorized_command_and_map_replays(
 @pytest.mark.asyncio
 async def test_expired_lease_is_reclaimed_and_stale_worker_cannot_commit() -> None:
     repository = InMemoryTripUnderstandingRepository()
-    now = datetime(2026, 8, 27, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     await repository.create_demo(
         capability_hash="c" * 64,
         idempotency_key="lease-create",
@@ -1995,7 +1996,7 @@ async def test_understanding_lease_takeover_never_repeats_external_inference() -
 async def test_revision_bound_map_lifecycle_dedupes_and_never_auto_renders_edits() -> None:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 8, 28, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     created = await service.create_demo(
         capability_hash="d" * 64,
         idempotency_key="map-demo",
@@ -2098,7 +2099,7 @@ async def test_revision_bound_map_lifecycle_dedupes_and_never_auto_renders_edits
 async def test_map_lease_takeover_and_late_old_revision_are_isolated() -> None:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 8, 28, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     created = await service.create_demo(
         capability_hash="e" * 64,
         idempotency_key="map-lease-demo",
@@ -2198,7 +2199,7 @@ async def test_map_worker_heartbeat_prevents_route_provider_takeover() -> None:
 
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 8, 28, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     created = await service.create_demo(
         capability_hash="9" * 64,
         idempotency_key="map-heartbeat-create",
@@ -2264,7 +2265,7 @@ async def test_map_lease_takeover_never_repeats_external_routes() -> None:
 
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
-    now = datetime(2026, 8, 28, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     created = await service.create_demo(
         capability_hash="8" * 64,
         idempotency_key="map-takeover-create",

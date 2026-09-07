@@ -17,6 +17,7 @@ from app.trip_understanding.errors import (
     PlaceProviderUnavailableError,
 )
 from app.trip_understanding.models import (
+    PendingLodgingRefView,
     ActivityCardView,
     ActivityAlternativeView,
     ActivityRole,
@@ -1123,7 +1124,7 @@ class PublicResultProjector:
             for activity in activities
             if activity.compiled.mention.role == ActivityRole.PLANNED
             and not (activity.compiled.mention.meal_role and not activity.compiled.mention.atomic_place_name)
-            and not (activity.compiled.mention.category_hint == "住宿" and not activity.compiled.mention.atomic_place_name)
+            and not (activity.compiled.mention.category_hint in {"住宿", "交通节点"} and not activity.compiled.mention.atomic_place_name)
         ]
         activity_day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
@@ -1151,9 +1152,9 @@ class PublicResultProjector:
                 key=lambda activity: activity.compiled.mention.sequence_index,
             ):
                 mention = item.compiled.mention
-                if mention.category_hint == "住宿" and not mention.atomic_place_name:
-                    # A stated lodging gap is already represented by the stay
-                    # recommendation flow; it is not an unresolved hotel visit.
+                if mention.category_hint in {"住宿", "交通节点"} and not mention.atomic_place_name:
+                    # Unnamed lodging gaps and transport actions retain their
+                    # source semantics without inventing a place to confirm.
                     continue
                 if mention.meal_role and not mention.atomic_place_name:
                     preceding = [row for row in daily if row.compiled.mention.sequence_index < mention.sequence_index
@@ -1263,6 +1264,9 @@ class PublicResultProjector:
                 ),
             ],
             days=day_views,
+            pending_lodgings=[PendingLodgingRefView(pending_token=item.compiled.public_activity_token,
+                unprocessed_count=max(1, item.compiled.mention.pending_lodging_issue_count))
+                for item in activities if item.compiled.mention.pending_lodging_scope],
             map=MapReadinessView(
                 status="UNAVAILABLE",
                 message="路线地图暂不可用，不影响查看和编辑卡片",
@@ -1895,7 +1899,7 @@ class TripUnderstandingPipeline:
             if issue.category not in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE",
                 "UNSUPPORTED_TIMING_REMOVED", "UNSUPPORTED_CITY_REMOVED", "UNSUPPORTED_DAY_LABEL_REMOVED", "UNSUPPORTED_DAY_COUNT",
                 "REDUNDANT_CITY_HINT_REMOVED", "LODGING_EVIDENCE_SCOPE_MISMATCH", "LODGING_EXCLUSION_SCOPE_MISMATCH",
-                "LODGING_EXCLUSION_EVIDENCE_MISSING"}
+                "LODGING_EXCLUSION_EVIDENCE_MISSING", "PENDING_LODGING_SCOPE"}
         }
         public_result = public_result.model_copy(update={"coverage": TripRecognitionCoverage(
             recognized_place_count=len(recognized), confirmed_place_count=confirmed,

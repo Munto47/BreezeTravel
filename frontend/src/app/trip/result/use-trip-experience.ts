@@ -168,6 +168,18 @@ export function useTripExperience() {
   const checksRef = useRef<api.PublicTripChecksView | null>(null)
   const [supplementary, setSupplementary] =
     useState<api.TripSupplementaryView | null>(null)
+  const [pendingLodgingDetails, setPendingLodgingDetails] = useState<NonNullable<api.TripSupplementaryView['pending_lodgings']>>([])
+  const [pendingLodgingStatus, setPendingLodgingStatus] = useState<'IDLE'|'LOADING'|'AVAILABLE'|'UNAVAILABLE'|'DELETED'>('IDLE')
+  const pendingLodgingRead = useRef<AbortController|null>(null)
+  const pendingLodgingEpoch = useRef(0)
+  const sourceDeletedRef = useRef(false)
+  const clearPendingLodgings = useCallback(() => {
+    pendingLodgingEpoch.current += 1
+    pendingLodgingRead.current?.abort()
+    pendingLodgingRead.current = null
+    setPendingLodgingDetails([])
+    setPendingLodgingStatus('IDLE')
+  }, [])
   const [writeStatus, setWriteStatus] = useState<
     'IDLE' | 'WRITING' | 'UNKNOWN' | 'CONFIRMED' | 'FAILED'
   >('IDLE')
@@ -227,6 +239,7 @@ export function useTripExperience() {
       etag: string | null
     } | null>
   } | null>(null)
+  const resultReadSequence = useRef(0)
 
   const invalidateEnhancements = useCallback(() => {
     enhancementEpoch.current += 1
@@ -238,6 +251,7 @@ export function useTripExperience() {
     if (previewBasis.current && previewBasis.current.etag !== value)
       setPreviewStale(true)
     if (current.current.etag && current.current.etag !== value) {
+      clearPendingLodgings()
       invalidateEnhancements()
       mapState.current = null
       stayState.current = null
@@ -247,17 +261,27 @@ export function useTripExperience() {
     current.current.etag = value
     setEtag(value)
     sessionStorage.setItem('bt_active_trip_etag', value)
-  }, [invalidateEnhancements])
+  }, [invalidateEnhancements, clearPendingLodgings])
   const refresh = useCallback(
     async (
       reference = current.current.resource,
       timeoutMs = 15000,
       parentSignal?: AbortSignal,
+      expectedEtag?: string,
     ) => {
       const generation = current.current.generation
-      const readKey = `${reference}:${generation}:${timeoutMs}`
+      const readKey = `${reference}:${generation}:${timeoutMs}:${expectedEtag ?? ''}`
       if (resultRead.current?.key === readKey)
         return resultRead.current.promise
+      // A read started before an explicit update must not overwrite its
+      // newer readback, including when both responses have the same ETag.
+      const sequence = ++resultReadSequence.current
+      const isCurrent = () =>
+        alive.current &&
+        sequence === resultReadSequence.current &&
+        generation === current.current.generation &&
+        reference === current.current.resource &&
+        (expectedEtag === undefined || expectedEtag === current.current.etag)
       let promise!: Promise<{
         body: api.UserFacingTripResult
         etag: string | null
@@ -276,11 +300,7 @@ export function useTripExperience() {
                   api.readTripUnderstandingResult(reference, signal),
                 timeoutMs,
               )
-          if (
-            !alive.current ||
-            generation !== current.current.generation ||
-            reference !== current.current.resource
-          )
+          if (!isCurrent() || (expectedEtag !== undefined && response.etag !== expectedEtag))
             return null
           if (response.status === 202) {
             const body = response.body as api.TripUnderstandingProgressView
@@ -301,7 +321,7 @@ export function useTripExperience() {
           }
           const body = response.body as api.UserFacingTripResult
           api.clearTripUnderstandingInputDraft(reference)
-          setResult(body)
+          setResult((previous) => isCurrent() ? body : previous)
           setProgressSnapshot(null)
           setLoading(false)
           setStreamState('PAUSED')
@@ -452,18 +472,48 @@ export function useTripExperience() {
 
   const loadSupplementary = useCallback(async () => {
     const { resource: reference, generation } = current.current
-    if (!reference) return
+    const epoch = pendingLodgingEpoch.current
+    if (!reference || sourceDeletedRef.current) return
     try {
       const next = await bounded((signal) =>
         api.readTripSupplementary(reference, signal),
       )
-      if (generation === current.current.generation && alive.current)
+      if (generation === current.current.generation && alive.current && !sourceDeletedRef.current && epoch === pendingLodgingEpoch.current)
         setSupplementary(next)
     } catch {
-      if (generation === current.current.generation && alive.current)
+      if (generation === current.current.generation && alive.current && !sourceDeletedRef.current && epoch === pendingLodgingEpoch.current)
         setSupplementary({ status: 'UNAVAILABLE', days: [] })
     }
   }, [])
+
+  const loadPendingLodgings = useCallback(async () => {
+    clearPendingLodgings()
+    const {resource:reference, etag:tag, generation} = current.current
+    if (!reference || !tag || sourceDeletedRef.current) return
+    const epoch = pendingLodgingEpoch.current
+    const controller = new AbortController()
+    pendingLodgingRead.current = controller
+    setPendingLodgingStatus('LOADING')
+    const valid = () => alive.current && !controller.signal.aborted && !sourceDeletedRef.current &&
+      epoch === pendingLodgingEpoch.current && reference === current.current.resource && tag === current.current.etag && generation === current.current.generation
+    const timeout = window.setTimeout(() => controller.abort(), 15000)
+    try {
+      const next = await api.readTripSupplementary(reference, controller.signal, true)
+      if (!valid()) return
+      if (next.status === 'DELETED') {
+        sourceDeletedRef.current = true
+        setSupplementary({status:'DELETED',days:[]})
+        setPendingLodgingDetails([])
+      } else setPendingLodgingDetails(next.status === 'AVAILABLE' ? next.pending_lodgings || [] : [])
+      setPendingLodgingStatus(next.status)
+    } catch {
+      if (alive.current && epoch === pendingLodgingEpoch.current && reference === current.current.resource && !sourceDeletedRef.current)
+        setPendingLodgingStatus('UNAVAILABLE')
+    } finally {
+      clearTimeout(timeout)
+      if (pendingLodgingRead.current === controller) pendingLodgingRead.current = null
+    }
+  }, [clearPendingLodgings])
 
   const prepareChecks = useCallback(
     function prepareCurrentChecks(
@@ -662,6 +712,8 @@ export function useTripExperience() {
       sessionStorage.removeItem('bt_claim_after_login')
     }
     if (current.current.resource !== reference) {
+      clearPendingLodgings()
+      sourceDeletedRef.current = sessionStorage.getItem('bt_active_trip_source_deleted') === 'true'
       current.current.etag = ''
       setEtag('')
       setResult(null)
@@ -679,7 +731,7 @@ export function useTripExperience() {
       setStay(null)
       setChecks(null)
       setPreview(null)
-      setSupplementary(null)
+      setSupplementary(sourceDeletedRef.current ? {status:'DELETED',days:[]} : null)
       setNotice('')
       setPending(null)
       setPreviewStale(false)
@@ -1013,6 +1065,7 @@ export function useTripExperience() {
     readMapAndStay,
     loadSupplementary,
     invalidateEnhancements,
+    clearPendingLodgings,
   ])
 
   useEffect(() => {
@@ -1227,6 +1280,7 @@ export function useTripExperience() {
         request: (signal: AbortSignal) => Promise<T>,
       ) => bounded(request, remainingBudget())
       invalidateEnhancements()
+      clearPendingLodgings()
       previewController.current?.abort()
       current.current.generation += 1
       setPreviewLoading(false)
@@ -1463,6 +1517,7 @@ export function useTripExperience() {
     },
     [
       invalidateEnhancements,
+      clearPendingLodgings,
       pending,
       prepareChecks,
       readMapAndStay,
@@ -1947,8 +2002,13 @@ export function useTripExperience() {
       invalidateEnhancements()
       stayState.current = view; setStay(view)
       await readMapAndStay(['stay'])
+      if (!alive.current || reference !== current.current.resource || tag !== current.current.etag || generation !== current.current.generation) return
+      // Detail reads may still be PREPARING. Read the same revision's actual
+      // summary so the old NEEDS_UPDATE guard does not mask later polling.
+      const latest = await refresh(reference, 15000, undefined, tag)
+      if (!latest) throw new Error('READBACK_REQUIRED')
     } catch {
-      if (alive.current && reference === current.current.resource && tag === current.current.etag)
+      if (alive.current && reference === current.current.resource && tag === current.current.etag && generation === current.current.generation)
         setNotice('住宿建议更新尚未确认，可稍后再试。')
     } finally {writing.current = false; if (alive.current) setBusy(false)}
   }
@@ -1960,6 +2020,11 @@ export function useTripExperience() {
     isDemo,
     result: displayedResult,
     sourceLodgings: confirmedSourceLodgings(result),
+    pendingLodgings: result?.pending_lodgings || [],
+    pendingLodgingDetails,
+    pendingLodgingStatus,
+    loadPendingLodgings,
+    clearPendingLodgings,
     progressSnapshot: displayedProgress,
     omittedPlaceCount: result?.days.reduce((total, day) => total + day.activities.filter(card => card.status !== 'READY').length, 0) || 0,
     unresolvedDays: result?.days.map(day => ({...day, activities:day.activities.filter(card => card.status !== 'READY')})) || [],
@@ -2004,6 +2069,8 @@ export function useTripExperience() {
       previewBasis.current = null
     },
     markSourceDeleted: () => {
+      sourceDeletedRef.current = true
+      clearPendingLodgings()
       setSupplementary({ status: 'DELETED', days: [] })
       sessionStorage.setItem('bt_active_trip_source_deleted', 'true')
     },

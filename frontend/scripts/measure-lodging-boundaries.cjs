@@ -39,6 +39,10 @@ function fingerprint(){
     else if(item.isFile()&&/\.(py|jsonl?|md|tsx?|css)$/.test(file))files[path.relative(root,file)]=createHash('sha256').update(fs.readFileSync(file)).digest('hex')
   }}
   for(const dir of ['backend/app/trip_understanding','frontend/src/app/trip/result','frontend/src/lib'])walk(path.join(root,dir))
+  for(const relative of ['frontend/src/app/experience.css','backend/app/api/trip_understandings_v3.py']){
+    const file=path.join(root,relative)
+    files[path.relative(root,file)]=createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+  }
   return files
 }
 function serviceSnapshot(){
@@ -63,9 +67,33 @@ async function installMapObservation(page){
   // Observe the actual SDK operations, never substitute an SDK or an API result.
   await page.addInitScript(()=>{
     const records=[],objects=new WeakMap(),constructors=new WeakMap(),wrapped=new WeakMap()
+    const coordinates=value=>{
+      if(!value)return null
+      const lng=Array.isArray(value)?value[0]:typeof value.getLng==='function'?value.getLng():value.lng
+      const lat=Array.isArray(value)?value[1]:typeof value.getLat==='function'?value.getLat():value.lat
+      return Number.isFinite(lng)&&Number.isFinite(lat)?[lng,lat]:null
+    }
+    const observedOverlay=overlay=>{
+      const options=objects.get(overlay)
+      if(options?.kind==='Polyline')return {kind:'Polyline',path:typeof overlay.getPath==='function'?overlay.getPath().map(coordinates):options.path}
+      if(options?.kind==='Marker')return {kind:'Marker',position:coordinates(typeof overlay.getPosition==='function'?overlay.getPosition():options.position),
+        name:options.title,aria_label:options.content?.getAttribute?.('aria-label')||null,
+        lodging:!!options.content?.classList?.contains('e-map-lodging-marker')}
+      return {kind:'UNOBSERVED'}
+    }
+    const viewport=instance=>{
+      try{
+        const bounds=instance.getBounds?.()
+        return {center:coordinates(instance.getCenter?.()),zoom:instance.getZoom?.()??null,
+          southwest:coordinates(bounds?.getSouthWest?.()),northeast:coordinates(bounds?.getNorthEast?.())}
+      }catch{return null}
+    }
     window.__lodgingMapObservation={records,snapshot(){return records.filter(r=>!r.destroyed&&r.container.closest('[data-testid="route-map"]')?.getBoundingClientRect().width>0).map(r=>({
+      map_instance_id:r.id,observed_at:performance.now(),viewport:viewport(r.instance),
       complete_events:r.completeEvents,last_complete_at:r.completeAt,last_fit_at:r.fitAt,fit_count:r.fitCount,
-      active_paths:[...r.overlays].filter(o=>objects.get(o)?.kind==='Polyline').map(o=>objects.get(o).path),
+      active_paths:[...r.overlays].filter(o=>objects.get(o)?.kind==='Polyline').map(o=>observedOverlay(o).path),
+      active_markers:[...r.overlays].filter(o=>objects.get(o)?.kind==='Marker').map(observedOverlay),
+      last_fit_overlays:r.fitOverlays.map(observedOverlay),last_fit_options:r.fitOptions,
       canvas_visible:[...r.container.querySelectorAll('canvas')].some(c=>c.width>0&&c.height>0&&c.getBoundingClientRect().width>0),
     }))}}
     function sdkProxy(sdk){
@@ -78,7 +106,7 @@ async function installMapObservation(page){
         const Observed=new Proxy(Original,{construct(C,args){
           const instance=Reflect.construct(C,args,C)
           if(key==='Map'&&args[0] instanceof HTMLElement){
-            const record={container:args[0],overlays:new Set(),completeEvents:0,completeAt:0,fitAt:0,fitCount:0,destroyed:false}
+            const record={id:records.length+1,instance,container:args[0],overlays:new Set(),completeEvents:0,completeAt:0,fitAt:0,fitCount:0,fitOverlays:[],fitOptions:[],destroyed:false}
             records.push(record)
             instance.on('complete',()=>{record.completeEvents++;record.completeAt=performance.now()})
             for(const method of ['add','remove','setFitView','destroy']){
@@ -86,12 +114,12 @@ async function installMapObservation(page){
               instance[method]=function(...values){
                 if(method==='add')for(const o of (Array.isArray(values[0])?values[0]:[values[0]]))record.overlays.add(o)
                 if(method==='remove')for(const o of (Array.isArray(values[0])?values[0]:[values[0]]))record.overlays.delete(o)
-                if(method==='setFitView'){record.fitCount++;record.fitAt=performance.now()}
+                if(method==='setFitView'){record.fitCount++;record.fitAt=performance.now();record.fitOverlays=[...(values[0]||[])];record.fitOptions=values.slice(1)}
                 if(method==='destroy')record.destroyed=true
                 return original.apply(this,values)
               }
             }
-          }else if(key==='Polyline')objects.set(instance,{kind:key,path:args[0]?.path})
+          }else if(key==='Polyline'||key==='Marker')objects.set(instance,{kind:key,...args[0]})
           return instance
         }})
         constructors.set(Original,Observed)
@@ -145,6 +173,117 @@ async function waitForRenderedMap(page,visibleMap,body,browserMap,resources){
       route_path_sha256:active_paths.map(p=>createHash('sha256').update(JSON.stringify(p)).digest('hex'))})),
     map_resources:resources(),all_markers_fit:true,visual_pixels_require_screenshot_review:true}
 }
+const sortedJSON=values=>values.map(value=>JSON.stringify(value)).sort()
+function expectedScope(body,days){
+  const labels=new Set(days.map(day=>day.label)),tokens=new Set(days.flatMap(day=>day.activities.map(card=>card.activity_token)))
+  const valid=p=>p?.coordinate_system==='GCJ02'&&Number.isFinite(p.longitude)&&Number.isFinite(p.latitude)&&Math.abs(p.longitude)<=180&&Math.abs(p.latitude)<=90
+  const visits=(body.points||[]).filter(point=>tokens.has(point.activity_token)&&valid(point.position))
+  const seen=new Set()
+  const lodgings=(body.lodging_points||[]).filter(point=>{
+    if(!labels.has(point.day_label)||!valid(point.position))return false
+    const key=JSON.stringify([point.name,point.position.longitude,point.position.latitude])
+    if(seen.has(key))return false
+    seen.add(key);return true
+  })
+  const markers=[...visits.map(p=>({kind:'Marker',position:[p.position.longitude,p.position.latitude],name:p.name,aria_label:`查看${p.name}`,lodging:false})),
+    ...lodgings.map(p=>({kind:'Marker',position:[p.position.longitude,p.position.latitude],name:p.name,aria_label:`查看住宿位置 ${p.name}`,lodging:true}))]
+  const paths=(body.days||[]).filter(day=>labels.has(day.label)).flatMap(day=>day.routes.flatMap(route=>{
+    const segment=route.selected_mode&&route[route.selected_mode]
+    return ['AVAILABLE','LIMITED'].includes(body.status)&&segment?.status==='AVAILABLE'&&segment.geometry?.length>=2&&
+      segment.geometry.every(p=>Number.isFinite(p.longitude)&&Number.isFinite(p.latitude))?[segment.geometry.map(p=>[p.longitude,p.latitude])]:[]
+  }))
+  return {day_labels:[...labels],markers,paths,source:'CURRENT_REAL_MAP_RESPONSE_FILTERED_BY_RESULT_DAY_TOKENS_AND_LABELS'}
+}
+function validViewport(view){return !!view&&[view.center,view.southwest,view.northeast].every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))&&
+  Number.isFinite(view.zoom)&&view.southwest[0]<view.northeast[0]&&view.southwest[1]<view.northeast[1]}
+function sameViewport(a,b){return validViewport(a)&&validViewport(b)&&Math.abs(a.zoom-b.zoom)<=0.00001&&
+  ['center','southwest','northeast'].every(key=>a[key].every((n,i)=>Math.abs(n-b[key][i])<=0.000001))}
+function scopeFitsViewport(scope,view){return validViewport(view)&&[...scope.markers.map(m=>m.position),...scope.paths.flat()].every(p=>
+  p[0]>=view.southwest[0]-0.000001&&p[0]<=view.northeast[0]+0.000001&&p[1]>=view.southwest[1]-0.000001&&p[1]<=view.northeast[1]+0.000001)}
+function observedScopeMatches(snapshot,scope){return snapshot?.complete_events>0&&snapshot.fit_count>0&&snapshot.canvas_visible&&
+  equal(sortedJSON(snapshot.active_markers),sortedJSON(scope.markers))&&equal(sortedJSON(snapshot.active_paths),sortedJSON(scope.paths))&&
+  equal(sortedJSON(snapshot.last_fit_overlays),sortedJSON([...scope.markers,...scope.paths.map(path=>({kind:'Polyline',path}))]))}
+async function measureCrossCityDayFocus(page,visibleMap,body,result,row,resources,inputId){
+  const measurement={status:'STARTED',basis:'Existing real map data; date controls only. No manual fit, route refresh, SDK substitution, or source correction.',
+    day_index:3,checks:{},phases:{},map_resources_before:resources(),api_writes_before:{...row.api_writes},map_api_requests_before:{...row.map_api_requests}}
+  row.cross_city_day_focus=measurement;save()
+  const readSnapshot=()=>page.evaluate(()=>window.__lodgingMapObservation?.snapshot()||[])
+  const legend=page.getByTestId('result-view-map-stay').getByLabel('日期颜色与预演选择')
+  const targetDay=result.days[2],fullScope=expectedScope(body,result.days)
+  const dayScope=expectedScope(body,targetDay?[targetDay]:[])
+  measurement.day_label=targetDay?.label??null
+  measurement.current_ready_day_cities=[...new Set((targetDay?.activities||[]).filter(c=>c.status==='READY').map(c=>c.city))]
+  measurement.checks.day3_has_only_confirmed_shanghai_city=measurement.current_ready_day_cities.length===1&&measurement.current_ready_day_cities[0]?.replace(/市$/,'')==='上海'
+  measurement.expected_full_scope=fullScope;measurement.expected_day_scope=dayScope
+  async function phase(name,scope,action,expectNewFit=!!action){
+    const state={status:'STARTED',resources_before:resources(),api_writes_before:{...row.api_writes},map_api_requests_before:{...row.map_api_requests},viewport_samples:[]}
+    measurement.phases[name]=state;save()
+    const started=Date.now(),remaining=()=>Math.max(1,45000-(Date.now()-started))
+    try{
+      state.before=await readSnapshot()
+      if(action)await action(remaining)
+      if(!scope.markers.length||!scope.paths.length)throw new Error('Real scope lacks markers or available route geometry; focus is not verified')
+      await expect.poll(async()=>{
+        const snapshots=await readSnapshot()
+        if(snapshots.length!==1)return false
+        const s=snapshots[0],old=state.before.find(previous=>previous.map_instance_id===s.map_instance_id)
+        return observedScopeMatches(s,scope)&&(!expectNewFit||s.fit_count>(old?.fit_count||0))
+      },{timeout:remaining(),message:`${name}: real SDK markers, Polylines and automatic fit must match this exact scope`}).toBe(true)
+      await expect.poll(()=>resources().pending===0&&resources().idle_ms>=2000,{timeout:remaining(),message:`${name}: actual map requests must settle`}).toBe(true)
+      await expect.poll(()=>visibleMap.locator('.e-map-marker').evaluateAll(nodes=>nodes.length>0&&nodes.every(node=>{
+        const a=node.getBoundingClientRect(),map=node.closest('[data-testid="route-map"]').getBoundingClientRect()
+        return a.width>0&&a.height>0&&a.left>=map.left&&a.right<=map.right&&a.top>=map.top&&a.bottom<=map.bottom
+      })),{timeout:remaining(),message:`${name}: every marker must fit the visible map`}).toBe(true)
+      await expect.poll(async()=>{
+        const snapshots=await readSnapshot(),s=snapshots.length===1?snapshots[0]:null
+        if(!observedScopeMatches(s,scope)||!scopeFitsViewport(scope,s.viewport)||resources().pending||resources().idle_ms<2000){state.viewport_samples=[];return false}
+        state.viewport_samples.push({observed_at:s.observed_at,map_instance_id:s.map_instance_id,fit_count:s.fit_count,viewport:s.viewport})
+        state.viewport_samples=state.viewport_samples.slice(-3)
+        return state.viewport_samples.length===3&&state.viewport_samples[2].observed_at-state.viewport_samples[0].observed_at>=900&&
+          state.viewport_samples.every(sample=>sample.map_instance_id===s.map_instance_id&&sample.fit_count===s.fit_count&&sameViewport(sample.viewport,s.viewport))
+      },{timeout:remaining(),intervals:[500],message:`${name}: fitted extent, center and zoom must stay stable across three real SDK samples`}).toBe(true)
+      state.observed_maps=await readSnapshot()
+      state.all_markers_and_route_geometry_fit=true;state.status='PASSED'
+    }catch(error){state.status='FAILED';state.failure={type:error.name,message:String(error.message).split('\n').slice(0,3).join(' ').slice(0,350)}
+      state.observed_maps=await readSnapshot().catch(()=>[])
+    }finally{
+      state.wait_ms=Date.now()-started;state.resources_after=resources();state.api_writes_after={...row.api_writes};state.map_api_requests_after={...row.map_api_requests}
+      state.sdk_request_delta=Object.fromEntries(['started','finished','failed'].map(key=>[key,state.resources_after[key]-state.resources_before[key]]))
+      state.no_api_write=equal(state.api_writes_before,state.api_writes_after)
+      state.screenshot=path.join(folder,`${inputId}-focus-${name}.png`)
+      await page.screenshot({path:state.screenshot,fullPage:true,timeout:5000}).catch(()=>{state.screenshot=null;state.screenshot_failed=true;state.status='FAILED'})
+      save()
+    }
+    return state
+  }
+  const before=await phase('all-before',fullScope,async remaining=>{
+    // Read the default selection; do not click it and repair an incorrect initial scope.
+    await expect(legend.getByRole('button',{name:'全部行程',exact:true})).toHaveAttribute('aria-pressed','true',{timeout:remaining()})
+  },false)
+  // No new fit is expected when only checking the initial default selection.
+  // The two actual selection actions below are independently observed, including restoration after a failed Day 3 check.
+  const day=await phase('day3',dayScope,async remaining=>{
+    if(!targetDay)throw new Error('Day 3 is absent from the actual result')
+    const button=legend.getByRole('button',{name:targetDay.label,exact:true})
+    await button.click({timeout:remaining()});await expect(button).toHaveAttribute('aria-pressed','true',{timeout:remaining()})
+  })
+  const restored=await phase('all-restored',fullScope,async remaining=>{
+    const button=legend.getByRole('button',{name:'全部行程',exact:true})
+    await button.click({timeout:remaining()});await expect(button).toHaveAttribute('aria-pressed','true',{timeout:remaining()})
+  })
+  const a=before.observed_maps?.[0]?.viewport,d=day.observed_maps?.[0]?.viewport,b=restored.observed_maps?.[0]?.viewport
+  measurement.checks.day3_extent_is_narrower_than_full=validViewport(a)&&validViewport(d)&&d.northeast[0]-d.southwest[0]<a.northeast[0]-a.southwest[0]&&
+    d.northeast[1]-d.southwest[1]<a.northeast[1]-a.southwest[1]
+  measurement.checks.restored_extent_matches_original=sameViewport(a,b)
+  measurement.map_resources_after=resources()
+  measurement.sdk_request_delta=Object.fromEntries(['started','finished','failed'].map(key=>[key,measurement.map_resources_after[key]-measurement.map_resources_before[key]]))
+  measurement.api_writes_after={...row.api_writes};measurement.map_api_requests_after={...row.map_api_requests}
+  measurement.checks.no_api_write=equal(measurement.api_writes_before,measurement.api_writes_after)
+  measurement.checks.no_route_update_request=(measurement.map_api_requests_after.POST||0)===(measurement.map_api_requests_before.POST||0)
+  measurement.checks.all_three_phases_passed=Object.values(measurement.phases).every(p=>p.status==='PASSED'&&p.no_api_write)
+  measurement.status=Object.values(measurement.checks).every(Boolean)?'PASSED':'FAILED'
+  row.ui_checks.cross_city_day_focus_and_restore=measurement.status==='PASSED';save()
+}
 function summarizeMap(body){return {status:body.status,message:body.message,points:(body.points||[]).map(p=>({day:p.day_label,sequence:p.sequence_index,name:p.name,position:p.position})),
   lodging_points:(body.lodging_points||[]).map(p=>({day:p.day_label,name:p.name,position:p.position})),
   days:(body.days||[]).map(d=>({label:d.label,routes:d.routes.map(e=>({from:e.from_name,to:e.to_name,selected_mode:e.selected_mode,
@@ -153,7 +292,7 @@ function summarizeMap(body){return {status:body.status,message:body.message,poin
 async function main(){
   const browser=await chromium.launch({headless:true})
   try{for(const [index,input] of cases.entries()){
-    const row={id:input.id,kind:input.kind,repeat:input.repeat,input_text:input.text,expected:input.expected,status:'STARTED',started_at:new Date().toISOString(),checks:{},ui_checks:{},api_writes:{},api_errors:[]}
+    const row={id:input.id,kind:input.kind,repeat:input.repeat,input_text:input.text,expected:input.expected,status:'STARTED',started_at:new Date().toISOString(),checks:{},ui_checks:{},api_writes:{},map_api_requests:{},api_errors:[]}
     report.cases.push(row);save()
     const width=index===1?390:1440
     const context=await browser.newContext({baseURL,viewport:{width,height:950}}),page=await context.newPage()
@@ -161,7 +300,9 @@ async function main(){
     const mapResources=watchMapResources(page)
     let browserFinalMap=null
     let resource=null
-    page.on('request',request=>{const u=new URL(request.url());if(u.origin===new URL(baseURL).origin&&u.pathname.startsWith('/api/')&&['POST','PUT','DELETE','PATCH'].includes(request.method())){
+    page.on('request',request=>{const u=new URL(request.url());
+      if(u.origin===new URL(baseURL).origin&&u.pathname.startsWith('/api/v3/')&&/\/map-renders(?:\/latest)?$/.test(u.pathname))row.map_api_requests[request.method()]=(row.map_api_requests[request.method()]||0)+1
+      if(u.origin===new URL(baseURL).origin&&u.pathname.startsWith('/api/')&&['POST','PUT','DELETE','PATCH'].includes(request.method())){
       const name=u.pathname.split('/').pop();row.api_writes[name]=(row.api_writes[name]||0)+1}})
     page.on('response',async response=>{const u=new URL(response.url());if(u.origin===new URL(baseURL).origin&&u.pathname.startsWith('/api/v3/')&&response.status()>=400)row.api_errors.push({action:u.pathname.split('/').pop(),status:response.status()})
       if(u.origin===new URL(baseURL).origin&&u.pathname.endsWith('/map-renders/latest')&&response.status()===200){try{
@@ -225,6 +366,7 @@ async function main(){
         catch(error){row.ui_checks.final_route_overlays_and_all_points_fit=false;row.rendered_map_failure={type:error.name,message:String(error.message).split('\n').slice(0,3).join(' ').slice(0,350),browser_final_map:browserFinalMap,map_resources:mapResources()}}
       }
       await page.screenshot({path:path.join(folder,`${input.id}-map.png`),fullPage:true})
+      if(visualSettled&&input.kind==='MULTI_CITY')await measureCrossCityDayFocus(page,visibleMap,map.body,result.body,row,mapResources,input.id)
       row.ui_checks.no_manual_route_post=(row.api_writes['map-renders']||0)===0
       row.status='COLLECTED'
     }catch(error){row.status='FAILED';row.failure={type:error.name,message:String(error.message).split('\n').slice(0,3).join(' ').slice(0,350)};await page.screenshot({path:path.join(folder,`${input.id}-failure.png`),fullPage:true}).catch(()=>{})}

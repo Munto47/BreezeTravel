@@ -904,7 +904,10 @@ export default function TripResultPage() {
             </div>
           )}
           <div className="e-page-message">
-            <UnresolvedPlaces days={trip.unresolvedDays} coverage={result.coverage} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand}/>
+            <UnresolvedPlaces key={`${trip.resource}:${trip.etag}:${sourceDeleted}`} days={trip.unresolvedDays} visitDays={result.days}
+              coverage={result.coverage} resource={trip.resource} etag={trip.etag} disabled={disabled || dirty} onCommand={trip.workspaceCommand}
+              pendingLodgings={trip.pendingLodgings} lodgingDetails={trip.pendingLodgingDetails} lodgingStatus={trip.pendingLodgingStatus}
+              sourceDeleted={sourceDeleted} onLoadLodgings={() => void trip.loadPendingLodgings()} onClearLodgings={trip.clearPendingLodgings} onRefresh={trip.retry}/>
             {!contextOpen && <SourceLodging cards={trip.sourceLodgings} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand} />}
             {trip.notice && (
               <div

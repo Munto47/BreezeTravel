@@ -13,7 +13,7 @@ from app.schemas.place import PlaceCategory
 from app.trip_understanding.amap_place import _admin_matches, _coordinates
 from app.trip_understanding.candidates import CandidatePlace, GCJ02Position, PublicPlaceCandidate, _CITY_BOUNDS, verify_candidate
 from app.trip_understanding.map_render import MapStop
-from app.trip_understanding.models import StrictModel, DiningInsertCommand, PlaceConfirmCommand
+from app.trip_understanding.models import StrictModel, DiningInsertCommand, PlaceConfirmCommand, LodgingRecoverCommand
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
 from app.trip_understanding.stay import haversine_meters
 from app.trip_understanding.city_scope import CityScope, CityScopeLookup
@@ -42,6 +42,10 @@ def dining_binding(activity_token: str, *, before: bool = False) -> str:
 
 
 def verify_command_candidate(command, *, public_resource_id: str, expected_etag: str, now):
+    if isinstance(command, LodgingRecoverCommand):
+        from app.trip_understanding.lodging_recovery import recovery_binding
+        return verify_candidate(command.candidate_token, public_resource_id=public_resource_id,
+            activity_token=recovery_binding(command.pending_token, command.intent), expected_etag=expected_etag, now=now)
     if not isinstance(command, (DiningInsertCommand, PlaceConfirmCommand)):
         return None
     binding = dining_binding(command.after_activity_token, before=command.insert_before) if isinstance(command, DiningInsertCommand) else command.activity_token

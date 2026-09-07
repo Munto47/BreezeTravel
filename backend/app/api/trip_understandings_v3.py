@@ -12,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import get_settings
 from app.trip_understanding.anonymous import AnonymousDailyLimitError
-from app.trip_understanding.candidates import CandidateSearchRequest, CandidateSearchView, issue_candidate, search_candidates
+from app.trip_understanding.candidates import CandidateSearchRequest, PendingLodgingCandidateRequest, CandidateSearchView, issue_candidate, search_candidates
+from app.trip_understanding.lodging_recovery import confirmed_single_destination, recovery_binding, result_cards, validate_recovery_target
 from app.trip_understanding.dining import (
     DiningSearchRequest, DiningCandidatesView, DiningCandidateView, dining_binding, search_dining, valid_anchor,
 )
@@ -372,7 +373,7 @@ async def create_trip_understanding_from_collaboration(
 
 @router.post("/{public_resource_id}/place-candidates", response_model=CandidateSearchView)
 async def find_place_candidates(
-    public_resource_id: str, body: CandidateSearchRequest, request: Request,
+    public_resource_id: str, body: CandidateSearchRequest | PendingLodgingCandidateRequest, request: Request,
     response: Response, repository: RepositoryDep, current_user: OptionalUserDep,
     search=Depends(get_place_candidate_search),
 ):
@@ -382,17 +383,37 @@ async def find_place_candidates(
     stored = await repository.get_result(resource)
     if stored is None:
         raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"})
-    card = next((card for day in stored.result.days for card in day.activities if card.activity_token == body.activity_token), None)
-    if card is None:
-        raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "卡片已调整，请刷新后重试"})
-    city = body.city or card.city or next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
-    places = await search(city=city, query=body.query, category_hint=card.category)
+    if isinstance(body, PendingLodgingCandidateRequest):
+        expected = _require_if_match(request.headers.get("If-Match"))
+        if expected != stored.opaque_etag:
+            raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已变化，请刷新后重试"})
+        try:
+            validate_recovery_target(stored.result, body.pending_token, body.intent)
+        except CommandTargetChangedError:
+            raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "待确认住宿已调整，请刷新后重试"}) from None
+        supplementary = await repository.get_supplementary_view(resource, now=datetime.now(timezone.utc), include_pending_lodgings=True)
+        pending = next((item for item in supplementary.pending_lodgings if item.pending_token == body.pending_token), None)
+        if supplementary.status != "AVAILABLE" or pending is None:
+            raise HTTPException(status_code=409, detail={"code": "SOURCE_UNAVAILABLE", "message": "原文已不可用，无法恢复此住宿"})
+        city = body.city or pending.city or confirmed_single_destination(stored.result)
+        if not city:
+            raise HTTPException(status_code=422, detail={"code": "CITY_REQUIRED", "message": "请先选择酒店所在城市"},
+                headers={"Cache-Control": "no-store"})
+        category = "住宿"
+        binding = recovery_binding(body.pending_token, body.intent)
+    else:
+        card = next((card for card in result_cards(stored.result) if card.activity_token == body.activity_token), None)
+        if card is None:
+            raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "卡片已调整，请刷新后重试"})
+        city = body.city or card.city or next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
+        category, binding = card.category, body.activity_token
+    places = await search(city=city, query=body.query, category_hint=category)
     response.headers["Cache-Control"] = "no-store"
     if places is None:
         return CandidateSearchView(status="UNAVAILABLE")
     now = datetime.now(timezone.utc)
     candidates = [issue_candidate(place, public_resource_id=public_resource_id,
-        activity_token=body.activity_token, expected_etag=stored.opaque_etag, now=now) for place in places]
+        activity_token=binding, expected_etag=stored.opaque_etag, now=now, expires_at=resource.expires_at) for place in places]
     return CandidateSearchView(status="AVAILABLE" if candidates else "EMPTY", candidates=candidates)
 
 
@@ -1095,13 +1116,14 @@ async def claim_trip_understanding(
     return outcome.claimed
 
 
-async def _private_import_view(public_resource_id, request, repository, current_user, *, supplementary=False):
+async def _private_import_view(public_resource_id, request, repository, current_user, *, supplementary=False, include_pending_lodgings=False):
     try:
         resource = await _authorize(public_resource_id,
             cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
             user_id=current_user, repository=repository)
         reader = repository.get_supplementary_view if supplementary else repository.get_source_view
-        return await reader(resource, now=datetime.now(timezone.utc))
+        options = {"include_pending_lodgings": True} if supplementary and include_pending_lodgings else {}
+        return await reader(resource, now=datetime.now(timezone.utc), **options)
     except HTTPException as exc:
         exc.headers = {**(exc.headers or {}), "Cache-Control": "no-store"}
         raise
@@ -1120,9 +1142,10 @@ async def read_trip_understanding_source(public_resource_id: str, request: Reque
 
 @router.get("/{public_resource_id}/supplementary", response_model=SupplementaryView)
 async def read_trip_understanding_supplementary(public_resource_id: str, request: Request,
-    response: Response, repository: RepositoryDep, current_user: OptionalUserDep):
+    response: Response, repository: RepositoryDep, current_user: OptionalUserDep, include_pending_lodgings: bool = False):
     response.headers["Cache-Control"] = "no-store"
-    return await _private_import_view(public_resource_id, request, repository, current_user, supplementary=True)
+    return await _private_import_view(public_resource_id, request, repository, current_user, supplementary=True,
+        include_pending_lodgings=include_pending_lodgings)
 
 
 @router.delete("/{public_resource_id}/source", status_code=status.HTTP_204_NO_CONTENT)

@@ -55,6 +55,8 @@ export default function MapStayWorkspace({
   const [editing,setEditing]=useState(false)
   useEffect(()=>setEditing(false),[selected,active])
   const currentDay = result.days[dayIndex]
+  const [mapScope, setMapScope] = useState<'all' | 'day'>('all')
+  useEffect(() => setMapScope('all'), [resource])
   const [directoryOpen, setDirectoryOpen] = useState(false)
   const [simulationPosition, setSimulationPosition] = useState<GeometryPoint | null>(null)
   const updateSimulationPosition = useCallback(
@@ -67,7 +69,7 @@ export default function MapStayWorkspace({
   const currentRoutes = mapView && ['AVAILABLE', 'LIMITED'].includes(mapView.status)
     ? mapView.days.flatMap((day) => {
         const index = result.days.findIndex((item) => item.label === day.label)
-        return index < 0 ? [] : day.routes.map((route) => ({...route, color:DAY_COLORS[index % DAY_COLORS.length]}))
+        return index < 0 || (mapScope === 'day' && index !== dayIndex) ? [] : day.routes.map((route) => ({...route, color:DAY_COLORS[index % DAY_COLORS.length]}))
       })
     : []
 
@@ -118,7 +120,7 @@ export default function MapStayWorkspace({
           <RouteMap
             view={mapView}
             day={currentDay}
-            days={result.days}
+            days={mapScope === 'all' ? result.days : undefined}
             selected={selected}
             onSelect={selectCard}
             mode={routeMode}
@@ -132,10 +134,14 @@ export default function MapStayWorkspace({
       </div>
       <div className="fluid-map-bottom">
         <div className="fluid-day-legend" aria-label="日期颜色与预演选择">
-          {result.days.map((day,index) => <button key={day.label} type="button" className="e-button e-button-quiet" aria-pressed={index === dayIndex} onClick={() => onDayChange(index)}><span className="fluid-day-dot" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{day.label}</button>)}
+          <button type="button" className="e-button e-button-quiet" aria-pressed={mapScope === 'all'}
+            onClick={() => { setMapScope('all'); setSimulationPosition(null) }}>全部行程</button>
+          {result.days.map((day,index) => <button key={day.label} type="button" className="e-button e-button-quiet"
+            aria-pressed={mapScope === 'day' && index === dayIndex}
+            onClick={() => { setMapScope('day'); setSimulationPosition(null); onDayChange(index) }}><span className="fluid-day-dot" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{day.label}</button>)}
         </div>
         <div className="fluid-map-tools">
-          <details className="fluid-map-popover"><summary>路线</summary><div className="fluid-map-popover-content" data-testid="map-route-tools">
+          <details className="fluid-map-popover" name={`map-tools-${resource}`}><summary>路线</summary><div className="fluid-map-popover-content" data-testid="map-route-tools">
                     {!!currentRoutes.length && (
           <details open={mapUnavailable || undefined} className="grid gap-2" aria-label="路线文字摘要"><summary className="min-h-11 cursor-pointer text-sm text-slate-600">路线摘要</summary>
             {currentRoutes.map((route, index) => {
@@ -188,7 +194,7 @@ export default function MapStayWorkspace({
 
 
           </div></details>
-          <details className="fluid-map-popover" data-testid="stay-panel"><summary>住宿</summary><div className="fluid-map-popover-content" aria-label="住宿建议">
+          <details className="fluid-map-popover" name={`map-tools-${resource}`} data-testid="stay-panel"><summary>住宿</summary><div className="fluid-map-popover-content" aria-label="住宿建议">
             <button data-testid="retry-stay" type="button" className="e-button" disabled={disabled || currentStay.status === 'PREPARING'} onClick={onRefreshStay}>{currentStay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button>
                       <p className="mt-2 text-sm leading-6 text-slate-600">{currentStay.message}</p>
           {currentStay.area_summary && <p className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-slate-700">{currentStay.area_summary}</p>}

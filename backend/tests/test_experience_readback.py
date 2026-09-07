@@ -99,7 +99,7 @@ async def test_private_source_and_supplementary_follow_edits_and_cannot_return_a
             assert (await owner.get(base + "/supplementary")).json() == supplemental.json()
             assert (await owner.delete(base + "/source", headers={"Idempotency-Key": "erase-source"})).status_code == 204
             assert (await owner.get(base + "/source")).json() == {"status": "DELETED", "text": None, "activities": []}
-            assert (await owner.get(base + "/supplementary")).json() == {"status": "DELETED", "days": []}
+            assert (await owner.get(base + "/supplementary")).json() == {"status": "DELETED", "days": [], "pending_lodgings": []}
             after = await owner.get(base + "/result")
             assert after.json()["is_demo"] == (mode == "DEMO")
             undone = await owner.post(base + "/commands", json={"command_type": "UNDO"}, headers={"If-Match": after.headers["etag"], "Idempotency-Key": "undo-private-source"})
@@ -125,7 +125,7 @@ async def test_source_expiry_hides_text_and_optional_arrangements_before_cleanup
                 repository.source_expiries[job.job_id] = past
             assert (await client.get(base + "/result")).status_code == 200
             assert (await client.get(base + "/source")).json() == {"status": "UNAVAILABLE", "text": None, "activities": []}
-            assert (await client.get(base + "/supplementary")).json() == {"status": "UNAVAILABLE", "days": []}
+            assert (await client.get(base + "/supplementary")).json() == {"status": "UNAVAILABLE", "days": [], "pending_lodgings": []}
             # Saving extends the trip lifetime, but cannot revive an already expired import.
             client.headers["x-test-user"] = "experience-owner"
             claim = await client.post(base + "/claim", headers={"Idempotency-Key": "claim-expired-source"})
@@ -157,12 +157,25 @@ async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_ex
             claimed_id = claimed.json()["public_resource_id"]
             bases.append("/api/v3/trip-understandings/" + claimed_id)
             foreign, _ = await create_ready(other, repository, "foreign-trip")
-            old = datetime.now(timezone.utc) - timedelta(days=3)
+            created_at = datetime.now(timezone.utc)
             expired = await repository.create_full(owner_user_id="experience-owner", source_text=DEMO_SOURCE_TEXT, idempotency_key="old-trip",
-                request_hash=canonical_sha256("old-trip"), now=old, retention_days=1)
-            old_job = await repository.claim_next(worker_id="old-trip", now=old, lease_seconds=30)
-            await repository.complete_job(old_job, await build_demo_pipeline().run(DEMO_SOURCE_TEXT), now=old)
+                request_hash=canonical_sha256("old-trip"), now=created_at, retention_days=1)
+            old_job = await repository.claim_next(worker_id="old-trip", now=created_at, lease_seconds=30)
+            await repository.complete_job(old_job, await build_demo_pipeline().run(DEMO_SOURCE_TEXT), now=created_at)
             expired_base = "/api/v3/trip-understandings/" + expired.accepted.public_resource_id
+            assert (await owner.get(expired_base + "/result")).status_code == 200
+            # Simulate retention elapsing after a valid completion. An expired
+            # source must never be used to manufacture a historical result.
+            expired_at = datetime.now(timezone.utc) - timedelta(microseconds=1)
+            assert expired_at > created_at
+            if kind == "postgres":
+                await repository._pool.execute("UPDATE trip_understandings SET source_expires_at=$2 WHERE understanding_id=$1",
+                    old_job.understanding_id, expired_at)
+                await repository._pool.execute("UPDATE trip_understanding_sources SET retention_until=$2 WHERE understanding_id=$1",
+                    old_job.understanding_id, expired_at)
+            else:
+                repository.resources[expired.accepted.public_resource_id]["expires_at"] = expired_at
+                repository.source_expiries[old_job.job_id] = expired_at
             assert (await owner.get(expired_base + "/source")).status_code == 410
             deleted = bases.pop(0)
             assert (await owner.delete(deleted, headers={"Idempotency-Key": "delete-listed"})).status_code == 204

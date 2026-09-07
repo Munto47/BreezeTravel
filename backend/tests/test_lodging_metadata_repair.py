@@ -21,6 +21,31 @@ PATCH = {"index": 0, "lodging_event": "CHECK_OUT", "lodging_evidence": "上午�
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("response,field,category", [
+    ('{"private-metadata-marker"', "document", "json_invalid"),
+    ({"activities": [dict(PATCH, lodging_event="CHECKOUT")]}, "activities[0].lodging_event", "literal_error"),
+    ({"activities": [dict(PATCH, lodging_excluded_nights=None)]}, "activities[0].lodging_excluded_nights", "list_type"),
+    ({"activities": [dict(PATCH, index="private-metadata-marker")]}, "activities[0].index", "int_parsing"),
+    ({"activities": [{**PATCH, "private-metadata-marker": "private-metadata-marker"}]}, "activities[0].unknown_field", "extra_forbidden"),
+])
+async def test_hotel_structure_failures_report_only_safe_field_and_category(response, field, category):
+    payload = response if isinstance(response, str) else json.dumps(response)
+    client = Client(json.dumps(DRAFT), payload)
+    result = await provider(client).propose(SOURCE)
+    call = result.binding["calls"][1]
+    assert call["outcome"] == "INVALID_STRUCTURED_OUTPUT"
+    assert call["validation_errors"] == [{"field": field, "category": category}]
+    serialized = json.dumps(result.binding["calls"], ensure_ascii=False)
+    assert "private-metadata-marker" not in serialized
+    assert "星河酒店" not in serialized
+    assert "上午从星河酒店退房" not in serialized
+    assert [(item.atomic_place_name, item.day_index) for item in result.mentions] == [
+        ("星河酒店", 1), ("月光桥", 1), ("晨光湖", 2), ("晚霞公园", 3)]
+    assert result.mentions[0].lodging_role_uncertain
+    assert len(client.calls) == 2
+
+
+@pytest.mark.asyncio
 async def test_one_short_hotel_repair_keeps_every_activity_and_projects_verified_event():
     client = Client(json.dumps(DRAFT), json.dumps({"activities": [PATCH]}))
     output = await TripUnderstandingPipeline(provider(client), ControlledSnapshotPlaceResolver()).run(SOURCE)
@@ -166,4 +191,5 @@ async def test_failed_undated_hotel_scope_does_not_fabricate_a_first_day_visit_o
     result = await provider(client).propose(source)
     assert len(client.calls) == 2
     assert result.unprocessed_count > 0 and result.binding["outcome"] == "PARTIAL_RESULT"
-    assert [item.atomic_place_name for item in result.mentions] == ["月光桥", "晨光湖"]
+    assert [item.atomic_place_name for item in result.mentions] == ["星河酒店", "月光桥", "晨光湖"]
+    assert result.mentions[0].day_index is None and result.mentions[0].pending_lodging_scope

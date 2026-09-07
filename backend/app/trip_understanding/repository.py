@@ -15,6 +15,7 @@ from app.trip_understanding.failures import safe_failure_binding
 from app.trip_understanding.dining import verify_command_candidate
 from app.trip_understanding.anonymous import AnonymousDailyLimitError, anonymous_day_start
 from app.trip_understanding.commands import apply_public_command
+from app.trip_understanding.lodging_recovery import result_cards
 from app.trip_understanding.demo import DEMO_SOURCE_SHA256, DEMO_SOURCE_TEXT
 from app.trip_understanding.errors import (
     CommandTargetChangedError,
@@ -59,6 +60,7 @@ from app.trip_understanding.models import (
     ActivityTextEditCommand,
     PlaceConfirmCommand,
     DiningInsertCommand,
+    LodgingRecoverCommand,
     UndoCommand,
     ClaimOutcome,
     ClaimedTripView,
@@ -418,6 +420,8 @@ def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
             "lodging_event": mention.lodging_event,
             "lodging_scope": mention.lodging_scope,
             "lodging_role_uncertain": mention.lodging_role_uncertain,
+            "pending_lodging_scope": mention.pending_lodging_scope,
+            "pending_lodging_issue_count": mention.pending_lodging_issue_count,
             "lodging_excluded_nights": mention.lodging_excluded_nights,
             "choice_group_token": opaque_group(mention.choice_group_id),
             "branch_token": opaque_group(mention.branch_id),
@@ -458,8 +462,7 @@ async def _erase_activity_source_quotes(conn: Any, understanding_id: str, *, sou
     results = await conn.fetch("SELECT revision, public_json FROM trip_understanding_results WHERE understanding_id=$1", understanding_id)
     cards = {(int(row["revision"]), card.activity_token): card
              for row in results
-             for day in UserFacingTripResult.model_validate(_json_value(row["public_json"])).days
-             for card in day.activities}
+             for card in result_cards(UserFacingTripResult.model_validate(_json_value(row["public_json"]))) }
     activities = await conn.fetch("""SELECT * FROM trip_understanding_activities
         WHERE understanding_id=$1 AND ($2::text IS NULL OR revision IN
           (SELECT revision FROM trip_understanding_revisions WHERE understanding_id=$1 AND source_id=$2))""", understanding_id, source_id)
@@ -593,7 +596,7 @@ class TripUnderstandingRepository(
 
     async def get_source_view(self, resource: PublicResourceRecord, *, now: datetime): ...
 
-    async def get_supplementary_view(self, resource: PublicResourceRecord, *, now: datetime): ...
+    async def get_supplementary_view(self, resource: PublicResourceRecord, *, now: datetime, include_pending_lodgings: bool = False): ...
 
     async def apply_command(
         self,
@@ -2393,6 +2396,11 @@ class PostgresTripUnderstandingRepository(
                     batch_count += 1
                     continue
 
+                locked_owner = await conn.fetchval("""SELECT understanding_id FROM trip_understandings
+                    WHERE understanding_id=(SELECT understanding_id FROM trip_understanding_sources WHERE source_id=$1)
+                    FOR UPDATE SKIP LOCKED""", candidate["private_id"])
+                if locked_owner is None:
+                    continue
                 row = await conn.fetchrow(
                     """
                     SELECT source_id, understanding_id
@@ -2651,8 +2659,16 @@ class PostgresTripUnderstandingRepository(
                     raise CommandTargetChangedError("previous cards are unavailable")
                 undo_result = UserFacingTripResult.model_validate(_json_value(previous["public_json"]))
                 current = previous
+            source_available = await conn.fetchval("""SELECT 1 FROM trip_understanding_sources
+                WHERE source_id=$1 AND deleted_at IS NULL AND retention_until>GREATEST($2::timestamptz,clock_timestamp())""",
+                current["source_id"], now)
+            if isinstance(command, LodgingRecoverCommand) and not source_available:
+                raise CommandTargetChangedError("source hotel is no longer recoverable")
+            candidate_now = now
+            if isinstance(command, LodgingRecoverCommand):
+                candidate_now = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
             confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
-                expected_etag=expected_etag, now=now)
+                expected_etag=expected_etag, now=candidate_now)
             mutation = apply_public_command(current_result, command, undo_result=undo_result, confirmed_place=confirmed_place)
             public_payload = mutation.result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
@@ -2727,8 +2743,10 @@ class PostgresTripUnderstandingRepository(
                 invalidated_token = command.activity_token
             elif isinstance(command, ActivityTextEditCommand) and command.name is not None:
                 invalidated_token = command.activity_token
-            for day_index, day in enumerate(mutation.result.days, start=1):
-                for sequence_index, card in enumerate(day.activities):
+            place_groups = [(index, day.activities) for index, day in enumerate(mutation.result.days, start=1)]
+            place_groups.append((None, mutation.result.lodging_constraints))
+            for day_index, cards in place_groups:
+                for sequence_index, card in enumerate(cards):
                     old_token = old_token_by_new.get(card.activity_token)
                     old = old_by_token.get(old_token) if old_token else None
                     preserve_resolution = old is not None and old_token != invalidated_token and not (command.command_type == "ASSUMPTION_SET" and command.key == "destination")
@@ -2744,7 +2762,7 @@ class PostgresTripUnderstandingRepository(
                     )
                     is_confirmed = confirmed_place is not None and (
                         isinstance(command, PlaceConfirmCommand) and old_token == command.activity_token
-                        or isinstance(command, DiningInsertCommand) and card.activity_token == mutation.inserted_token)
+                        or isinstance(command, (DiningInsertCommand, LodgingRecoverCommand)) and card.activity_token == mutation.inserted_token)
                     if is_confirmed:
                         resolver_receipt = confirmed_place.receipt()
                     await conn.execute(
@@ -2768,14 +2786,28 @@ class PostgresTripUnderstandingRepository(
                         card.name,
                         card.category,
                         card.time_hint,
-                        bool(old["eligible_for_place_search"]) if preserve_resolution else False,
+                        bool(old["eligible_for_place_search"]) if preserve_resolution and day_index is not None else False,
                         "AUTO_MATCHED" if is_confirmed else (old["resolution_status"] if preserve_resolution else "NEEDS_CONFIRMATION"),
                         confirmed_place.canonical_place_id if is_confirmed else (old["canonical_place_id"] if preserve_resolution else None),
                         json.dumps(resolver_receipt, ensure_ascii=False),
                         now,
                     )
+            for pending in mutation.result.pending_lodgings:
+                old = old_by_token.get(old_token_by_new.get(pending.pending_token))
+                if old is None or not source_available:
+                    # Source deletion removed the recoverable source row.
+                    # Keep only the opaque historical pending reference.
+                    continue
+                await conn.execute("""INSERT INTO trip_understanding_activities (
+                    activity_id,understanding_id,revision,public_activity_token,day_index,sequence_index,role,
+                    mention_text,atomic_place_name,category_hint,time_hint,eligible_for_place_search,
+                    resolution_status,canonical_place_id,resolver_receipt_json,created_at)
+                    VALUES ($1,$2,$3,$4,NULL,$5,'PLANNED',$6,$7,'住宿',NULL,false,'NOT_ELIGIBLE',NULL,$8::jsonb,$9)""",
+                    str(uuid4()), resource.understanding_id, result_revision, pending.pending_token, old["sequence_index"],
+                    old["mention_text"], old["atomic_place_name"], json.dumps({"status": "PENDING_LODGING_SCOPE",
+                        "pending_city_hint": _json_value(old["resolver_receipt_json"]).get("pending_city_hint")}), now)
             for old in current_activities:
-                if old["role"] == "PLANNED":
+                if old["role"] == "PLANNED" or not source_available:
                     continue
                 await conn.execute(
                     """
@@ -4460,9 +4492,10 @@ class PostgresTripUnderstandingRepository(
             source_id = source_row["source_id"]
             source_type = source_row["source_type"]
             source_hash = source_row["content_hash"].strip()
+            source_check_at = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
             if (
                 source_row["deleted_at"] is not None
-                or source_row["retention_until"] <= now
+                or source_row["retention_until"] <= source_check_at
                 or (
                     source_type in {"TEXT", "SCREENSHOT_OCR"}
                     and source_row["encrypted_content"] is None
@@ -4513,6 +4546,8 @@ class PostgresTripUnderstandingRepository(
                         "external_calls": 0,
                     }
                 )
+                if mention.pending_lodging_scope:
+                    resolver_receipt = {**resolver_receipt, "pending_city_hint": mention.city_hint}
                 await conn.execute(
                     """
                     INSERT INTO trip_understanding_activities (
@@ -5741,8 +5776,13 @@ class InMemoryTripUnderstandingRepository(
             source_revision -= 1
             undo_result = next((value.result for key, value in self.results.items()
                 if self.result_owners.get(key) == resource.understanding_id and self.result_revisions.get(key) == source_revision), None)
+        effective_now = max(now, datetime.now(timezone.utc))
+        source_available = any(job["understanding_id"] == resource.understanding_id and job_id in self.sources
+            and self.source_expiries.get(job_id, now) > effective_now for job_id, job in self.jobs.items())
+        if isinstance(command, LodgingRecoverCommand) and not source_available:
+            raise CommandTargetChangedError("source hotel is no longer recoverable")
         confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
-            expected_etag=expected_etag, now=now)
+            expected_etag=expected_etag, now=effective_now if isinstance(command, LodgingRecoverCommand) else now)
         mutation = apply_public_command(stored.result, command, undo_result=undo_result, confirmed_place=confirmed_place)
         result_id = str(uuid4())
         opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
@@ -5765,7 +5805,7 @@ class InMemoryTripUnderstandingRepository(
         )
         previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(undo_result or stored.result)
         bindings = {new: dict(previous_bindings.get(old) or {}) for old, new in mutation.token_map.items()}
-        if isinstance(command, DiningInsertCommand) and confirmed_place is not None:
+        if isinstance(command, (DiningInsertCommand, LodgingRecoverCommand)) and confirmed_place is not None:
             bindings[mutation.inserted_token] = {"canonical_place_id": confirmed_place.canonical_place_id,
                 "resolution_status": "AUTO_MATCHED", "resolver_receipt": confirmed_place.receipt()}
         if command.command_type == "ASSUMPTION_SET" and command.key == "destination":
@@ -5786,6 +5826,9 @@ class InMemoryTripUnderstandingRepository(
         ] = {
             "destination": ({"name": command.value, "status": "USER_EDITED"} if command.command_type == "ASSUMPTION_SET" and command.key == "destination" else dict(previous_input.get("destination") or {})),
             "bindings": bindings,
+            "pending_lodgings": {new: {**old_row, "public_activity_token": new}
+                for old, new in mutation.token_map.items()
+                if source_available and (old_row := previous_input.get("pending_lodgings", {}).get(old)) is not None},
             "assumptions": [
                 {
                     **prior_assumptions.get(item.key, {}),
@@ -5881,6 +5924,7 @@ class InMemoryTripUnderstandingRepository(
                 self.sources.pop(job_id, None)
         for (owner, _revision), data in self.g03_pipeline_inputs.items():
             if owner == understanding_id:
+                data.pop("pending_lodgings", None)
                 for binding in data.get("bindings", {}).values():
                     binding["resolver_receipt"] = _retained_place_receipt(binding.get("resolver_receipt") or {})
 
@@ -6509,10 +6553,11 @@ class InMemoryTripUnderstandingRepository(
         item = self.jobs[job.job_id]
         source = self.sources.get(job.job_id)
         source_expiry = self.source_expiries.get(job.job_id)
+        source_check_at = max(now, datetime.now(timezone.utc))
         if (
             source is None
             or source_expiry is None
-            or source_expiry <= now
+            or source_expiry <= source_check_at
             or _sha256_text(source.text) != job.input_hash
             or output.source_hash != job.input_hash
         ):
@@ -6569,6 +6614,10 @@ class InMemoryTripUnderstandingRepository(
         self.g03_pipeline_inputs[(job.understanding_id, 2)] = {
             "destination": dict(output.destination),
             "assumptions": [dict(item) for item in output.assumptions],
+            "pending_lodgings": {item.compiled.public_activity_token: {
+                "public_activity_token": item.compiled.public_activity_token,
+                "atomic_place_name": item.compiled.mention.atomic_place_name, "city": item.compiled.mention.city_hint}
+                for item in output.activities if item.compiled.mention.pending_lodging_scope},
             "bindings": {
                 activity.compiled.public_activity_token: {
                     "canonical_place_id": (

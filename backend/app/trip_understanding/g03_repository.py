@@ -1291,8 +1291,15 @@ class PostgresG03RepositoryMixin:
             row["public_activity_token"]: row for row in current_activities
         }
         old_token_by_new = {new: old for old, new in mutation.token_map.items()}
-        for day_index, day in enumerate(mutation.result.days, start=1):
-            for sequence_index, card in enumerate(day.activities):
+        # Match ordinary command persistence: independent hotel constraints
+        # carry verified identities, while pending names still belong to source.
+        source_available = await conn.fetchval("""SELECT 1 FROM trip_understanding_sources
+            WHERE source_id=$1 AND deleted_at IS NULL AND retention_until>GREATEST($2::timestamptz,clock_timestamp())""",
+            current["source_id"], now)
+        place_groups = [(index, day.activities) for index, day in enumerate(mutation.result.days, start=1)]
+        place_groups.append((None, mutation.result.lodging_constraints))
+        for day_index, cards in place_groups:
+            for sequence_index, card in enumerate(cards):
                 old_token = old_token_by_new.get(card.activity_token)
                 old = old_by_token.get(old_token) if old_token else None
                 preserve = old is not None
@@ -1328,14 +1335,27 @@ class PostgresG03RepositoryMixin:
                     card.name,
                     card.category,
                     card.time_hint,
-                    bool(old["eligible_for_place_search"]) if preserve else False,
+                    bool(old["eligible_for_place_search"]) if preserve and day_index is not None else False,
                     old["resolution_status"] if preserve else "NEEDS_CONFIRMATION",
                     old["canonical_place_id"] if preserve else None,
                     json.dumps(receipt, ensure_ascii=False),
                     now,
                 )
+        for pending in mutation.result.pending_lodgings:
+            old = old_by_token.get(old_token_by_new.get(pending.pending_token))
+            if old is None or not source_available:
+                # A historical opaque reference does not restore erased names.
+                continue
+            await conn.execute("""INSERT INTO trip_understanding_activities (
+                activity_id,understanding_id,revision,public_activity_token,day_index,sequence_index,role,
+                mention_text,atomic_place_name,category_hint,time_hint,eligible_for_place_search,
+                resolution_status,canonical_place_id,resolver_receipt_json,created_at)
+                VALUES ($1,$2,$3,$4,NULL,$5,'PLANNED',$6,$7,'住宿',NULL,false,'NOT_ELIGIBLE',NULL,$8::jsonb,$9)""",
+                str(uuid4()), resource.understanding_id, result_revision, pending.pending_token, old["sequence_index"],
+                old["mention_text"], old["atomic_place_name"], json.dumps({"status": "PENDING_LODGING_SCOPE",
+                    "pending_city_hint": _json(old["resolver_receipt_json"]).get("pending_city_hint")}), now)
         for old in current_activities:
-            if old["role"] == "PLANNED":
+            if old["role"] == "PLANNED" or not source_available:
                 continue
             await conn.execute(
                 """

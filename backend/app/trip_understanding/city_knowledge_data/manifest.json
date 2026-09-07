@@ -8,8 +8,10 @@
       ]
     },
     "上海": {
-      "active": "shanghai/v1.jsonl",
-      "fallbacks": []
+      "active": "shanghai/v2.jsonl",
+      "fallbacks": [
+        "shanghai/v1.jsonl"
+      ]
     },
     "广州": {
       "active": "guangzhou/v2.jsonl",

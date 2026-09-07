@@ -50,7 +50,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
-  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | null
+  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | 'VISIT_ONLY' | null
   lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
   lodging_role_uncertain?: boolean
   lodging_excluded_nights?: number[]
@@ -165,6 +165,8 @@ export interface StaySuggestionView {
 }
 
 export interface UserFacingTripResult {
+  pending_lodgings?: PendingLodgingView[]
+  lodging_constraints?: LodgingConstraintView[]
   coverage?: {recognized_place_count: number; confirmed_place_count: number; unresolved_place_count: number; unclassified_mention_count: number; unprocessed_count: number; complete: boolean} | null
   can_undo?: boolean
   ownership?: 'ANONYMOUS' | 'ACCOUNT'
@@ -199,6 +201,7 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
+  | { command_type: 'LODGING_RECOVER'; pending_token: string; candidate_token: string; intent: LodgingRecoveryIntent }
   | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK' }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
@@ -360,6 +363,12 @@ export interface TripSourceView {
 }
 
 export interface TripSupplementaryView {
+  pending_lodgings?: Array<{
+    pending_token: string
+    name: string
+    city: string | null
+    status: 'NEEDS_CONFIRMATION'
+  }>
   status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
   days: Array<{
     day_index: number | null
@@ -370,6 +379,24 @@ export interface TripSupplementaryView {
       role: 'OPTIONAL' | 'EXCLUDED'
     }>
   }>
+}
+
+export interface PendingLodgingView {
+  pending_token: string
+  status: 'NEEDS_CONFIRMATION'
+  unprocessed_count: number
+}
+
+export interface LodgingRecoveryIntent {
+  kind: 'WHOLE_TRIP' | 'NIGHTS' | 'VISIT_ONLY'
+  overnight_days?: number[]
+  day_index?: number | null
+  before_activity_token?: string | null
+}
+
+export interface LodgingConstraintView extends ActivityCardView {
+  scope: 'WHOLE_TRIP' | 'NIGHTS'
+  overnight_days: number[]
 }
 
 export interface PublicTripChecksView {
@@ -771,11 +798,50 @@ export function readTripSource(
 export function readTripSupplementary(
   publicResourceId: string,
   signal?: AbortSignal,
+  includePendingLodgings = false,
 ): Promise<TripSupplementaryView> {
   return readPrivateTripJson<TripSupplementaryView>(
-    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/supplementary`,
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/supplementary${includePendingLodgings ? '?include_pending_lodgings=true' : ''}`,
     signal,
   )
+}
+
+export async function queryPendingLodgingCandidates(
+  publicResourceId: string,
+  pendingToken: string,
+  query: string,
+  intent: LodgingRecoveryIntent,
+  etag: string,
+  signal?: AbortSignal,
+  city?: string,
+): Promise<PlaceCandidatesView> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'If-Match': etag,
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ pending_token: pendingToken, query, intent, ...(city ? { city } : {}) }),
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    if (response.status === 410) throw new Error('TRIP_GONE')
+    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    if (response.status === 428) throw new Error('IF_MATCH_REQUIRED')
+    if (response.status === 422) {
+      const failure = (await response.json().catch(() => null)) as { detail?: { code?: string } } | null
+      if (failure?.detail?.code === 'CITY_REQUIRED') throw new Error('CITY_REQUIRED')
+    }
+    throw new Error('PLACE_SEARCH_UNAVAILABLE')
+  }
+  return response.json() as Promise<PlaceCandidatesView>
 }
 
 export async function queryTripPlaceCandidates(

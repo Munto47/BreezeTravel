@@ -660,8 +660,16 @@ def _evaluate_candidates(
     name_matches: list[tuple[dict[str, Any], str]] = []
     alias_match_ids: set[str] = set()
     hint = landmark_hint(city, canonical_name)
+    technical_hint = get_city_knowledge().technical_landmark(city=city, name=canonical_name)
     for item in pois:
         if hint and not hint.matches(str(item.get("name") or "")):
+            continue
+        if technical_hint and _normalized_name(str(item.get("name") or "")) not in {
+            _normalized_name(name) for name in (technical_hint.canonical_name, *technical_hint.aliases)
+        }:
+            # A building's official identity cannot be replaced by a tenant or
+            # observation deck merely because the provider advertises its parent
+            # as an alias. Apply the same boundary as legacy landmark hints.
             continue
         tier = _name_match_tier(
             item,

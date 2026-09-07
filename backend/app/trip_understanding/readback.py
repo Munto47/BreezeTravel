@@ -58,9 +58,17 @@ class SupplementaryDay(StrictModel):
     items: list[SupplementaryItem]
 
 
+class PendingLodgingView(StrictModel):
+    pending_token: str
+    name: str
+    city: str | None = None
+    status: Literal["NEEDS_CONFIRMATION"] = "NEEDS_CONFIRMATION"
+
+
 class SupplementaryView(StrictModel):
     status: Literal["AVAILABLE", "DELETED", "UNAVAILABLE"]
     days: list[SupplementaryDay] = Field(default_factory=list)
+    pending_lodgings: list[PendingLodgingView] = Field(default_factory=list)
 
 
 class InvalidTripCursor(ValueError):
@@ -114,6 +122,7 @@ class _ImportView:
     result: UserFacingTripResult | None = None
     mentions: list[dict] = field(default_factory=list)
     bindings: dict = field(default_factory=dict)
+    pending_mentions: list[dict] = field(default_factory=list)
 
 
 class _ReadbackProjection:
@@ -142,7 +151,7 @@ class _ReadbackProjection:
                     break
         return SourceReadView(status=data.status, text=data.text, activities=items)
 
-    async def get_supplementary_view(self, resource, *, now):
+    async def get_supplementary_view(self, resource, *, now, include_pending_lodgings=False):
         data = await self._read_import(resource, now=now)
         groups = {}
         if data.status == "AVAILABLE":
@@ -157,7 +166,16 @@ class _ReadbackProjection:
                     name = "备选安排" if mention["role"] == "OPTIONAL" else "已取消安排"
                 groups.setdefault(index, SupplementaryDay(day_index=index, day_label=label, items=[])).items.append(
                     SupplementaryItem(name=name[:80], time_hint=(mention.get("time_hint") or None), role=mention["role"]))
-        return SupplementaryView(status=data.status, days=[groups[key] for key in sorted(groups, key=lambda key: key or 100)])
+        pending = []
+        if include_pending_lodgings and data.status == "AVAILABLE" and data.result:
+            active = {item.pending_token for item in data.result.pending_lodgings}
+            for row in data.pending_mentions:
+                name = row.get("atomic_place_name")
+                if row.get("public_activity_token") in active and name and name in (data.text or ""):
+                    city = row.get("city") or _json(row.get("resolver_receipt_json") or {}).get("pending_city_hint")
+                    pending.append(PendingLodgingView(pending_token=row["public_activity_token"], name=name, city=city))
+        return SupplementaryView(status=data.status, days=[groups[key] for key in sorted(groups, key=lambda key: key or 100)],
+            pending_lodgings=pending)
 
 
 class PostgresReadbackMixin(_ReadbackProjection):
@@ -215,10 +233,10 @@ class PostgresReadbackMixin(_ReadbackProjection):
                       ON r2.understanding_id=a2.understanding_id AND r2.revision=a2.revision
                     WHERE a2.understanding_id=$1 AND r2.source_id=$2)
                 ORDER BY a.day_index NULLS LAST,a.sequence_index,a.activity_id""", resource.understanding_id, row["source_id"])
-            current = await conn.fetch("SELECT public_activity_token,canonical_place_id FROM trip_understanding_activities WHERE understanding_id=$1 AND revision=$2",
+            current = await conn.fetch("SELECT * FROM trip_understanding_activities WHERE understanding_id=$1 AND revision=$2",
                 resource.understanding_id, row["current_revision"])
             return _ImportView("AVAILABLE", text, result, [dict(item) for item in mentions],
-                {item["public_activity_token"]: item["canonical_place_id"] for item in current})
+                {item["public_activity_token"]: item["canonical_place_id"] for item in current}, [dict(item) for item in current])
 
 
 class InMemoryReadbackMixin(_ReadbackProjection):
@@ -248,7 +266,8 @@ class InMemoryReadbackMixin(_ReadbackProjection):
         bindings = self.g03_pipeline_inputs.get((resource.understanding_id, row["current_revision"]), {}).get("bindings", {})
         return _ImportView("AVAILABLE", source.text, result.result if result else None,
             self.source_readback_mentions.get(resource.understanding_id, []),
-            {token: value.get("canonical_place_id") for token, value in bindings.items()})
+            {token: value.get("canonical_place_id") for token, value in bindings.items()},
+            list(self.g03_pipeline_inputs.get((resource.understanding_id, row["current_revision"]), {}).get("pending_lodgings", {}).values()))
 
 
 def _json(value):

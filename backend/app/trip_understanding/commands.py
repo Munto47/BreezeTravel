@@ -10,6 +10,8 @@ from app.trip_understanding.models import (
     ActivityDeleteCommand,
     ActivityInsertCommand,
     DiningInsertCommand,
+    LodgingRecoverCommand,
+    LodgingConstraintView,
     ActivityMoveCommand,
     ActivityTextEditCommand,
     ActivityTimeSetCommand,
@@ -26,6 +28,7 @@ from app.trip_understanding.models import (
 )
 from app.trip_understanding.timing import ActivityTiming, TIMING_FIELDS, clock_minutes, shift_clock, timing_values
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
+from app.trip_understanding.lodging_recovery import result_cards, validate_recovery_target
 
 
 @dataclass(frozen=True)
@@ -56,8 +59,8 @@ def _ensure_day(days: list[TripDayView], day_index: int) -> None:
         days.append(TripDayView(label=f"Day {len(days) + 1}", activities=[]))
 
 
-def _result_status(days: list[TripDayView]) -> str:
-    cards = [card for day in days for card in day.activities]
+def _result_status(days: list[TripDayView], constraints=()) -> str:
+    cards = [card for day in days for card in day.activities] + list(constraints)
     if len(cards) > 80:
         return "LIMITED"
     ready = sum(card.status == "READY" for card in cards)
@@ -76,15 +79,15 @@ def refresh_result_coverage(result: UserFacingTripResult) -> None:
     """
     if result.coverage is None:
         return
-    cards = [card for day in result.days for card in day.activities
+    cards = [card for card in result_cards(result)
              if card.name != "地点待确认" and atomic_place_rejection_reason(card.name) is None]
     confirmed = sum(card.status == "READY" for card in cards)
-    pending_source = bool(result.coverage.unclassified_mention_count or result.coverage.unprocessed_count)
+    pending_source = bool(result.pending_lodgings or result.coverage.unclassified_mention_count or result.coverage.unprocessed_count)
     if pending_source and result.status != "LIMITED":
         result.status = "PARTIAL_RESULT"
     result.coverage = result.coverage.model_copy(update={
-        "recognized_place_count": len(cards), "confirmed_place_count": confirmed,
-        "unresolved_place_count": len(cards) - confirmed,
+        "recognized_place_count": len(cards) + len(result.pending_lodgings), "confirmed_place_count": confirmed,
+        "unresolved_place_count": len(cards) - confirmed + len(result.pending_lodgings),
         "complete": result.status == "READY" and not pending_source,
     })
 
@@ -161,7 +164,15 @@ def apply_public_command(
     elif isinstance(command, PlaceConfirmCommand):
         if confirmed_place is None:
             raise CommandTargetChangedError("a verified place selection is required")
-        day_index, _, card = _find_card(result.days, command.activity_token)
+        constraint = next((card for card in result.lodging_constraints if card.activity_token == command.activity_token), None)
+        if constraint:
+            if confirmed_place.category != "住宿":
+                raise CommandTargetChangedError("a lodging constraint requires a hotel")
+            card = constraint
+            changed.update(result.days[night - 1].label for night in constraint.overnight_days)
+        else:
+            day_index, _, card = _find_card(result.days, command.activity_token)
+            changed.add(result.days[day_index].label)
         card.name = confirmed_place.name
         card.category = confirmed_place.category
         card.area_or_address = confirmed_place.area_or_address
@@ -169,7 +180,31 @@ def apply_public_command(
         card.photo_url = None
         card.status = "READY"
         card.knowledge_suggestions = []
-        changed.add(result.days[day_index].label)
+    elif isinstance(command, LodgingRecoverCommand):
+        nights = validate_recovery_target(result, command.pending_token, command.intent)
+        if confirmed_place is None or confirmed_place.category != "住宿":
+            raise CommandTargetChangedError("a verified hotel is required")
+        pending = next(item for item in result.pending_lodgings if item.pending_token == command.pending_token)
+        values = dict(activity_token=token_factory(), name=confirmed_place.name, category="住宿",
+            city=confirmed_place.city, area_or_address=confirmed_place.area_or_address, status="READY",
+            lodging_role_uncertain=False, available_actions=["VIEW_DETAILS", "REPLACE", "DELETE"])
+        if command.intent.kind == "VISIT_ONLY":
+            inserted_card = ActivityCardView(**values, lodging_event="VISIT_ONLY")
+            inserted_card.available_actions.append("MOVE")
+            day = result.days[command.intent.day_index - 1]
+            position = next((index for index, card in enumerate(day.activities)
+                if card.activity_token == command.intent.before_activity_token), len(day.activities))
+            day.activities.insert(position, inserted_card)
+            changed.add(day.label)
+        else:
+            inserted_card = LodgingConstraintView(**values, lodging_event="OVERNIGHT",
+                scope=command.intent.kind, overnight_days=nights,
+                lodging_scope="WHOLE_TRIP" if command.intent.kind == "WHOLE_TRIP" else None)
+            result.lodging_constraints.append(inserted_card)
+            changed.update(result.days[night - 1].label for night in nights)
+        result.pending_lodgings.remove(pending)
+        if result.coverage:
+            result.coverage.unprocessed_count = max(0, result.coverage.unprocessed_count - pending.unprocessed_count)
     elif isinstance(command, DiningInsertCommand):
         if confirmed_place is None or confirmed_place.category != "餐饮" or atomic_place_rejection_reason(confirmed_place.name):
             raise CommandTargetChangedError("a verified dining selection is required")
@@ -202,9 +237,14 @@ def apply_public_command(
         day.activities.insert(min(command.position, len(day.activities)), inserted_card)
         changed.add(day.label)
     elif isinstance(command, ActivityDeleteCommand):
-        day_index, position, _card = _find_card(result.days, command.activity_token)
-        changed.add(result.days[day_index].label)
-        result.days[day_index].activities.pop(position)
+        constraint = next((card for card in result.lodging_constraints if card.activity_token == command.activity_token), None)
+        if constraint:
+            result.lodging_constraints.remove(constraint)
+            changed.update(result.days[night - 1].label for night in constraint.overnight_days)
+        else:
+            day_index, position, _card = _find_card(result.days, command.activity_token)
+            changed.add(result.days[day_index].label)
+            result.days[day_index].activities.pop(position)
     elif isinstance(command, ActivityMoveCommand):
         source_day, position, card = _find_card(result.days, command.activity_token)
         source_label = result.days[source_day].label
@@ -243,25 +283,27 @@ def apply_public_command(
             raise CommandTargetChangedError("assumption is no longer present in the current result")
         assumption.value = command.value
         if command.key == "destination":
-            for day in result.days:
-                for card in day.activities:
-                    card.status = "NEEDS_CONFIRMATION"
-                    card.area_or_address = "地点待确认"
-                    card.photo_url = None
-                    card.city = None
-                    card.knowledge_suggestions = []
+            for card in result_cards(result):
+                card.status = "NEEDS_CONFIRMATION"
+                card.area_or_address = "地点待确认"
+                card.photo_url = None
+                card.city = None
+                card.knowledge_suggestions = []
         changed.update(day.label for day in result.days)
 
     token_map: dict[str, str] = {}
     inserted_token = inserted_card.activity_token if inserted_card else None
-    for day in result.days:
-        for card in day.activities:
-            old_token = card.activity_token
-            if inserted_card is card:
-                continue
-            new_token = token_factory()
-            token_map[old_token] = new_token
-            card.activity_token = new_token
+    for card in result_cards(result):
+        old_token = card.activity_token
+        if inserted_card is card:
+            continue
+        new_token = token_factory()
+        token_map[old_token] = new_token
+        card.activity_token = new_token
+    for pending in result.pending_lodgings:
+        old_token = pending.pending_token
+        pending.pending_token = token_factory()
+        token_map[old_token] = pending.pending_token
 
     for day in result.days:
         current_tokens = {card.activity_token for card in day.activities}
@@ -271,7 +313,7 @@ def apply_public_command(
                 refreshed = token_map.get(previous, previous)
                 setattr(slot, field, refreshed if refreshed in current_tokens else None)
 
-    result.status = _result_status(result.days)
+    result.status = _result_status(result.days, result.lodging_constraints)
     refresh_result_coverage(result)
     result.can_undo = not isinstance(command, UndoCommand)
     result.map = MapReadinessView(

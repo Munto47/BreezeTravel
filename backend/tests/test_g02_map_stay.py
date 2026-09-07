@@ -264,7 +264,7 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
 @pytest.mark.asyncio
 async def test_stay_attempt_fences_stale_completion_and_failure_for_reused_worker_id() -> None:
     repository = InMemoryTripUnderstandingRepository()
-    now = datetime(2026, 9, 2, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     await repository.create_demo(
         capability_hash="f" * 64,
         idempotency_key="stay-attempt-fencing",

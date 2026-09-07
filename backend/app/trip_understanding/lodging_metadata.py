@@ -59,7 +59,8 @@ async def repair_lodging_metadata(provider: ExperienceQwenProvider, source: str,
     # This function runs inside the original provider timeout. Its caller only
     # uses it before any ordinary repair, so total extraction calls stay <= 2.
     from app.trip_understanding.experience_inference import (SourceAnchorIndex, _bound_lodging_evidence,
-        _bound_lodging_exclusion, _lodging_context_bounds, _unreviewed_lodging_exclusion, proposal_from_draft)
+        _bound_lodging_exclusion, _lodging_context_bounds, _unreviewed_lodging_exclusion,
+        _validation_issues, proposal_from_draft)
 
     anchors = SourceAnchorIndex(source)
     targets: dict[int, tuple[int, int, int, int]] = {}
@@ -106,6 +107,7 @@ async def repair_lodging_metadata(provider: ExperienceQwenProvider, source: str,
         reported_model=getattr(response, "model", None))
     if not response.choices:
         call["outcome"] = "INVALID_STRUCTURED_OUTPUT"
+        call["validation_errors"] = [{"field": "document", "category": "EMPTY_RESPONSE"}]
         return draft, proposal
     content = response.choices[0].message.content or ""
     call["response_sha256"] = hashlib.sha256(content.encode()).hexdigest()
@@ -114,8 +116,14 @@ async def repair_lodging_metadata(provider: ExperienceQwenProvider, source: str,
         return draft, proposal
     try:
         patches = LodgingMetadataResponse.model_validate_json(content).activities
-    except (ValueError, ValidationError):
+    except ValidationError as exc:
         call["outcome"] = "INVALID_STRUCTURED_OUTPUT"
+        call["validation_errors"] = _validation_issues(
+            exc, set(LodgingMetadataResponse.model_fields) | set(LodgingMetadataPatch.model_fields))
+        return draft, proposal
+    except ValueError:
+        call["outcome"] = "INVALID_STRUCTURED_OUTPUT"
+        call["validation_errors"] = [{"field": "document", "category": "INVALID_JSON_OR_CONTRACT"}]
         return draft, proposal
     repeated = Counter(patch.index for patch in patches)
     activities = list(draft.activities)

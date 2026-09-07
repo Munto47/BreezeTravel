@@ -49,7 +49,7 @@ def excludes_hotel(segment, place_id: str | None) -> bool:
 
 def is_boundary_visit(stop: MapStop) -> bool:
     return (not is_hotel(stop) or unconfirmed_lodging_role(stop)
-            or stop.lodging_event in {"CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"})
+            or stop.lodging_event in {"CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP", "VISIT_ONLY"})
 
 
 def confirmed(stop: MapStop) -> bool:
@@ -69,6 +69,7 @@ def stay_context_hash(plan: MapRenderPlan) -> str:
               for s in sorted(plan.stops, key=lambda s: (s.day_index, s.sequence_index))
               if not s.is_stay_anchor]
     constraints = [{"name": s.name, "place": s.canonical_place_id, "city": s.city,
+        "overnight_days": getattr(s, "overnight_days", None),
         "status": s.resolution_status, "event": s.lodging_event, "scope": s.lodging_scope,
         "source_place_is_placeholder": s.source_place_is_placeholder,
         "lodging_role_uncertain": s.lodging_role_uncertain,
@@ -92,6 +93,7 @@ class OvernightSegment:
     pending_lodging_roles: list[str] = field(default_factory=list)
     excluded_place_ids: list[str] = field(default_factory=list)
     unconfirmed_exclusions: list[str] = field(default_factory=list)
+    preserved_place_ids: list[str] = field(default_factory=list)
 
 
 def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
@@ -130,10 +132,21 @@ def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
         endpoint_cities = {value for value in (left, right) if value}
         for hotel in plan.lodging_constraints:
             hotel_city = normalized_city(hotel.city)
-            if (is_overnight_hotel(hotel) and hotel.lodging_event == "OVERNIGHT" and hotel.lodging_scope == "WHOLE_TRIP"
+            explicit_nights = getattr(hotel, "overnight_days", None)
+            applies = night in explicit_nights if explicit_nights is not None else hotel.lodging_scope == "WHOLE_TRIP"
+            if (is_overnight_hotel(hotel) and hotel.lodging_event == "OVERNIGHT" and applies
                     and hotel_identity(hotel.canonical_place_id) not in excluded
-                    and hotel_city and (not endpoint_cities or endpoint_cities == {hotel_city})):
+                    and hotel_city and (explicit_nights is not None or not endpoint_cities or endpoint_cities == {hotel_city})):
                 hotels.append(hotel)
+        # Repeated evidence for one verified branch is one hotel. A shared
+        # display name never merges distinct branches or unverified mentions.
+        unique_hotels = {}
+        for hotel in hotels:
+            identity = ("place", hotel_identity(hotel.canonical_place_id)) if confirmed(hotel) else ("mention", hotel.activity_token or id(hotel))
+            unique_hotels.setdefault(identity, hotel)
+        hotels = list(unique_hotels.values())
+        preserved_ids = sorted({hotel_identity(hotel.canonical_place_id) for hotel in hotels if confirmed(hotel)})
+        hotel_conflict = len(preserved_ids) > 1
         hotel_cities = {normalized_city(s.city) for s in hotels if s.city}
         city = next(iter(hotel_cities)) if len(hotel_cities) == 1 else left if left and left == right else None
         hotel_unconfirmed = any(not confirmed(hotel) for hotel in hotels)
@@ -143,13 +156,14 @@ def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
             reason = ("EMPTY_DAY" if endpoint is None else "UNCONFIRMED_PLACE" if not confirmed(endpoint)
                 else "CITY_UNKNOWN" if not normalized_city(endpoint.city) else "OVERNIGHT_CITY_UNCONFIRMED" if not city
                 else "DIFFERENT_CITY" if normalized_city(endpoint.city) != city
+                else "MULTIPLE_HOTELS" if hotel_conflict
                 else "HOTEL_UNCONFIRMED" if hotel_unconfirmed
                 else "LODGING_ROLE_UNCONFIRMED" if pending
                 else "LODGING_REPLACEMENT_UNCONFIRMED" if unknown_exclusions else None)
             if reason:
                 missing.append({"day": day, "direction": direction, "name": endpoint.name if endpoint else None, "reason": reason})
         uncertain = bool(missing)
-        preserved = list(dict.fromkeys(s.name for s in hotels))
+        preserved = [s.name for s in hotels]
         anchors = []
         if city and last and confirmed(last) and left == city:
             anchors.append((night, "LAST_TO_STAY", last))
@@ -165,5 +179,5 @@ def overnight_segments(plan: MapRenderPlan) -> list[OvernightSegment]:
         else:
             key = "stay_" + hashlib.sha256(f"{night}:{city or 'unknown'}".encode()).hexdigest()[:24]
             segments.append(OvernightSegment(key, city, [night], anchors, preserved, uncertain, 2, missing, pending,
-                excluded, unknown_exclusions))
+                excluded, unknown_exclusions, preserved_ids))
     return segments

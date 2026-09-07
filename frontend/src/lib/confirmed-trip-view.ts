@@ -4,8 +4,12 @@ export function isWholeTripLodging(card: ActivityCardView) {
   return card.category === '住宿' && card.lodging_event === 'OVERNIGHT' && card.lodging_scope === 'WHOLE_TRIP'
 }
 
-export function confirmedSourceLodgings(result: UserFacingTripResult | null) {
-  return result?.days.flatMap(day => day.activities.filter(card => card.status === 'READY' && isWholeTripLodging(card))) || []
+export type SourceLodgingCard = ActivityCardView & {scope?:'WHOLE_TRIP'|'NIGHTS';overnight_days?:number[]}
+
+export function confirmedSourceLodgings(result: UserFacingTripResult | null):SourceLodgingCard[] {
+  if(!result)return []
+  return [...result.days.flatMap(day => day.activities.filter(card => card.status === 'READY' && isWholeTripLodging(card))),
+    ...(result.lodging_constraints||[]).filter(card=>card.status==='READY')]
 }
 
 function isConfirmedVisit(card: ActivityCardView) {

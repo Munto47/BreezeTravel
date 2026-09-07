@@ -1935,8 +1935,8 @@
 .fluid-day-legend { display:flex; overflow-x:auto; gap:6px; min-width:0; }
 .fluid-day-legend .e-button { white-space:nowrap; flex-shrink:0; font-size:12px; padding:8px 12px; }
 .fluid-day-dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
-.fluid-map-tools { display:flex; gap:12px; flex-shrink:0; }
-.fluid-map-popover { position:relative; font-size:13px; }
+.fluid-map-tools { position:relative; display:flex; gap:12px; flex-shrink:0; }
+.fluid-map-popover { position:static; font-size:13px; }
 .fluid-map-popover > summary { min-height:44px; display:flex; align-items:center; padding:0 14px; cursor:pointer; border-radius:999px; background:#ffffffaa; list-style:none; }
 .fluid-map-popover-content { position:absolute; bottom:54px; right:0; z-index:35; width:min(430px,calc(100vw - 40px)); max-height:min(460px,60dvh); overflow:auto; padding:18px; border-radius:24px; background:#fff; box-shadow:0 20px 70px #24465530; }
 .fluid-map-popover-content [aria-label="路线预演"] { margin-top:12px; }

@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import time
 from typing import TYPE_CHECKING
 
@@ -37,6 +38,14 @@ sections每项day_index、start_quote、occurrence；start_quote逐字复制每�
 不得自己补日期，不把末尾重复摘要或修改标题当新的旅行日。"""
 
 
+def _at_day_heading_boundary(source: str, start: int) -> bool:
+    """A prose reference to another day cannot start a separate day slice."""
+    prefix = source[source.rfind("\n", 0, start) + 1:start]
+    # Retain ordinary Markdown headings, emphasis, quotes and list markers.
+    # This recognizes formatting only; unsupported inline schedules stay whole.
+    return re.fullmatch(r"(?:[ \t#>*_~+\-]|\d+[.)、][ \t]+)*", prefix) is not None
+
+
 def anchored_sections(source: str, plan: DayStructure) -> list[tuple[int, int, int]]:
     from app.trip_understanding.experience_inference import SourceAnchorIndex, _explicit_day_count
 
@@ -52,7 +61,22 @@ def anchored_sections(source: str, plan: DayStructure) -> list[tuple[int, int, i
         start, end = anchors.locate(item.start_quote, item.occurrence)
         if _explicit_day_count(source[start:end]) != item.day_index:
             return []
-        starts.append(start)
+        heading_starts = []
+        for occurrence in range(1, 161):
+            try:
+                candidate_start, candidate_end = anchors.locate(item.start_quote, occurrence)
+            except ValueError:
+                break
+            if _at_day_heading_boundary(source, candidate_start) and (
+                _explicit_day_count(source[candidate_start:candidate_end]) == item.day_index
+            ):
+                heading_starts.append(candidate_start)
+        # A unique literal heading can disambiguate the model's occurrence of
+        # the same title inside yesterday's prose. Repeated headings or no
+        # heading require the existing whole-document path, never a guessed cut.
+        if len(heading_starts) != 1:
+            return []
+        starts.append(heading_starts[0])
     if starts != sorted(set(starts)):
         return []
     return [(item.day_index, start, starts[index + 1] if index + 1 < len(starts) else len(source))

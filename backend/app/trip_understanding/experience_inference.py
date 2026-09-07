@@ -982,11 +982,12 @@ def _omits_attached_place_qualifier(anchors: SourceAnchorIndex, place_end: int) 
     ))
 
 
-def _validation_issues(exc: ValueError) -> list[dict[str, object]]:
+def _validation_issues(exc: ValueError, known_fields: set[str] | None = None) -> list[dict[str, object]]:
     if isinstance(exc, SourceAnchorValidationError):
         return exc.issues[:20]
     if isinstance(exc, ValidationError):
-        known_fields = set(SemanticDraft.model_fields) | set(SemanticActivity.model_fields)
+        if known_fields is None:
+            known_fields = set(SemanticDraft.model_fields) | set(SemanticActivity.model_fields)
         issues = []
         for error in exc.errors(include_input=False, include_context=False, include_url=False)[:20]:
             field = ""
@@ -1614,7 +1615,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                 whole_trip_stay = _bound_lodging_evidence(anchors, item, *anchors.locate(item.source_quote, item.occurrence)) is not None
             except ValueError:
                 pass
-        if item.role == ActivityRole.PLANNED and item.day_index is None and explicit_days > 1 and not whole_trip_stay:
+        if (item.role == ActivityRole.PLANNED and item.day_index is None and not whole_trip_stay
+            and (explicit_days > 1 or item.category == "住宿" and item.place_name)):
             issues.append({"field": f"activities[{index}].day_index", "category": "MISSING_EXPLICIT_DAY"})
         try:
             start, end = anchors.locate(item.source_quote, item.occurrence)
@@ -1729,6 +1731,15 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
         raise SourceAnchorValidationError(issues, repair_hints, repair_draft=draft)
     diagnostics: list[SemanticDiagnostic] = []
     invalid_indices: set[int] = set()
+    pending_lodgings = set()
+    if allow_partial:
+        for index, item in enumerate(draft.activities):
+            item_issues = [issue for issue in issues if re.match(rf"activities\[{index}\](?:\.|$)", str(issue["field"]))]
+            if (item.role == ActivityRole.PLANNED and item.category == "住宿" and item.place_name
+                and item.day_index is None and item_issues
+                and all(issue["category"] == "MISSING_EXPLICIT_DAY" for issue in item_issues)
+                and located[index] != (0, 0)):
+                pending_lodgings.add(index)
     for issue in issues:
         field = str(issue["field"])
         activity_index = re.match(r"activities\[(\d+)\]", field)
@@ -1742,11 +1753,12 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                     "start_time": None, "end_time": None, "visit_duration_minutes": None,
                     "timing_source": "UNSPECIFIED", "locked": False, "fixed_commitment": False, "time_evidence": None,
                 })
-            else:
+            elif index not in pending_lodgings:
                 invalid_indices.add(index)
             if index < len(located) and located[index] != (0, 0):
                 span = located[index]
-        diagnostics.append(SemanticDiagnostic(category=str(issue["category"]), field=field,
+        category = "PENDING_LODGING_SCOPE" if activity_index and int(activity_index[1]) in pending_lodgings else str(issue["category"])
+        diagnostics.append(SemanticDiagnostic(category=category, field=field,
             span_start=span[0] if span else None, span_end=span[1] if span else None))
     if any(issue["field"] == "activities.binary_choice" for issue in issues):
         # An incomplete two-choice heading must never silently select its one
@@ -1770,6 +1782,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     for index, (item, (start, end)) in enumerate(zip(draft.activities, located, strict=True)):
         if index in invalid_indices:
             continue
+        initial_unprocessed = unprocessed
         place = item.place_name.strip() if item.place_name else None
         if place is not None:
             relative_start, relative_end = _literal_place_span(source[start:end], place)
@@ -1820,7 +1833,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
         exclusion_missing = _unreviewed_lodging_exclusion(anchors, item, start, end)
         lodging_role_uncertain = bool(item.role == ActivityRole.PLANNED and item.category == "住宿"
             and item.place_name and not lodging_span)
-        if lodging_role_uncertain:
+        if lodging_role_uncertain and index not in pending_lodgings:
             diagnostics.append(SemanticDiagnostic(category="LODGING_EVIDENCE_SCOPE_MISMATCH",
                 field=f"activities[{index}].lodging_evidence", span_start=start, span_end=end))
             unprocessed += 1
@@ -1829,7 +1842,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             diagnostics.append(SemanticDiagnostic(category="LODGING_EXCLUSION_SCOPE_MISMATCH" if exclusion_invalid else "LODGING_EXCLUSION_EVIDENCE_MISSING",
                 field=f"activities[{index}].lodging_exclusion_evidence", span_start=start, span_end=end))
             unprocessed += 1
-        if item.role == ActivityRole.PLANNED and day is None:
+        if item.role == ActivityRole.PLANNED and day is None and index not in pending_lodgings:
             day = 1
             if lodging_scope != "WHOLE_TRIP":
                 unprocessed += 1
@@ -1922,6 +1935,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             meal_role=_source_meal_role(source, start, end) if item.category == "餐饮" else None,
             lodging_event=lodging_event, lodging_scope=lodging_scope,
             lodging_role_uncertain=lodging_role_uncertain,
+            pending_lodging_scope=index in pending_lodgings,
+            pending_lodging_issue_count=1 + unprocessed - initial_unprocessed if index in pending_lodgings else 0,
             lodging_excluded_nights=sorted(set(item.lodging_excluded_nights)) if exclusion_span else [],
             lodging_exclusion_evidence=item.lodging_exclusion_evidence if exclusion_span else None,
             lodging_exclusion_evidence_start=exclusion_span[0] if exclusion_span else None,

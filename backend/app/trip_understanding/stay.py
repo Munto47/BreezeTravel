@@ -260,6 +260,7 @@ class StaySegmentPlan(StrictModel):
     overnight_days: list[int]
     anchors: list[StayAnchor] = Field(default_factory=list)
     preserved_hotels: list[str] = Field(default_factory=list)
+    preserved_place_ids: list[str] = Field(default_factory=list)
     pending_lodging_roles: list[str] = Field(default_factory=list)
     excluded_place_ids: list[str] = Field(default_factory=list)
     unconfirmed_exclusions: list[str] = Field(default_factory=list)
@@ -914,6 +915,7 @@ class StayRecommendationEngine:
                         "overnight_days": segment.overnight_days,
                         "preserved_hotels": segment.preserved_hotels, "status": "UNAVAILABLE",
                         "pending_lodging_roles": segment.pending_lodging_roles,
+                        "lodging_conflict": len(segment.preserved_place_ids) > 1,
                         "excluded_place_ids": segment.excluded_place_ids,
                         "unconfirmed_exclusions": segment.unconfirmed_exclusions,
                         "expected_boundary_count": segment.expected_boundary_count,
@@ -924,6 +926,10 @@ class StayRecommendationEngine:
                 continue
             if segment.pending_lodging_roles:
                 metadata.update(status="LIMITED", message=lodging_role_message(segment.pending_lodging_roles))
+                segment_results.append(metadata)
+                continue
+            if len(segment.preserved_place_ids) > 1 or any(item.get("reason") == "MULTIPLE_HOTELS" for item in segment.missing_boundaries):
+                metadata.update(status="LIMITED", message="这晚有多家不同酒店，请确认保留哪一家后再更新住宿与路线")
                 segment_results.append(metadata)
                 continue
             if segment.preserved_hotels:
@@ -1108,7 +1114,7 @@ def stay_plan_from_map(plan: MapRenderPlan) -> StayRecommendationPlan | None:
         return None
     segments = [StaySegmentPlan(segment_key=s.key, city=s.city, overnight_days=s.overnight_days,
         anchors=[StayAnchor(day_index=day, direction=direction, stop=stop) for day, direction, stop in s.anchors],
-        preserved_hotels=s.preserved_hotels, pending_lodging_roles=s.pending_lodging_roles,
+        preserved_hotels=s.preserved_hotels, preserved_place_ids=s.preserved_place_ids, pending_lodging_roles=s.pending_lodging_roles,
         excluded_place_ids=s.excluded_place_ids, unconfirmed_exclusions=s.unconfirmed_exclusions,
         uncertain=s.uncertain, expected_boundary_count=s.expected_boundary_count,
         missing_boundaries=s.missing_boundaries) for s in contexts]

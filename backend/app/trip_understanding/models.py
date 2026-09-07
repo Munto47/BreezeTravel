@@ -48,6 +48,8 @@ class ProposedMention(ActivityTiming):
     lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
     lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
     lodging_role_uncertain: bool = False
+    pending_lodging_scope: bool = False
+    pending_lodging_issue_count: int = Field(default=0, ge=0)
     lodging_excluded_nights: list[Annotated[int, Field(ge=1, le=14)]] = Field(default_factory=list, max_length=14)
     lodging_exclusion_evidence: str | None = None
     lodging_exclusion_evidence_start: int | None = Field(default=None, ge=0)
@@ -223,7 +225,7 @@ class ActivityCardView(ActivityTiming):
     name: str
     category: str
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
-    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP", "VISIT_ONLY"] | None = None
     lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
     lodging_role_uncertain: bool = False
     lodging_excluded_nights: list[Annotated[int, Field(ge=1, le=14)]] = Field(default_factory=list, max_length=14)
@@ -245,6 +247,17 @@ class ActivityAlternativeView(StrictModel):
     choice_group_token: str | None = Field(default=None, min_length=20, max_length=80)
     branch_token: str | None = Field(default=None, min_length=20, max_length=80)
     branch_label: str | None = Field(default=None, max_length=40)
+
+
+class PendingLodgingRefView(StrictModel):
+    pending_token: str = Field(min_length=20, max_length=80)
+    status: Literal["NEEDS_CONFIRMATION"] = "NEEDS_CONFIRMATION"
+    unprocessed_count: int = Field(default=1, ge=1)
+
+
+class LodgingConstraintView(ActivityCardView):
+    scope: Literal["WHOLE_TRIP", "NIGHTS"]
+    overnight_days: list[Annotated[int, Field(ge=1, le=13)]] = Field(min_length=1, max_length=13)
 
 
 class MealSlotView(StrictModel):
@@ -345,6 +358,8 @@ class UserFacingTripResult(StrictModel):
     is_demo: bool = False
     updated_at: datetime | None = None
     coverage: TripRecognitionCoverage | None = None
+    pending_lodgings: list[PendingLodgingRefView] = Field(default_factory=list)
+    lodging_constraints: list[LodgingConstraintView] = Field(default_factory=list)
 
 
 class MaterializedTripView(StrictModel):
@@ -719,6 +734,34 @@ class PlaceConfirmCommand(StrictModel):
     candidate_token: str = Field(min_length=40, max_length=6000)
 
 
+class LodgingRecoveryIntent(StrictModel):
+    kind: Literal["WHOLE_TRIP", "NIGHTS", "VISIT_ONLY"]
+    overnight_days: list[Annotated[int, Field(ge=1, le=13)]] = Field(default_factory=list, max_length=13)
+    day_index: int | None = Field(default=None, ge=1, le=14)
+    before_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+
+    @model_validator(mode="after")
+    def consistent_scope(self):
+        if self.kind == "VISIT_ONLY":
+            if self.day_index is None or self.overnight_days:
+                raise ValueError("visit recovery requires a day and no overnight scope")
+        elif self.day_index is not None or self.before_activity_token is not None:
+            raise ValueError("overnight recovery cannot invent a visit position")
+        elif (self.kind == "NIGHTS") != bool(self.overnight_days):
+            raise ValueError("specific nights require an explicit night selection")
+        if len(set(self.overnight_days)) != len(self.overnight_days):
+            raise ValueError("night selection cannot contain duplicates")
+        self.overnight_days.sort()
+        return self
+
+
+class LodgingRecoverCommand(StrictModel):
+    command_type: Literal["LODGING_RECOVER"]
+    pending_token: str = Field(min_length=20, max_length=80)
+    candidate_token: str = Field(min_length=40, max_length=6000)
+    intent: LodgingRecoveryIntent
+
+
 class UndoCommand(StrictModel):
     command_type: Literal["UNDO"]
 
@@ -739,6 +782,7 @@ TripUnderstandingCommand = Annotated[
     | ActivityTextEditCommand
     | PlaceReplaceCommand
     | PlaceConfirmCommand
+    | LodgingRecoverCommand
     | ActivityTimeSetCommand
     | ActivityTimesShiftCommand
     | ActivityTimesApplyCommand

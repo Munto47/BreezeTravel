@@ -51,7 +51,7 @@ class MapStop(StrictModel):
     sequence_index: int = Field(ge=0)
     name: str
     category: str | None = None
-    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP", "VISIT_ONLY"] | None = None
     lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
     lodging_role_uncertain: bool = False
     lodging_excluded_nights: list[int] = Field(default_factory=list)
@@ -64,12 +64,19 @@ class MapStop(StrictModel):
     latitude: float | None = Field(default=None, ge=-90, le=90)
 
 
+class MapLodgingConstraint(MapStop):
+    day_index: None = None
+    day_label: str = ""
+    sequence_index: int = 0
+    overnight_days: list[int] = Field(min_length=1, max_length=13)
+
+
 class MapRenderPlan(StrictModel):
     understanding_id: str
     plan_ref: PlanRevisionRef
     route_config_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     stops: list[MapStop]
-    lodging_constraints: list[MapStop] = Field(default_factory=list)
+    lodging_constraints: list[MapStop | MapLodgingConstraint] = Field(default_factory=list)
     day_count: int | None = Field(default=None, ge=1, le=14)
 
 

@@ -19,6 +19,7 @@ def poi(name, code="110200", label="风景名胜;风景名胜;风景名胜", *, 
     ("后海", "后海", "190205", "地名地址信息;自然地名;湖泊", "北京", "西城区", "110102"),
     ("武康路", "武康路", "190301", "地名地址信息;交通地名;道路名", "上海", "徐汇区", "310104"),
     ("东方明珠", "东方明珠广播电视塔", "110202", "风景名胜;风景名胜;国家级景点", "上海", "浦东新区", "310115"),
+    ("上海中心大厦", "上海中心大厦", "120201", "商务住宅;楼宇;商务写字楼", "上海", "浦东新区", "310115"),
 ])
 async def test_common_landmark_exact_parent_in_one_request(query,name,code,label,city,district,adcode):
     calls=[]
@@ -39,6 +40,38 @@ async def test_parent_alias_on_child_poi_cannot_confirm_parent(name):
         return httpx.Response(200,json={"status":"1","pois":[poi(name,business={"alias":"鸟巢"})]})
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
         result=await AmapPlaceResolver(api_key="test-only",client=client).resolve(city="北京",atomic_place_name="鸟巢",category_hint="景点")
+    assert result.place is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("override", [
+    {"name": "上海之巅观光厅", "code": "110209", "label": "风景名胜;风景名胜;观景点", "business": {"alias": "上海中心大厦"}},
+    {"name": "上海中心大厦-售票处"},
+    {"name": "上海中心大厦-停车场"},
+    {"district": "黄浦区", "adcode": "310101"},
+    {"city": "北京", "district": "东城区", "adcode": "110101"},
+    {"code": "100100", "label": "住宿服务;宾馆酒店;宾馆酒店"},
+    {"label": "商务住宅;楼宇;商务写字楼|住宿服务;宾馆酒店;宾馆酒店"},
+])
+async def test_reviewed_tower_building_does_not_accept_child_other_city_or_hotel(override):
+    values = {"name": "上海中心大厦", "code": "120201", "label": "商务住宅;楼宇;商务写字楼",
+        "city": "上海", "district": "浦东新区", "adcode": "310115", **override}
+    async def handle(req):
+        return httpx.Response(200, json={"status": "1", "pois": [poi(**values)]})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        result = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
+            city="上海", atomic_place_name="上海中心大厦", category_hint="景点")
+    assert result.place is None
+
+
+@pytest.mark.asyncio
+async def test_explicit_tower_observation_hall_is_not_replaced_by_the_building():
+    async def handle(req):
+        return httpx.Response(200, json={"status": "1", "pois": [poi("上海中心大厦", "120201",
+            "商务住宅;楼宇;商务写字楼", city="上海", district="浦东新区", adcode="310115")]})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        result = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
+            city="上海", atomic_place_name="上海之巅观光厅", category_hint="景点")
     assert result.place is None
 
 

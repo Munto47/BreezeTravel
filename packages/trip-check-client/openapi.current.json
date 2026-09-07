@@ -253,7 +253,8 @@
                   "OVERNIGHT",
                   "CHECK_OUT",
                   "DEPARTURE",
-                  "LUGGAGE_PICKUP"
+                  "LUGGAGE_PICKUP",
+                  "VISIT_ONLY"
                 ],
                 "type": "string"
               },
@@ -1748,6 +1749,333 @@
         "title": "KnowledgeSuggestionView",
         "type": "object"
       },
+      "LodgingConstraintView": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "area_or_address": {
+            "title": "Area Or Address",
+            "type": "string"
+          },
+          "available_actions": {
+            "items": {
+              "enum": [
+                "VIEW_DETAILS",
+                "REPLACE",
+                "DELETE",
+                "MOVE"
+              ],
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "fixed_commitment": {
+            "default": false,
+            "title": "Fixed Commitment",
+            "type": "boolean"
+          },
+          "knowledge_suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeSuggestionView"
+            },
+            "maxItems": 3,
+            "title": "Knowledge Suggestions",
+            "type": "array"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "lodging_event": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OVERNIGHT",
+                  "CHECK_OUT",
+                  "DEPARTURE",
+                  "LUGGAGE_PICKUP",
+                  "VISIT_ONLY"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lodging Event"
+          },
+          "lodging_excluded_nights": {
+            "items": {
+              "maximum": 14.0,
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "maxItems": 14,
+            "title": "Lodging Excluded Nights",
+            "type": "array"
+          },
+          "lodging_role_uncertain": {
+            "default": false,
+            "title": "Lodging Role Uncertain",
+            "type": "boolean"
+          },
+          "lodging_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "WHOLE_TRIP",
+                  "DAY"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lodging Scope"
+          },
+          "meal_role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "BREAKFAST",
+                  "LUNCH",
+                  "DINNER",
+                  "SNACK"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meal Role"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "overnight_days": {
+            "items": {
+              "maximum": 13.0,
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "maxItems": 13,
+            "minItems": 1,
+            "title": "Overnight Days",
+            "type": "array"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "scope": {
+            "enum": [
+              "WHOLE_TRIP",
+              "NIGHTS"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "status": {
+            "enum": [
+              "READY",
+              "NEEDS_CONFIRMATION"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "time_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Hint"
+          },
+          "timing_source": {
+            "default": "UNSPECIFIED",
+            "enum": [
+              "TEXT",
+              "USER",
+              "SUGGESTED",
+              "UNSPECIFIED"
+            ],
+            "title": "Timing Source",
+            "type": "string"
+          },
+          "visit_duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 1440.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit Duration Minutes"
+          }
+        },
+        "required": [
+          "activity_token",
+          "name",
+          "category",
+          "area_or_address",
+          "status",
+          "available_actions",
+          "scope",
+          "overnight_days"
+        ],
+        "title": "LodgingConstraintView",
+        "type": "object"
+      },
+      "LodgingRecoverCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_token": {
+            "maxLength": 6000,
+            "minLength": 40,
+            "title": "Candidate Token",
+            "type": "string"
+          },
+          "command_type": {
+            "const": "LODGING_RECOVER",
+            "title": "Command Type",
+            "type": "string"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/LodgingRecoveryIntent"
+          },
+          "pending_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Pending Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_type",
+          "pending_token",
+          "candidate_token",
+          "intent"
+        ],
+        "title": "LodgingRecoverCommand",
+        "type": "object"
+      },
+      "LodgingRecoveryIntent": {
+        "additionalProperties": false,
+        "properties": {
+          "before_activity_token": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Activity Token"
+          },
+          "day_index": {
+            "anyOf": [
+              {
+                "maximum": 14.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Index"
+          },
+          "kind": {
+            "enum": [
+              "WHOLE_TRIP",
+              "NIGHTS",
+              "VISIT_ONLY"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "overnight_days": {
+            "items": {
+              "maximum": 13.0,
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "maxItems": 13,
+            "title": "Overnight Days",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "LodgingRecoveryIntent",
+        "type": "object"
+      },
       "MapReadinessView": {
         "additionalProperties": false,
         "properties": {
@@ -1945,6 +2273,111 @@
           "meal_role"
         ],
         "title": "MealSlotView",
+        "type": "object"
+      },
+      "PendingLodgingCandidateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "minLength": 2,
+                "pattern": "^[\\u4e00-\\u9fff]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/LodgingRecoveryIntent"
+          },
+          "pending_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Pending Token",
+            "type": "string"
+          },
+          "query": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pending_token",
+          "query",
+          "intent"
+        ],
+        "title": "PendingLodgingCandidateRequest",
+        "type": "object"
+      },
+      "PendingLodgingRefView": {
+        "additionalProperties": false,
+        "properties": {
+          "pending_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Pending Token",
+            "type": "string"
+          },
+          "status": {
+            "const": "NEEDS_CONFIRMATION",
+            "default": "NEEDS_CONFIRMATION",
+            "title": "Status",
+            "type": "string"
+          },
+          "unprocessed_count": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Unprocessed Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pending_token"
+        ],
+        "title": "PendingLodgingRefView",
+        "type": "object"
+      },
+      "PendingLodgingView": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pending_token": {
+            "title": "Pending Token",
+            "type": "string"
+          },
+          "status": {
+            "const": "NEEDS_CONFIRMATION",
+            "default": "NEEDS_CONFIRMATION",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pending_token",
+          "name"
+        ],
+        "title": "PendingLodgingView",
         "type": "object"
       },
       "PlaceConfirmCommand": {
@@ -3383,6 +3816,13 @@
             "title": "Days",
             "type": "array"
           },
+          "pending_lodgings": {
+            "items": {
+              "$ref": "#/components/schemas/PendingLodgingView"
+            },
+            "title": "Pending Lodgings",
+            "type": "array"
+          },
           "status": {
             "enum": [
               "AVAILABLE",
@@ -3760,6 +4200,13 @@
             "title": "Is Demo",
             "type": "boolean"
           },
+          "lodging_constraints": {
+            "items": {
+              "$ref": "#/components/schemas/LodgingConstraintView"
+            },
+            "title": "Lodging Constraints",
+            "type": "array"
+          },
           "map": {
             "$ref": "#/components/schemas/MapReadinessView"
           },
@@ -3771,6 +4218,13 @@
             ],
             "title": "Ownership",
             "type": "string"
+          },
+          "pending_lodgings": {
+            "items": {
+              "$ref": "#/components/schemas/PendingLodgingRefView"
+            },
+            "title": "Pending Lodgings",
+            "type": "array"
           },
           "status": {
             "enum": [
@@ -5468,6 +5922,7 @@
                     "ACTIVITY_TIME_SET": "#/components/schemas/ActivityTimeSetCommand",
                     "ASSUMPTION_SET": "#/components/schemas/AssumptionSetCommand",
                     "DINING_INSERT": "#/components/schemas/DiningInsertCommand",
+                    "LODGING_RECOVER": "#/components/schemas/LodgingRecoverCommand",
                     "PLACE_CONFIRM": "#/components/schemas/PlaceConfirmCommand",
                     "PLACE_REPLACE": "#/components/schemas/PlaceReplaceCommand",
                     "UNDO": "#/components/schemas/UndoCommand"
@@ -5495,6 +5950,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/PlaceConfirmCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LodgingRecoverCommand"
                   },
                   {
                     "$ref": "#/components/schemas/ActivityTimeSetCommand"
@@ -6104,7 +6562,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CandidateSearchRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CandidateSearchRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PendingLodgingCandidateRequest"
+                  }
+                ],
+                "title": "Body"
               }
             }
           },
@@ -6628,6 +7094,16 @@
             "schema": {
               "title": "Public Resource Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_pending_lodgings",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Pending Lodgings",
+              "type": "boolean"
             }
           },
           {
