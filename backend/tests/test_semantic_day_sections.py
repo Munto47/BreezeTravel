@@ -28,9 +28,9 @@ class ScopedClient:
         elif "本次只整理原文第2天" in prompt and self.second_fails:
             payload = None
         elif "本次只整理原文第1天" in prompt:
-            payload = {"activities": [{"source_quote": "星河公园", "place_name": "星河公园", "day_index": 1, "role": "PLANNED"}]}
+            payload = {"activities": [{"source_quote": "星河公园", "place_name": "星河公园", "day_index": 1, "role": "PLANNED", "role_evidence": "Day1：星河公园"}]}
         elif "本次只整理原文第2天" in prompt:
-            payload = {"activities": [{"source_quote": "月光桥", "place_name": "月光桥", "day_index": 2, "role": "PLANNED"}]}
+            payload = {"activities": [{"source_quote": "月光桥", "place_name": "月光桥", "day_index": 2, "role": "PLANNED", "role_evidence": "Day2：月光桥"}]}
         else:
             payload = {"activities": [
                 {"source_quote": "星河公园", "place_name": "星河公园", "day_index": 1, "role": "PLANNED"},
@@ -50,6 +50,7 @@ async def test_model_day_sections_rebind_original_spans_and_count_every_call():
     result = await provider(client).propose(text)
     assert [(item.atomic_place_name, item.day_index) for item in result.mentions] == [("星河公园", 1), ("月光桥", 2)]
     assert all(text[item.span_start:item.span_end] == item.raw_text for item in result.mentions)
+    assert all(text[item.role_evidence_start:item.role_evidence_end] == item.role_evidence for item in result.mentions)
     assert result.binding["external_calls"] == len(client.calls) == 3
     assert result.binding["input_tokens"] == 30 and result.binding["output_tokens"] == 60
     assert result.binding["day_scopes_completed"] == 2

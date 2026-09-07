@@ -1,0 +1,134 @@
+{
+  "schema_version": "dining-area-positions-v1",
+  "scope": "NEARBY_DESTINATION_ONLY_NOT_RESTAURANT_MEMBERSHIP",
+  "areas": [
+    {
+      "fact_id": "beijing-wangfujing",
+      "city": "北京",
+      "name": "王府井步行街",
+      "poi_id": "B000A48169",
+      "longitude": 116.412007,
+      "latitude": 39.913479,
+      "coordinate_system": "GCJ02",
+      "adcode": "110101",
+      "typecode": "061001",
+      "type_label": "购物服务;特色商业街;步行街",
+      "review_status": "MAP_IDENTITY_VERIFIED",
+      "sources": [
+        {
+          "url": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202212/W020221201321005754524.pdf",
+          "title": "北京城市商业消费空间布局专项规划（2022—2035年）",
+          "publisher": "北京市人民政府",
+          "retrieved_at": "2026-09-07",
+          "evidence": "Official source names this commercial district/street. Hotel-search use is an editorial seed, not an official suitability, popularity or availability claim."
+        },
+        {
+          "url": "https://www.amap.com/place/B000A48169",
+          "title": "王府井步行街",
+          "publisher": "高德地图",
+          "retrieved_at": "2026-09-07",
+          "evidence": "实时POI查询核对名称、城市、行政代码、商业类型及GCJ02位置；不证明任何饭店属于本区域，也不核验营业时段。"
+        }
+      ],
+      "pname": "北京市",
+      "adname": "东城区",
+      "cityname": "北京市"
+    },
+    {
+      "fact_id": "beijing-longfusi",
+      "city": "北京",
+      "name": "北京隆福寺街区",
+      "poi_id": "B0L2U9FKU9",
+      "longitude": 116.413951,
+      "latitude": 39.925975,
+      "coordinate_system": "GCJ02",
+      "adcode": "110101",
+      "typecode": "061000",
+      "type_label": "购物服务;特色商业街;特色商业街",
+      "review_status": "MAP_IDENTITY_VERIFIED",
+      "sources": [
+        {
+          "url": "https://www.beijing.gov.cn/ywdt/gqrd/202603/t20260304_4549726.html",
+          "title": "隆福寺街区挂牌北京市商业步行街",
+          "publisher": "北京市人民政府",
+          "retrieved_at": "2026-09-07",
+          "evidence": "政府报道确认北京隆福寺街区为商业步行街，介绍街区餐饮业态。"
+        },
+        {
+          "url": "https://www.amap.com/place/B0L2U9FKU9",
+          "title": "北京隆福寺街区",
+          "publisher": "高德地图",
+          "retrieved_at": "2026-09-07",
+          "evidence": "实时POI查询核对名称、城市、行政代码、商业类型及GCJ02位置；不证明任何饭店属于本区域，也不核验营业时段。"
+        }
+      ],
+      "pname": "北京市",
+      "adname": "东城区",
+      "cityname": "北京市"
+    },
+    {
+      "fact_id": "shanghai-yatai",
+      "city": "上海",
+      "name": "亚太盛汇A.P.PLAZA",
+      "poi_id": "B0KGZC6NX2",
+      "longitude": 121.542444,
+      "latitude": 31.219831,
+      "coordinate_system": "GCJ02",
+      "adcode": "310115",
+      "typecode": "060102",
+      "type_label": "购物服务;商场;普通商场",
+      "review_status": "MAP_IDENTITY_VERIFIED",
+      "sources": [
+        {
+          "url": "https://www.shanghai.gov.cn/nw4411/20250313/18ca1198e4d544a98a67e78f550be30a.html",
+          "title": "外国游客深度体验上海定制",
+          "publisher": "上海市人民政府",
+          "retrieved_at": "2026-09-07",
+          "evidence": "政府报道确认浦东亚太盛汇购物广场实体名称；地图独立核验同址商业综合体。"
+        },
+        {
+          "url": "https://www.amap.com/place/B0KGZC6NX2",
+          "title": "亚太盛汇A.P.PLAZA",
+          "publisher": "高德地图",
+          "retrieved_at": "2026-09-07",
+          "evidence": "实时POI查询核对名称、城市、行政代码、商业类型及GCJ02位置；不证明任何饭店属于本区域，也不核验营业时段。"
+        }
+      ],
+      "pname": "上海市",
+      "adname": "浦东新区",
+      "cityname": "上海市"
+    },
+    {
+      "fact_id": "shenzhen-rail-in",
+      "city": "深圳",
+      "name": "深圳湾睿印RAIL IN",
+      "poi_id": "B0JG2HBC0O",
+      "longitude": 113.970078,
+      "latitude": 22.524077,
+      "coordinate_system": "GCJ02",
+      "adcode": "440305",
+      "typecode": "060100",
+      "type_label": "购物服务;商场;商场",
+      "review_status": "MAP_IDENTITY_VERIFIED",
+      "sources": [
+        {
+          "url": "https://www.sz.gov.cn/cn/xxgk/zfxxgj/tpxw/content/mpost_10573520.html",
+          "title": "深超总首个商业综合体开业",
+          "publisher": "深圳市人民政府",
+          "retrieved_at": "2026-09-07",
+          "evidence": "政府报道确认深圳湾睿印商业综合体，含餐饮业态。"
+        },
+        {
+          "url": "https://www.amap.com/place/B0JG2HBC0O",
+          "title": "深圳湾睿印RAIL IN",
+          "publisher": "高德地图",
+          "retrieved_at": "2026-09-07",
+          "evidence": "实时POI查询核对名称、城市、行政代码、商业类型及GCJ02位置；不证明任何饭店属于本区域，也不核验营业时段。"
+        }
+      ],
+      "pname": "广东省",
+      "adname": "南山区",
+      "cityname": "深圳市"
+    }
+  ]
+}

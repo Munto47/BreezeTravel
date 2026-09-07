@@ -45,6 +45,12 @@ class ProposedMention(ActivityTiming):
     atomic_place_name: str | None = None
     category_hint: str | None = None
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
+    lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
+    lodging_role_uncertain: bool = False
+    lodging_evidence: str | None = None
+    lodging_evidence_start: int | None = Field(default=None, ge=0)
+    lodging_evidence_end: int | None = Field(default=None, ge=0)
     time_hint: str | None = None
     city_hint: str | None = None
     city_evidence: str | None = None
@@ -53,6 +59,9 @@ class ProposedMention(ActivityTiming):
     branch_label: str | None = None
     parent_mention_id: str | None = None
     relation_type: Literal["INTERNAL_DETAIL"] | None = None
+    role_evidence: str | None = None
+    role_evidence_start: int | None = Field(default=None, ge=0)
+    role_evidence_end: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def valid_span(self) -> "ProposedMention":
@@ -210,6 +219,9 @@ class ActivityCardView(ActivityTiming):
     name: str
     category: str
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
+    lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
+    lodging_role_uncertain: bool = False
     area_or_address: str
     time_hint: str | None = None
     status: Literal["READY", "NEEDS_CONFIRMATION"]
@@ -273,6 +285,8 @@ class StaySegmentView(StrictModel):
     message: str
     candidates: list[StayCandidateView] = Field(default_factory=list)
     preserved_hotels: list[str] = Field(default_factory=list)
+    expected_boundary_count: int = Field(default=0, ge=0)
+    missing_boundary_count: int = Field(default=0, ge=0)
 
 
 class StaySuggestionView(StrictModel):

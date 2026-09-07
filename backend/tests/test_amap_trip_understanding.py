@@ -344,7 +344,7 @@ async def test_amap_provider_name_variants_remain_unique_city_category_matches(
     assert outcome.place is not None
     assert outcome.receipt["provider_alias_candidate_count"] == alias_count
     assert outcome.receipt["category_compatible_candidate_count"] == 1
-    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_UNIQUE_OR_SAME_ROAD_V6"
+    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_VISITOR_IDENTITY_V7"
     assert len(observed) == 1
 
 

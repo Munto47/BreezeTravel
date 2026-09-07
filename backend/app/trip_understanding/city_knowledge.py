@@ -42,6 +42,7 @@ class CityEntity:
     sources: tuple[dict, ...] = ()
     relations: tuple[dict, ...] = ()
     uses: tuple[str, ...] = ()
+    provider_type_pairs: tuple[dict, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +149,20 @@ class CityKnowledge:
         # A canonical/alias collision remains ambiguous rather than preferring one.
         return PlaceLexiconLookup(tier, entries)
 
+    def technical_landmark(self, *, city: str, name: str) -> CityEntity | None:
+        """Only a reviewed, district-qualified landmark may override a map type."""
+        values = [e for e in self.lookup(name, city) if e.review_status == "name_verified"
+                  and e.category == "attraction" and e.district and e.provider_type_pairs]
+        return values[0] if len(values) == 1 else None
+
+    def technical_type_matches(self, raw: dict, *, city: str, name: str) -> bool:
+        entity = self.technical_landmark(city=city, name=name)
+        return bool(entity and raw.get("adname") == entity.district
+                    and normalize_place_name(str(raw.get("name") or "")) in {
+                        normalize_place_name(v) for v in (entity.canonical_name, *entity.aliases)}
+                    and any(raw.get("typecode") == pair["typecode"]
+                            and raw.get("type") == pair["type_label"] for pair in entity.provider_type_pairs))
+
 
 def _http_url(value) -> bool:
     if not isinstance(value, str):
@@ -157,7 +172,7 @@ def _http_url(value) -> bool:
 
 
 def _parse_record(raw: dict, city: str) -> CityEntity:
-    allowed = {"id", "city", "canonical_name", "kind", "category", "aliases", "district", "review_status", "sources", "relations", "uses"}
+    allowed = {"id", "city", "canonical_name", "kind", "category", "aliases", "district", "review_status", "sources", "relations", "uses", "provider_type_pairs"}
     if not isinstance(raw, dict) or set(raw) - allowed:
         raise ValueError("INVALID_FIELDS")
     if raw.get("city") != city or raw.get("kind") not in _KINDS or raw.get("category") not in _CATEGORIES:
@@ -195,8 +210,18 @@ def _parse_record(raw: dict, city: str) -> CityEntity:
     uses = raw.get("uses", [])
     if not isinstance(uses, list) or any(v not in {"stay_search", "dining_search"} for v in uses):
         raise ValueError("INVALID_USES")
+    pairs = raw.get("provider_type_pairs", [])
+    if not isinstance(pairs, list) or len(pairs) > 8:
+        raise ValueError("INVALID_PROVIDER_TYPE_PAIRS")
+    for pair in pairs:
+        if (not isinstance(pair, dict) or set(pair) != {"typecode", "type_label", "source_url"}
+                or not isinstance(pair["typecode"], str) or not re.fullmatch(r"\d{6}", pair["typecode"])
+                or not isinstance(pair["type_label"], str) or len(pair["type_label"].split(";")) != 3
+                or pair["source_url"] not in source_urls or not district
+                or raw["review_status"] != "name_verified" or raw["category"] != "attraction"):
+            raise ValueError("UNREVIEWED_PROVIDER_TYPE_PAIR")
     return CityEntity(raw["id"], city, raw["canonical_name"].strip(), raw["kind"], raw["category"],
-        tuple(dict.fromkeys(accepted)), district, raw["review_status"], tuple(sources), tuple(relations), tuple(uses))
+        tuple(dict.fromkeys(accepted)), district, raw["review_status"], tuple(sources), tuple(relations), tuple(uses), tuple(pairs))
 
 
 def _load_pack(path: Path, city: str) -> tuple[list[CityEntity], list[dict]]:

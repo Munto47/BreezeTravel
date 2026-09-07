@@ -32,6 +32,7 @@ STRUCTURE_PROMPT = """只分析旅行原文的全局结构，不提取景点，�
 sections每项day_index、start_quote、occurrence；start_quote逐字复制每个旅行日首次开始处的短标题，
 例如“第一天”或“Day 2”，occurrence是该标题在全文的出现次数。完整列出按原文排序的所有日段。
 若有跨日更正、调日、全篇替代、日段互相引用导致必须联合理解，cross_day_dependencies=true。
+导语或结尾若另外安排适用于全程但没有具体归日的备选，也须cross_day_dependencies=true，不能让切片丢掉该安排。
 普通某一天内部的二选一、可选景点不属于跨日依赖。无明确逐日段落或不确定则sections=[]。
 不得自己补日期，不把末尾重复摘要或修改标题当新的旅行日。"""
 
@@ -165,6 +166,13 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
     for day, (left, right, output) in sorted(results.items()):
         offset = left - len(prefix)
         scoped = [item for item in output.mentions if item.span_start >= len(prefix)]
+        if any(item.role.value in {"PLANNED", "OPTIONAL"} and item.span_start < len(prefix) for item in output.mentions):
+            return await whole_document()
+        if offset and any(any(value is not None and value < len(prefix) for value in
+            (item.role_evidence_start, item.lodging_evidence_start)) for item in scoped):
+            # Context prepended to a later day is not contiguous with that day
+            # in the full source. It cannot be persisted as a single evidence span.
+            return await whole_document()
         if any(item.role.value in {"PLANNED", "OPTIONAL"} and item.day_index not in {None, day} for item in scoped):
             # A local result revealed a cross-day dependency. Never force it
             # into this physical paragraph's day.
@@ -173,6 +181,10 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
         for item in scoped:
             mentions.append(item.model_copy(update={"mention_id": ids[item.mention_id],
                 "span_start": item.span_start + offset, "span_end": item.span_end + offset,
+                "role_evidence_start": item.role_evidence_start + offset if item.role_evidence_start is not None else None,
+                "role_evidence_end": item.role_evidence_end + offset if item.role_evidence_end is not None else None,
+                "lodging_evidence_start": item.lodging_evidence_start + offset if item.lodging_evidence_start is not None else None,
+                "lodging_evidence_end": item.lodging_evidence_end + offset if item.lodging_evidence_end is not None else None,
                 "parent_mention_id": ids.get(item.parent_mention_id),
                 "choice_group_id": f"day-{day}-{item.choice_group_id}" if item.choice_group_id else None,
                 "branch_id": f"day-{day}-{item.branch_id}" if item.branch_id else None}))
@@ -192,7 +204,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
         "unprocessed_count": unprocessed})
     result = _with_coverage_diagnostics(source, SemanticDraft(activities=[]), result, _known_source_places(source))
     binding = aggregate_binding(provider, bindings, started, day_scope_count=len(sections),
-        day_scopes_completed=len(results), semantic_partial_recovery=bool(diagnostics),
+        day_scopes_completed=len(results), semantic_partial_recovery=bool(result.unprocessed_count),
         outcome="PARTIAL_RESULT" if result.unprocessed_count else "SUCCESS",
         semantic_diagnostic_counts={category: sum(issue.category == category for issue in result.diagnostics)
             for category in sorted({issue.category for issue in result.diagnostics})})

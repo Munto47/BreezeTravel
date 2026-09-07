@@ -451,14 +451,19 @@ async def refresh_daily_dining(public_resource_id: str, request: Request, respon
     key = request.headers.get("Idempotency-Key", "")
     if not key or len(key) > 200:
         raise HTTPException(status_code=400, detail={"code": "INVALID_IDEMPOTENCY_KEY", "message": "请重新更新建议"})
+    replay_info = {}
     try:
-        view, etag = await read_daily_dining(repository, resource, request_key=key, expected_etag=expected)
+        view, etag = await read_daily_dining(repository, resource, request_key=key, expected_etag=expected, replay_info=replay_info)
+    except IdempotencyConflictError:
+        raise HTTPException(status_code=409, detail={"code":"IDEMPOTENCY_CONFLICT", "message":"这次更新请求已用于其他版本，请重新更新"}) from None
     except RevisionConflictError:
         raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后重试"}) from None
     except ResourceNotReadyError:
         raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
     response.headers["ETag"] = f'"{etag}"'
     response.headers["Cache-Control"] = "no-store"
+    if replay_info.get("replayed"):
+        response.headers["Idempotency-Replayed"] = "true"
     return view
 
 

@@ -115,14 +115,15 @@ test('refinement: failed preference reads do not pretend consent is off and can 
       }),
     }),
   )
-  let calls = 0
+  // Keep the outage active until the user retries. Development Strict Mode may
+  // mount twice; request count must not silently clear the simulated failure.
+  let preferenceServiceRecovered = false
   await page.route('**/api/v3/me/data-consents', (route) => {
-    calls++
     return route.fulfill({
-      status: calls === 1 ? 503 : 200,
+      status: preferenceServiceRecovered ? 200 : 503,
       contentType: 'application/json',
       body: JSON.stringify(
-        calls === 1
+        !preferenceServiceRecovered
           ? {}
           : {
               memory_enabled: true,
@@ -153,6 +154,7 @@ test('refinement: failed preference reads do not pretend consent is off and can 
   await expect(
     panel.getByRole('button', { name: '切换记住结构化偏好', exact: true }),
   ).toHaveCount(0)
+  preferenceServiceRecovered = true
   await panel
     .getByRole('button', { name: '重新读取偏好设置', exact: true })
     .click()

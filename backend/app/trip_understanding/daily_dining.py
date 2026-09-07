@@ -10,6 +10,7 @@ from pydantic import Field
 
 from app.trip_understanding.candidates import CandidatePlace, issue_candidate
 from app.trip_understanding.dining import dining_binding, search_dining, valid_anchor
+from app.trip_understanding.dining_areas import nearby_dining_area
 from app.trip_understanding.map_render import MapStop
 from app.trip_understanding.models import StrictModel
 
@@ -35,6 +36,8 @@ class DailyMealView(StrictModel):
     next_name: str | None = None
     existing_activity_token: str | None = None
     area: str | None = None
+    area_relation: Literal["PROVIDER_AREA", "NEARBY"] | None = None
+    area_distance_m: int | None = Field(default=None, ge=0)
     candidates: list[DailyMealCandidate] = Field(default_factory=list, max_length=3)
 
 
@@ -48,39 +51,61 @@ def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapSt
     """Only confirmed execution stops anchor suggestions; a named meal is retained."""
     view = {"day_index": 1, "label": day.label, "status": "NEEDS_CONFIRMATION",
             "message": "先确认当天地点，再补充中途用餐。", "candidates": []}
-    by_token = {s.activity_token: s for s in stops if valid_anchor(s) and not s.is_stay_anchor}
+    by_token = {s.activity_token: s for s in stops if valid_anchor(s) and not s.is_stay_anchor
+                and not (s.category == "住宿" and s.lodging_scope == "WHOLE_TRIP")}
     cards = day.activities
+    explicit_slot = next((slot for slot in getattr(day, "meal_slots", []) if slot.meal_role == "LUNCH"), None)
     # A breakfast/dinner with an explicit hour is not treated as lunch.
     meals = [c for c in cards if c.category == "餐饮" and c.status == "READY"
              and (getattr(c,"meal_role",None) == "LUNCH" or
-                  (getattr(c,"meal_role",None) is None and (not c.start_time or "10:30" <= c.start_time <= "15:00")))]
+                  (getattr(c,"meal_role",None) is None and
+                   ((not c.start_time and not explicit_slot) or (c.start_time and "10:30" <= c.start_time <= "15:00"))))]
     if meals:
         view.update(status="EXISTING", message=f"已安排{meals[0].name}，可在地点卡片更换。",
                     existing_activity_token=meals[0].activity_token)
         return view, None, None
-    named = [c for c in cards if c.activity_token in by_token and c.category not in ("餐饮", "住宿", "交通节点")]
+    named = [c for c in cards if c.category not in ("餐饮", "住宿", "交通节点")]
     if not named:
         return view, None, None
     position = max(0, (len(named) - 1) // 2)
-    explicit_slot = next((slot for slot in getattr(day, "meal_slots", []) if slot.meal_role == "LUNCH"), None)
-    if explicit_slot:
+    def at_slot(after_token, before_token):
         view["meal_role"] = "LUNCH"
-        after = by_token.get(explicit_slot.after_activity_token)
-        before = by_token.get(explicit_slot.before_activity_token)
+        after = by_token.get(after_token)
+        before = by_token.get(before_token)
         if after:
-            view.update(after_activity_token=after.activity_token,next_name=before.name if before else None)
-            return view, after, before if before and before.city == after.city else None
+            next_stop = before if before and before.city == after.city else None
+            view.update(after_activity_token=after.activity_token,next_name=next_stop.name if next_stop else None)
+            return view, after, next_stop
         if before:
             view.update(after_activity_token=before.activity_token,insert_before=True,next_name=before.name)
             return view, before, None
+        # The source fixed this gap. Unrelated confirmed stops must not move it.
+        view["message"] = "先确认午餐前后的地点，再补充这里的用餐建议。"
+        return view, None, None
+
+    if explicit_slot:
+        return at_slot(explicit_slot.after_activity_token, explicit_slot.before_activity_token)
     unnamed = next((i for i, c in enumerate(cards) if c.category == "餐饮"
                     and c.status != "READY" and any(w in c.name for w in ("午餐", "午饭", "中午", "用餐"))), None)
     if unnamed is not None:
-        prior = [i for i, c in enumerate(named) if cards.index(c) < unnamed]
-        if prior:
-            position = prior[-1]
+        prior = [c for c in named if cards.index(c) < unnamed]
+        following = [c for c in named if cards.index(c) > unnamed]
+        return at_slot(prior[-1].activity_token if prior else None,
+                       following[0].activity_token if following else None)
+    if named[position].activity_token not in by_token:
+        # Find a confirmed nearby search anchor without pretending an unknown
+        # stop disappeared from the actual itinerary's route sequence.
+        preceding = [i for i in range(position, -1, -1) if named[i].activity_token in by_token]
+        following = [i for i in range(position + 1,len(named)) if named[i].activity_token in by_token]
+        if not preceding and not following:
+            return view, None, None
+        position = (preceding or following)[0]
+        if not preceding:
+            anchor = by_token[named[position].activity_token]
+            view.update(after_activity_token=anchor.activity_token, insert_before=True, next_name=anchor.name)
+            return view, anchor, None
     anchor = by_token[named[position].activity_token]
-    next_stop = by_token[named[position + 1].activity_token] if position + 1 < len(named) else None
+    next_stop = by_token.get(named[position + 1].activity_token) if position + 1 < len(named) else None
     # A transfer to another city is not a local meal corridor.
     if next_stop and next_stop.city != anchor.city:
         next_stop = None
@@ -89,14 +114,14 @@ def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapSt
     return view, anchor, next_stop
 
 
-async def build_daily_meals(result, plan, *, search=search_dining, routes=None,
+async def build_daily_meals(result, plan, *, search=search_dining, routes=None, area_search=nearby_dining_area,
                             deadline_seconds: float = 80, stats: dict | None = None) -> list[dict]:
     """Stores verified places, not expiring selection tokens or private source text."""
     output = []
     route_cache: dict[tuple, int | None] = {}
     route_count = 0
     stats = stats if stats is not None else {}
-    stats.update(poi_http_attempts=0, district_http_attempts=0, route_dispatches=0,
+    stats.update(poi_http_attempts=0, district_http_attempts=0, area_http_attempts=0, route_dispatches=0,
                  route_http_calls=0, route_calls_unknown=0, estimated_cost_cny=None)
     deadline = time.monotonic() + deadline_seconds
     now = datetime.now(timezone.utc)
@@ -154,7 +179,7 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None,
                     receipt = {}
                     try:
                         places = await search(anchor=anchor, excluded_ids={s.canonical_place_id for s in stops if s.canonical_place_id},
-                            **({"receipt": receipt} if search is search_dining else {}))
+                            **({"receipt": receipt, "meal_only":True} if search is search_dining else {}))
                     finally:
                         for key in ("poi_http_attempts", "district_http_attempts"):
                             stats[key] += receipt.get(key, 0)
@@ -184,8 +209,28 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None,
                     else f"在{anchor.name}附近；绕路时间及营业情况尚未确认。"})
             ranked.sort(key=lambda r: (r["extra_minutes"] is None, r["extra_minutes"] or 0, r["place"]["name"]))
             view.update(status="AVAILABLE", message="中途用餐建议，选择后才加入行程。",
-                area=next((r["place"].get("business_area") for r in ranked if r["place"].get("business_area")), None),
+                # A backup restaurant's area does not establish the top choice's area.
+                area=ranked[0]["place"].get("business_area"),
                 candidates=ranked)
+            if view["area"]:
+                view["area_relation"] = "PROVIDER_AREA"
+            elif area_search and (search is search_dining or area_search is not nearby_dining_area):
+                # Rank first: an area near a backup does not describe the top choice.
+                remaining = deadline - time.monotonic()
+                if remaining > 0:
+                    area_receipt = {}
+                    try:
+                        async with asyncio.timeout(min(3, remaining)):
+                            area = await area_search(CandidatePlace.model_validate(ranked[0]["place"]),
+                                                     receipt=area_receipt, timeout_seconds=min(3, remaining))
+                        if area:
+                            view.update(area)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        pass  # Optional area failure preserves verified restaurant candidates.
+                    finally:
+                        stats["area_http_attempts"] += area_receipt.get("area_http_attempts", 0)
         output.append(view)
     stats["days"] = len(output)
     stats["available_days"] = sum(row["status"] == "AVAILABLE" for row in output)
@@ -193,7 +238,9 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None,
     return output
 
 
-def project_daily_meals(rows: list[dict], *, public_resource_id: str, etag: str) -> list[DailyMealView]:
+def project_daily_meals(rows: list[dict], *, public_resource_id: str, etag: str,
+                        expires_at: datetime | None = None, now: datetime | None = None) -> list[DailyMealView]:
+    issued_at = now or datetime.now(timezone.utc)
     output = []
     for raw in rows:
         row = dict(raw)
@@ -202,7 +249,7 @@ def project_daily_meals(rows: list[dict], *, public_resource_id: str, etag: str)
             place = CandidatePlace.model_validate(item["place"])
             issued = issue_candidate(place, public_resource_id=public_resource_id,
                 activity_token=dining_binding(row["after_activity_token"], before=row.get("insert_before",False)), expected_etag=etag,
-                now=datetime.now(timezone.utc))
+                now=issued_at, expires_at=expires_at)
             candidates.append(DailyMealCandidate(candidate_token=issued.candidate_token, name=place.name,
                 area_or_address=place.area_or_address, business_area=place.business_area,
                 reason=item["reason"], extra_minutes=item["extra_minutes"], recommended=index == 0))

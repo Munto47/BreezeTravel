@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.api.trip_understandings_v3 import get_trip_understanding_repository
 from app.experience_main import app
-from app.trip_understanding.errors import IdempotencyConflictError, RevisionConflictError
+from app.trip_understanding.errors import IdempotencyConflictError, RevisionConflictError, ResourceNotReadyError
 from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.models import ActivityDeleteCommand
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
@@ -16,18 +16,41 @@ from app.trip_understanding.stay import ControlledStayRouteProvider, StayRecomme
 from app.trip_understanding.worker import TripUnderstandingWorker
 from tests.test_experience_v3_journey import repository_for, create, finish, refresh
 from tests.test_stay_overnight_segments import CityHotels
+from tests.test_g02_map_stay import _test_registry
 
 
 async def job_count(repo, kind):
     return len(repo.stay_jobs) if kind == "memory" else await repo._pool.fetchval("SELECT count(*) FROM trip_stay_recommendation_jobs")
 
 
-async def finish_stay(repo, now, provider=None):
+async def finish_stay(repo, now, provider=None, *, legacy_unverified=False):
     job = await repo.claim_next_stay(worker_id="manual-stay", now=now, lease_seconds=60)
     assert job is not None
-    output = await StayRecommendationEngine(provider or CityHotels(), ControlledStayRouteProvider()).recommend(
+    output = await StayRecommendationEngine(provider or CityHotels(), ControlledStayRouteProvider(), brand_registry=_test_registry()).recommend(
         await repo.load_stay_plan(job), observed_at=now)
+    if legacy_unverified:
+        for candidate in output.candidates:
+            candidate.candidate.provider_binding["property_identity"] = "NAME_ONLY"
     await repo.complete_stay_job(job, output, now=now)
+
+
+@pytest.mark.parametrize("kind", ["memory", "postgres"])
+@pytest.mark.asyncio
+async def test_old_unverified_snapshot_is_hidden_and_its_known_token_cannot_be_adopted(kind):
+    async with repository_for(kind) as repo:
+        now = datetime.now(timezone.utc)
+        resource = await finish(repo, await create(repo, "legacy-unverified-stay", now), now)
+        await finish_stay(repo, now, legacy_unverified=True)
+        resource, stored = await refresh(repo, resource, now)
+        if kind == "memory":
+            token = next(iter(next(iter(repo.stay_jobs.values()))["tokens"].values()))
+        else:
+            token = await repo._pool.fetchval("SELECT public_candidate_token FROM trip_stay_candidates ORDER BY rank LIMIT 1")
+        current = await repo.get_stay_view(resource)
+        assert current.candidates == [] and current.status == "LIMITED"
+        with pytest.raises(ResourceNotReadyError):
+            await TripUnderstandingApplicationService(repo).select_stay(resource, candidate_token=token,
+                expected_etag=stored.opaque_etag, idempotency_key="reject-legacy", now=now)
 
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])

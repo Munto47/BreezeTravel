@@ -35,6 +35,7 @@ import MapStayWorkspace from './map-stay-workspace'
 import JourneySuggestions from './journey-suggestions'
 import {DailyMealCard, useDailyDining} from './daily-dining'
 import UnresolvedPlaces from './unresolved-places'
+import SourceLodging from './source-lodging'
 import ResultNavigation from './result-navigation'
 import { type ResultViewId } from './result-presentation'
 import {
@@ -806,6 +807,7 @@ export default function TripResultPage() {
                 <button
                   type="button"
                   className="e-button e-button-quiet"
+                  data-testid="undo-trip-command"
                   disabled={disabled || !result.can_undo || dirty}
                   onClick={() => void trip.command({ command_type: 'UNDO' })}
                 >
@@ -903,6 +905,7 @@ export default function TripResultPage() {
           )}
           <div className="e-page-message">
             <UnresolvedPlaces days={trip.unresolvedDays} coverage={result.coverage} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand}/>
+            {!contextOpen && <SourceLodging cards={trip.sourceLodgings} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand} />}
             {trip.notice && (
               <div
                 className="e-message"

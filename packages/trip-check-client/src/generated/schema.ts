@@ -809,6 +809,15 @@ export interface components {
              * @default false
              */
             locked: boolean;
+            /** Lodging Event */
+            lodging_event?: ("OVERNIGHT" | "CHECK_OUT" | "DEPARTURE" | "LUGGAGE_PICKUP") | null;
+            /**
+             * Lodging Role Uncertain
+             * @default false
+             */
+            lodging_role_uncertain: boolean;
+            /** Lodging Scope */
+            lodging_scope?: ("WHOLE_TRIP" | "DAY") | null;
             /** Meal Role */
             meal_role?: ("BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") | null;
             /** Name */
@@ -1164,6 +1173,10 @@ export interface components {
             after_activity_token?: string | null;
             /** Area */
             area?: string | null;
+            /** Area Distance M */
+            area_distance_m?: number | null;
+            /** Area Relation */
+            area_relation?: ("PROVIDER_AREA" | "NEARBY") | null;
             /** Candidates */
             candidates?: components["schemas"]["DailyMealCandidate"][];
             /** Day Index */
@@ -1366,6 +1379,8 @@ export interface components {
             available_actions?: ("VIEW_MAP" | "RENDER_MAP")[];
             /** Days */
             days?: components["schemas"]["PublicMapDayView"][];
+            /** Lodging Points */
+            lodging_points?: components["schemas"]["PublicLodgingMapPoint"][];
             /** Message */
             message: string;
             /** Points */
@@ -1499,6 +1514,16 @@ export interface components {
             summary: string;
             /** Title */
             title: string;
+        };
+        /** PublicLodgingMapPoint */
+        PublicLodgingMapPoint: {
+            /** Day Label */
+            day_label: string;
+            /** Name */
+            name: string;
+            /** Point Token */
+            point_token: string;
+            position: components["schemas"]["PublicMapPosition"];
         };
         /** PublicMapDayView */
         PublicMapDayView: {
@@ -1783,8 +1808,18 @@ export interface components {
             candidates?: components["schemas"]["StayCandidateView"][];
             /** City */
             city?: string | null;
+            /**
+             * Expected Boundary Count
+             * @default 0
+             */
+            expected_boundary_count: number;
             /** Message */
             message: string;
+            /**
+             * Missing Boundary Count
+             * @default 0
+             */
+            missing_boundary_count: number;
             /** Overnight Days */
             overnight_days?: string[];
             /** Preserved Hotels */

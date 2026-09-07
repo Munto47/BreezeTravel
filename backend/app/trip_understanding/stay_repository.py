@@ -42,7 +42,7 @@ from app.trip_understanding.stay import (
     load_stay_commute_assessment,
     stay_plan_from_map,
 )
-from app.trip_understanding.overnight_context import overnight_segments, stay_context_hash
+from app.trip_understanding.overnight_context import lodging_role_message, overnight_segments, stay_context_hash
 
 
 def _json(value: Any) -> Any:
@@ -84,7 +84,7 @@ def _candidate_view(row: Any, *, selected: bool = False, assessment: StayCommute
         available_actions=[] if selected else ["CHOOSE_STAY"],
         selected=selected,
         brand_group=binding.get("brand_group") if official else None,
-        brand_note=("名称和地址与品牌官网门店相符；房态请以预订时为准" if official else
+        brand_note=("门店归属已与品牌官网和地图身份交叉核对；房态请以预订时为准" if official else
                     "酒店地点已核对，尚未核实品牌归属"),
     )
 
@@ -95,20 +95,29 @@ def _segmented_view(metadata: list[dict], candidates: list[tuple[StayCandidateVi
     segments = []
     for info in metadata:
         key = info.get("segment_key", "legacy")
-        choices = [view for view, binding in candidates if binding.get("segment_key", "legacy") == key]
+        choices = [view for view, binding in candidates if binding.get("segment_key", "legacy") == key
+            or (view.selected and set(binding.get("overnight_days", [])) & set(info.get("overnight_days", [])))]
+        unverified = {view.candidate_token for view, binding in candidates
+            if not view.selected and binding.get("property_identity") != "OFFICIAL_NAME_ADDRESS"}
+        removed = any(view.candidate_token in unverified for view in choices)
+        choices = [view for view in choices if view.candidate_token not in unverified]
+        if removed:
+            info = {**info, "status": "LIMITED", "message": "旧住宿候选的连锁门店归属尚未核实，请更新住宿建议"}
         selected = [view for view in choices if view.selected]
         if selected:
             choices = selected
         else:
             choices = choices[:3]
         preserved = info.get("preserved_hotels", [])
-        status = ("NEEDS_UPDATE" if stale else "AVAILABLE" if selected or preserved else
+        status = ("NEEDS_UPDATE" if stale else "LIMITED" if info.get("missing_boundary_count", 0) else "AVAILABLE" if selected or preserved else
                   "AVAILABLE" if choices and info.get("status") == "READY" else "LIMITED" if choices or info.get("status") == "LIMITED" else "UNAVAILABLE")
         segments.append(StaySegmentView(segment_token=key, city=info.get("city"),
             overnight_days=[f"Day {day}" for day in info.get("overnight_days", [])],
             status=status, message=("行程已修改，住宿通勤需重新核对" if stale else
+                info["message"] if info.get("pending_lodging_roles") else
                 "已保留这段行程的住宿选择" if selected else info.get("message", "按每晚返回和次日出发比较住宿")),
-            candidates=choices, preserved_hotels=preserved))
+            candidates=choices, preserved_hotels=preserved,
+            expected_boundary_count=info.get("expected_boundary_count", 0), missing_boundary_count=info.get("missing_boundary_count", 0)))
     available = any(s.candidates or s.preserved_hotels for s in segments)
     status = "NEEDS_UPDATE" if stale else "AVAILABLE" if all(s.status == "AVAILABLE" for s in segments) else "LIMITED" if available or any(s.status == "LIMITED" for s in segments) else "UNAVAILABLE"
     return StaySuggestionView(status=status, message="行程已修改，住宿通勤尚未更新" if stale else "按每晚返回和次日出发比较住宿",
@@ -133,8 +142,19 @@ def _memory_selected_view(selection: dict, *, stale: bool = False) -> StayCandid
 
 def _eligible_selection(selection: Any, plan: MapRenderPlan) -> bool:
     return any(s.city == str(selection["selected_city"]).removesuffix("市")
-        and s.overnight_days == list(selection["overnight_days"]) and not s.preserved_hotels
+        and set(s.overnight_days) & set(selection["overnight_days"]) and not s.preserved_hotels
         for s in overnight_segments(plan))
+
+
+def _overnight_metadata(plan: MapRenderPlan) -> list[dict]:
+    return [{"segment_key": s.key, "city": s.city, "overnight_days": s.overnight_days,
+        "preserved_hotels": s.preserved_hotels, "status": "LIMITED" if s.uncertain else "UNAVAILABLE",
+        "pending_lodging_roles": s.pending_lodging_roles,
+        "expected_boundary_count": s.expected_boundary_count, "missing_boundary_count": len(s.missing_boundaries),
+        "message": lodging_role_message(s.pending_lodging_roles) if s.pending_lodging_roles else
+            "已保留原住宿；酒店位置或行程首末站还需确认" if s.preserved_hotels and s.uncertain else
+            "保留已有住宿" if s.preserved_hotels else "首末站或过夜城市待确认" if s.uncertain else "住宿建议待更新"}
+        for s in overnight_segments(plan)]
 
 
 class StayRecommendationRepository(Protocol):
@@ -382,17 +402,15 @@ class PostgresStayRecommendationRepositoryMixin:
             if binding.get("context_hash") == context or (not binding.get("context_hash") and snapshot["revision"] == revision):
                 return await self._snapshot_stay_view(conn, snapshot, selections)
         if snapshots or selections:
-            pairs, metadata = [], []
+            pairs, metadata = [], _overnight_metadata(map_plan)
             for selection in selections:
                 row = await conn.fetchrow("SELECT * FROM trip_stay_candidates WHERE candidate_id=$1", selection["candidate_id"])
                 if row:
                     pairs.append((_candidate_view(row, selected=True), _binding(row)))
-                    metadata.append({"segment_key": row["segment_key"], "city": row["city"], "overnight_days": list(selection["overnight_days"])})
             return _segmented_view(metadata, pairs, stale=True)
         plan = stay_plan_from_map(map_plan)
         if plan and all(s.preserved_hotels or s.uncertain for s in plan.segments):
-            return _segmented_view([{"segment_key": x.segment_key, "city": x.city, "overnight_days": x.overnight_days,
-                "preserved_hotels": x.preserved_hotels, "status": "LIMITED", "message": "保留已有住宿" if x.preserved_hotels else "请确认这晚的过夜城市"} for x in plan.segments], [])
+            return _segmented_view(_overnight_metadata(map_plan), [])
         return StaySuggestionView(status="UNAVAILABLE", message="住宿待选择；需要相邻两日的已确认地点")
 
     async def get_stay_view(self, resource: PublicResourceRecord) -> StaySuggestionView:
@@ -830,6 +848,7 @@ class PostgresStayRecommendationRepositoryMixin:
                 candidate_token,
             )
             if (candidate is None or candidate["candidate_owner"] != resource.understanding_id
+                or _binding(candidate).get("property_identity") != "OFFICIAL_NAME_ADDRESS"
                 or (_binding(candidate).get("context_hash") != stay_context_hash(source_plan)
                     if _binding(candidate).get("context_hash") else source_ref is None or candidate["plan_ref_id"] != source_ref["plan_ref_id"])):
                 raise ResourceNotReadyError("stay candidate is no longer current")
@@ -1166,14 +1185,13 @@ class InMemoryStayRecommendationRepositoryMixin:
                     x["scored"].candidate.provider_binding) for x in selections)
                 return _segmented_view(metadata, pairs)
         if selections:
-            metadata = [{"segment_key": x["segment_key"], "city": x["selected_city"], "overnight_days": x["overnight_days"]} for x in selections]
+            metadata = _overnight_metadata(plan)
             return _segmented_view(metadata, [(_memory_selected_view(x, stale=True), x["scored"].candidate.provider_binding) for x in selections], stale=True)
         if any(j["understanding_id"] == understanding_id for j in self.stay_jobs.values()):
             return StaySuggestionView(status="NEEDS_UPDATE", message="行程已修改，住宿通勤尚未更新")
         contexts = overnight_segments(plan)
         if contexts and all(x.preserved_hotels or x.uncertain for x in contexts):
-            return _segmented_view([{"segment_key": x.key, "city": x.city, "overnight_days": x.overnight_days,
-                "preserved_hotels": x.preserved_hotels, "status": "LIMITED", "message": "保留已有住宿" if x.preserved_hotels else "请确认这晚的过夜城市"} for x in contexts], [])
+            return _segmented_view(_overnight_metadata(plan), [])
         return StaySuggestionView(status="UNAVAILABLE", message="住宿待选择；需要相邻两日的已确认地点")
 
     async def get_stay_view(self, resource: PublicResourceRecord) -> StaySuggestionView:
@@ -1364,7 +1382,8 @@ class InMemoryStayRecommendationRepositoryMixin:
         candidates = [(job, scored) for job in self.stay_jobs.values()
             if job["understanding_id"] == resource.understanding_id and job["output"] is not None
             and job["plan"].context_hash == context for scored in job["output"].candidates
-            if scored.candidate.provider_binding.get("segment_rank", 1) <= 3]
+            if scored.candidate.provider_binding.get("segment_rank", 1) <= 3
+            and scored.candidate.provider_binding.get("property_identity") == "OFFICIAL_NAME_ADDRESS"]
         selected = next(((job, scored) for job, scored in candidates if job["tokens"].get(
             f"{scored.candidate.provider_binding.get('segment_key', 'legacy')}:{scored.candidate.canonical_place_id}") == candidate_token), None)
         if selected is None:

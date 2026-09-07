@@ -900,6 +900,10 @@
   outline: 2px solid white;
   outline-offset: 2px;
 }
+.experience .e-map-lodging-marker {
+  border-radius: 12px;
+  background: #735039;
+}
 .experience .e-map-simulation-marker {
   display: block;
   width: 20px;

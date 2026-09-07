@@ -51,6 +51,10 @@ class MapStop(StrictModel):
     sequence_index: int = Field(ge=0)
     name: str
     category: str | None = None
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
+    lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
+    lodging_role_uncertain: bool = False
+    source_place_is_placeholder: bool = False
     is_stay_anchor: bool = False
     canonical_place_id: str | None = None
     resolution_status: Literal["AUTO_MATCHED", "NEEDS_CONFIRMATION", "UNRESOLVED"]
@@ -64,6 +68,8 @@ class MapRenderPlan(StrictModel):
     plan_ref: PlanRevisionRef
     route_config_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     stops: list[MapStop]
+    lodging_constraints: list[MapStop] = Field(default_factory=list)
+    day_count: int | None = Field(default=None, ge=1, le=14)
 
 
 class MapRenderJobRecord(StrictModel):
@@ -178,11 +184,19 @@ class PublicMapPoint(StrictModel):
     position: PublicMapPosition | None = None
 
 
+class PublicLodgingMapPoint(StrictModel):
+    point_token: str
+    day_label: str
+    name: str
+    position: PublicMapPosition
+
+
 class MapRenderView(StrictModel):
     status: Literal["PREPARING", "AVAILABLE", "NEEDS_UPDATE", "LIMITED", "UNAVAILABLE"]
     message: str
     days: list[PublicMapDayView] = Field(default_factory=list)
     points: list[PublicMapPoint] = Field(default_factory=list)
+    lodging_points: list[PublicLodgingMapPoint] = Field(default_factory=list)
     available_actions: list[Literal["VIEW_MAP", "RENDER_MAP"]] = Field(default_factory=list)
 
     def readiness(self) -> MapReadinessView:

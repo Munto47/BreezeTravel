@@ -1,6 +1,6 @@
 """Synthetic behavior checks; these are not restaurant quality measurements."""
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace as NS
 
 import pytest
@@ -61,6 +61,79 @@ def test_explicit_meal_role_and_slot_keep_lunch_before_first_visit():
     view, before, after = meal_context(day,stops)
     assert view["insert_before"] and view["meal_role"] == "LUNCH"
     assert before.name == "合成公园" and after is None
+
+
+@pytest.mark.parametrize("code", ["050000","050400","050500","050600","050700","050800","050900"])
+def test_daily_lunch_excludes_tea_drinks_cake_and_generic_food_service(code):
+    # Types observed in the first live run; FOOD alone does not prove a lunch venue.
+    source={**row(),"typecode":code,"type":"餐饮服务"}
+    assert select_dining_rows([source],anchor=anchor(),excluded_ids=set(),meal_only=True) == []
+
+
+@pytest.mark.parametrize("code",["050100","050108","050200","050300"])
+def test_daily_lunch_accepts_specific_meal_serving_categories(code):
+    source={**row(),"typecode":code,"type":"餐饮服务"}
+    assert select_dining_rows([source],anchor=anchor(),excluded_ids=set(),meal_only=True)
+
+
+@pytest.mark.parametrize("name", ["广州富力丽思卡尔顿酒店宴会厅", "合成婚宴中心", "合成婚宴会馆", "合成团膳餐厅", "合成中央厨房"])
+def test_daily_lunch_excludes_group_event_catering_even_with_restaurant_type(name):
+    source = {**row(), "name": name, "typecode": "050100", "type": "餐饮服务;中餐厅"}
+    assert select_dining_rows([source], anchor=anchor(), excluded_ids=set(), meal_only=True) == []
+
+
+@pytest.mark.parametrize("name", ["合成酒店中餐厅", "合成食堂", "合成家宴餐厅"])
+def test_meal_qualification_keeps_public_hotel_restaurants_and_does_not_overmatch_characters(name):
+    source = {**row(), "name": name, "typecode": "050100", "type": "餐饮服务;中餐厅"}
+    assert select_dining_rows([source], anchor=anchor(), excluded_ids=set(), meal_only=True)
+
+
+@pytest.mark.asyncio
+async def test_reused_worker_id_cannot_publish_previous_attempt_after_manual_retry():
+    async with repository_for("postgres") as repo:
+        now = datetime.now(timezone.utc)
+        resource = await finish(repo, await create(repo, "dining-attempt-fence", now), now)
+        _, etag = await repo.get_current_place_plan(resource)
+        entered = [asyncio.Event(), asyncio.Event()]
+        released = [asyncio.Event(), asyncio.Event()]
+        calls = 0
+
+        async def builder(*_args, **_kwargs):
+            nonlocal calls
+            index = calls
+            calls += 1
+            entered[index].set()
+            await released[index].wait()
+            return []
+
+        worker = DailyDiningWorker(repo, builder=builder)
+        first = asyncio.create_task(worker.run_once("reused-dining-worker"))
+        second = None
+        try:
+            await entered[0].wait()
+            await repo._pool.execute("UPDATE trip_daily_dining_jobs SET lease_until=NOW()-INTERVAL '1 second'")
+            assert not await worker.run_once("lease-sweep")
+            await repo._pool.execute("UPDATE trip_daily_dining_jobs SET finished_at=NOW()-INTERVAL '1 minute'")
+            await read_daily_dining(repo, resource, request_key="manual-retry", expected_etag=etag)
+            second = asyncio.create_task(worker.run_once("reused-dining-worker"))
+            await entered[1].wait()
+            released[0].set()
+            assert await first
+            current = await repo._pool.fetchrow("SELECT status,attempts,lease_owner FROM trip_daily_dining_jobs")
+            assert dict(current) == {"status": "BUILDING", "attempts": 2, "lease_owner": "reused-dining-worker"}
+            released[1].set()
+            assert await second
+            assert await repo._pool.fetchval("SELECT status FROM trip_daily_dining_jobs") == "READY"
+        finally:
+            for event in released:
+                event.set()
+            await asyncio.gather(first, *([second] if second else []), return_exceptions=True)
+
+
+def test_unknown_intermediate_stop_is_not_skipped_for_detour_comparison():
+    day,stops=day_context([card("已确认甲",0),card("未确认乙",1,status="NEEDS_CONFIRMATION"),card("已确认丙",2)])
+    _,before,after=meal_context(day,stops)
+    assert before.name == "已确认甲" and after is None
 
 
 @pytest.mark.asyncio
@@ -208,3 +281,116 @@ async def test_fixed_demo_never_dispatches_live_dining_builder():
             pytest.fail("A fixed demo must not dispatch billable dining effects")
         assert await DailyDiningWorker(repo,builder=forbidden).run_once("fixed-demo")
         assert (await read_daily_dining(repo,resource))[0].status == "UNAVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_near_expiry_daily_read_cannot_extend_snapshot_adoption_lifetime(monkeypatch):
+    from app.trip_understanding import dining_jobs
+    from app.trip_understanding.candidates import issue_candidate, verify_candidate
+    from app.trip_understanding.errors import CommandTargetChangedError
+
+    async with repository_for("postgres") as repo:
+        now = datetime.now(timezone.utc)
+        resource = await finish(repo, await create(repo, "daily-expiry-boundary", now), now)
+        _, etag = await repo.get_current_place_plan(resource)
+
+        async def builder(result, plan, **_):
+            async def search(**_kwargs):
+                return [restaurant()]
+            return await build_daily_meals(result, plan, search=search)
+
+        assert await DailyDiningWorker(repo, builder=builder).run_once("expiry-worker")
+        finished = now - timedelta(minutes=14, seconds=50)
+        await repo._pool.execute("UPDATE trip_daily_dining_jobs SET finished_at=$1", finished)
+
+        class Clock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls.current
+
+        Clock.current = now
+        monkeypatch.setattr(dining_jobs, "datetime", Clock)
+        ready, _ = await read_daily_dining(repo, resource)
+        available = next(day for day in ready.days if day.candidates)
+        command = DiningInsertCommand(command_type="DINING_INSERT",
+            after_activity_token=available.after_activity_token, insert_before=available.insert_before,
+            meal_role="LUNCH", candidate_token=available.candidates[0].candidate_token)
+        Clock.current = now + timedelta(seconds=10)
+        assert (await read_daily_dining(repo, resource))[0].status == "NEEDS_UPDATE"
+        with pytest.raises(CommandTargetChangedError):
+            await TripUnderstandingApplicationService(repo).apply_command(resource, command,
+                expected_etag=etag, idempotency_key="expired-daily-adoption", now=Clock.current)
+        assert (await repo.get_current_place_plan(resource))[1] == etag
+
+        # Manual place candidates have no recommendation snapshot and retain
+        # their existing ten-minute validity. A refresh cannot lengthen either.
+        plain = issue_candidate(restaurant(), public_resource_id=resource.public_resource_id,
+            activity_token=available.after_activity_token, expected_etag=etag, now=now)
+        binding = dict(public_resource_id=resource.public_resource_id,
+            activity_token=available.after_activity_token, expected_etag=etag)
+        assert verify_candidate(plain.candidate_token, **binding, now=now + timedelta(minutes=9)) == restaurant()
+        with pytest.raises(CommandTargetChangedError):
+            verify_candidate(plain.candidate_token, **binding, now=now + timedelta(minutes=10))
+
+
+@pytest.mark.asyncio
+async def test_daily_refresh_remembers_old_keys_after_later_jobs_and_cooldown():
+    from app.trip_understanding.errors import IdempotencyConflictError
+    async with repository_for("postgres") as repo:
+        now=datetime.now(timezone.utc)
+        resource=await finish(repo,await create(repo,"daily-replay-history",now),now)
+        _,etag=await repo.get_current_place_plan(resource)
+        first=await read_daily_dining(repo,resource,request_key="first-refresh",expected_etag=etag)
+        # A later failed generation may be explicitly retried. An old HTTP
+        # replay must not spend another provider attempt after that cooldown.
+        await repo._pool.execute("""UPDATE trip_daily_dining_jobs SET status='UNAVAILABLE',
+            finished_at=NOW()-INTERVAL '1 minute',attempts=1""")
+        await read_daily_dining(repo,resource,request_key="second-refresh",expected_etag=etag)
+        await repo._pool.execute("""UPDATE trip_daily_dining_jobs SET status='UNAVAILABLE',
+            finished_at=NOW()-INTERVAL '1 minute',attempts=2""")
+        replay_info={}
+        replay=await read_daily_dining(repo,resource,request_key="first-refresh",expected_etag=etag,replay_info=replay_info)
+        assert replay == first and replay_info["replayed"]
+        assert await repo._pool.fetchval("SELECT status FROM trip_daily_dining_jobs") == "UNAVAILABLE"
+        with pytest.raises(IdempotencyConflictError):
+            await read_daily_dining(repo,resource,request_key="first-refresh",expected_etag="a-different-version")
+        await TripUnderstandingApplicationService(repo).delete_trip(resource,capability_hash="a"*64,
+            user_id=None,idempotency_key="delete-daily-replays",now=now)
+        assert await repo._pool.fetchval("SELECT count(*) FROM trip_understanding_idempotency_records WHERE scope=$1",
+            f"understanding:{resource.understanding_id}:dining-refresh") == 0
+
+
+@pytest.mark.asyncio
+async def test_daily_api_authorization_preconditions_and_concurrent_refresh_replay():
+    from fastapi import FastAPI
+    from httpx import ASGITransport,AsyncClient
+    from app.api import trip_understandings_v3 as api
+    from app.trip_understanding.demo import DEMO_SOURCE_TEXT,build_demo_pipeline
+    async with repository_for("postgres") as repo:
+        app=FastAPI()
+        app.include_router(api.router,prefix="/api")
+        app.dependency_overrides[api.get_trip_understanding_repository]=lambda:repo
+        transport=ASGITransport(app=app)
+        async with AsyncClient(transport=transport,base_url="http://test") as owner, AsyncClient(transport=transport,base_url="http://test") as stranger:
+            created=await owner.post("/api/v3/trip-understandings",json={"mode":"DEMO"},headers={"Idempotency-Key":"daily-api-owner"})
+            assert created.status_code == 202
+            now=datetime.now(timezone.utc)
+            job=await repo.claim_next(worker_id="daily-api",now=now,lease_seconds=30)
+            await repo.complete_job(job,await build_demo_pipeline().run(DEMO_SOURCE_TEXT),now=now)
+            base="/api/v3/trip-understandings/"+created.json()["public_resource_id"]
+            etag=(await owner.get(base+"/result")).headers["etag"]
+            endpoint=base+"/daily-dining"
+            assert (await owner.get(endpoint)).json()["status"] == "PREPARING"
+            for method in ["GET","POST"]:
+                assert (await stranger.request(method,endpoint)).status_code == 404
+            assert (await owner.post(endpoint)).status_code == 428
+            assert (await owner.post(endpoint,headers={"If-Match":etag})).status_code == 400
+            assert (await owner.post(endpoint,headers={"If-Match":'"tu3_stale"',"Idempotency-Key":"stale"})).status_code == 409
+            headers={"If-Match":etag,"Idempotency-Key":"daily-api-refresh"}
+            replies=await asyncio.gather(*(owner.post(endpoint,headers=headers) for _ in range(2)))
+            assert all(r.status_code == 200 and r.headers["etag"] == etag and r.headers["cache-control"] == "no-store" for r in replies)
+            assert replies[0].json() == replies[1].json()
+            assert sum(r.headers.get("idempotency-replayed") == "true" for r in replies) == 1
+            assert await repo._pool.fetchval("SELECT count(*) FROM trip_daily_dining_jobs") == 1
+            conflict=await owner.post(endpoint,headers={**headers,"If-Match":'"tu3_stale"'})
+            assert conflict.status_code == 409 and conflict.json()["detail"]["code"] == "IDEMPOTENCY_CONFLICT"

@@ -32,6 +32,7 @@ from app.trip_understanding.map_render import (
     PublicMapDayView,
     PublicMapEdgeView,
     PublicMapPoint,
+    PublicLodgingMapPoint,
     PublicMapPosition,
     PublicRouteModeView,
     RouteGeometryPoint,
@@ -102,6 +103,7 @@ def _plan_for_result(
     city: str | None = None,
 ) -> MapRenderPlan:
     stops: list[MapStop] = []
+    lodging_constraints: list[MapStop] = []
     for day_index, day in enumerate(result.days, start=1):
         for sequence_index, card in enumerate(day.activities):
             canonical_place_id, stored_status, resolver_receipt = activity_bindings.get(
@@ -123,6 +125,13 @@ def _plan_for_result(
                     sequence_index=sequence_index,
                     name=card.name,
                     category=card.category,
+                    lodging_event=getattr(card, "lodging_event", None),
+                    lodging_scope=getattr(card, "lodging_scope", None),
+                    lodging_role_uncertain=getattr(card, "lodging_role_uncertain", False),
+                    # PublicResultProjector uses this exact reserved label for
+                    # mentions without a concrete atomic place. An unmatched
+                    # hotel with its own name must keep its lodging constraint.
+                    source_place_is_placeholder=not canonical_place_id and card.name == "地点待确认",
                     canonical_place_id=canonical_place_id,
                     resolution_status=resolution_status,
                     city=str(resolver_receipt.get("city") or card.city or city or "") or None,
@@ -130,6 +139,8 @@ def _plan_for_result(
                     latitude=latitude,
                 )
             )
+            if card.category == "住宿" and getattr(card, "lodging_scope", None) == "WHOLE_TRIP" and getattr(card, "lodging_event", None) == "OVERNIGHT":
+                lodging_constraints.append(stops.pop())
     stop_set_hash = canonical_sha256(
         [
             {
@@ -145,8 +156,9 @@ def _plan_for_result(
             for stop in stops
         ]
     )
-    return MapRenderPlan(
+    plan = MapRenderPlan(
         understanding_id=understanding_id,
+        day_count=len(result.days) or None,
         plan_ref=PlanRevisionRef(
             kind="UNDERSTANDING",
             aggregate_id=understanding_id,
@@ -155,11 +167,45 @@ def _plan_for_result(
         ),
         route_config_hash=ROUTE_CONFIG_SHA256,
         stops=stops,
+        lodging_constraints=lodging_constraints,
     )
+    return plan_with_source_lodging(plan)
+
+
+def plan_with_source_lodging(plan: MapRenderPlan) -> MapRenderPlan:
+    """Source-backed nights add endpoints without inventing arrival visits."""
+    from app.trip_understanding.overnight_context import confirmed, is_hotel, overnight_segments
+
+    source_hotels = [*plan.lodging_constraints, *[stop for stop in plan.stops
+        if not stop.is_stay_anchor and is_hotel(stop) and stop.lodging_event in {"OVERNIGHT", "CHECK_OUT", "DEPARTURE"}]]
+    for hotel in source_hotels:
+        if not confirmed(hotel) or not hotel.city or hotel.lodging_role_uncertain:
+            continue
+        nights = [night for segment in overnight_segments(plan) if segment.preserved_hotels == [hotel.name]
+                  and not segment.uncertain for night in segment.overnight_days]
+        plan = plan_with_stay_anchor(plan, selected_place_id=hotel.canonical_place_id, selected_name=hotel.name,
+            selected_city=hotel.city, longitude=hotel.longitude, latitude=hotel.latitude,
+            overnight_days=nights, source_constraint=True)
+    return plan
 
 
 def map_view_with_points(view: MapRenderView, plan: MapRenderPlan) -> MapRenderView:
     view = view.model_copy(deep=True)
+    # Only source-backed or explicitly selected nightly anchors are present in
+    # the plan. Recommendations alone never create markers. Scope identity to
+    # this private aggregate and revision rather than exposing a provider ID.
+    lodging = {}
+    for stop in plan.stops:
+        if (not stop.is_stay_anchor or stop.resolution_status != "AUTO_MATCHED" or not stop.canonical_place_id
+                or stop.longitude is None or stop.latitude is None or stop.lodging_role_uncertain):
+            continue
+        identity = (stop.day_index, stop.canonical_place_id)
+        if identity not in lodging:
+            token = "lodging_" + canonical_sha256({"aggregate": plan.understanding_id,
+                "revision": plan.plan_ref.revision, "day": stop.day_index, "place": stop.canonical_place_id})[:40]
+            lodging[identity] = PublicLodgingMapPoint(point_token=token, day_label=stop.day_label,
+                name=stop.name, position=PublicMapPosition(longitude=stop.longitude, latitude=stop.latitude))
+    view.lodging_points = list(lodging.values())
     view.points = [PublicMapPoint(activity_token=stop.activity_token, day_label=stop.day_label,
         sequence_index=stop.sequence_index, name=stop.name,
         position=PublicMapPosition(longitude=stop.longitude, latitude=stop.latitude)
@@ -189,15 +235,17 @@ def plan_with_stay_anchor(
     longitude: float,
     latitude: float,
     overnight_days: list[int],
+    source_constraint: bool = False,
 ) -> MapRenderPlan:
-    from app.trip_understanding.overnight_context import is_hotel, normalized_city, overnight_segments
+    from app.trip_understanding.overnight_context import is_hotel, is_overnight_hotel, is_boundary_visit, normalized_city, overnight_segments
 
     by_day: dict[int, list[MapStop]] = defaultdict(list)
     for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
         by_day[stop.day_index].append(stop)
     expanded: list[MapStop] = []
     allowed = {night for segment in overnight_segments(plan)
-        if segment.city == normalized_city(selected_city) and not segment.uncertain and not segment.preserved_hotels
+        if segment.city == normalized_city(selected_city) and not segment.uncertain
+        and (not segment.preserved_hotels or source_constraint and selected_name in segment.preserved_hotels)
         for night in segment.overnight_days}
     overnight = set(overnight_days) & allowed
     for day_index in sorted(by_day):
@@ -205,8 +253,8 @@ def plan_with_stay_anchor(
         starts_here = day_index - 1 in overnight
         ends_here = day_index in overnight
         # Preserve the user's original hotel and never connect across cities.
-        original_hotels = [stop for stop in day_stops if is_hotel(stop) and not stop.is_stay_anchor]
-        visits = [stop for stop in day_stops if not is_hotel(stop)]
+        original_hotels = [stop for stop in day_stops if is_overnight_hotel(stop) and not stop.is_stay_anchor]
+        visits = [stop for stop in day_stops if is_boundary_visit(stop)]
         starts_here = bool(starts_here and visits and normalized_city(visits[0].city) == normalized_city(selected_city))
         ends_here = bool(ends_here and visits and normalized_city(visits[-1].city) == normalized_city(selected_city) and not original_hotels)
         if (starts_here or ends_here) and day_stops:
@@ -1144,7 +1192,7 @@ class PostgresMapRenderRepositoryMixin:
                 job.map_job_id,
                 job.plan_ref_id,
                 snapshot_hash,
-                json.dumps({"execution_mode": "controlled_fixture", "external_calls": 0}),
+                json.dumps({"execution_mode": "UNKNOWN", "external_calls": None, "metrics_complete": False}),
                 json.dumps({"category": category}),
                 job.started_at,
                 now,
@@ -1599,7 +1647,7 @@ class InMemoryMapRenderRepositoryMixin:
                     "category": category,
                 }
             ),
-            provider_binding={"execution_mode": "controlled_fixture", "external_calls": 0},
+            provider_binding={"execution_mode": "UNKNOWN", "external_calls": None, "metrics_complete": False},
             failure={"category": category},
             started_at=item["started_at"],
             finished_at=now,

@@ -55,7 +55,8 @@ def valid_anchor(anchor: MapStop | None) -> bool:
                 and anchor.city != "目的地待确认" and anchor.longitude is not None and anchor.latitude is not None)
 
 
-def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], scope: CityScope | None = None) -> list[CandidatePlace]:
+def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], scope: CityScope | None = None,
+                       meal_only: bool = False) -> list[CandidatePlace]:
     if not valid_anchor(anchor):
         return []
     accepted: dict[str, tuple[float, CandidatePlace]] = {}
@@ -77,6 +78,14 @@ def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], s
         signals = classify_amap_type_signals(str(row.get("typecode") or ""), str(row.get("type") or ""))
         if not signals.complete or signals.conflict or signals.category != PlaceCategory.FOOD:
             continue
+        if meal_only and not re.fullmatch(r"050[123]\d{2}", str(row.get("typecode") or "")):
+            # A generic food category also contains tea, drinks, food banks and
+            # catering companies. Only a specific meal-serving POI qualifies.
+            continue
+        if meal_only and re.search(r"宴会厅|婚宴中心|婚宴会馆|婚礼宴会|团膳|中央厨房", name):
+            # Group/event catering can have a normal restaurant type code.
+            # Keep public hotel restaurants and ordinary restaurant names.
+            continue
         coordinates = _coordinates(row.get("location"))
         if not coordinates or not (west <= coordinates[0] <= east and south <= coordinates[1] <= north):
             continue
@@ -94,7 +103,8 @@ def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], s
     return [place for _, place in sorted(accepted.values(), key=lambda item: (item[0], item[1].name))[:3]]
 
 
-async def search_dining(*, anchor: MapStop, excluded_ids: set[str], receipt: dict | None = None) -> list[CandidatePlace] | None:
+async def search_dining(*, anchor: MapStop, excluded_ids: set[str], receipt: dict | None = None,
+                        meal_only: bool = False) -> list[CandidatePlace] | None:
     receipt = receipt if receipt is not None else {}
     receipt.update(poi_http_attempts=0, district_http_attempts=0)
     settings = get_settings()
@@ -102,7 +112,7 @@ async def search_dining(*, anchor: MapStop, excluded_ids: set[str], receipt: dic
         return None
     # Existing AMap POI 2.0, one request. No route, rating, price or opening-hour inference.
     params = {"key": settings.amap_api_key, "location": f"{anchor.longitude:.6f},{anchor.latitude:.6f}",
-        "radius": DINING_RADIUS_METERS, "types": "050000", "sortrule": "distance", "page_size": 25, "page_num": 1,
+        "radius": DINING_RADIUS_METERS, "types": "050100|050200|050300" if meal_only else "050000", "sortrule": "distance", "page_size": 25, "page_num": 1,
         "region": anchor.city, "city_limit": "true", "output": "json", "show_fields": "business"}
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
@@ -123,4 +133,4 @@ async def search_dining(*, anchor: MapStop, excluded_ids: set[str], receipt: dic
             return None
     except (httpx.HTTPError, ValueError, PlaceProviderUnavailableError):
         return None
-    return select_dining_rows(payload["pois"], anchor=anchor, excluded_ids=excluded_ids, scope=scope)
+    return select_dining_rows(payload["pois"], anchor=anchor, excluded_ids=excluded_ids, scope=scope, meal_only=meal_only)

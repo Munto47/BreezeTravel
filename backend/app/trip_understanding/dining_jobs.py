@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
 from datetime import datetime, timedelta, timezone
@@ -10,7 +11,7 @@ from app.config import get_settings
 from app.trip_understanding.amap_route import AmapRouteProvider
 from app.trip_understanding.daily_dining import DailyDiningView, build_daily_meals, project_daily_meals
 from app.trip_understanding.models import UserFacingTripResult
-from app.trip_understanding.errors import RevisionConflictError
+from app.trip_understanding.errors import IdempotencyConflictError, RevisionConflictError
 
 
 async def enqueue_initial_dining(conn, understanding_id: str, revision: int, request_key: str = "initial") -> None:
@@ -23,18 +24,34 @@ def _json(value):
 
 
 async def read_daily_dining(repository, resource, *, request_key: str | None = None,
-                            expected_etag: str | None = None):
+                            expected_etag: str | None = None, replay_info: dict | None = None):
+    if replay_info is not None:
+        replay_info["replayed"] = False
     plan, etag = await repository.get_current_place_plan(resource)
-    if expected_etag is not None and expected_etag != etag:
-        raise RevisionConflictError()
     revision = plan.plan_ref.revision
     if not hasattr(repository, "_get_pool"):
+        if expected_etag is not None and expected_etag != etag:
+            raise RevisionConflictError()
         # Test repositories remain explicitly unavailable, never synthesize live restaurants.
         return DailyDiningView(status="UNAVAILABLE", message="附近餐饮暂时不可用。"), etag
     pool = await repository._get_pool()
     async with pool.acquire() as conn, conn.transaction():
         current = await conn.fetchval("SELECT current_revision FROM trip_understandings WHERE understanding_id=$1 AND state<>'DELETED' FOR UPDATE",
                                      resource.understanding_id)
+        scope = f"understanding:{resource.understanding_id}:dining-refresh"
+        key_hash = hashlib.sha256(request_key.encode()).hexdigest() if request_key is not None else None
+        request_hash = hashlib.sha256(json.dumps({"expected_etag":expected_etag}, sort_keys=True).encode()).hexdigest()
+        if key_hash is not None and current is not None:
+            previous = await conn.fetchrow("SELECT * FROM trip_understanding_idempotency_records WHERE scope=$1 AND key_hash=$2", scope, key_hash)
+            if previous is not None:
+                if previous["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError("dining refresh idempotency key was reused")
+                if replay_info is not None:
+                    replay_info["replayed"] = True
+                return (DailyDiningView.model_validate(_json(previous["response_json"])["view"]),
+                    _json(previous["response_headers_json"])["ETag"])
+        if expected_etag is not None and expected_etag != etag:
+            raise RevisionConflictError()
         if current != revision:
             if request_key is not None:
                 raise RevisionConflictError()
@@ -50,16 +67,29 @@ async def read_daily_dining(repository, resource, *, request_key: str | None = N
                 resource.understanding_id, revision, request_key)
         row = await conn.fetchrow("SELECT * FROM trip_daily_dining_jobs WHERE understanding_id=$1 AND revision=$2",
                                   resource.understanding_id, revision)
+        view = _project_daily_row(row, resource=resource, etag=etag)
+        if key_hash is not None:
+            await conn.execute("""INSERT INTO trip_understanding_idempotency_records
+                (scope,key_hash,request_hash,state,response_status,response_json,response_headers_json,created_at,completed_at)
+                VALUES($1,$2,$3,'COMPLETED',200,$4::jsonb,$5::jsonb,NOW(),NOW())""", scope, key_hash, request_hash,
+                json.dumps({"view":view.model_dump(mode="json"),"public_resource_id":resource.public_resource_id},ensure_ascii=False),
+                json.dumps({"ETag":etag}))
+        return view, etag
+
+
+def _project_daily_row(row, *, resource, etag):
+    now = datetime.now(timezone.utc)
     if row is None:
-        return DailyDiningView(status="NEEDS_UPDATE", message="行程已调整，更新中途用餐建议。"), etag
+        return DailyDiningView(status="NEEDS_UPDATE", message="行程已调整，更新中途用餐建议。")
     if row["status"] in ("QUEUED", "BUILDING"):
-        return DailyDiningView(status="PREPARING", message="正在准备中途用餐建议，地点卡片已可使用。"), etag
+        return DailyDiningView(status="PREPARING", message="正在准备中途用餐建议，地点卡片已可使用。")
     if row["status"] == "UNAVAILABLE":
-        return DailyDiningView(status="UNAVAILABLE", message="附近餐饮暂时不可用，可稍后更新。"), etag
-    if row["finished_at"] is None or row["finished_at"] < datetime.now(timezone.utc) - timedelta(minutes=15):
-        return DailyDiningView(status="NEEDS_UPDATE", message="用餐建议已过期，请更新后再选择。"), etag
+        return DailyDiningView(status="UNAVAILABLE", message="附近餐饮暂时不可用，可稍后更新。")
+    if row["finished_at"] is None or row["finished_at"] <= now - timedelta(minutes=15):
+        return DailyDiningView(status="NEEDS_UPDATE", message="用餐建议已过期，请更新后再选择。")
     return DailyDiningView(status="AVAILABLE", message="中途用餐建议",
-        days=project_daily_meals(_json(row["payload_json"]), public_resource_id=resource.public_resource_id, etag=etag)), etag
+        days=project_daily_meals(_json(row["payload_json"]), public_resource_id=resource.public_resource_id, etag=etag,
+            now=now, expires_at=row["finished_at"] + timedelta(minutes=15)))
 
 
 class DailyDiningWorker:
@@ -109,7 +139,7 @@ class DailyDiningWorker:
             await conn.execute("""UPDATE trip_daily_dining_jobs SET status=$4,payload_json=$5::jsonb,metrics_json=$7::jsonb,
                 finished_at=$6,lease_owner=NULL,lease_until=NULL
                 WHERE understanding_id=$1 AND revision=$2 AND lease_owner=$3
-                    AND status='BUILDING' AND lease_until>$6""",
+                    AND status='BUILDING' AND lease_until>$6 AND attempts=$8""",
                 row["understanding_id"], row["revision"], worker_id, status,
-                json.dumps(payload, ensure_ascii=False), datetime.now(timezone.utc), json.dumps(stats))
+                json.dumps(payload, ensure_ascii=False), datetime.now(timezone.utc), json.dumps(stats), row["attempts"] + 1)
         return True

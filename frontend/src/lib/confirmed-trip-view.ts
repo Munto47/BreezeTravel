@@ -1,10 +1,22 @@
-import type { TripUnderstandingCommand, UserFacingTripResult } from './trip-understanding-v3'
+import type { ActivityCardView, TripUnderstandingCommand, UserFacingTripResult } from './trip-understanding-v3'
+
+export function isWholeTripLodging(card: ActivityCardView) {
+  return card.category === '住宿' && card.lodging_event === 'OVERNIGHT' && card.lodging_scope === 'WHOLE_TRIP'
+}
+
+export function confirmedSourceLodgings(result: UserFacingTripResult | null) {
+  return result?.days.flatMap(day => day.activities.filter(card => card.status === 'READY' && isWholeTripLodging(card))) || []
+}
+
+function isConfirmedVisit(card: ActivityCardView) {
+  return card.status === 'READY' && !isWholeTripLodging(card)
+}
 
 // Presentation only. Keep the authoritative result, source, unresolved records
 // and status intact for editing, undo, diagnostics and honest route coverage.
 export function confirmedDays(days: UserFacingTripResult['days']) {
   return days.map(day => ({ ...day,
-    activities: day.activities.filter(card => card.status === 'READY'),
+    activities: day.activities.filter(isConfirmedVisit),
     // Source alternatives stay in their separate, explicitly unconfirmed panel.
     alternatives: day.alternatives || [],
   }))
@@ -30,6 +42,6 @@ export function storedPositionCommand(command: TripUnderstandingCommand, result:
 }
 
 function storedPosition(cards: UserFacingTripResult['days'][number]['activities'], position: number) {
-  const next = cards.filter(card => card.status === 'READY')[position]
+  const next = cards.filter(isConfirmedVisit)[position]
   return next ? cards.findIndex(card => card.activity_token === next.activity_token) : cards.length
 }

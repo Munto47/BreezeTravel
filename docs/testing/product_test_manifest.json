@@ -39,7 +39,16 @@
         "tests/test_focused_semantic_repair.py",
         "tests/test_stay_manual_refresh.py",
         "tests/test_semantic_day_sections.py",
-        "tests/test_place_query_resilience.py"
+        "tests/test_place_query_resilience.py",
+        "tests/test_role_evidence.py",
+        "tests/test_city_focus_identity.py",
+        "tests/test_lodging_source_semantics.py",
+        "tests/test_qualified_alternative_boundaries.py",
+        "tests/test_daily_dining_boundaries.py",
+        "tests/test_dining_area_fallback.py",
+        "tests/test_explicit_trip_scope_metadata.py",
+        "tests/test_lodging_metadata_repair.py",
+        "tests/test_lodging_role_context.py"
       ]
     },
     "postgres": {
@@ -89,7 +98,8 @@
       "runner": "playwright",
       "directory": "frontend",
       "files": [
-        "e2e/confirmed-place-cards.spec.js"
+        "e2e/confirmed-place-cards.spec.js",
+        "e2e/source-lodging.spec.js"
       ],
       "args": [
         "--grep-invert",

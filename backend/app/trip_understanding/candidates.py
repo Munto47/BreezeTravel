@@ -73,9 +73,12 @@ def _cipher() -> Fernet:
 
 
 def issue_candidate(place: CandidatePlace, *, public_resource_id: str, activity_token: str,
-                    expected_etag: str, now: datetime) -> PublicPlaceCandidate:
+                    expected_etag: str, now: datetime, expires_at: datetime | None = None) -> PublicPlaceCandidate:
+    expiry = now + timedelta(minutes=10)
+    if expires_at is not None:
+        expiry = min(expiry, expires_at)
     body = {"resource": public_resource_id, "activity": activity_token, "etag": expected_etag,
-            "expires": (now + timedelta(minutes=10)).timestamp(), "place": place.model_dump()}
+            "expires": expiry.timestamp(), "place": place.model_dump()}
     token = _cipher().encrypt(json.dumps(body, ensure_ascii=False).encode()).decode()
     return PublicPlaceCandidate(candidate_token=token, **place.model_dump(exclude={"canonical_place_id", "city"}))
 

@@ -4,6 +4,10 @@ from __future__ import annotations
 from collections import Counter
 
 
+def _amap_id(value: str) -> str:
+    return value.removeprefix("amap:")
+
+
 def compare_annotations(label: dict, observations: list[dict]) -> dict:
     if label.get("annotation_status") != "reviewed" or label.get("annotator_type") not in {"human", "owner", "independent_agent"}:
         raise ValueError("Only reviewed independent annotations support accuracy claims")
@@ -30,9 +34,14 @@ def compare_annotations(label: dict, observations: list[dict]) -> dict:
             continue
         poi_id = actual[actual_index].get("poi_id")
         if poi_id is not None:
-            correct_identity += int(poi_id in ids)
-            wrong_identity += int(poi_id not in ids)
+            equal = _amap_id(poi_id) in {_amap_id(item) for item in ids}
+            correct_identity += int(equal)
+            wrong_identity += int(not equal)
     ordered = all(left[1] < right[1] for left, right in zip(pairs, pairs[1:]))
+    planned_pairs = [(i, j) for i, j in pairs if expected[i].get("role", "PLANNED") == "PLANNED"]
+    planned_ordered = all(left[1] < right[1] for left, right in zip(planned_pairs, planned_pairs[1:]))
+    planned_expected = sum(item.get("role", "PLANNED") == "PLANNED" for item in expected)
+    planned_observed = sum(item["role"] == "PLANNED" for item in actual)
     by_role = {}
     for role in sorted(scope):
         role_expected = sum(item.get("role", "PLANNED") == role for item in expected)
@@ -41,13 +50,20 @@ def compare_annotations(label: dict, observations: list[dict]) -> dict:
         by_role[role] = {"expected": role_expected, "observed": role_observed, "matched": role_matched,
             "recall": role_matched / role_expected if role_expected else None,
             "precision": role_matched / role_observed if role_observed else None}
+    by_hierarchy = {}
+    for hierarchy in sorted({item.get("hierarchy_level", "unspecified") for item in expected}):
+        total = sum(item.get("hierarchy_level", "unspecified") == hierarchy for item in expected)
+        matched = sum(expected[i].get("hierarchy_level", "unspecified") == hierarchy for i, _j in pairs)
+        by_hierarchy[hierarchy] = {"expected": total, "matched": matched, "recall": matched / total}
     return {"gold_status": "INDEPENDENT_REVIEWED", "expected_places": len(expected), "observed_places": len(actual),
         "matched_places": len(pairs), "missing_places": len(expected) - len(pairs), "extra_or_misassigned_places": len(available),
         "semantic_recall": len(pairs) / len(expected) if expected else None,
         "semantic_precision": len(pairs) / len(actual) if actual else None,
         "order_correct": ordered, "semantic_exact": len(pairs) == len(expected) == len(actual) and ordered,
+        "planned_order_correct": planned_ordered,
+        "planned_exact": len(planned_pairs) == planned_expected == planned_observed and planned_ordered,
         "poi_labeled_count": identity_total, "poi_identity_correct": correct_identity, "wrong_auto_confirmations": wrong_identity,
-        "by_role": by_role}
+        "by_role": by_role, "by_hierarchy": by_hierarchy}
 
 
 def summarize_measurements(rows: list[dict]) -> dict:
@@ -62,11 +78,21 @@ def summarize_measurements(rows: list[dict]) -> dict:
                   for key in ("expected", "observed", "matched")}
         by_role[role] = {**totals, "recall": totals["matched"] / totals["expected"] if totals["expected"] else None,
             "precision": totals["matched"] / totals["observed"] if totals["observed"] else None}
+    by_hierarchy = {}
+    for hierarchy in sorted({hierarchy for row in annotated for hierarchy in row.get("by_hierarchy", {})}):
+        total = sum(row.get("by_hierarchy", {}).get(hierarchy, {}).get("expected", 0) for row in annotated)
+        hierarchy_matched = sum(row.get("by_hierarchy", {}).get(hierarchy, {}).get("matched", 0) for row in annotated)
+        by_hierarchy[hierarchy] = {"expected": total, "matched": hierarchy_matched, "recall": hierarchy_matched / total if total else None}
     def percentile(fraction):
         return elapsed[min(len(elapsed) - 1, int((len(elapsed) - 1) * fraction))] if elapsed else None
     return {"runs": len(rows), "completed": sum(row["status"] == "COMPLETED" for row in rows),
         "errors": sum(row["status"] != "COMPLETED" for row in rows), "annotated_runs": len(annotated), "by_role": by_role,
+        "by_hierarchy": by_hierarchy,
         "semantic_exact_runs": sum(row.get("semantic_exact") is True for row in annotated) if annotated else None,
+        "planned_exact_runs": sum(row.get("planned_exact") is True for row in annotated)
+            if any(isinstance(row.get("planned_exact"), bool) for row in annotated) else None,
+        "planned_order_correct_runs": sum(row.get("planned_order_correct") is True for row in annotated)
+            if any(isinstance(row.get("planned_order_correct"), bool) for row in annotated) else None,
         "semantic_recall": matched / expected if expected else None,
         "semantic_precision": matched / observed if observed else None,
         "missing_places": sum(row["missing_places"] for row in annotated) if annotated else None,

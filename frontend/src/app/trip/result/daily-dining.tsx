@@ -10,6 +10,8 @@ export function useDailyDining(resource: string | null, etag: string) {
   const [generation, setGeneration] = useState(0)
   const [busy, setBusy] = useState(false)
   const locked = useRef(false)
+  const pendingRefresh = useRef<{resource:string;etag:string;key:string} | null>(null)
+  const refreshController = useRef<AbortController | null>(null)
   const current = useRef({resource, etag}); current.current = {resource, etag}
   useEffect(() => {
     if (!resource || !etag) return
@@ -28,17 +30,22 @@ export function useDailyDining(resource: string | null, etag: string) {
       } catch {if (!controller.signal.aborted) setValue({status:'UNAVAILABLE',message:'用餐建议暂时无法读取。',days:[]})}
     }
     void poll()
-    return () => {controller.abort(); clearTimeout(timer)}
+    return () => {controller.abort(); clearTimeout(timer); refreshController.current?.abort()}
   }, [resource, etag, generation])
   async function refresh() {
     if (!resource || !etag || locked.current) return
+    if (pendingRefresh.current?.resource !== resource || pendingRefresh.current.etag !== etag)
+      pendingRefresh.current = {resource,etag,key:crypto.randomUUID()}
+    const controller = new AbortController()
+    refreshController.current = controller
     locked.current = true; setBusy(true)
     try {
-      await readDailyDining(resource, undefined, {etag, key:crypto.randomUUID()})
+      await readDailyDining(resource, controller.signal, {etag, key:pendingRefresh.current.key})
+      pendingRefresh.current = null
       if (current.current.resource === resource && current.current.etag === etag) setGeneration(v => v+1)
     } catch {
       if (current.current.resource === resource && current.current.etag === etag) setValue({status:'UNAVAILABLE',message:'建议更新未确认，可稍后重试。',days:[]})
-    } finally {locked.current = false; setBusy(false)}
+    } finally {refreshController.current = null; locked.current = false; setBusy(false)}
   }
   return {value, refresh, busy}
 }
@@ -62,7 +69,8 @@ export function DailyMealCard({day, state, disabled, onRefresh, onCommand}: {
     finally {lock.current = false; setWriting(false)}
   }
   return <aside className="mt-4 rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3" aria-label={`${day?.label || ''}中途用餐建议`} data-testid="daily-meal-card">
-    <div className="flex flex-wrap items-center gap-2"><UtensilsCrossed className="h-4 w-4 text-sky-700" aria-hidden="true"/><strong className="text-sm text-sky-900">{day?.meal_role === 'LUNCH' ? '午餐建议' : '中途用餐'}</strong>{day?.area && <span className="text-xs text-slate-600">{day.area}</span>}</div>
+    <div className="flex flex-wrap items-center gap-2"><UtensilsCrossed className="h-4 w-4 text-sky-700" aria-hidden="true"/><strong className="text-sm text-sky-900">{day?.meal_role === 'LUNCH' ? '午餐建议' : '中途用餐'}</strong>{day?.area && <span className="text-xs text-slate-600">{day.area_relation === 'NEARBY' ? '附近用餐区：' : '用餐区域：'}{day.area}</span>}</div>
+    {day?.area && day.area_relation === 'NEARBY' && day.area_distance_m != null && <p className="mt-1 text-xs text-slate-500">距首选饭店直线约{day.area_distance_m}米，步行路线待确认。</p>}
     <p className="mt-1 text-xs text-slate-600">{day?.message || state?.message || '正在准备中途用餐建议，地点卡片已可使用。'}</p>
     {day?.next_name && <p className="mt-1 text-xs text-slate-500">前往{day.next_name}之前用餐</p>}
     {day?.candidates.map((item,index) => {

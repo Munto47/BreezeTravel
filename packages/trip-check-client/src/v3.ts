@@ -142,6 +142,9 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | null
+  lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
+  lodging_role_uncertain?: boolean
   meal_role?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK' | null
   city?: string | null
   photo_url?: string | null
@@ -173,6 +176,7 @@ export interface StaySegmentView {
   segment_token: string; city?: string | null; overnight_days: string[]
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
   message: string; candidates: UserFacingTripResult['stay']['candidates']; preserved_hotels?: string[]
+  expected_boundary_count?: number; missing_boundary_count?: number
 }
 
 export interface UserFacingTripResult {
@@ -235,6 +239,12 @@ export interface PublicRouteModeView {
 }
 
 export interface MapRenderView {
+  lodging_points?: Array<{
+    point_token: string
+    day_label: string
+    name: string
+    position: { longitude: number; latitude: number; coordinate_system: 'GCJ02' }
+  }>
   points?: Array<{
     activity_token: string
     day_label: string

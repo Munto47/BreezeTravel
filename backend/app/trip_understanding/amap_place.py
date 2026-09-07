@@ -371,6 +371,17 @@ def _name_match_tier(
     if _identity_qualified(primary) or _identity_qualified(canonical_name) or "广场" in primary:
         return None
 
+    # A reviewed alias identifies a particular subject. A provider's unrelated
+    # primary name cannot inherit that identity just by repeating the short
+    # alias (for example 沙面公园 labelled 沙面 when the subject is 沙面岛).
+    # Exact attributed names above remain eligible; unknown names need choice.
+    if safe_aliases:
+        if any(_explicit_venue_suffix_equivalent(primary_value, expected_value)
+               for primary_value in primary_values
+               for expected_value in canonical_values | safe_alias_values):
+            return "VENUE_SUFFIX_EQUIVALENT"
+        return None
+
     provider_alias_values = {
         value
         for alias in _provider_aliases(raw)
@@ -533,6 +544,14 @@ def _visitor_type_compatible(raw: dict[str, Any], atomic: str) -> bool:
     code, label = raw.get("typecode"), raw.get("type")
     if not isinstance(code, str) or not isinstance(label, str):
         return False
+    visitor_pairs = {
+        ("060100", "购物服务;商场;商场"),
+        ("060101", "购物服务;商场;购物中心"),
+        ("060102", "购物服务;商场;普通商场"),
+        ("080501", "体育休闲服务;休闲场所;游乐场"),
+    }
+    if (code, label) in visitor_pairs:
+        return True
     if re.fullmatch(r"0610\d{2}", code) and label in {
         "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
     }:
@@ -548,6 +567,8 @@ def _visitor_type_compatible(raw: dict[str, Any], atomic: str) -> bool:
     for item_code, item_label in zip(codes, labels, strict=True):
         signal = classify_amap_type_signals(item_code, item_label)
         if signal.complete and not signal.conflict and signal.category == PlaceCategory.ATTRACTION:
+            attraction = True
+        elif (item_code, item_label) in visitor_pairs:
             attraction = True
         elif re.fullmatch(r"0610\d{2}", item_code) and item_label in {
             "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
@@ -593,6 +614,34 @@ def _same_visitor_street(candidates: tuple[_MatchedCandidate, ...], atomic: str)
             lon2, lat2 = map(math.radians, right.coordinates)
             hav = math.sin((lat2-lat1)/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2
             if 12742000 * math.asin(min(1, math.sqrt(hav))) > 400:
+                return False
+    return True
+
+
+def _reviewed_visitor_street(candidates: tuple[_MatchedCandidate, ...], *, city: str, name: str) -> bool:
+    """Prefer one reviewed tourist street identity, within one bounded district.
+
+    A generic road/attraction name alone cannot activate this rule. The visitor
+    POI must carry both commercial-street and tourism signals; distant namesakes
+    and multiple visitor identities still require a choice.
+    """
+    entry = get_city_knowledge().query_lookup(city=city, name=name).unique
+    visitors = [c for c in candidates if c.raw.get("typecode") != "190301"]
+    if (entry is None or entry.category != "attraction" or not entry.district
+            or len(visitors) != 1 or len(candidates) < 2
+            or len({(c.raw.get("name"), c.raw.get("adcode")) for c in candidates}) != 1
+            or any(c.raw.get("adname") != entry.district for c in candidates)):
+        return False
+    codes = str(visitors[0].raw.get("typecode")).split("|")
+    if not (any(code in {"061000", "061001"} for code in codes)
+            and any(code.startswith("11") for code in codes)):
+        return False
+    for left in candidates:
+        for right in candidates:
+            lon1, lat1 = map(math.radians, left.coordinates)
+            lon2, lat2 = map(math.radians, right.coordinates)
+            hav = math.sin((lat2-lat1)/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2
+            if 12742000 * math.asin(min(1, math.sqrt(hav))) > 1000:
                 return False
     return True
 
@@ -693,7 +742,10 @@ def _evaluate_candidates(
         if signals.conflict and not visitor_type:
             category_conflict_ids.add(provider_id)
             continue
-        if expected_category == PlaceCategory.ATTRACTION and verified_technical_landmark(item, city=city, name=canonical_name):
+        if expected_category == PlaceCategory.ATTRACTION and (
+            verified_technical_landmark(item, city=city, name=canonical_name)
+            or get_city_knowledge().technical_type_matches(item, city=city, name=canonical_name)
+        ):
             category = PlaceCategory.ATTRACTION
             compatibility_basis = "REVIEWED_LANDMARK_EXACT_TECHNICAL_TYPE"
         elif visitor_type:
@@ -751,7 +803,15 @@ def _evaluate_candidates(
         if not candidates:
             continue
         selection_tier = tier if len(candidates) == 1 else f"AMBIGUOUS_{tier}"
-        if _same_visitor_street(candidates, atomic):
+        visitor_pois = tuple(c for c in candidates if c.raw.get("typecode") != "190301")
+        if (expected_category == PlaceCategory.ATTRACTION and atomic.endswith(("路", "街", "巷", "胡同"))
+                and len(visitor_pois) == 1 and len(visitor_pois) < len(candidates)
+                and _reviewed_visitor_street(candidates, city=city, name=canonical_name)):
+            # A unique visitor POI is a stronger semantic identity than road
+            # segment coordinates. Distinct visitor POIs remain ambiguous.
+            selected = visitor_pois[0]
+            selection_tier = f"{tier}_VISITOR_POI_OVER_ROAD_SEGMENTS"
+        elif _same_visitor_street(candidates, atomic):
             selected = next(c for c in candidates if c.raw.get("typecode") != "190301") if any(c.raw.get("typecode") != "190301" for c in candidates) else candidates[0]
             selection_tier = f"{tier}_SAME_VISITOR_STREET"
         elif len(candidates) == 1 or _same_road_segments(candidates):
@@ -774,7 +834,7 @@ def _evaluate_candidates(
         "primary_exact_candidate_count": len(by_tier["CANONICAL_EXACT"]),
         "provider_type_conflict_candidate_count": len(category_conflict_ids),
         "provider_type_incomplete_candidate_count": len(category_incomplete_ids),
-        "name_match_policy": "HIGHEST_TIER_UNIQUE_OR_SAME_ROAD_V6",
+        "name_match_policy": "HIGHEST_TIER_VISITOR_IDENTITY_V7",
         "selection_tier": selection_tier,
     }
     return _CandidateDecision(selected=selected, metrics=metrics)
@@ -1074,7 +1134,7 @@ class AmapPlaceResolver:
         provider_binding = {
             **receipt,
             "status": "AUTO_MATCHED",
-            "selection_tier": candidate.tier,
+            "selection_tier": receipt.get("selection_tier", candidate.tier),
             "resolved_category": _CATEGORY_LABELS[candidate.category],
             "category_compatibility_basis": candidate.category_compatibility_basis,
             "adcode": str(raw.get("adcode") or "NOT_EXPOSED_BY_PROVIDER"),
@@ -1287,6 +1347,9 @@ class AmapPlaceResolver:
             typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
             if hint is not None:
                 typecodes = [hint.typecode]
+            technical = knowledge.technical_landmark(city=normalized_city, name=query_name)
+            if technical is not None:
+                typecodes = [pair["typecode"] for pair in technical.provider_type_pairs]
 
         pois, primary_base = await self._query_provider(
             city=city,

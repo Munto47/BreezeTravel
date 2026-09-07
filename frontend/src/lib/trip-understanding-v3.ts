@@ -50,6 +50,9 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | null
+  lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
+  lodging_role_uncertain?: boolean
   meal_role?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK' | null
   city?: string | null
   photo_url?: string | null
@@ -97,6 +100,12 @@ export interface PublicRouteModeView {
 export interface MapRenderView {
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
   message: string
+  lodging_points?: Array<{
+    point_token: string
+    day_label: string
+    name: string
+    position: PlacePosition
+  }>
   points?: Array<{
     activity_token: string
     day_label: string
@@ -141,6 +150,7 @@ export interface StaySegmentView {
   segment_token: string; city?: string | null; overnight_days: string[]
   status: StaySuggestionView['status']; message: string
   candidates: StayCandidateView[]; preserved_hotels?: string[]
+  expected_boundary_count?: number; missing_boundary_count?: number
 }
 
 export interface StaySuggestionView {
@@ -802,6 +812,7 @@ export interface DailyMealView {
   message: string; after_activity_token?: string | null; next_name?: string | null
   insert_before?: boolean; meal_role?: 'LUNCH' | null
   existing_activity_token?: string | null; area?: string | null
+  area_relation?: 'PROVIDER_AREA' | 'NEARBY' | null; area_distance_m?: number | null
   candidates: Array<{candidate_token: string; name: string; area_or_address: string; business_area?: string | null; reason: string; extra_minutes?: number | null; recommended: boolean}>
 }
 export interface DailyDiningView {
@@ -809,12 +820,19 @@ export interface DailyDiningView {
   message: string; days: DailyMealView[]
 }
 export async function readDailyDining(resource: string, signal?: AbortSignal, refresh?: {etag: string; key: string}): Promise<{body: DailyDiningView; etag: string}> {
-  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/daily-dining`, {
-    credentials: 'include', signal, method: refresh ? 'POST' : 'GET',
-    headers: {...authorizationHeaders(), ...(refresh ? {'If-Match':refresh.etag, 'Idempotency-Key':refresh.key} : {})},
-  })
-  if (!response.ok) throw new Error('DAILY_DINING_UNAVAILABLE')
-  return {body: await response.json(), etag: response.headers.get('ETag') || ''}
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  if (signal?.aborted) controller.abort()
+  else signal?.addEventListener('abort', abort, {once:true})
+  const timer = setTimeout(abort, 15000)
+  try {
+    const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/daily-dining`, {
+      credentials: 'include', cache:'no-store', signal:controller.signal, method: refresh ? 'POST' : 'GET',
+      headers: {...authorizationHeaders(), ...(refresh ? {'If-Match':refresh.etag, 'Idempotency-Key':refresh.key} : {})},
+    })
+    if (!response.ok) throw new Error('DAILY_DINING_UNAVAILABLE')
+    return {body: await response.json(), etag: response.headers.get('ETag') || ''}
+  } finally {clearTimeout(timer); signal?.removeEventListener('abort',abort)}
 }
 
 export async function queryTripDiningCandidates(resource: string, activity: string, signal?: AbortSignal): Promise<{body: DiningCandidatesView; etag: string}> {
@@ -879,7 +897,7 @@ export async function readTripUnderstandingStay(
 export async function refreshTripUnderstandingStay(publicResourceId: string, etag: string, key: string, signal?: AbortSignal): Promise<StaySuggestionView> {
   const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`, {
     method:'POST', credentials:'include', cache:'no-store', signal,
-    headers:{...authorizationHeaders(), 'If-Match':`"${etag}"`, 'Idempotency-Key':key},
+    headers:{...authorizationHeaders(), 'If-Match':etag, 'Idempotency-Key':key},
   })
   if (!response.ok) throw new Error(response.status === 409 ? 'REVISION_CONFLICT' : 'STAY_UNAVAILABLE')
   return response.json() as Promise<StaySuggestionView>

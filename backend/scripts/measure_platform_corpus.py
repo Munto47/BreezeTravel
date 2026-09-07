@@ -12,11 +12,13 @@ import asyncio
 import hashlib
 import json
 import logging
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 from dotenv import dotenv_values
 
@@ -27,7 +29,7 @@ from scripts.platform_corpus_metrics import compare_annotations, summarize_measu
 def runtime_file_hashes(runtime_root: Path = ROOT) -> dict[str, str]:
     base = runtime_root / "backend/app/trip_understanding"
     unrelated = {"daily_dining.py", "dining_jobs.py", "dining.py", "stay.py", "stay_repository.py", "map_repository.py",
-        "map_render.py", "repository.py", "commands.py", "overnight_context.py"}
+        "map_render.py", "repository.py", "commands.py", "overnight_context.py", "hotel_brand_registry_v1.json"}
     files = sorted(path for path in base.rglob("*") if path.is_file() and path.suffix in {".py", ".json", ".jsonl", ".md"}
         and path.name not in unrelated)
     return {path.relative_to(base).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
@@ -41,14 +43,42 @@ def source_fingerprint(runtime_root: Path = ROOT) -> str:
     return digest.hexdigest()
 
 
-def read_corpus(manifest_path: Path, *, limit: int | None = None, case_ids: set[str] | None = None) -> list[dict]:
+def freeze_runtime(runtime_root: Path, artifact_directory: Path) -> Path:
+    """Copy only runtime source/data, never dotenv files, databases or caches."""
+    expected = runtime_file_hashes(runtime_root)
+    fingerprint = source_fingerprint(runtime_root)
+    target = artifact_directory.resolve() / ("runtime-" + fingerprint[:20] + "-" + uuid4().hex[:8])
+    if target.exists():
+        raise FileExistsError("A runtime snapshot must never overwrite an existing directory")
+    source_app = runtime_root / "backend/app"
+    for source_file in source_app.rglob("*"):
+        if not source_file.is_file() or source_file.suffix not in {".py", ".json", ".jsonl", ".md"}:
+            continue
+        if any(part.startswith(".") or part == "__pycache__" for part in source_file.relative_to(source_app).parts):
+            continue
+        destination = target / "backend/app" / source_file.relative_to(source_app)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_file, destination)
+    if runtime_file_hashes(runtime_root) != expected or runtime_file_hashes(target) != expected:
+        raise RuntimeError("Source changed during freezing; no model calls were made")
+    save_json(target / "runtime-source.json", {"origin": str(runtime_root), "source_fingerprint": fingerprint,
+        "copied_content": "APP_SOURCE_AND_VERSIONED_DATA_ONLY", "dotenv_copied": False})
+    return target
+
+
+def read_corpus(manifest_path: Path, *, limit: int | None = None, case_ids: set[str] | None = None,
+                split: str = "development") -> list[dict]:
     folder = manifest_path.resolve().parent
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("provenance") != "platform_generated":
         raise ValueError("Expected a recorded platform-generated corpus")
+    if case_ids:
+        selected = [row for row in manifest["cases"] if row["id"] in case_ids]
+        if len(selected) != len(case_ids) or any(row.get("split") != split for row in selected):
+            raise ValueError("Every requested case must exist in the explicitly selected split")
     rows = []
     for row in sorted(manifest["cases"], key=lambda row: row["id"]):
-        if row["status"] != "COMPLETED" or (case_ids and row["id"] not in case_ids):
+        if row.get("split") != split or row["status"] != "COMPLETED" or (case_ids and row["id"] not in case_ids):
             continue
         artifact = (folder / row["artifact"]).resolve()
         if not artifact.is_relative_to(folder):
@@ -64,24 +94,35 @@ def read_corpus(manifest_path: Path, *, limit: int | None = None, case_ids: set[
 
 
 async def measure(args) -> int:
+    if args.output.exists():
+        raise FileExistsError("Existing measurements must be preserved")
     runtime_root = args.runtime_root.resolve()
     if not (runtime_root / "backend/app/trip_understanding/experience_inference.py").is_file():
         raise ValueError("Selected runtime root has no experience inference implementation")
+    runtime_origin = runtime_root
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=runtime_origin, capture_output=True, text=True, check=True).stdout.strip()
+    if args.freeze_runtime:
+        runtime_root = freeze_runtime(runtime_root, args.output.parent / "runtime-snapshots")
     sys.path.insert(0, str(runtime_root / "backend"))
     from app.trip_understanding.amap_place import AmapPlaceResolver
     from app.trip_understanding.experience_inference import ExperienceQwenProvider
     from app.trip_understanding.pipeline import TripUnderstandingPipeline
 
-    cases = read_corpus(args.manifest, limit=args.limit, case_ids=set(args.case_ids.split(",")) if args.case_ids else None)
+    cases = read_corpus(args.manifest, limit=args.limit, case_ids=set(args.case_ids.split(",")) if args.case_ids else None,
+        split=args.split)
     if not cases:
         raise ValueError("No completed corpus records match this measurement")
     labels = {}
     labels_sha256 = None
+    labels_source_sha256 = None
     if args.labels:
         label_bytes = args.labels.read_bytes()
-        labels_sha256 = hashlib.sha256(label_bytes).hexdigest()
-        labels = {label["case_id"]: label for label in json.loads(label_bytes)["annotations"]}
-        save_json(args.output.with_suffix(".labels.json"), {"annotations": list(labels.values())})
+        labels_source_sha256 = hashlib.sha256(label_bytes).hexdigest()
+        selected_ids = {case["id"] for case in cases}
+        labels = {label["case_id"]: label for label in json.loads(label_bytes)["annotations"] if label["case_id"] in selected_ids}
+        label_snapshot = args.output.with_suffix(".labels.json")
+        save_json(label_snapshot, {"annotations": list(labels.values())})
+        labels_sha256 = hashlib.sha256(label_snapshot.read_bytes()).hexdigest()
     for case in cases:
         label = labels.get(case["id"])
         if label and (label.get("source_sha256") != case["output_sha256"] or
@@ -94,6 +135,16 @@ async def measure(args) -> int:
         max_output_tokens=int(values.get("TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS") or 4096),
         input_cny_per_million=float(values["TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION"]) if values.get("TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION") else None,
         output_cny_per_million=float(values["TRIP_UNDERSTANDING_QWEN_OUTPUT_CNY_PER_MILLION"]) if values.get("TRIP_UNDERSTANDING_QWEN_OUTPUT_CNY_PER_MILLION") else None)
+    original_prompt_sha256 = hashlib.sha256(model.prompt.encode()).hexdigest()
+    if args.prompt_path:
+        model.prompt = args.prompt_path.read_text(encoding="utf-8")
+        if not model.prompt.strip():
+            raise ValueError("A private experimental prompt cannot be empty")
+    prompt_snapshot = args.output.with_suffix(".prompt.md")
+    if prompt_snapshot.exists():
+        raise FileExistsError("Existing prompt snapshots must be preserved")
+    prompt_snapshot.parent.mkdir(parents=True, exist_ok=True)
+    prompt_snapshot.write_text(model.prompt, encoding="utf-8")
     # Private opt-in evidence for attributing extraction vs validator errors.
     # Record message bodies and provider outputs, never authentication headers.
     raw_directory = args.output.with_suffix("").with_name(args.output.stem + "-raw-calls")
@@ -106,7 +157,9 @@ async def measure(args) -> int:
             raise ValueError("Refusing to overwrite an existing raw model call")
         record = {"case_id": capture_context["case_id"], "repeat": capture_context["repeat"], "call": capture_context["call"],
             "provenance": "platform_generated_input_actual_runtime_response", "messages": kwargs.get("messages"),
-            "model": kwargs.get("model"), "max_tokens": kwargs.get("max_tokens"), "status": "STARTED"}
+            "model": kwargs.get("model"), "max_tokens": kwargs.get("max_tokens"), "status": "STARTED",
+            "temperature": kwargs.get("temperature"), "extra_body": kwargs.get("extra_body"),
+            "response_format": kwargs.get("response_format")}
         save_json(path, record)
         try:
             response = await original_create(**kwargs)
@@ -124,13 +177,17 @@ async def measure(args) -> int:
     resolver = AmapPlaceResolver(api_key=values.get("AMAP_API_KEY") or "") if args.mode == "full" else None
     pipeline = TripUnderstandingPipeline(model, resolver) if resolver else None
     fingerprint = source_fingerprint(runtime_root)
-    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=runtime_root, capture_output=True, text=True, check=True).stdout.strip()
     report = {"schema_version": "platform-corpus-measurement-v1", "mode": args.mode, "source_commit": commit,
         "source_fingerprint": fingerprint, "started_at": datetime.now(timezone.utc).isoformat(),
         "runtime_root": str(runtime_root), "runtime_files": runtime_file_hashes(runtime_root),
+        "runtime_origin": str(runtime_origin), "frozen_runtime": args.freeze_runtime, "selected_split": args.split,
+        "runtime_snapshot_manifest": (runtime_root / "runtime-source.json").exists(),
+        "prompt_override": bool(args.prompt_path), "prompt_sha256": hashlib.sha256(model.prompt.encode()).hexdigest(),
+        "original_prompt_sha256": original_prompt_sha256,
         "raw_calls_recorded": args.record_raw_calls,
         "model": model.model, "provenance": "platform_generated", "measurement": "SEMANTIC_AND_POI_NO_API_OR_ROUTES" if resolver else "SEMANTIC_ONLY",
-        "cases": [], "gold_source": "independent_annotations" if labels else "NONE", "labels_sha256": labels_sha256}
+        "cases": [], "gold_source": "independent_annotations" if labels else "NONE", "labels_sha256": labels_sha256,
+        "labels_source_sha256": labels_source_sha256}
     def save():
         report["summary"] = summarize_measurements(report["cases"])
         report["by_city"] = {city: summarize_measurements([row for row in report["cases"] if row["city"] == city])
@@ -212,12 +269,18 @@ def main():
         help="Read-only checkout whose backend runtime is measured; no service or source modification")
     parser.add_argument("--record-raw-calls", action="store_true",
         help="Save original request messages and actual model JSON privately for validator attribution")
+    parser.add_argument("--freeze-runtime", action="store_true",
+        help="Measure an immutable private copy of runtime source/data while collaborators keep working")
     parser.add_argument("--labels", type=Path)
+    parser.add_argument("--prompt-path", type=Path,
+        help="Private experiment only: override this provider instance's prompt without modifying runtime files")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=("semantic", "full"), default="semantic")
     parser.add_argument("--repeat", type=int, choices=(1, 2, 3, 4, 5), default=1)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--case-ids")
+    parser.add_argument("--split", choices=("development", "validation", "holdout", "long_tail"), default="development",
+        help="Select one prespecified family split before reading any source; defaults to development")
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")

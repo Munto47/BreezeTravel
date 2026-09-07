@@ -246,6 +246,43 @@
             "title": "Locked",
             "type": "boolean"
           },
+          "lodging_event": {
+            "anyOf": [
+              {
+                "enum": [
+                  "OVERNIGHT",
+                  "CHECK_OUT",
+                  "DEPARTURE",
+                  "LUGGAGE_PICKUP"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lodging Event"
+          },
+          "lodging_role_uncertain": {
+            "default": false,
+            "title": "Lodging Role Uncertain",
+            "type": "boolean"
+          },
+          "lodging_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "WHOLE_TRIP",
+                  "DAY"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lodging Scope"
+          },
           "meal_role": {
             "anyOf": [
               {
@@ -1213,6 +1250,33 @@
             ],
             "title": "Area"
           },
+          "area_distance_m": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Distance M"
+          },
+          "area_relation": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PROVIDER_AREA",
+                  "NEARBY"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Relation"
+          },
           "candidates": {
             "items": {
               "$ref": "#/components/schemas/DailyMealCandidate"
@@ -1757,6 +1821,13 @@
             "title": "Days",
             "type": "array"
           },
+          "lodging_points": {
+            "items": {
+              "$ref": "#/components/schemas/PublicLodgingMapPoint"
+            },
+            "title": "Lodging Points",
+            "type": "array"
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -2154,6 +2225,34 @@
           "summary"
         ],
         "title": "PublicChangePreview",
+        "type": "object"
+      },
+      "PublicLodgingMapPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "day_label": {
+            "title": "Day Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "point_token": {
+            "title": "Point Token",
+            "type": "string"
+          },
+          "position": {
+            "$ref": "#/components/schemas/PublicMapPosition"
+          }
+        },
+        "required": [
+          "point_token",
+          "day_label",
+          "name",
+          "position"
+        ],
+        "title": "PublicLodgingMapPoint",
         "type": "object"
       },
       "PublicMapDayView": {
@@ -2960,9 +3059,21 @@
             ],
             "title": "City"
           },
+          "expected_boundary_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Expected Boundary Count",
+            "type": "integer"
+          },
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "missing_boundary_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Missing Boundary Count",
+            "type": "integer"
           },
           "overnight_days": {
             "items": {

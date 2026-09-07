@@ -37,6 +37,41 @@ def test_meal_name_or_wrong_model_claim_does_not_manufacture_lunch():
     assert proposal_from_draft(source, draft).mentions[0].meal_role is None
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("city,unprocessed,complete", [("北京", 0, True), ("上海", 1, False)])
+async def test_redundant_city_metadata_is_not_a_missing_place_but_conflicting_city_stays_pending(city, unprocessed, complete):
+    source = "北京 Day1：故宫博物院。"
+    draft = {"destination": "北京", "activities": [activity("故宫博物院", category="景点", city=city)]}
+    output = await TripUnderstandingPipeline(provider(Client(json.dumps(draft))), ControlledSnapshotPlaceResolver()).run(source)
+    assert output.proposal.mentions[0].city_hint is None
+    assert output.proposal.unprocessed_count == unprocessed
+    assert output.public_result.coverage.complete is complete
+    assert output.public_result.coverage.recognized_place_count == output.public_result.coverage.confirmed_place_count == 1
+    assert output.public_result.coverage.unclassified_mention_count == 0
+    category = "REDUNDANT_CITY_HINT_REMOVED" if complete else "UNSUPPORTED_CITY_REMOVED"
+    assert any(issue.category == category for issue in output.proposal.diagnostics)
+
+
+@pytest.mark.asyncio
+async def test_redundant_city_cleanup_cannot_hide_actual_unprocessed_source():
+    source = "北京 Day1：故宫博物院，然后那个地方再看。"
+    draft = {"destination": "北京", "activities": [activity("故宫博物院", category="景点", city="北京")],
+        "unprocessed_quotes": ["然后那个地方再看"]}
+    output = await TripUnderstandingPipeline(provider(Client(json.dumps(draft))), ControlledSnapshotPlaceResolver()).run(source)
+    assert output.proposal.unprocessed_count == 1
+    assert output.public_result.coverage.complete is False
+
+
+def test_redundant_destination_does_not_waive_a_false_explicit_city_evidence_claim():
+    source = "去北京路步行街。"
+    draft = SemanticDraft.model_validate({"destination": "北京", "activities": [
+        activity("北京路步行街", city="北京", city_evidence="北京路步行街")]})
+    result = proposal_from_draft(source, draft)
+    assert result.mentions[0].city_hint is None
+    assert result.unprocessed_count == 1
+    assert [issue.category for issue in result.diagnostics] == ["UNSUPPORTED_CITY_REMOVED"]
+
+
 @pytest.mark.parametrize("text,reason", [
     ("星河公园面积很大，留足时间。", "DESCRIPTION"),
     ("中午在星河公园附近的饭店用餐。", "LOCATION_REFERENCE"),

@@ -128,7 +128,7 @@ MULTI_CITY_HEADER_RE = re.compile(
 BASIC_CITY_HEADER_RE = re.compile(
     rf"^\s*(?P<city>(?:{_DOMESTIC_CITY_PATTERN})(?:市)?|[\u4e00-\u9fff]{{2,6}}市)"
     r"\s*[一二两三四五六七八九十0-9]+"
-    r"(?:日|天)(?:游|行程|攻略|旅行)"
+    r"(?:日|天)(?:[一二两三四五六七八九十0-9]+晚)?(?:游|行程|攻略|旅行)"
 )
 DESTINATION_CONTEXT_RE = re.compile(
     r"(?:围绕|一段|整理|关于)\s*"
@@ -1069,6 +1069,16 @@ class EvidenceCompiler:
                     quote=mention.raw_text,
                 )
             )
+            if mention.role_evidence is not None and mention.role_evidence_start is not None and mention.role_evidence_end is not None:
+                evidence = source_text[mention.role_evidence_start:mention.role_evidence_end]
+                # SourceAnchorIndex can account for Markdown presentation, so
+                # retain the literal original span in the encrypted claim.
+                claims.append(SourceClaimRecord(claim_id=str(uuid4()), activity_id=activity_id, claim_type="ROLE",
+                    span_start=mention.role_evidence_start, span_end=mention.role_evidence_end, quote=evidence))
+            if mention.lodging_evidence_start is not None and mention.lodging_evidence_end is not None:
+                claims.append(SourceClaimRecord(claim_id=str(uuid4()), activity_id=activity_id, claim_type="ROLE",
+                    span_start=mention.lodging_evidence_start, span_end=mention.lodging_evidence_end,
+                    quote=source_text[mention.lodging_evidence_start:mention.lodging_evidence_end]))
         return compiled, claims, {
             "compiler": "trip-understanding-evidence-compiler-v1",
             "unicode_basis": "CODE_POINT_HALF_OPEN",
@@ -1109,6 +1119,7 @@ class PublicResultProjector:
             for activity in activities
             if activity.compiled.mention.role == ActivityRole.PLANNED
             and not (activity.compiled.mention.meal_role and not activity.compiled.mention.atomic_place_name)
+            and not (activity.compiled.mention.category_hint == "住宿" and not activity.compiled.mention.atomic_place_name)
         ]
         activity_day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
@@ -1136,6 +1147,10 @@ class PublicResultProjector:
                 key=lambda activity: activity.compiled.mention.sequence_index,
             ):
                 mention = item.compiled.mention
+                if mention.category_hint == "住宿" and not mention.atomic_place_name:
+                    # A stated lodging gap is already represented by the stay
+                    # recommendation flow; it is not an unresolved hotel visit.
+                    continue
                 if mention.meal_role and not mention.atomic_place_name:
                     preceding = [row for row in daily if row.compiled.mention.sequence_index < mention.sequence_index
                                  and is_atomic_planned_place(row.compiled.mention)]
@@ -1176,6 +1191,8 @@ class PublicResultProjector:
                         city=_public_activity_city(item),
                         time_hint=mention.time_hint,
                         meal_role=mention.meal_role,
+                        lodging_event=mention.lodging_event, lodging_scope=mention.lodging_scope,
+                        lodging_role_uncertain=mention.lodging_role_uncertain,
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
@@ -1871,7 +1888,8 @@ class TripUnderstandingPipeline:
             (issue.span_start, issue.span_end) if issue.span_start is not None else (issue.field, issue.category)
             for issue in proposal.diagnostics
             if issue.category not in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE",
-                "UNSUPPORTED_TIMING_REMOVED", "UNSUPPORTED_CITY_REMOVED", "UNSUPPORTED_DAY_LABEL_REMOVED", "UNSUPPORTED_DAY_COUNT"}
+                "UNSUPPORTED_TIMING_REMOVED", "UNSUPPORTED_CITY_REMOVED", "UNSUPPORTED_DAY_LABEL_REMOVED", "UNSUPPORTED_DAY_COUNT",
+                "REDUNDANT_CITY_HINT_REMOVED", "LODGING_EVIDENCE_SCOPE_MISMATCH"}
         }
         public_result = public_result.model_copy(update={"coverage": TripRecognitionCoverage(
             recognized_place_count=len(recognized), confirmed_place_count=confirmed,

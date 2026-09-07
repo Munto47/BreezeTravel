@@ -35,7 +35,7 @@ from app.trip_understanding.stay import (
     stay_plan_from_map,
 )
 from app.trip_understanding.stay_repository import _candidate_view
-from tests.test_g02_map_stay import OneHotelProvider, _map_plan
+from tests.test_g02_map_stay import OneHotelProvider, _map_plan, _test_registry
 from tests.test_experience_text_fidelity import DraftProvider, RecordingResolver, activity
 from tests.test_experience_v3_journey import create, finish, repository_for
 
@@ -230,7 +230,7 @@ async def test_partial_hotel_score_keeps_missing_leg_penalty_out_of_actual_minut
             return fact.model_copy(update={"status": "UNAVAILABLE", "duration_minutes": None})
 
     plan = stay_plan_from_map(_map_plan())
-    engine = StayRecommendationEngine(OneHotelProvider(), PartialRoutes())
+    engine = StayRecommendationEngine(OneHotelProvider(), PartialRoutes(), brand_registry=_test_registry())
     output = await engine.recommend(plan, observed_at=NOW)
     assert output.status == "PARTIAL" and output.candidates
     scored = output.candidates[0]
@@ -254,7 +254,7 @@ async def test_stay_route_response_clock_accepts_network_elapsed_but_rejects_fut
             fact = await ControlledStayRouteProvider().route(origin, destination, mode, observed_at=response_at)
             return fact.model_copy(update={"expires_at": response_at - timedelta(seconds=1)}) if clock_status == "expired" else fact
 
-    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes()).recommend(
+    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes(), brand_registry=_test_registry()).recommend(
         stay_plan_from_map(_map_plan()), observed_at=logical_start)
     if clock_status != "current":
         assert output.status == "UNAVAILABLE" and output.candidates == []
@@ -276,7 +276,7 @@ async def test_concurrent_stay_recommendations_keep_their_own_logical_clocks():
             return await ControlledStayRouteProvider().route(origin, destination, mode,
                 observed_at=observed_at + timedelta(seconds=time.perf_counter() - requested))
 
-    engine = StayRecommendationEngine(OneHotelProvider(), LogicalResponseRoutes())
+    engine = StayRecommendationEngine(OneHotelProvider(), LogicalResponseRoutes(), brand_registry=_test_registry())
     starts = [datetime(year, 1, 1, tzinfo=timezone.utc) for year in (2020, 2040)]
     outputs = await asyncio.gather(*(engine.recommend(stay_plan_from_map(_map_plan()), observed_at=started) for started in starts))
     for output, started in zip(outputs, starts, strict=True):
@@ -302,7 +302,7 @@ async def test_real_stay_clock_reads_wall_time_after_response_when_counters_dive
             return await ControlledStayRouteProvider().route(origin, destination, mode, observed_at=wall.now)
 
     monkeypatch.setattr(stay_module, "datetime", WallClock)
-    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes()).recommend(stay_plan_from_map(_map_plan()))
+    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes(), brand_registry=_test_registry()).recommend(stay_plan_from_map(_map_plan()))
     assert output.candidates and output.candidates[0].missing_leg_count == 0
     assert output.started_at == NOW and output.finished_at == wall.now
     assert all(fact.status == "AVAILABLE" and output.started_at < fact.observed_at <= output.finished_at
@@ -363,14 +363,14 @@ async def test_chain_keyword_is_not_brand_evidence_and_area_search_is_bounded():
         output = await StayRecommendationEngine(
             AmapStayCandidateProvider(api_key="synthetic-unused-key", client=client), ControlledStayRouteProvider(),
         ).recommend(stay_plan_from_map(_map_plan()), observed_at=NOW)
-    assert len(requests) == output.provider_binding["candidate_provider_calls"] == 7
+    assert len(requests) == output.provider_binding["candidate_provider_calls"] == 8
     assert [request.url.params.get("radius") for request in requests[:4]] == ["2000", "4000", "8000", None]
     assert all(request.url.path.endswith("/text") and request.url.params["keywords"].endswith(" 酒店")
         and request.url.params["city_limit"] == "true" for request in requests[4:6])
-    assert requests[6].url.params["keywords"] == "汉庭北京前门大街酒店"
-    assert [item.candidate.name for item in output.candidates] == ["汉庭酒店（合成店）"]
-    assert output.candidates[0].candidate.brand is None
-    assert output.candidates[0].candidate.provider_binding["property_identity"] == "NAME_ONLY"
+    assert requests[6].url.params["keywords"] == "汉庭酒店(北京前门天坛西门店)"
+    assert requests[7].url.params["keywords"] == "如家商旅酒店(北京天安门广场北京坊店)"
+    assert output.candidates == [] and output.status == "UNAVAILABLE"
+    assert output.provider_binding["route_attempts"] == 0
 
 
 @pytest.mark.asyncio

@@ -19,11 +19,27 @@ from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
 from app.trip_understanding.stay import (
     ControlledStayRouteProvider,
+    HotelBrandRegistry,
     StayCandidate,
     StayRecommendationEngine,
     stay_plan_from_map,
 )
 from app.trip_understanding.worker import TripUnderstandingWorker
+
+
+def _test_registry():
+    """Explicit synthetic branch evidence for route/transaction tests only."""
+    properties = []
+    for city in ("北京", "上海", "广州", "深圳", "杭州"):
+        for number in range(15):
+            for token in (f"测试{number:02d}店", f"合成{number}店"):
+                properties.append({"city": city, "brand": "汉庭", "name": f"汉庭酒店({token})",
+                    "name_tokens": ["汉庭", token], "address_tokens": [f"测试路{number}号"],
+                    "source_url": "https://example.invalid/synthetic-hotel-evidence", "checked_at": "2026-09-07", "status": "LISTED"})
+        properties.append({"city": city, "brand": "汉庭", "name": "汉庭酒店(单模式店)",
+            "name_tokens": ["汉庭", "单模式店"], "address_tokens": ["测试路1号"],
+            "source_url": "https://example.invalid/synthetic-hotel-evidence", "checked_at": "2026-09-07", "status": "LISTED"})
+    return HotelBrandRegistry({"brands": [{"brand": "汉庭", "aliases": ["汉庭"], "group": "合成集团", "priority": 1}], "properties": properties})
 
 
 class ManyHotelsProvider:
@@ -173,6 +189,7 @@ async def test_stay_recall_twelve_scores_six_in_deterministic_order() -> None:
     output = await StayRecommendationEngine(
         provider,
         ControlledStayRouteProvider(),
+        brand_registry=_test_registry(),
     ).recommend(
         plan,
         observed_at=datetime(2026, 8, 30, tzinfo=timezone.utc),
@@ -181,7 +198,7 @@ async def test_stay_recall_twelve_scores_six_in_deterministic_order() -> None:
     assert output.status == "READY"
     assert provider.scopes == [2000]
     assert len(output.candidates) == 6
-    assert all(item.candidate.brand is None and item.candidate.provider_binding["property_identity"] == "NAME_ONLY"
+    assert all(item.candidate.brand == "汉庭" and item.candidate.provider_binding["property_identity"] == "OFFICIAL_NAME_ADDRESS"
         for item in output.candidates)
     assert [item.total_score for item in output.candidates] == sorted(
         item.total_score for item in output.candidates
@@ -216,6 +233,7 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     one_mode = await StayRecommendationEngine(
         candidate_provider,
         TransitUnavailableProvider(),
+        brand_registry=_test_registry(),
     ).recommend(plan, observed_at=observed_at)
     assert candidate_provider.scopes == [2000, 4000, 8000, None]
     assert len(one_mode.candidates) == 1
@@ -237,6 +255,7 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     no_modes = await StayRecommendationEngine(
         OneHotelProvider(),
         TransitUnavailableProvider(fail_walking=True),
+        brand_registry=_test_registry(),
     ).recommend(plan, observed_at=observed_at)
     assert no_modes.status == "UNAVAILABLE"
     assert no_modes.candidates == []
@@ -271,6 +290,7 @@ async def test_stay_attempt_fences_stale_completion_and_failure_for_reused_worke
     output = await StayRecommendationEngine(
         ManyHotelsProvider(),
         ControlledStayRouteProvider(),
+        brand_registry=_test_registry(),
     ).recommend(
         await repository.load_stay_plan(stale),
         observed_at=now + timedelta(seconds=2),

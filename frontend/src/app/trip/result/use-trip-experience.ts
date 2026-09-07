@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { confirmedDays, confirmedTripView, storedPositionCommand } from '@/lib/confirmed-trip-view'
+import { confirmedDays, confirmedSourceLodgings, confirmedTripView, storedPositionCommand } from '@/lib/confirmed-trip-view'
 import * as api from '@/lib/trip-understanding-v3'
 import {
   releaseCancelledTripInput,
@@ -408,7 +408,8 @@ export function useTripExperience() {
                     status: 'UNAVAILABLE',
                     message: '路线暂时无法显示，行程卡片不受影响。',
                     days: [],
-                    points: [],
+                    points: mapState.current?.points || [],
+                    lodging_points: mapState.current?.lodging_points || [],
                     available_actions: [],
                   }
             mapState.current = next
@@ -1038,7 +1039,9 @@ export function useTripExperience() {
     const activeCycle = cycle
     let stopped = false
     let waitTimer: ReturnType<typeof setTimeout>
-    const deadline = activeCycle.startedAt + 10000
+    // Recommendation workers have their own bounded budgets. Reading their
+    // progress must outlive those budgets, without delaying the usable cards.
+    const deadline = activeCycle.startedAt + 100000
 
     const expirePending = () => {
       if (
@@ -1050,8 +1053,9 @@ export function useTripExperience() {
       if (mapState.current?.status === 'PREPARING') {
         const next: api.MapRenderView = {
           status: 'UNAVAILABLE',
-          message: '路线暂时无法显示，行程卡片不受影响。',
-          points: [],
+          message: '路线尚未准备完成，可以稍后重试；已确认地点仍可查看。',
+          points: mapState.current.points,
+          lodging_points: mapState.current.lodging_points,
           days: [],
           available_actions: [],
         }
@@ -1094,10 +1098,10 @@ export function useTripExperience() {
         !stopped &&
         activeCycle === enhancementCycle.current &&
         activeCycle.epoch === enhancementEpoch.current &&
-        activeCycle.rounds < 8 &&
+        activeCycle.rounds < 48 &&
         Date.now() < deadline
       ) {
-        await wait(Math.min(800, Math.max(0, deadline - Date.now())))
+        await wait(Math.min(2000, Math.max(0, deadline - Date.now())))
         if (
           stopped ||
           activeCycle !== enhancementCycle.current ||
@@ -1955,6 +1959,7 @@ export function useTripExperience() {
     mode,
     isDemo,
     result: displayedResult,
+    sourceLodgings: confirmedSourceLodgings(result),
     progressSnapshot: displayedProgress,
     omittedPlaceCount: result?.days.reduce((total, day) => total + day.activities.filter(card => card.status !== 'READY').length, 0) || 0,
     unresolvedDays: result?.days.map(day => ({...day, activities:day.activities.filter(card => card.status !== 'READY')})) || [],

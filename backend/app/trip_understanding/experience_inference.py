@@ -24,7 +24,7 @@ from app.trip_understanding.models import (
     ActivityRole, ActivityTiming, DestinationBasis, InferenceProposal,
     ProposedMention, SemanticDiagnostic, StrictModel,
 )
-from app.trip_understanding.pipeline import DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
+from app.trip_understanding.pipeline import BASIC_CITY_HEADER_RE, DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
 from app.trip_understanding.place_labels import normalized_place_label
 from app.trip_understanding.timing_evidence import validated_timing
 from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, merge_preserved_activities
@@ -49,9 +49,19 @@ class SemanticActivity(ActivityTiming):
     occurrence: int = Field(default=1, ge=1, le=160)
     place_name: str | None = Field(default=None, max_length=40)
     role: ActivityRole
+    role_evidence: str | None = Field(default=None, max_length=500,
+        description="逐字复制包含此地点、实际动作和所有适用条件的短原文。不要只有地点名；条件性到访不能省略如果/可以/若有余力。")
+    parent_source_quote: str | None = Field(default=None, max_length=100,
+        description="仅原文明示此活动在已提取的父景点内部时，逐字填父景点名称；独立后续站点留空。")
     day_index: int | None = Field(default=None, ge=1, le=14)
     category: Literal["景点", "餐饮", "住宿", "交通节点", "地点"] = "地点"
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = Field(default=None,
+        description="仅住宿项：明确住一晚/入住、退房、从酒店出发、回店取行李；无动作依据省略。")
+    lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = Field(default=None,
+        description="仅OVERNIGHT：原文明确全程统一酒店为WHOLE_TRIP，明确本晚为DAY；未知省略。")
+    lodging_evidence: str | None = Field(default=None, max_length=500,
+        description="仅有住宿事件时逐字引用包含当前酒店、动作和范围的短原文；否定/备选不能当已选住宿。")
     time_evidence: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=40)
     city_evidence: str | None = Field(default=None, max_length=500)
@@ -403,8 +413,14 @@ def _align_named_day_occurrences(source: str, draft: SemanticDraft) -> tuple[Sem
             activities.append(item)
             continue
         try:
-            start, _ = anchors.locate(item.source_quote, item.occurrence)
+            start, end = anchors.locate(item.source_quote, item.occurrence)
         except ValueError:
+            activities.append(item)
+            continue
+        if (item.lodging_event == "OVERNIGHT" and item.lodging_scope == "WHOLE_TRIP"
+            and _bound_lodging_evidence(anchors, item, start, end) is not None):
+            # A source-bound trip-wide stay is deliberately outside daily
+            # visit paragraphs. Do not move it to the later luggage pickup.
             activities.append(item)
             continue
         left = headings[day - 1].start()
@@ -946,7 +962,7 @@ def _omits_attached_place_qualifier(anchors: SourceAnchorIndex, place_end: int) 
             label = cleaned_bracket[1]
     else:
         label = re.split(r"[\s，,。；;：:、→/／（）()]|出来|出发|离开|之后|以后|随后|然后|接着|再去|再到|前往|参观|游览|集合|进入|游玩|打卡|入住|用餐|步行|返回|吃饭|喝咖啡", tail, maxsplit=1)[0]
-    if re.match(r"^(?:的|里面|内有|外面|附近|旁边|是|有|包含|可以|需要|还|并|与|和|以及|到|去|逛|看|吃|买|喝|租|乘|坐)", label):
+    if re.match(r"^(?:的|里面|内有|外面|附近|旁边|是|有|包含|可以|需要|还|并|与|和|或|以及|到|去|逛|看|吃|买|喝|租|乘|坐)", label):
         return False
     if re.match(r"^(?:摩天轮|露台|滨江步道|周边)", label):
         return True
@@ -1099,6 +1115,16 @@ def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActiv
             continue
         if not city_offsets(city, left, right):
             continue
+        header = BASIC_CITY_HEADER_RE.match(source)
+        first_day = re.search(r"第[^。\n]{1,5}天|(?:Day|D)\s*\d+|\d{1,2}月\d{1,2}日", source, re.I)
+        document_evidence = bool(first_day and right <= first_day.start())
+        header_evidence = bool(header and header.group("city").removesuffix("市") == city
+            and left <= header.start("city") < header.end("city") <= right)
+        if ((document_evidence or header_evidence)
+            and not any(city_offsets(name, 0, len(source)) for name in DOMESTIC_CITY_NAMES if name != city)):
+            # A source-bound, single-city preamble scopes all days regardless
+            # of its wording. Local day headings cannot borrow this scope.
+            return city, evidence, False
         if left <= start and end <= right:
             return city, evidence, False
         if right <= start and start - right <= 1500:
@@ -1382,6 +1408,33 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
     return next(iter(roles)) if len(roles) == 1 else None
 
 
+def _bound_role_evidence(anchors: SourceAnchorIndex, quote: str | None, start: int, end: int) -> tuple[int, int] | None:
+    if not quote:
+        return None
+    for occurrence in range(1, 161):
+        try:
+            left, right = anchors.locate(quote, occurrence)
+        except ValueError:
+            return None
+        if left <= start < end <= right:
+            return left, right
+    return None
+
+
+def _bound_lodging_evidence(anchors: SourceAnchorIndex, item: SemanticActivity,
+                             start: int, end: int) -> tuple[int, int] | None:
+    # The model owns the event meaning. Verify its source binding without
+    # deriving a stay from the venue name or changing a correctly extracted visit.
+    if item.category != "住宿" or item.role != ActivityRole.PLANNED or not item.place_name or not item.lodging_event:
+        return None
+    relative = _literal_place_span(anchors.source[start:end], item.place_name)
+    if relative is None:
+        return None
+    name_start, name_end = start + relative[0], start + relative[1]
+    span = _bound_role_evidence(anchors, item.lodging_evidence, name_start, name_end)
+    return span if span and (span[0] < name_start or span[1] > name_end) else None
+
+
 def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> InferenceProposal:
     if allow_partial:
         draft = draft.model_copy(deep=True)
@@ -1440,7 +1493,13 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
         except ValueError:
             issues.append({"field": f"unprocessed_quotes[{index}]", "category": "SOURCE_QUOTE_NOT_FOUND"})
     for index, item in enumerate(draft.activities):
-        if item.role == ActivityRole.PLANNED and item.day_index is None and explicit_days > 1:
+        whole_trip_stay = False
+        if item.lodging_event == "OVERNIGHT" and item.lodging_scope == "WHOLE_TRIP":
+            try:
+                whole_trip_stay = _bound_lodging_evidence(anchors, item, *anchors.locate(item.source_quote, item.occurrence)) is not None
+            except ValueError:
+                pass
+        if item.role == ActivityRole.PLANNED and item.day_index is None and explicit_days > 1 and not whole_trip_stay:
             issues.append({"field": f"activities[{index}].day_index", "category": "MISSING_EXPLICIT_DAY"})
         try:
             start, end = anchors.locate(item.source_quote, item.occurrence)
@@ -1465,6 +1524,10 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
         else:
             place = item.place_name.strip() if item.place_name else None
             relative_span = _literal_place_span(source[start:end], place)
+            evidence_start = start + relative_span[0] if relative_span else start
+            evidence_end = start + relative_span[1] if relative_span else end
+            if item.role_evidence and _bound_role_evidence(anchors, item.role_evidence, evidence_start, evidence_end) is None:
+                issues.append({"field": f"activities[{index}].role_evidence", "category": "ROLE_EVIDENCE_SCOPE_MISMATCH"})
             if place and relative_span is None:
                 issues.append({"field": f"activities[{index}].place_name", "category": "PLACE_NOT_IN_SOURCE_QUOTE"})
             elif place and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
@@ -1612,7 +1675,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             item = item.model_copy(update={"category": "地点"})
         day = item.day_index
         parent_mention_id = None
-        if item.role in {ActivityRole.PLANNED, ActivityRole.REFERENCE} and _is_parent_visit_detail(source, place, start, end, day, mentions):
+        if not (item.parent_source_quote and item.role_evidence) and item.role in {ActivityRole.PLANNED, ActivityRole.REFERENCE} and _is_parent_visit_detail(source, place, start, end, day, mentions):
             parent_mention_id = next((mention.mention_id for mention in reversed(mentions)
                 if mention.role == ActivityRole.PLANNED and mention.day_index == day and mention.span_end <= start), None)
             item = item.model_copy(update={"role": ActivityRole.REFERENCE})
@@ -1633,11 +1696,29 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                 item = item.model_copy(update={"role": ActivityRole.OPTIONAL})
                 day = scope_day if scope_day is not None else day
                 break
+        lodging_span = _bound_lodging_evidence(anchors, item, start, end)
+        lodging_event = item.lodging_event if lodging_span else None
+        lodging_scope = item.lodging_scope if lodging_event == "OVERNIGHT" else None
+        lodging_role_uncertain = bool(item.role == ActivityRole.PLANNED and item.category == "住宿"
+            and item.place_name and not lodging_span)
+        if lodging_role_uncertain:
+            diagnostics.append(SemanticDiagnostic(category="LODGING_EVIDENCE_SCOPE_MISMATCH",
+                field=f"activities[{index}].lodging_evidence", span_start=start, span_end=end))
+            unprocessed += 1
         if item.role == ActivityRole.PLANNED and day is None:
             day = 1
-            unprocessed += 1
+            if lodging_scope != "WHOLE_TRIP":
+                unprocessed += 1
         if item.role != ActivityRole.REFERENCE:
             parent_mention_id = None
+        if item.parent_source_quote and item.role_evidence:
+            parent_mention_id = next((mention.mention_id for mention in reversed(mentions)
+                if mention.atomic_place_name == normalized_place_label(item.parent_source_quote)
+                and mention.role == ActivityRole.PLANNED and mention.day_index == day and mention.span_end <= start), None)
+            if not parent_mention_id:
+                diagnostics.append(SemanticDiagnostic(category="PARENT_RELATION_UNRESOLVED",
+                    field=f"activities[{index}].parent_source_quote", span_start=start, span_end=end))
+                unprocessed += 1
         if place and item.role == ActivityRole.PLANNED and (place, day) in seen_places:
             line_start = max(source.rfind(mark, 0, start) for mark in ("\n", "。", "；", ";")) + 1
             prefix = source[line_start:start]
@@ -1686,11 +1767,15 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             _local_timing_evidence(source, anchors, item, draft, located, start, end),
         )
         city, city_evidence, city_removed = _validated_city(source, anchors, item, start, end, place_spans)
-        if city_removed and item.city and item.city.strip().removesuffix("市") == draft.destination.strip().removesuffix("市"):
+        if (city_removed and item.city and not (item.city_evidence or "").strip()
+            and item.city.strip().removesuffix("市") == draft.destination.strip().removesuffix("市")):
             # Discard an invalid repetition of the document's soft city guess.
             # Independent source/city checks in _model_activity_cities still
             # reject mixed-city ambiguity and city names embedded in POIs.
             city_evidence = None
+            city_removed = False
+            diagnostics.append(SemanticDiagnostic(category="REDUNDANT_CITY_HINT_REMOVED",
+                field=f"activities[{index}].city", span_start=start, span_end=end, retryable=False))
         unprocessed += int(timing_removed) + int(city_removed)
         if timing_removed:
             diagnostics.append(SemanticDiagnostic(category="UNSUPPORTED_TIMING_REMOVED",
@@ -1711,12 +1796,20 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             role=item.role, day_index=day, sequence_index=sequence,
             atomic_place_name=place, category_hint=item.category,
             meal_role=_source_meal_role(source, start, end) if item.category == "餐饮" else None,
+            lodging_event=lodging_event, lodging_scope=lodging_scope,
+            lodging_role_uncertain=lodging_role_uncertain,
+            lodging_evidence=item.lodging_evidence if lodging_span else None,
+            lodging_evidence_start=lodging_span[0] if lodging_span else None,
+            lodging_evidence_end=lodging_span[1] if lodging_span else None,
             time_hint=hint, city_hint=city, city_evidence=city_evidence, **timing,
             choice_group_id=branch.group_id if branch else None,
             branch_id=branch.branch_id if branch else None,
             branch_label=branch.label if branch else None,
             parent_mention_id=parent_mention_id,
             relation_type="INTERNAL_DETAIL" if parent_mention_id else None,
+            role_evidence=item.role_evidence,
+            role_evidence_start=(_bound_role_evidence(anchors, item.role_evidence, start, end) or (None, None))[0],
+            role_evidence_end=(_bound_role_evidence(anchors, item.role_evidence, start, end) or (None, None))[1],
         ))
     labels: dict[int, str] = {}
     valid_parent_ids = {mention.mention_id for mention in mentions if mention.role == ActivityRole.PLANNED}
@@ -1726,6 +1819,11 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     for index, label in enumerate(draft.day_labels, 1):
         if label and label in source and label.strip() not in labels.values() and re.fullmatch(r"[\d年月日号./\-一二三四五六七八九十星期周\s]+", label):
             labels[index] = label.strip()
+        elif (label and label in anchors.visible and re.fullmatch(r"(?:(?:Day|D)\s*\d{1,2}|第[一二两三四五六七八九十\d]{1,3}天)", label.strip(), re.I)
+            and _explicit_day_count(label) == index and index <= explicit_days):
+            # A correctly numbered relative label repeats the already retained
+            # day index; removing the redundant label loses no itinerary fact.
+            continue
         elif label:
             unprocessed += 1
             diagnostics.append(SemanticDiagnostic(category="UNSUPPORTED_DAY_LABEL_REMOVED", field=f"day_labels[{index - 1}]"))
@@ -1888,6 +1986,7 @@ class ExperienceQwenProvider:
         output_cny_per_million: float | None = None,
         client: Any | None = None,
         enable_day_sections: bool = True,
+        enable_role_evidence: bool = False,
     ) -> None:
         if not api_key or not model or not base_url.startswith("https://"):
             raise ValueError("Live inference requires configured HTTPS credentials and model")
@@ -1900,6 +1999,13 @@ class ExperienceQwenProvider:
         self.rates = (input_cny_per_million, output_cny_per_million)
         self.prompt = PROMPT_PATH.read_text(encoding="utf-8")
         self.schema = SemanticDraft.model_json_schema()
+        if not enable_role_evidence:
+            # The evidence experiment increased cost and reduced measured
+            # recall. Keep its offline validator available, without adding
+            # unproven output obligations to the production model contract.
+            properties = self.schema["$defs"]["SemanticActivity"]["properties"]
+            for field in ("role_evidence", "parent_source_quote"):
+                properties.pop(field, None)
         self._owned = client is None
         self.client = client or AsyncOpenAI(
             api_key=api_key, base_url=base_url, timeout=deadline_seconds, max_retries=0,
@@ -1991,6 +2097,24 @@ class ExperienceQwenProvider:
                             if recovered is not None and (recovery_partial is None or
                                     len(recovered.mentions) > len(recovery_partial.mentions)):
                                 recovery_draft, recovery_partial = checked_recovery, recovered
+                        if (attempt == 0 and isinstance(exc, SourceAnchorValidationError) and exc.issues
+                            and checked_recovery is not None
+                            and all(issue["category"] == "MISSING_EXPLICIT_DAY" for issue in exc.issues)):
+                            missing_day_fields = [re.fullmatch(r"activities\[(\d+)\]\.day_index", issue["field"]) for issue in exc.issues]
+                            if (all(missing_day_fields) and all(
+                                checked_recovery.activities[int(field[1])].category == "住宿"
+                                and checked_recovery.activities[int(field[1])].place_name
+                                for field in missing_day_fields)):
+                                from app.trip_understanding.lodging_metadata import repair_lodging_metadata
+
+                                # A trip-wide hotel may legitimately precede
+                                # all days. Repair only its source-backed scope
+                                # before treating it as a missing visit date.
+                                repaired_draft, repaired_proposal = await repair_lodging_metadata(
+                                    self, source_text, checked_recovery, None, calls)
+                                if repaired_proposal is not None:
+                                    final_draft, proposal = repaired_draft, repaired_proposal
+                                break
                         if attempt == 1 and isinstance(exc, SourceAnchorValidationError) and exc.issues and all(
                             issue["category"] == "MISSING_EXPLICIT_DAY" for issue in exc.issues
                         ):
@@ -2052,6 +2176,12 @@ class ExperienceQwenProvider:
                             ])
                         continue
                     call["outcome"] = "SUCCESS"
+                    if attempt == 0 and final_draft is not None and any(mention.lodging_role_uncertain for mention in proposal.mentions):
+                        from app.trip_understanding.lodging_metadata import repair_lodging_metadata
+
+                        # Spend at most the existing second-call allowance on
+                        # the affected hotel fields, within this same deadline.
+                        final_draft, proposal = await repair_lodging_metadata(self, source_text, final_draft, proposal, calls)
                     break
         except TimeoutError:
             failure = "DEADLINE_EXCEEDED"
