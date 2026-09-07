@@ -33,7 +33,7 @@ import {
 } from '@/lib/trip-understanding-v3'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import PendingPlaceDropdown from './pending-place-dropdown'
-import PlacePhoto from './place-photo'
+import PlacePhoto, { PlacePhotoProvider } from './place-photo'
 import AccessibleDialog from './accessible-dialog'
 import { DAY_ACCENTS, DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
 
@@ -384,6 +384,7 @@ export default function ItineraryWorkspace({
 
 
   return (
+    <PlacePhotoProvider days={localDays}>
     <div
       data-testid="itinerary-workspace"
       data-reduced-motion={reduceMotion ? 'true' : 'false'}
@@ -734,6 +735,7 @@ export default function ItineraryWorkspace({
         )}
       </AnimatePresence>
     </div>
+    </PlacePhotoProvider>
   )
 }
 

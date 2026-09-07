@@ -5,7 +5,7 @@ const vm = require('node:vm')
 const ts = require('typescript')
 function load(name) {
   const filename = path.join(__dirname, '../src/lib', name + '.ts')
-  const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+  const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const exports = {}; vm.runInNewContext(code, { exports }); return exports
 }
 const view = load('confirmed-trip-view')
@@ -39,9 +39,13 @@ async function fixture(page, options = {}) {
   const state = { result: structuredClone(original), commands: [], searches: [], mapPosts: 0, version: 0 }
   if (options.brokenPhoto) state.result.days[0].activities[1].photo_url = 'https://store.is.autonavi.com/synthetic-broken.jpg'
   if (options.allMissing) state.result.days.forEach(d => d.activities.forEach(c => { c.status = 'NEEDS_CONFIRMATION' }))
+  if (options.historicPlaces) {
+    state.result.days[0].activities = ['天坛公园', '颐和园', '圆明园', ...Array.from({ length: 7 }, (_, i) => `合成${i}寺`)].map(name => card(name))
+    state.result.days[1].activities = []
+  }
   await page.route('**/restapi.amap.com/**', route => route.abort())
   await page.route('https://store.is.autonavi.com/**', route => route.fulfill({ status: 404, body: '' }))
-  if (options.failFallback) await page.route('**/place-types/restaurant.jpg', route => route.fulfill({ status: 404, body: '' }))
+  if (options.failFallback) await page.route('**/place-types/restaurant*.jpg', route => route.fulfill({ status: 404, body: '' }))
   await page.route('**/api/user/me', route => route.fulfill({ status: 401, json: {} }))
   await page.route('**/api/v3/trip-understandings/**', async route => {
     const request = route.request(), action = new URL(request.url()).pathname.slice(P.length)
@@ -114,15 +118,65 @@ for (const width of [1440, 1280, 390, 360]) test(`confirmed-only cards and nine 
     const title = page.getByRole('heading', { name, exact: true })
     await title.scrollIntoViewIfNeeded(); await expect(title).toBeVisible()
     const photo = page.locator(`img[data-image-type="${type}"]`).first()
-    await expect(photo).toHaveAttribute('src', `/place-types/${type}.jpg`)
+    await expect(photo).toHaveAttribute('src', new RegExp(`^/place-types/${type}(?:-\\d{2})?\\.jpg$`))
     await expect.poll(() => photo.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true)
   }
   await expect(page.getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
   await expect(page.getByTestId('day-alternatives-1')).toHaveCount(0)
   await expect(page.getByTestId('unmatched-places-note')).toContainText('3 项')
+  await expect(page.getByText('类型配图', { exact: true })).toHaveCount(0)
   await page.reload()
   await expect(page.getByRole('heading', { name: types[0][0], exact: true })).toBeVisible()
   await expect(page.getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
+})
+
+test('every photo subtype has at least ten distinct, traceable local assets', () => {
+  const crypto = require('node:crypto')
+  const directory = path.join(__dirname, '../public/place-types')
+  const sources = JSON.parse(fs.readFileSync(path.join(directory, 'sources.json'), 'utf8'))
+  for (const type of Object.keys(photos.PLACE_PHOTO_LABELS)) {
+    const entries = sources.filter(item => item.type === type)
+    expect(entries.length).toBeGreaterThanOrEqual(10)
+    expect(new Set(entries.map(item => item.sha256)).size).toBe(entries.length)
+    for (const item of entries) {
+      const content = fs.readFileSync(path.join(directory, item.file))
+      expect(crypto.createHash('sha256').update(content).digest('hex')).toBe(item.sha256)
+      expect(item.license).toBe('https://www.pexels.com/license/')
+    }
+  }
+})
+
+test('ten similar places use ten pictures, stable after refresh and reordering', async ({ page }) => {
+  const state = await fixture(page, { historicPlaces: true })
+  const images = page.locator('img[data-image-type="historic"]')
+  await expect(images).toHaveCount(10)
+  const read = () => images.evaluateAll(items => items.map(item => item.getAttribute('src')))
+  const first = await read()
+  expect(new Set(first).size).toBe(10)
+  for (const image of await images.all()) {
+    await image.scrollIntoViewIfNeeded()
+    await expect.poll(() => image.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true)
+  }
+  await expect(page.getByText('类型配图', { exact: true })).toHaveCount(0)
+  await page.reload()
+  await expect(images).toHaveCount(10)
+  expect(await read()).toEqual(first)
+  state.result.days[0].activities.reverse()
+  await page.reload()
+  await expect(images).toHaveCount(10)
+  expect(await read()).toEqual([...first].reverse())
+})
+
+test('repeated visits keep a picture and larger groups reuse the pool evenly', () => {
+  const cards = Array.from({ length: 21 }, (_, i) => card(`合成${i}寺`))
+  const selection = photos.allocatePlacePhotos([...cards, cards[0]])
+  expect(selection.size).toBe(21)
+  const counts = {}
+  for (const picture of selection.values()) counts[picture.src] = (counts[picture.src] || 0) + 1
+  expect(Object.keys(counts)).toHaveLength(10)
+  expect(Math.max(...Object.values(counts)) - Math.min(...Object.values(counts))).toBeLessThanOrEqual(1)
+  const reversed = photos.allocatePlacePhotos([...cards].reverse())
+  for (const [key, picture] of selection) expect(reversed.get(key).src).toBe(picture.src)
 })
 
 test('broken POI photo falls back to matching type', async ({ page }) => {

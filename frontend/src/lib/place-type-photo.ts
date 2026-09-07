@@ -25,7 +25,44 @@ export function placePhotoType(card: Pick<ActivityCardView, 'name' | 'category'>
   return null
 }
 
-export function placeTypePhoto(card: Pick<ActivityCardView, 'name' | 'category'>) {
+export const PLACE_PHOTO_COUNT = 10
+type PhotoCard = Pick<ActivityCardView, 'name' | 'category'> & Partial<Pick<ActivityCardView, 'city' | 'area_or_address'>>
+
+export function placePhotoKey(card: PhotoCard) {
+  return [card.city, card.name, card.category, card.area_or_address]
+    .map(value => (value || '').normalize('NFKC').replace(/\s/g, '')).join('|')
+}
+
+function photoOffset(key: string) {
+  let hash = 2166136261
+  for (const char of key) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+  return (hash >>> 0) % PLACE_PHOTO_COUNT
+}
+
+export function placeTypePhoto(card: PhotoCard, offset = photoOffset(placePhotoKey(card))) {
   const type = placePhotoType(card)
-  return type ? { type, src: `/place-types/${type}.jpg`, label: PLACE_PHOTO_LABELS[type] } : null
+  const suffix = offset === 0 ? '' : `-${String(offset + 1).padStart(2, '0')}`
+  return type ? { type, src: `/place-types/${type}${suffix}.jpg`, label: PLACE_PHOTO_LABELS[type] } : null
+}
+
+// Allocate within this itinerary, never in mutable global/browser state.
+// Sorting identities makes refresh and drag order irrelevant. Repeated visits
+// to the same place keep their picture; distinct places exhaust the pool before reuse.
+export function allocatePlacePhotos(cards: PhotoCard[]) {
+  const unique = new Map(cards.map(card => [placePhotoKey(card), card]))
+  const usage = new Map<PlacePhotoType, number[]>()
+  const selected = new Map<string, ReturnType<typeof placeTypePhoto>>()
+  for (const key of [...unique.keys()].sort()) {
+    const card = unique.get(key)!
+    const type = placePhotoType(card)
+    if (!type) continue
+    const counts = usage.get(type) || Array<number>(PLACE_PHOTO_COUNT).fill(0)
+    const minimum = Math.min(...counts)
+    let offset = photoOffset(key)
+    while (counts[offset] > minimum) offset = (offset + 1) % PLACE_PHOTO_COUNT
+    counts[offset]++
+    usage.set(type, counts)
+    selected.set(key, placeTypePhoto(card, offset))
+  }
+  return selected
 }

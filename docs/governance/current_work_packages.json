@@ -2,11 +2,11 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "confirmed-cards-and-typed-photos-20260907",
+    "id": "diverse-place-photos-20260907",
     "work_kind": "PRODUCT",
     "status": "COMPLETED",
-    "outcome": "按所有者新合同仅展示真实已匹配地点卡片，保留更改撤销；补齐分类网络配图，验证CBD攻略与失败降级。",
-    "verification": "PASS: 24 targeted browser/client checks, 6 backend share checks, production build, TypeScript, diff; Chrome original plus 3 real model/AMap cases; 5 matched places shown for owner guide; omitted CBD coverage remains; no deployment."
+    "outcome": "移除配图角标，每类至少10张真实不同的授权图片，行程内去重、刷新和排序稳定。",
+    "verification": "PASS: 16 targeted browser/client/asset checks; 90 distinct photo files, 10 per subtype; production build, TypeScript, diff; owner in-app example visually verified; no model/backend changes or deployment."
   },
   "packages": [],
   "next_planned_slice": "最小化复现长攻略一次修正后的原文引用错误，处理园内眺望对象和菜名误拆；冻结代码后重跑完整七份原文及排版/重复，不以历史成功替代当前失败，不扩大上线范围"
