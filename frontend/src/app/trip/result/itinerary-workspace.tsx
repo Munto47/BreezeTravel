@@ -397,7 +397,7 @@ export default function ItineraryWorkspace({
             onClick={() => setLayoutMode(layoutMode === 'CHAIN' ? 'LIST' : 'CHAIN')}>
             <List aria-hidden="true" />
           </button>
-          {mapView.status === 'NEEDS_UPDATE' && mapView.available_actions.includes('RENDER_MAP') && <button type="button" className="e-button" data-testid="update-card-routes" disabled={disabled} onClick={onRender}>更新步行路线</button>}
+          {mapView.status === 'NEEDS_UPDATE' && mapView.available_actions.includes('RENDER_MAP') && <button type="button" className="e-button" data-testid="update-card-routes" disabled={disabled} onClick={onRender}>更新路线</button>}
           {toolbar}
         </div>
 
@@ -786,7 +786,7 @@ function SerpentineConnectors({day,layout,mapView,pending}: {day:DayView;layout:
       const connector=transportConnectorFor(day,card,day.activities[index+1],mapView,pending)
       const available=connector.status==='AVAILABLE'
       const Icon=available ? connector.mode==='walking' ? Footprints : BusFront : ArrowRight
-      const label=available ? `${connector.mode==='walking'?'步行':'公交'} · ${connector.durationMinutes} 分钟${connector.distanceMeters===null?'':` · ${distanceLabel(connector.distanceMeters)}`}` : connector.status==='NEEDS_UPDATE' ? '路线需要更新' : '路线待确认'
+      const label=available ? `${connector.mode==='walking'?'步行':'公交'} · ${connector.durationMinutes} 分钟${connector.distanceMeters===null?'':` · ${distanceLabel(connector.distanceMeters)}`}` : connector.status==='NEEDS_UPDATE' ? '路线需要更新' : connector.status==='UNAVAILABLE' ? '路线暂不可用' : '路线准备中'
       return <div key={index} data-testid="transport-connector" data-connector-status={connector.status} data-turn={edge.turn} aria-label={label}>
         <svg className="serpentine-edge" width={layout.width} height={layout.height} aria-hidden="true">
           <path data-testid="order-arc" d={edge.path} fill="none" stroke="currentColor" strokeWidth="1.4"/>

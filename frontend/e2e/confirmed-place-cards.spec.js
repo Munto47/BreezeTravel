@@ -10,6 +10,7 @@ function load(name) {
 }
 const view = load('confirmed-trip-view')
 const photos = load('place-type-photo')
+const presentation = load('../app/trip/result/result-presentation')
 const R = 'synthetic-confirmed-trip-only'
 const P = `/api/v3/trip-understandings/${R}`
 const types = [
@@ -43,6 +44,13 @@ async function fixture(page, options = {}) {
     state.result.days[0].activities = ['天坛公园', '颐和园', '圆明园', ...Array.from({ length: 7 }, (_, i) => `合成${i}寺`)].map(name => card(name))
     state.result.days[1].activities = []
   }
+  if (options.routes) {
+    const visible = state.result.days[0].activities.filter(card => card.status === 'READY')
+    const mode = minutes => ({ status: 'AVAILABLE', duration_minutes: minutes, distance_meters: 1500, geometry: [] })
+    state.result.map = { status: 'AVAILABLE', message: '路线已准备', available_actions: ['VIEW_MAP'], days: [{ label: 'Day 1', day_index: 1,
+      routes: [0, 1].map(i => ({ from_activity_token: visible[i].activity_token, to_activity_token: visible[i + 1].activity_token,
+        from_name: visible[i].name, to_name: visible[i + 1].name, selected_mode: 'walking', walking: mode(i ? 30 : 31), transit: mode(40) })) }] }
+  }
   await page.route('**/restapi.amap.com/**', route => route.abort())
   await page.route('https://store.is.autonavi.com/**', route => route.fulfill({ status: 404, body: '' }))
   if (options.failFallback) await page.route('**/place-types/restaurant*.jpg', route => route.fulfill({ status: 404, body: '' }))
@@ -56,7 +64,7 @@ async function fixture(page, options = {}) {
       progress: { day_count: 2, card_count: 12, places_checked: 9, places_total: 12 },
       snapshot: state.result,
     }, 202) : reply(state.result)
-    if (action === '/map-renders/latest') return reply({ ...state.result.map, points: [], days: [] })
+    if (action === '/map-renders/latest') return reply({ ...state.result.map, points: [], days: state.result.map.days || [] })
     if (action === '/stay-suggestions') return reply(state.result.stay)
     if (action === '/supplementary') return reply({ status: 'AVAILABLE', days: [] })
     if (action === '/materialize') return reply({ status: 'READY', message: '行程已准备。', calendar: '按日期', party_size: 2, checks_available: true })
@@ -191,6 +199,39 @@ test('generation snapshots also show only confirmed cards', async ({ page }) => 
   await expect(cards.getByText('已确认', { exact: true })).toHaveCount(9)
   await expect(page.getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
   await expect(cards.getByText('待确认', { exact: true })).toHaveCount(0)
+})
+
+test('tips change every 2.5 seconds and pause while reading', async ({ page }) => {
+  await page.clock.install()
+  await fixture(page, { progress: true })
+  await page.mouse.move(0, 0)
+  const tip = page.getByTestId('generation-reading')
+  await expect(tip.getByRole('heading')).toHaveText('先排顺序，再慢慢完善')
+  await page.clock.fastForward(2500)
+  await expect(tip.getByRole('heading')).toHaveText('地点已匹配，仍可随时更改')
+  await tip.hover()
+  await page.clock.fastForward(5000)
+  await expect(tip.getByRole('heading')).toHaveText('地点已匹配，仍可随时更改')
+})
+
+test('cards use walking through 30 minutes and transit beyond it', async ({ page }) => {
+  await fixture(page, { routes: true })
+  await expect(page.getByText('公交 · 40 分钟 · 1.5 公里', { exact: true })).toBeVisible()
+  await expect(page.getByText('步行 · 30 分钟 · 1.5 公里', { exact: true })).toBeVisible()
+  await expect(page.getByText('步行 · 31 分钟', { exact: false })).toHaveCount(0)
+})
+
+test('route threshold handles unavailable modes and stale routes honestly', () => {
+  const raw = fixtureResult(), day = raw.days[0], from = day.activities[1], to = day.activities[3]
+  for (const [walk, bus, expected] of [[29,10,'walking'],[30,10,'walking'],[31,40,'transit'],[null,40,'transit'],[31,null,null],[null,null,null]]) {
+    const mode = minutes => ({ status: minutes ? 'AVAILABLE' : 'UNAVAILABLE', duration_minutes: minutes, distance_meters: 500 })
+    const map = { status: 'AVAILABLE', days: [{ label: day.label, routes: [{ from_activity_token: from.activity_token,
+      to_activity_token: to.activity_token, selected_mode: 'walking', walking: mode(walk), transit: mode(bus) }] }] }
+    const result = presentation.transportConnectorFor(day, from, to, map)
+    if (expected) expect(result.mode).toBe(expected)
+    else expect(result.status).toBe('UNAVAILABLE')
+    expect(presentation.transportConnectorFor(day, from, to, { ...map, status: 'NEEDS_UPDATE' }).status).toBe('NEEDS_UPDATE')
+  }
 })
 
 test('older read-only shares omit unresolved cards while preserving day labels', async ({ page }) => {

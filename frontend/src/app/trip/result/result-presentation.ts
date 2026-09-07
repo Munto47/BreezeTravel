@@ -19,7 +19,7 @@ export const DAY_ACCENTS = [
 
 export type TransportConnector =
   | { status: 'AVAILABLE'; mode: 'walking' | 'transit'; durationMinutes: number; distanceMeters: number | null }
-  | { status: 'NEEDS_UPDATE' | 'PENDING' }
+  | { status: 'NEEDS_UPDATE' | 'PENDING' | 'UNAVAILABLE' }
 
 type DayView = UserFacingTripResult['days'][number]
 type RouteView = MapRenderView['days'][number]['routes'][number]
@@ -39,6 +39,7 @@ export function transportConnectorFor(
   locallyPending = false,
 ): TransportConnector {
   if (locallyPending || mapView.status === 'NEEDS_UPDATE') return { status: 'NEEDS_UPDATE' }
+  if (mapView.status === 'UNAVAILABLE') return { status: 'UNAVAILABLE' }
   if (!['AVAILABLE', 'LIMITED'].includes(mapView.status)) return { status: 'PENDING' }
 
   const matchingDays = mapView.days.filter((candidate) => candidate.label === day.label)
@@ -63,11 +64,12 @@ export function transportConnectorFor(
   if (candidates.length !== 1) return { status: 'PENDING' }
   const route = candidates[0]
   const mode = route.walking.status === 'AVAILABLE' && isPositiveDuration(route.walking.duration_minutes)
-    ? 'walking' : route.selected_mode
-  if (mode !== 'walking' && mode !== 'transit') return { status: 'PENDING' }
+    && route.walking.duration_minutes <= 30
+    ? 'walking' : route.transit.status === 'AVAILABLE' ? 'transit' : null
+  if (mode !== 'walking' && mode !== 'transit') return { status: 'UNAVAILABLE' }
   const selected = route[mode]
   if (selected.status !== 'AVAILABLE' || !isPositiveDuration(selected.duration_minutes)) {
-    return { status: 'PENDING' }
+    return { status: 'UNAVAILABLE' }
   }
   return { status: 'AVAILABLE', mode, durationMinutes: selected.duration_minutes, distanceMeters: typeof selected.distance_meters === 'number' && Number.isFinite(selected.distance_meters) && selected.distance_meters >= 0 ? selected.distance_meters : null }
 }

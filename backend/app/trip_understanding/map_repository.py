@@ -163,7 +163,7 @@ def map_view_with_points(view: MapRenderView, plan: MapRenderPlan) -> MapRenderV
         sequence_index=stop.sequence_index, name=stop.name,
         position=PublicMapPosition(longitude=stop.longitude, latitude=stop.latitude)
         if stop.resolution_status == "AUTO_MATCHED" and stop.longitude is not None and stop.latitude is not None else None)
-        for stop in plan.stops if stop.activity_token]
+        for stop in plan.stops if stop.activity_token and stop.resolution_status == "AUTO_MATCHED" and stop.canonical_place_id]
     labels = {stop.day_index: stop.day_label for stop in plan.stops}
     for day in view.days:
         if day.day_index in labels:
@@ -171,7 +171,7 @@ def map_view_with_points(view: MapRenderView, plan: MapRenderPlan) -> MapRenderV
     # Old geometry remains visible, but cannot claim to connect current edited cards.
     if view.status != "NEEDS_UPDATE":
         for day in view.days:
-            stops = sorted((stop for stop in plan.stops if stop.day_label == day.label), key=lambda stop: stop.sequence_index)
+            stops = sorted((stop for stop in plan.stops if stop.day_label == day.label and stop.resolution_status == "AUTO_MATCHED" and stop.canonical_place_id), key=lambda stop: stop.sequence_index)
             for index, edge in enumerate(day.routes):
                 if index + 1 < len(stops) and edge.from_name == stops[index].name and edge.to_name == stops[index + 1].name:
                     edge.from_activity_token = stops[index].activity_token
