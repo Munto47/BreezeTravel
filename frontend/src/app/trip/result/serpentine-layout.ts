@@ -1,12 +1,12 @@
 /** Chronological DOM order, paired rows with traffic outside each pair. */
-export function serpentineLayout(width: number, count: number) {
+export function serpentineLayout(width: number, count: number, minimumCardHeight = 0) {
   const compact = width < 600
   const padding = compact ? 16 : 36
   const gap = compact ? 12 : 18
   const preferred = compact ? 128 : 170
   const columns = Math.max(1, Math.min(6, Math.floor((width-padding*2+gap)/(preferred+gap))))
   const cardWidth = Math.min(184,(width-padding*2-gap*(columns-1))/columns)
-  const cardHeight = compact ? 158 : 168
+  const cardHeight = Math.max(compact ? 158 : 168, minimumCardHeight)
   const left = (width-columns*cardWidth-(columns-1)*gap)/2
   const point = (index: number) => {
     const row=Math.floor(index/columns), offset=index%columns

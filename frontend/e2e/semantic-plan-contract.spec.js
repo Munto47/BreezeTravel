@@ -61,6 +61,100 @@ async function exportObservedPng(page, info, filename) {
   return rendered.map(item => item.text)
 }
 
+test.describe('owner weak route modality through provider to page', () => {
+  let replay
+  const names = ['青溪公园', '星河博物馆', '云岭古镇', '望星塔', '月光公园']
+  test.beforeAll(() => {
+    // Owner rule 2026-09-08. A fixed model supplies PLANNED roles; no test
+    // promotes its own OPTIONAL or REFERENCE response to make this pass.
+    replay = JSON.parse(execFileSync(process.env.EXPERIENCE_PYTHON || 'python', ['-c', `
+import asyncio, json
+from tests.test_experience_inference import Client
+from tests.test_semantic_day_sections import provider
+from tests.semantic_page_replays import FixedReplayPlaces
+from app.trip_understanding.pipeline import TripUnderstandingPipeline
+
+async def replay():
+    source = ('北京一日游。\\nDay1：\\n上午先去青溪公园。\\n随后可以去星河博物馆。\\n'
+        '中午：云岭古镇可顺路参观。\\n下午：望星塔可以打卡。\\n傍晚建议前往月光公园。\\n'
+        '如果有空，可以去紫岚公园。\\n路线外资料举例：远山博物馆。')
+    names = ['青溪公园', '星河博物馆', '云岭古镇', '望星塔', '月光公园']
+    rows = [dict(source_quote=name, place_name=name, role=role, day_index=day,
+        category='景点', city='北京', city_evidence='北京一日游')
+        for name, role, day in [(name, 'PLANNED', 1) for name in names]
+            + [('紫岚公园', 'OPTIONAL', 1), ('远山博物馆', 'REFERENCE', None)]]
+    class Places(FixedReplayPlaces):
+        def __init__(self):
+            self.calls = []
+        async def resolve(self, **query):
+            self.calls.append(query['atomic_place_name'])
+            return await super().resolve(**query)
+    places = Places()
+    model = Client(json.dumps(dict(destination='北京', day_labels=['Day1'], activities=rows), ensure_ascii=False))
+    output = await TripUnderstandingPipeline(provider(model), places).run(source)
+    assert len(model.calls) == 1
+    assert places.calls == names
+    assert [mention.role.value for mention in output.proposal.mentions] == ['PLANNED'] * 5 + ['OPTIONAL', 'REFERENCE']
+    result = output.public_result.model_dump(mode='json')
+    assert [card['name'] for card in result['days'][0]['activities']] == names
+    assert [item['name'] for item in result['days'][0]['alternatives']] == ['紫岚公园']
+    return dict(result=result, fixed_model_calls=len(model.calls), fixed_place_queries=places.calls,
+        external_calls=0, evidence='FIXED_RAW_CURRENT_PROVIDER_PIPELINE_FIXED_IDENTITIES_NOT_LIVE_ACCURACY')
+
+print(json.dumps(asyncio.run(replay()), ensure_ascii=False))
+`], {cwd: path.resolve(__dirname, '../../backend'), encoding: 'utf8',
+      env: {...process.env, RUNTIME_PROFILE: 'test', PYTHONPATH: '.', PYTHONIOENCODING: 'utf-8'},
+    }))
+  })
+
+  for (const width of [1440, 390]) {
+    test(`weak route advice remains ordinary main cards and PNG at ${width}px`, async ({page}, info) => {
+      await page.setViewportSize({width, height: 900})
+      await page.addInitScript(() => {
+        window.exportText = []
+        const original = CanvasRenderingContext2D.prototype.fillText
+        CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
+          const position = this.getTransform().transformPoint({x, y})
+          window.exportText.push({text: String(text), x: position.x, y: position.y,
+            width: this.measureText(String(text)).width, canvasWidth: this.canvas.width, canvasHeight: this.canvas.height})
+          return original.call(this, text, x, y, ...rest)
+        }
+      })
+      expect(replay.external_calls).toBe(0)
+      expect(replay.fixed_model_calls).toBe(1)
+      expect(replay.fixed_place_queries).toEqual(names)
+      await show(page, 'weak_route', replay.result)
+      const cards = page.getByTestId('activity-card')
+      await expect(cards).toHaveCount(5)
+      await expect(cards.getByRole('heading')).toHaveText(names)
+      for (const card of await cards.all()) {
+        await expect(card).toContainText('已确认')
+        await expect(card).not.toContainText(/备选|推荐|建议|可选/)
+      }
+      await expect(page.getByTestId('day-alternatives-1')).toHaveText('备选 · 1')
+      await expect(page.getByTestId('itinerary-workspace')).not.toContainText('远山博物馆')
+      await page.screenshot({path: info.outputPath(`weak-route-main-${width}.png`), fullPage: true})
+      await page.getByTestId('day-alternatives-1').click()
+      const panel = page.getByRole('complementary', {name: '检查与建议', exact: true})
+      await expect(panel).toContainText('紫岚公园')
+      await expect(panel.getByRole('button', {name: '加入待确认', exact: true})).toHaveCount(1)
+      await expect(cards.filter({hasText: '紫岚公园'})).toHaveCount(0)
+      await expect(page.locator('body')).not.toContainText('远山博物馆')
+      await page.screenshot({path: info.outputPath(`weak-route-condition-${width}.png`), fullPage: true})
+      await page.reload()
+      await expect(cards.getByRole('heading')).toHaveText(names)
+      const texts = await exportObservedPng(page, info, `weak-route-export-${width}`)
+      for (const name of names) expect(texts).toContain(name)
+      expect(texts).toContain('共 1 天 · 5 个地点 · 生成时地图底图未包含')
+      expect(texts).toContain('备选：1 处，未纳入主线')
+      expect(texts).not.toContain('紫岚公园')
+      expect(texts).not.toContain('远山博物馆')
+      expect(texts.filter(text => text === '已确认')).toHaveLength(5)
+      await info.attach('weak-route-generated-public-result', {body: JSON.stringify(replay), contentType: 'application/json'})
+    })
+  }
+})
+
 test.describe('parent scope provider to page', () => {
   let invalidParentResult
   test.beforeAll(() => {
@@ -293,7 +387,7 @@ for (const width of [1440, 390]) {
   })
 }
 
-for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 390], ['optional', 390]]) {
+for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 390], ['optional', 390], ['long_names', 1440]]) {
   test(`PNG completion status: ${kind} at ${width}px`, async ({page}, info) => {
     await page.setViewportSize({width, height: 900})
     // Observe the actual canvas without replacing drawing, encoding or download.
@@ -303,11 +397,20 @@ for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 39
       CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
         const position = this.getTransform().transformPoint({x, y})
         window.exportText.push({text: String(text), x: position.x, y: position.y,
-          width: this.measureText(String(text)).width, canvasWidth: this.canvas.width, canvasHeight: this.canvas.height})
+          font: this.font, width: this.measureText(String(text)).width, canvasWidth: this.canvas.width, canvasHeight: this.canvas.height})
         return original.call(this, text, x, y, ...rest)
       }
     })
-    const result = structuredClone(results[kind === 'pending_semantics' ? 'lodging' : kind])
+    const result = structuredClone(results[['pending_semantics', 'long_names'].includes(kind) ? 'lodging' : kind])
+    if (kind === 'long_names') {
+      // Synthetic public-layout stress only: eight 40-character labels force
+      // wrapped names and a second snake row. These are not real place claims.
+      const template = result.days[0].activities.find(card => card.status === 'READY')
+      result.days[0].activities = Array.from({length: 8}, (_, index) => ({...template,
+        activity_token: `synthetic-export-long-${index}`,
+        name: '长名称布局验证'.repeat(6).slice(0, 39) + String(index), source_details: [],
+      }))
+    }
     if (kind === 'pending_semantics') {
       // Fixed public-state counterexample, not a claim about the saved raw:
       // independent semantic and identity warnings must both survive export.
@@ -319,14 +422,23 @@ for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 39
     }
     await show(page, kind, result)
     const texts = await exportObservedPng(page, info, `honest-${kind}-${width}`)
+    const drawn = await page.evaluate(() => window.exportText)
+    const drawnNames = []
+    let name = ''
+    for (const item of [...drawn, {}]) {
+      if (/^(?:bold|700) 15px/.test(item.font || '') && item.x > 176) {
+        name += item.text
+        expect(item.text).not.toContain('…')
+        expect(item.width).toBeLessThanOrEqual(152)
+        expect(item.y).toBeLessThan(item.canvasHeight - 64)
+      } else if (name) {
+        drawnNames.push(name)
+        name = ''
+      }
+    }
+    expect(drawnNames).toEqual(result.days.flatMap(day => day.activities.filter(card => card.status === 'READY').map(card => card.name)))
     for (const day of result.days) {
       expect(texts.filter(text => text === day.label)).toHaveLength(1)
-      for (const card of day.activities.filter(card => card.status === 'READY')) {
-        // Existing fixed-width PNG cards shorten long names with an ellipsis.
-        const hasName = text => text === card.name || (text.endsWith('…') && text.length >= 5 && card.name.startsWith(text.slice(0, -1)))
-        expect(texts.filter(hasName).length, card.name).toBe(
-          result.days.flatMap(day => day.activities).filter(item => item.name === card.name).length)
-      }
     }
     if (kind === 'truncated_whole') {
       expect(result.days).toHaveLength(14)
@@ -347,7 +459,7 @@ for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 39
       expect(texts.filter(text => text === '已确认')).toHaveLength(8)
       expect(texts).toContain('路线状态：行程已调整，需要更新')
       expect(texts).toContain('路线需要更新')
-    } else {
+    } else if (kind === 'optional') {
       expect(result.days).toHaveLength(2)
       expect(result.days[1].activities).toHaveLength(0)
       expect(result.days[1].alternatives).toHaveLength(1)
@@ -355,6 +467,10 @@ for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 39
       expect(texts).not.toContain('月光桥')
       expect(texts).not.toContain('原文尚未完整整理，请返回行程补全')
       expect(texts.filter(text => text === '已确认')).toHaveLength(1)
+    } else {
+      expect(drawnNames.slice(0, 8).every(name => name.length === 40)).toBe(true)
+      const lastLines = drawn.filter(item => /^(?:bold|700) 15px/.test(item.font || '') && item.x > 176)
+      expect(lastLines.length).toBeGreaterThan(drawnNames.length)
     }
   })
 }

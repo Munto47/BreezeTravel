@@ -80,7 +80,6 @@ async function renderItinerary(
   const leftWidth = 140
   const padding = 36
   const width = 1440
-  const dayLayouts = result.days.map(day => serpentineLayout(width-padding*2-leftWidth-16, day.activities.length))
   const statusMessages = exportStatus(result)
   const dayMessages = result.days.map(dayExportStatus)
   const headerHeight = 188 + statusMessages.length * 24
@@ -88,6 +87,19 @@ async function renderItinerary(
   canvas.width = width
   const context = canvas.getContext('2d')
   if (!context) throw new Error('CANVAS_UNAVAILABLE')
+  const nameLineHeight = 21
+  const layoutWidth = width - padding * 2 - leftWidth - 16
+  context.font = '700 15px "Microsoft YaHei", sans-serif'
+  const dayNames = result.days.map(day => {
+    const layout = serpentineLayout(layoutWidth, day.activities.length)
+    return day.activities.map(card => wrapText(context, card.name, layout.cardWidth - 32))
+  })
+  const dayLayouts = result.days.map((day, index) => {
+    const lines = Math.max(1, ...dayNames[index].map(name => name.length))
+    // Name starts at y=59; keep its status badge and bottom padding below
+    // every line. The shared layout moves later rows and connectors with it.
+    return serpentineLayout(layoutWidth, day.activities.length, 119 + (lines - 1) * nameLineHeight)
+  })
   context.font = '600 14px "Microsoft YaHei", sans-serif'
   const sourceLines = result.days.map(day => {
     const parents = day.activities.filter(card => card.source_details?.length)
@@ -211,14 +223,16 @@ async function renderItinerary(
       context.fillText(fitText(context, card.category, cardWidth - 55), x + 42, cardY + 27)
       context.fillStyle = '#172e38'
       context.font = '700 15px "Microsoft YaHei", sans-serif'
-      context.fillText(fitText(context, card.name, cardWidth - 32), x + 16, cardY + 59)
+      const nameLines = dayNames[dayIndex][cardIndex]
+      nameLines.forEach((line, index) => context.fillText(line, x + 16, cardY + 59 + index * nameLineHeight))
+      const statusY = cardY + 79 + (nameLines.length - 1) * nameLineHeight
       context.fillStyle = card.status === 'READY' ? '#e5f5f7' : '#fff4dd'
       context.beginPath()
-      context.roundRect(x + 16, cardY + 79, card.status === 'READY' ? 58 : 50, 24, 12)
+      context.roundRect(x + 16, statusY, card.status === 'READY' ? 58 : 50, 24, 12)
       context.fill()
       context.fillStyle = card.status === 'READY' ? '#0c789d' : '#855b19'
       context.font = '600 11px "Microsoft YaHei", sans-serif'
-      context.fillText(card.status === 'READY' ? '已确认' : '待确认', x + 26, cardY + 95)
+      context.fillText(card.status === 'READY' ? '已确认' : '待确认', x + 26, statusY + 16)
     })
     sourceLines[dayIndex].forEach((line, index) => {
       context.fillStyle = line.heading ? '#0c789d' : '#425c66'
