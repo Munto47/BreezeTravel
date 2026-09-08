@@ -24,6 +24,14 @@ class SourceVisitSupplement(StrictModel):
     evidence: str = Field(min_length=1, max_length=500)
 
 
+class SourceVisitPurpose(StrictModel):
+    """A purpose belongs to one supplied visit, without a second name index."""
+    parent_index: int = Field(ge=0, le=159, strict=True)
+    kind: Literal["EXTERIOR_ONLY", "PICKUP_ONLY"]
+    optional: bool = Field(strict=True)
+    evidence: str = Field(min_length=1, max_length=500)
+
+
 def _literal_matches(source: str, quote: str) -> list[tuple[tuple[int, int], list[int]]]:
     from app.trip_understanding.experience_inference import _markdown_visible
 
@@ -84,8 +92,9 @@ def _shared_purpose_roots(source: str, parent: ProposedMention, roots: list[Prop
 def _scope_parent(source, anchors, row, parent, roots, start, end, *, explicit_kind=False):
     from app.trip_understanding.experience_inference import SemanticActivity, _validated_internal_parent
 
-    item = SemanticActivity(source_quote=row.source_quote,
-        place_name=row.source_quote if len(row.source_quote) <= 40 else None,
+    quote = row.source_quote if isinstance(row, SourceVisitSupplement) else source[start:end]
+    item = SemanticActivity(source_quote=quote,
+        place_name=quote if len(quote) <= 40 else None,
         role=ActivityRole.OPTIONAL if row.optional else ActivityRole.REFERENCE,
         day_index=parent.day_index, parent_source_quote=parent.atomic_place_name, role_evidence=row.evidence)
     return _validated_internal_parent(source, anchors, item, start, end, parent.day_index,
@@ -147,11 +156,37 @@ def _purpose_supported(row):
         and re.search(r"不(?:进|入|参观)[^。；;\n]{0,6}(?:展厅|内部|馆|园)", text)) else None
 
 
+def _unique_purpose_action(source: str, row: SourceVisitPurpose, evidence_match):
+    """Locate one supported action; shortened evidence cannot hide negation."""
+    from app.trip_understanding.experience_inference import _markdown_visible
+
+    span, indices = evidence_match
+    action = _purpose_supported(row)
+    if action is None:
+        return None
+    visible, _ = _markdown_visible(row.evidence)
+    if _purpose_supported(row.model_copy(update={"evidence": visible[action[1]:]})) is not None:
+        return None  # Two purpose actions inside one quote remain ambiguous.
+    located = (indices[action[0]], indices[action[1] - 1] + 1)
+    left = max(source.rfind(mark, 0, located[0]) for mark in "\n。；;") + 1
+    right = min((p for mark in "\n。；;" if (p := source.find(mark, located[1])) >= 0), default=len(source))
+    context = source[left:right]
+    actual = _purpose_supported(row.model_copy(update={"evidence": context}))
+    _, context_indices = _markdown_visible(context)
+    if actual is None or (left + context_indices[actual[0]], left + context_indices[actual[1] - 1] + 1) != located:
+        return None
+    if row.optional and not _cancelled_or_conditional(source, *located, context, False):
+        return None  # Explicit purpose cannot acquire an unsupported condition.
+    if _cancelled_or_conditional(source, *located, context, row.optional):
+        return None
+    return located
+
+
 def apply_source_visit_supplement(
     source: str, proposal: SourceSemanticPlan,
-    rows: Sequence[SourceVisitSupplement | dict], *, parent_ids: Sequence[str],
+    rows: Sequence[SourceVisitSupplement | SourceVisitPurpose | dict], *, parent_ids: Sequence[str],
 ) -> SourceSemanticPlan:
-    """Append validated children; parent IDs are the request's immutable table.
+    """Attach validated children; parent IDs are the request's immutable table.
 
     This synchronous function neither infers task state from binding nor writes
     SUCCESS. The caller retains normal cancellation/deadline ownership. A bad
@@ -166,6 +201,7 @@ def apply_source_visit_supplement(
     by_id = {mention.mention_id: mention for mention in proposal.mentions}
     roots = [mention for mention in proposal.mentions if not mention.parent_mention_id]
     additions = []
+    reconciled_ids = set()
     addition_origins = {}
     response_visits = {}
     issues = []
@@ -191,15 +227,27 @@ def apply_source_visit_supplement(
 
     for index, raw in enumerate(rows):
         try:
-            row = raw if isinstance(raw, SourceVisitSupplement) else SourceVisitSupplement.model_validate(raw)
+            if isinstance(raw, (SourceVisitSupplement, SourceVisitPurpose)):
+                row = raw
+            elif (isinstance(raw, dict) and raw.get("kind") in {"EXTERIOR_ONLY", "PICKUP_ONLY"}
+                  and not {"source_quote", "occurrence"}.intersection(raw)):
+                row = SourceVisitPurpose.model_validate(raw)
+            else:
+                # Explicit legacy anchors never fall through to the new type,
+                # even if their occurrence is wrong or their quote is missing.
+                row = SourceVisitSupplement.model_validate(raw)
         except ValidationError:
             spans = _literal_spans(source, raw.get("evidence", "")) if isinstance(raw, dict) and isinstance(raw.get("evidence"), str) else []
             reject(index, spans[0] if len(spans) == 1 else None)
             continue
         evidence_matches = _literal_matches(source, row.evidence)
         evidence_spans = [span for span, _ in evidence_matches]
-        quotes = _literal_matches(source, row.source_quote)
-        span, quote_indices = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else (None, [])
+        if isinstance(row, SourceVisitPurpose):
+            span = _unique_purpose_action(source, row, evidence_matches[0]) if len(evidence_matches) == 1 else None
+            quote_indices = []
+        else:
+            quotes = _literal_matches(source, row.source_quote)
+            span, quote_indices = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else (None, [])
         parent = by_id.get(parent_ids[row.parent_index]) if row.parent_index < len(parent_ids) else None
         diagnostic_span = evidence_spans[0] if len(evidence_spans) == 1 else span
         if (not parent or parent.role != ActivityRole.PLANNED or parent.parent_mention_id
@@ -209,7 +257,7 @@ def apply_source_visit_supplement(
             reject(index, diagnostic_span)
             continue
         selected = None
-        name = row.source_quote
+        name = source[span[0]:span[1]] if isinstance(row, SourceVisitPurpose) else row.source_quote
         if row.kind in {"VISIT", "ENTRY", "EXIT"}:
             gate = _gate_anchor(row, quote_indices) if row.kind != "VISIT" else None
             for evidence_span in evidence_spans:
@@ -256,6 +304,16 @@ def apply_source_visit_supplement(
         purpose_key = (parent.mention_id, row.kind, *selected)
         if row.kind in {"EXTERIOR_ONLY", "PICKUP_ONLY"} and purpose_key in purpose_evidence:
             continue
+        same_occurrence = [mention for mention in roots
+            if row.kind == "VISIT" and mention.day_index == parent.day_index
+            and (mention.span_start, mention.span_end) == span and mention.atomic_place_name == name]
+        if same_occurrence and (len(same_occurrence) != 1 or not row.optional
+            or same_occurrence[0].role != ActivityRole.OPTIONAL
+            or same_occurrence[0].mention_id in reconciled_ids):
+            # The supplement may clarify where one optional visit belongs,
+            # but cannot demote a main stop or resolve conflicting occurrences.
+            reject(index, diagnostic_span)
+            continue
         child = ProposedMention(mention_id=f"source-visit-{parent.mention_id}-{row.kind}-{span[0]}-{span[1]}",
             raw_text=source[span[0]:span[1]], span_start=span[0], span_end=span[1],
             role=ActivityRole.OPTIONAL if row.optional else ActivityRole.REFERENCE,
@@ -263,6 +321,14 @@ def apply_source_visit_supplement(
             category_hint=parent.category_hint, parent_mention_id=parent.mention_id,
             relation_type="INTERNAL_DETAIL", detail_kind=row.kind, role_evidence=source[selected[0]:selected[1]],
             role_evidence_start=selected[0], role_evidence_end=selected[1])
+        if same_occurrence:
+            # Keep the original occurrence's ID, role, source and metadata.
+            # Only its validated parent relation and internal ordering change.
+            original = same_occurrence[0]
+            child = original.model_copy(update={field: getattr(child, field) for field in (
+                "parent_mention_id", "relation_type", "detail_kind", "sequence_index",
+                "role_evidence", "role_evidence_start", "role_evidence_end")})
+            reconciled_ids.add(original.mention_id)
         additions.append(child)
         addition_origins[child.mention_id] = (index, diagnostic_span)
         existing[key] = child
@@ -301,7 +367,10 @@ def apply_source_visit_supplement(
                     child.sequence_index = left + offset
             left, pending = right, []
     additions = [child for child in additions if child.mention_id not in rejected_ids]
-    if len(proposal.mentions) + len(additions) > MAX_TRIP_ACTIVITIES:
+    # An order failure leaves the original independent optional untouched.
+    reconciled_ids &= {child.mention_id for child in additions}
+    retained = [mention for mention in proposal.mentions if mention.mention_id not in reconciled_ids]
+    if len(retained) + len(additions) > MAX_TRIP_ACTIVITIES:
         raise InferenceProviderUnavailableError(INPUT_CAPACITY_EXCEEDED,
             provider_binding=proposal.binding, external_call_count=int(proposal.binding.get("external_calls", 0)))
     covered = {(m.span_start, m.span_end) for m in additions}
@@ -316,6 +385,6 @@ def apply_source_visit_supplement(
             by_day[day] -= 1
     for day, count in issue_days.items():
         by_day[day] = by_day.get(day, 0) + count
-    return proposal.model_copy(update={"mentions": [*proposal.mentions, *additions], "diagnostics": diagnostics,
+    return proposal.model_copy(update={"mentions": [*retained, *additions], "diagnostics": diagnostics,
         "unprocessed_count": max(0, proposal.unprocessed_count - len(removed)) + len(issues),
         "unprocessed_by_day": by_day})

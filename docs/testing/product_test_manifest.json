@@ -91,7 +91,9 @@
         "tests/test_lodging_occurrence_anchors.py",
         "tests/test_collaboration_import.py",
         "tests/test_strict_source_capacity.py",
-        "tests/test_meal_slot_selection.py"
+        "tests/test_meal_slot_selection.py",
+        "tests/test_source_visit_optional_reconciliation.py",
+        "tests/test_source_visit_purpose_contract.py"
       ]
     },
     "postgres": {
