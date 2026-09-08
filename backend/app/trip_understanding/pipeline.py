@@ -1244,6 +1244,7 @@ class PublicResultProjector:
                     following = [row for row in daily if row.compiled.mention.sequence_index > mention.sequence_index
                                  and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
                     meal_slots.append(MealSlotView(meal_role=mention.meal_role, selection_status="UNSELECTED",
+                        preference_text=" ".join(mention.raw_text.split()) if len(mention.raw_text) <= 1000 else None,
                         after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
                         before_activity_token=following[0].compiled.public_activity_token if following else None))
                     continue
@@ -1289,6 +1290,7 @@ class PublicResultProjector:
                 )
             choices = []
             seen_choices: set[tuple] = set()
+            sequence_by_token = {item.compiled.public_activity_token: item.compiled.mention.sequence_index for item in daily}
             for alternative in alternatives:
                 mention = alternative.mention
                 name = mention.atomic_place_name
@@ -1304,8 +1306,19 @@ class PublicResultProjector:
                         return None
                     return hashlib.sha256(f"{destination_name}|{value}".encode()).hexdigest()[:32]
 
+                first_sequence = min((item.mention.sequence_index for item in alternatives
+                    if mention.choice_group_id and item.mention.choice_group_id == mention.choice_group_id
+                    and item.mention.day_index == day_index), default=mention.sequence_index)
+                insertion_position = sum(sequence_by_token[card.activity_token] < first_sequence for card in cards)
+
                 choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint,
                     activity_token=alternative.public_activity_token, branch_label=mention.branch_label,
+                    choice_group_selectable=mention.choice_group_selectable,
+                    insertion_position=insertion_position,
+                    after_activity_token=cards[insertion_position - 1].activity_token if insertion_position else None,
+                    before_activity_token=cards[insertion_position].activity_token if insertion_position < len(cards) else None,
+                    meal_role=mention.meal_role, source_details=details_by_parent.get(mention.mention_id, []),
+                    **timing_values(mention),
                     choice_group_token=group_token(mention.choice_group_id), branch_token=group_token(mention.branch_id)))
             day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
                                         activities=cards, alternatives=choices, meal_slots=meal_slots,

@@ -367,7 +367,12 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
             unprocessed.append(quote)
     # At the existing 80-quote limit the plan is already explicitly partial;
     # retain every original warning rather than replacing one to add this one.
-    return repaired.model_copy(update={"activities": rows, "unprocessed_quotes": unprocessed})
+    from app.trip_understanding.choice_groups import remap_choice_groups
+
+    merged = repaired.model_copy(update={"activities": rows, "unprocessed_quotes": unprocessed})
+    # Recovery may insert a preserved row; reply indices must not move a group
+    # onto a different visit. Rebind only by exact original source occurrence.
+    return remap_choice_groups(source, repaired if repaired.choice_groups else original, merged)
 
 
 def improves_only_lodging_evidence(before: InferenceProposal, after: InferenceProposal) -> bool:

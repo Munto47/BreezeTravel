@@ -94,7 +94,12 @@
         "tests/test_meal_slot_selection.py",
         "tests/test_source_visit_optional_reconciliation.py",
         "tests/test_source_visit_purpose_contract.py",
-        "tests/test_reference_coverage.py"
+        "tests/test_reference_coverage.py",
+        "tests/test_choice_group_selection.py",
+        "tests/test_meal_preferences.py",
+        "tests/test_source_visit_local_evidence_contract.py",
+        "tests/test_source_snack_intent.py",
+        "tests/test_source_visit_condition_scope.py"
       ]
     },
     "postgres": {
@@ -128,7 +133,9 @@
         "tests/test_trip_capacity_readback.py",
         "tests/test_collaboration_import_readback.py",
         "tests/test_dining_source_gap_adoption.py",
-        "tests/test_meal_slot_selection.py"
+        "tests/test_meal_slot_selection.py",
+        "tests/test_choice_group_selection.py",
+        "tests/test_meal_preferences.py"
       ]
     },
     "browser-core": {
@@ -165,7 +172,9 @@
         "e2e/semantic-plan-contract.spec.js",
         "e2e/trip-capacity.spec.js",
         "e2e/collaboration-backup.spec.js",
-        "e2e/meal-export.spec.js"
+        "e2e/meal-export.spec.js",
+        "e2e/choice-selection.spec.js",
+        "e2e/meal-preferences.spec.js"
       ],
       "args": [
         "--grep-invert",

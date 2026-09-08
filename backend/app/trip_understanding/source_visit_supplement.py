@@ -32,6 +32,15 @@ class SourceVisitPurpose(StrictModel):
     evidence: str = Field(min_length=1, max_length=500)
 
 
+class SourceVisitLocation(StrictModel):
+    """A location is uniquely quoted inside this visit's unique evidence."""
+    parent_index: int = Field(ge=0, le=159, strict=True)
+    kind: Literal["VISIT", "ENTRY", "EXIT"]
+    source_quote: str = Field(min_length=1, max_length=100)
+    optional: bool = Field(strict=True)
+    evidence: str = Field(min_length=1, max_length=500)
+
+
 def _literal_matches(source: str, quote: str) -> list[tuple[tuple[int, int], list[int]]]:
     from app.trip_understanding.experience_inference import _markdown_visible
 
@@ -59,6 +68,34 @@ def _visible_slice(source: str, start: int, end: int) -> str:
     return "".join(char for char, index in zip(visible, indices, strict=True) if start <= index < end)
 
 
+def _local_condition(source: str, start: int, end: int) -> bool:
+    # Read the actual source, not a model-selected short quote. A condition
+    # before this member can govern a comma-separated list, while a later
+    # sibling's conditional clause cannot apply backwards to it.
+    sentence_left = max(source.rfind(mark, 0, start) for mark in "\n。！？!?") + 1
+    clause_left = max(sentence_left, *(source.rfind(mark, sentence_left, start) + 1 for mark in "；;"))
+    clause_right = min((p for mark in "\n。！？!?；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
+    local = _visible_slice(source, clause_left, clause_right)
+    if re.search(r"若|如果|假如|时间(?:充裕|足够|允许)|有(?:时间|余力)|有兴趣", local):
+        return True
+    if clause_right < len(source) and source[clause_right] in "，,":
+        following_right = min((p for mark in "\n。！？!?；;，,"
+            if (p := source.find(mark, clause_right + 1)) >= 0), default=len(source))
+        following = _visible_slice(source, clause_right + 1, following_right).strip()
+        # An objectless postposed condition refers back to this location:
+        # "甲，若有时间再看". "甲，若有时间再看乙" has a new object and
+        # must not propagate its condition backwards to 甲.
+        if re.fullmatch(r"(?:(?:若|如果|假如).+|有(?:时间|余力)|时间(?:充裕|足够|允许))"
+            r"(?:再|才)(?:看|参观|游览|进入|进|出)(?:一下|即可|就好)?", following):
+            return True
+    # A standalone condition introducing an arrangement still governs its
+    # later semicolon members ("若有时间：先…；再…"). A condition already
+    # attached to a named earlier stop ("若有时间看甲；必须看乙") does not.
+    preceding = _visible_slice(source, sentence_left, clause_left)
+    return bool(re.search(r"(?:若|如果|假如)[^。！？!?\n；;，,：:]+[，,：:]|"
+        r"(?:有(?:时间|余力|兴趣)|时间(?:充裕|足够|允许)|体力(?:允许|充足))\s*[，,：:]", preceding))
+
+
 def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, optional: bool) -> bool:
     left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
     right = min((p for mark in "\n。；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
@@ -69,9 +106,7 @@ def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, 
         return True
     if re.match(r"\s*(?:已取消|取消|本次不去|不去了|不参观)", after):
         return True
-    # A proposed condition cannot disappear while its literal evidence stays.
-    return bool(not optional and re.search(r"若|如果|假如|时间(?:充裕|足够|允许)|有(?:时间|余力)|有兴趣",
-        _visible_slice(evidence, 0, len(evidence))))
+    return not optional and _local_condition(source, start, end)
 
 
 def _shared_purpose_roots(source: str, parent: ProposedMention, roots: list[ProposedMention]):
@@ -92,7 +127,7 @@ def _shared_purpose_roots(source: str, parent: ProposedMention, roots: list[Prop
 def _scope_parent(source, anchors, row, parent, roots, start, end, *, explicit_kind=False):
     from app.trip_understanding.experience_inference import SemanticActivity, _validated_internal_parent
 
-    quote = row.source_quote if isinstance(row, SourceVisitSupplement) else source[start:end]
+    quote = source[start:end] if isinstance(row, SourceVisitPurpose) else row.source_quote
     item = SemanticActivity(source_quote=quote,
         place_name=quote if len(quote) <= 40 else None,
         role=ActivityRole.OPTIONAL if row.optional else ActivityRole.REFERENCE,
@@ -184,7 +219,7 @@ def _unique_purpose_action(source: str, row: SourceVisitPurpose, evidence_match)
 
 def apply_source_visit_supplement(
     source: str, proposal: SourceSemanticPlan,
-    rows: Sequence[SourceVisitSupplement | SourceVisitPurpose | dict], *, parent_ids: Sequence[str],
+    rows: Sequence[SourceVisitSupplement | SourceVisitPurpose | SourceVisitLocation | dict], *, parent_ids: Sequence[str],
 ) -> SourceSemanticPlan:
     """Attach validated children; parent IDs are the request's immutable table.
 
@@ -227,11 +262,14 @@ def apply_source_visit_supplement(
 
     for index, raw in enumerate(rows):
         try:
-            if isinstance(raw, (SourceVisitSupplement, SourceVisitPurpose)):
+            if isinstance(raw, (SourceVisitSupplement, SourceVisitPurpose, SourceVisitLocation)):
                 row = raw
             elif (isinstance(raw, dict) and raw.get("kind") in {"EXTERIOR_ONLY", "PICKUP_ONLY"}
                   and not {"source_quote", "occurrence"}.intersection(raw)):
                 row = SourceVisitPurpose.model_validate(raw)
+            elif (isinstance(raw, dict) and raw.get("kind") in {"VISIT", "ENTRY", "EXIT"}
+                  and "occurrence" not in raw):
+                row = SourceVisitLocation.model_validate(raw)
             else:
                 # Explicit legacy anchors never fall through to the new type,
                 # even if their occurrence is wrong or their quote is missing.
@@ -245,6 +283,10 @@ def apply_source_visit_supplement(
         if isinstance(row, SourceVisitPurpose):
             span = _unique_purpose_action(source, row, evidence_matches[0]) if len(evidence_matches) == 1 else None
             quote_indices = []
+        elif isinstance(row, SourceVisitLocation):
+            local_matches = [match for match in _literal_matches(source, row.source_quote)
+                if len(evidence_spans) == 1 and evidence_spans[0][0] <= match[0][0] < match[0][1] <= evidence_spans[0][1]]
+            span, quote_indices = local_matches[0] if len(local_matches) == 1 else (None, [])
         else:
             quotes = _literal_matches(source, row.source_quote)
             span, quote_indices = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else (None, [])
@@ -258,6 +300,11 @@ def apply_source_visit_supplement(
             continue
         selected = None
         name = source[span[0]:span[1]] if isinstance(row, SourceVisitPurpose) else row.source_quote
+        if isinstance(row, SourceVisitLocation):
+            name = _visible_slice(row.source_quote, 0, len(row.source_quote))
+            if row.kind == "VISIT" and name == parent.atomic_place_name:
+                reject(index, diagnostic_span)
+                continue
         if row.kind in {"VISIT", "ENTRY", "EXIT"}:
             gate = _gate_anchor(row, quote_indices) if row.kind != "VISIT" else None
             for evidence_span in evidence_spans:

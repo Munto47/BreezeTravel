@@ -105,12 +105,12 @@ PUBLIC_RESULT_ALLOWED_KEYS = {
     # Compatible user-facing semantics, coverage and lodging fields. Private
     # source spans, diagnostic categories and provider data remain forbidden.
     "after_activity_token", "before_activity_token", "branch_label", "branch_token",
-    "choice_group_token", "complete", "confirmed_place_count", "coverage",
+    "choice_group_token", "choice_group_selectable", "choice_selections", "activity_tokens", "insertion_position", "complete", "confirmed_place_count", "coverage",
     "expected_boundary_count", "missing_boundary_count", "recognized_place_count",
     "unclassified_mention_count", "unprocessed_count", "unresolved_place_count",
     "lodging_constraints", "lodging_event", "lodging_excluded_nights",
     "lodging_role_uncertain", "lodging_scope", "meal_role", "meal_slots",
-    "selection_status", "selected_activity_token",
+    "selection_status", "selected_activity_token", "preference_text",
     "overnight_days", "pending_lodgings", "pending_token", "preserved_hotels",
     "scope", "segment_token", "segments", "brand_group", "brand_note",
     "city", "alternatives", "source_details", "optional",

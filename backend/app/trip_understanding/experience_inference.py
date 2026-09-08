@@ -28,6 +28,7 @@ from app.trip_understanding.models import (
 from app.trip_understanding.pipeline import BASIC_CITY_HEADER_RE, DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
 from app.trip_understanding.place_labels import normalized_place_label
 from app.trip_understanding.source_capacity import saturated_source_capacity
+from app.trip_understanding.choice_groups import SemanticChoiceGroup, bind_choice_groups
 from app.trip_understanding.timing_evidence import validated_timing
 from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, improves_only_lodging_evidence, merge_preserved_activities
 
@@ -81,6 +82,8 @@ class SemanticDraft(StrictModel):
         description="按执行顺序逐地点列出；同句并列的多个独立地点分别成项，二选一的两个地点都保留为OPTIONAL。",
     )
     unprocessed_quotes: list[str] = Field(default_factory=list, max_length=80)
+    choice_groups: list[SemanticChoiceGroup] = Field(default_factory=list, max_length=80,
+        description="仅原文明示尚未选择的二选一。scope_quote逐字包含两分支与选择条件；branches按原顺序引用activities从0起的index，每分支可有多个连续地点。已选、取消、普通可前往路线不建组。")
 
     @field_validator("destination", mode="before")
     @classmethod
@@ -663,7 +666,11 @@ def _expand_source_bound_lists(source: str, draft: SemanticDraft) -> SemanticDra
             unprocessed.append(item.source_quote)
     if len(activities) > 160:
         raise SourceAnchorValidationError([{"field": "activities", "category": "TOO_MANY_ACTIVITIES"}])
-    return draft.model_copy(update={"activities": activities, "unprocessed_quotes": unprocessed})
+    expanded = draft.model_copy(update={"activities": activities, "unprocessed_quotes": unprocessed})
+    if draft.choice_groups:
+        from app.trip_understanding.choice_groups import remap_choice_groups
+        return remap_choice_groups(source, draft, expanded)
+    return expanded
 
 
 def _align_choice_label_occurrences(source: str, draft: SemanticDraft) -> SemanticDraft:
@@ -1653,8 +1660,9 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
     left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
     right = min((pos for mark in "\n。；;，," if (pos := source.find(mark, end)) >= 0), default=len(source))
     clause = source[left:right]
-    dining_action = r"(?:用餐|就餐|进餐|吃饭|品尝|享用|吃(?:午饭|午餐|中饭))"
-    if re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|取消|不|未|没)"
+    dining_action = (r"(?:用餐|就餐|进餐|吃饭|品尝|享用|尝(?:尝|一尝)?|吃(?:午饭|午餐|中饭)"
+                     r"|吃(?=[^，,。；;\n]{0,12}(?:小吃|点心)))")
+    if re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|不可|不要|别|取消|不|未|没)(?:建议|打算|计划)?"
                  r"(?:(?:在|去|到)[^，,。；;\n]{0,45})?" + dining_action, clause):
         return None
     roles = {role for pattern, role in ((r"早餐|早饭|早点", "BREAKFAST"),
@@ -1662,10 +1670,13 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
         (r"下午茶|夜宵|宵夜", "SNACK")) if re.search(pattern, clause)}
     if roles:
         return next(iter(roles)) if len(roles) == 1 else None
+    snack = re.search(
+        r"(?:品尝|尝(?:尝|一尝)?|享用|吃(?:点|些)?)[^，,。；;\n]{0,12}(?:小吃|点心)"
+        r"|(?:小吃|点心)(?:可(?:以)?|值得|建议)?(?:品尝|尝(?:尝|一尝)?|享用)", clause)
     # The source may state the meal as an action rather than the word 午餐:
     # 中午在店里品尝点心 / 中午在景点附近用餐. Keep a real meal slot,
     # while noon by itself says nothing about whether this stop is a meal.
-    if "中午" not in clause or not re.search(dining_action, clause):
+    if not snack and ("中午" not in clause or not re.search(dining_action, clause)):
         return None
     before = source[left:start].rstrip(" 【「『*_`")
     after = source[end:right].lstrip(" 】」』*_`")
@@ -1676,7 +1687,7 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
         # A sightseeing stop cannot borrow another venue's later meal in
         # the same sentence. OPTIONAL/EXCLUDED roles remain unchanged.
         return None
-    return "LUNCH"
+    return "LUNCH" if "中午" in clause else "SNACK"
 
 
 def _bound_role_evidence(anchors: SourceAnchorIndex, quote: str | None, start: int, end: int) -> tuple[int, int] | None:
@@ -1794,6 +1805,7 @@ def _bound_lodging_exclusion(anchors: SourceAnchorIndex, item: SemanticActivity,
 
 
 def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> SourceSemanticPlan:
+    choice_draft = draft.model_copy(deep=True)
     if allow_partial:
         draft = draft.model_copy(deep=True)
     draft, lodging_anchor_diagnostics = _anchor_lodging_actions(source, draft)
@@ -2198,6 +2210,9 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             role_evidence_start=(_bound_role_evidence(anchors, item.role_evidence, start, end) or (None, None))[0],
             role_evidence_end=(_bound_role_evidence(anchors, item.role_evidence, start, end) or (None, None))[1],
         ))
+    mentions, choice_diagnostics = bind_choice_groups(source, choice_draft, mentions)
+    diagnostics.extend(choice_diagnostics)
+    unprocessed += len(choice_diagnostics)
     labels: dict[int, str] = {}
     valid_parent_ids = {mention.mention_id for mention in mentions if mention.role == ActivityRole.PLANNED}
     mentions = [mention.model_copy(update={"parent_mention_id": None, "relation_type": None})

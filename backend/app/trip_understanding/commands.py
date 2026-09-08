@@ -10,6 +10,9 @@ from app.trip_understanding.models import (
     ActivityCardView,
     ActivityDeleteCommand,
     ActivityInsertCommand,
+    ChoiceSelectCommand,
+    ChoiceClearCommand,
+    ChoiceSelectionView,
     DiningInsertCommand,
     LodgingRecoverCommand,
     LodgingConstraintView,
@@ -74,6 +77,44 @@ def refresh_meal_slot_tokens(days: list[TripDayView], token_map: dict[str, str])
                 if selected is None or selected.category != "餐饮" or selected.meal_role != slot.meal_role:
                     slot.selected_activity_token = None
                     slot.selection_status = "UNSELECTED"
+
+
+def refresh_choice_selection_tokens(days: list[TripDayView], token_map: dict[str, str]) -> None:
+    """Preserve a choice through token renewal, recording later manual changes."""
+    for day in days:
+        cards = {card.activity_token: index for index, card in enumerate(day.activities)}
+        for alternative in day.alternatives:
+            for field in ("after_activity_token", "before_activity_token"):
+                previous = getattr(alternative, field)
+                refreshed = token_map.get(previous, previous)
+                setattr(alternative, field, refreshed if refreshed in cards else None)
+            before = cards.get(alternative.before_activity_token)
+            after = cards.get(alternative.after_activity_token)
+            if before is not None and after is not None and after >= before:
+                alternative.insertion_position = None
+            elif before is not None:
+                alternative.insertion_position = before
+            elif after is not None:
+                alternative.insertion_position = after + 1
+            else:
+                # A legacy snapshot has no position evidence. Empty current
+                # days are unambiguous; otherwise the user must choose a slot.
+                alternative.insertion_position = 0 if not cards else None
+        # Two unselected groups sharing the same original gap cannot infer
+        # their relative position from its two surrounding cards alone after
+        # a mutation. Preserve card order and ask for an explicit position.
+        shared = {}
+        for alternative in day.alternatives:
+            if alternative.choice_group_token:
+                shared.setdefault((alternative.after_activity_token, alternative.before_activity_token), set()).add(alternative.choice_group_token)
+        for alternative in day.alternatives:
+            if alternative.choice_group_token and len(shared.get((alternative.after_activity_token, alternative.before_activity_token), ())) > 1:
+                alternative.insertion_position = None
+        for selection in day.choice_selections:
+            refreshed = [token_map.get(token, token) for token in selection.activity_tokens]
+            selection.activity_tokens = [token for token in refreshed if token in cards]
+            if len(selection.activity_tokens) != len(refreshed):
+                selection.status = "MODIFIED"
 
 
 def _result_status(days: list[TripDayView], constraints=()) -> str:
@@ -285,6 +326,53 @@ def apply_public_command(
             selected_slot.selection_status = "SELECTED"
             selected_slot.selected_activity_token = inserted_card.activity_token
         changed.add(day.label)
+    elif isinstance(command, ChoiceClearCommand):
+        if command.day_index > len(result.days):
+            raise CommandTargetChangedError("choice day is unavailable")
+        day = result.days[command.day_index - 1]
+        selection = next((item for item in day.choice_selections if item.choice_group_token == command.choice_group_token), None)
+        members = [item for item in day.alternatives if item.choice_group_token == command.choice_group_token
+                   and selection is not None and item.branch_token == selection.branch_token]
+        cards = {card.activity_token for card in day.activities}
+        if (selection is None or not members or not set(selection.activity_tokens) <= cards
+                or (selection.status == "SELECTED" and (command.preserve_activities or len(selection.activity_tokens) != len(members)))
+                or (selection.status == "MODIFIED" and not command.preserve_activities)):
+            raise CommandTargetChangedError("the chosen branch has been manually changed")
+        chosen = set(selection.activity_tokens)
+        if not command.preserve_activities:
+            day.activities = [card for card in day.activities if card.activity_token not in chosen]
+        day.choice_selections.remove(selection)
+        changed.add(day.label)
+    elif isinstance(command, ChoiceSelectCommand):
+        if command.day_index > len(result.days):
+            raise CommandTargetChangedError("choice day is unavailable")
+        day = result.days[command.day_index - 1]
+        if command.position > len(day.activities):
+            raise CommandTargetChangedError("choice position no longer exists")
+        group = [item for item in day.alternatives if item.choice_group_token == command.choice_group_token]
+        branches = {item.branch_token for item in group}
+        if (len(branches) != 2 or None in branches or command.branch_token not in branches
+                or not all(item.choice_group_selectable for item in group)
+                or any(item.choice_group_token == command.choice_group_token for item in day.choice_selections)):
+            raise CommandTargetChangedError("choice is no longer available in this version")
+        members = [item for item in group if item.branch_token == command.branch_token]
+        if len(result_cards(result)) + len(members) > MAX_TRIP_ACTIVITIES:
+            raise CommandTargetChangedError("the selected branch exceeds trip capacity")
+        position = command.position
+        added = []
+        for member in members:
+            if atomic_place_rejection_reason(member.name) is not None:
+                raise CommandTargetChangedError("choice member requires clarification")
+            card = ActivityCardView(activity_token=token_factory(), name=member.name, city=member.city,
+                category=member.category, meal_role=member.meal_role, area_or_address="地点待确认",
+                source_details=[detail.model_copy(deep=True) for detail in member.source_details],
+                **timing_values(member), status="NEEDS_CONFIRMATION",
+                available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"])
+            day.activities.insert(position + len(added), card)
+            added.append(card.activity_token)
+        day.choice_selections.append(ChoiceSelectionView(choice_group_token=command.choice_group_token,
+            branch_token=command.branch_token, activity_tokens=added))
+        changed.add(day.label)
     elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
         day = result.days[command.day_index - 1]
@@ -359,6 +447,25 @@ def apply_public_command(
                 card.knowledge_suggestions = []
         changed.update(day.label for day in result.days)
 
+    changed_choice_token = None
+    if isinstance(command, PlaceReplaceCommand):
+        changed_choice_token = command.activity_token
+    elif isinstance(command, ActivityTextEditCommand) and command.name is not None:
+        old = next((card for card in result_cards(current) if card.activity_token == command.activity_token), None)
+        if old is not None and old.name != command.name:
+            changed_choice_token = command.activity_token
+    elif isinstance(command, PlaceConfirmCommand) and confirmed_place:
+        old = next((card for card in result_cards(current) if card.activity_token == command.activity_token), None)
+        same_parent = (current_place_id == confirmed_place.canonical_place_id if current_place_id
+            else old is not None and old.name == confirmed_place.name and old.city == confirmed_place.city)
+        if not same_parent:
+            changed_choice_token = command.activity_token
+    if changed_choice_token:
+        for day in result.days:
+            for selection in day.choice_selections:
+                if changed_choice_token in selection.activity_tokens:
+                    selection.status = "MODIFIED"
+
     token_map: dict[str, str] = {}
     inserted_token = inserted_card.activity_token if inserted_card else None
     if filled_gap_token:
@@ -376,6 +483,7 @@ def apply_public_command(
         token_map[old_token] = pending.pending_token
 
     refresh_meal_slot_tokens(result.days, token_map)
+    refresh_choice_selection_tokens(result.days, token_map)
 
     result.status = _result_status(result.days, result.lodging_constraints)
     refresh_result_coverage(result)

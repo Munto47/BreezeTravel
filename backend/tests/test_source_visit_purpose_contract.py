@@ -56,7 +56,7 @@ async def test_sdk_second_request_uses_typed_strict_schema_but_keeps_city_fields
     validator = Draft202012Validator(schema)
     validator.validate(second)
     validator.validate(dict(city_fields=[dict(index=0, city=None, city_evidence=None)], source_visits=[
-        dict(parent_index=0, kind="ENTRY", source_quote="南门", occurrence=1, optional=False, evidence="从南门进")]))
+        dict(parent_index=0, kind="ENTRY", source_quote="南门", optional=False, evidence="从南门进")]))
     for invalid in [purpose(source_quote="青溪公园", occurrence=1), purpose(occurrence=1),
                     purpose(kind="VISIT"), purpose(kind="UNKNOWN"), {k: v for k, v in purpose().items() if k != "optional"}]:
         assert list(validator.iter_errors(dict(city_fields=[], source_visits=[invalid])))

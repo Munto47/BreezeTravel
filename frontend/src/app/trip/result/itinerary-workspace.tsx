@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import {sourceMeals} from './source-meals'
 import {
   ArrowRight,
   BedDouble,
@@ -462,6 +463,12 @@ export default function ItineraryWorkspace({
                   </div>
 
                   <div className="min-w-0 px-4 py-4 sm:px-5">
+                    {!!day.meal_slots?.length && <section className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950" data-testid={`source-meals-${dayIndex}`} aria-label={`${day.label}原文用餐安排`}>
+                      <h3 className="font-semibold">原文用餐安排</h3>
+                      <ul className="mt-1 space-y-1">
+                        {sourceMeals(day).map((text, index) => <li key={index} className="break-words">{text}</li>)}
+                      </ul>
+                    </section>}
                     {renderDaySuggestion?.(dayIndex)}
                     {!!day.unprocessed_count && <p className="py-4 text-sm text-amber-800" data-testid={`day-unprocessed-${dayIndex}`}>这一天尚有 {day.unprocessed_count} 处原文内容尚未整理完成，请对照原文补全。已确认的安排可以继续使用。</p>}
                     {!day.activities.length && !day.unprocessed_count && <p className="py-4 text-sm text-slate-500">{day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}

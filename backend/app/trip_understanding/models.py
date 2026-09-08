@@ -64,6 +64,7 @@ class ProposedMention(ActivityTiming):
     city_hint: str | None = None
     city_evidence: str | None = None
     choice_group_id: str | None = None
+    choice_group_selectable: bool = False
     branch_id: str | None = None
     branch_label: str | None = None
     parent_mention_id: str | None = None
@@ -280,14 +281,27 @@ class ActivityCardView(ActivityTiming):
     source_details: list[SourceDetailView] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
 
 
-class ActivityAlternativeView(StrictModel):
+class ActivityAlternativeView(ActivityTiming):
     name: str = Field(min_length=1, max_length=40)
     category: str = Field(min_length=1, max_length=40)
     city: str | None = None
     activity_token: str | None = Field(default=None, min_length=20, max_length=80)
     choice_group_token: str | None = Field(default=None, min_length=20, max_length=80)
+    choice_group_selectable: bool = False
     branch_token: str | None = Field(default=None, min_length=20, max_length=80)
     branch_label: str | None = Field(default=None, max_length=40)
+    insertion_position: int | None = Field(default=None, ge=0, le=MAX_TRIP_ACTIVITIES)
+    after_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+    before_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    source_details: list[SourceDetailView] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
+
+
+class ChoiceSelectionView(StrictModel):
+    choice_group_token: str = Field(min_length=20, max_length=80)
+    branch_token: str = Field(min_length=20, max_length=80)
+    activity_tokens: list[Annotated[str, Field(min_length=20, max_length=80)]] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
+    status: Literal["SELECTED", "MODIFIED"] = "SELECTED"
 
 
 class PendingLodgingRefView(StrictModel):
@@ -303,6 +317,7 @@ class LodgingConstraintView(ActivityCardView):
 
 class MealSlotView(StrictModel):
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"]
+    preference_text: str | None = Field(default=None, min_length=1, max_length=1000)
     after_activity_token: str | None = None
     before_activity_token: str | None = None
     selection_status: Literal["UNKNOWN", "UNSELECTED", "SELECTED"] = "UNKNOWN"
@@ -319,6 +334,7 @@ class TripDayView(StrictModel):
     label: str
     activities: list[ActivityCardView]
     alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
+    choice_selections: list[ChoiceSelectionView] = Field(default_factory=list, max_length=80)
     meal_slots: list[MealSlotView] = Field(default_factory=list)
     unprocessed_count: int = Field(default=0, ge=0)
 
@@ -334,6 +350,23 @@ class TripDayView(StrictModel):
                     or slot.selected_activity_token in selected_tokens):
                 raise ValueError("selected meal must reference this day's matching restaurant")
             selected_tokens.add(slot.selected_activity_token)
+        return self
+
+    @model_validator(mode="after")
+    def selected_choices_belong_to_day(self):
+        groups = set()
+        cards = {card.activity_token for card in self.activities}
+        used = set()
+        for selection in self.choice_selections:
+            members = [item for item in self.alternatives if item.choice_group_token == selection.choice_group_token
+                       and item.branch_token == selection.branch_token]
+            tokens = set(selection.activity_tokens)
+            if (selection.choice_group_token in groups or not members or len(tokens) != len(selection.activity_tokens)
+                    or not tokens <= cards or used.intersection(tokens)
+                    or (selection.status == "SELECTED" and len(tokens) != len(members))):
+                raise ValueError("choice selection must reference its current day's branch and cards")
+            groups.add(selection.choice_group_token)
+            used.update(tokens)
         return self
 
 
@@ -731,6 +764,21 @@ class ActivityInsertCommand(ActivityTiming):
     time_hint: str | None = Field(default=None, max_length=80)
 
 
+class ChoiceSelectCommand(StrictModel):
+    command_type: Literal["CHOICE_SELECT"]
+    day_index: int = Field(ge=1, le=14)
+    choice_group_token: str = Field(min_length=20, max_length=80)
+    branch_token: str = Field(min_length=20, max_length=80)
+    position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
+
+
+class ChoiceClearCommand(StrictModel):
+    command_type: Literal["CHOICE_CLEAR"]
+    day_index: int = Field(ge=1, le=14)
+    choice_group_token: str = Field(min_length=20, max_length=80)
+    preserve_activities: bool = Field(default=False, strict=True)
+
+
 class ActivityDeleteCommand(StrictModel):
     command_type: Literal["ACTIVITY_DELETE"]
     activity_token: str = Field(min_length=20, max_length=80)
@@ -844,6 +892,8 @@ class DiningInsertCommand(StrictModel):
 
 TripUnderstandingCommand = Annotated[
     ActivityInsertCommand
+    | ChoiceSelectCommand
+    | ChoiceClearCommand
     | DiningInsertCommand
     | ActivityDeleteCommand
     | ActivityMoveCommand

@@ -19,7 +19,7 @@ from app.trip_understanding.errors import (
     RevisionConflictError,
 )
 from app.trip_understanding.map_render import MapRenderPlan
-from app.trip_understanding.commands import refresh_meal_slot_tokens
+from app.trip_understanding.commands import refresh_meal_slot_tokens, refresh_choice_selection_tokens
 from app.trip_understanding.map_repository import plan_with_stay_anchor
 from app.trip_understanding.lodging_recovery import result_cards
 from app.trip_understanding.models import (
@@ -920,6 +920,7 @@ class PostgresStayRecommendationRepositoryMixin:
                 token_map[pending.pending_token] = token
                 pending.pending_token = token
             refresh_meal_slot_tokens(next_result.days, token_map)
+            refresh_choice_selection_tokens(next_result.days, token_map)
             public_payload = next_result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
             result_revision = parent_revision + 1
