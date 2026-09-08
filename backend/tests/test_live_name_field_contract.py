@@ -99,3 +99,47 @@ async def test_repair_cannot_hide_the_missing_second_day_by_removing_its_row():
     assert not output.public_result.coverage.complete
     assert [day.unprocessed_count for day in output.public_result.days] == [0, 1]
     assert output.inference_binding["semantic_diagnostic_counts"]["REPAIR_OMITTED_SOURCE_ITEM"] == 1
+
+
+@pytest.mark.asyncio
+async def test_actual_request_schema_requires_a_name_decision_even_for_anonymous_lunch():
+    from jsonschema import Draft202012Validator
+
+    source = "成都一天。中午午餐待定。"
+    activity = dict(source_quote="午餐待定", place_name=None, role="PLANNED",
+                    day_index=1, category="餐饮", meal_role="LUNCH")
+    payload = dict(destination="成都", day_labels=[None], activities=[activity])
+    client = Client(json.dumps(payload))
+    result = await provider(client).propose(source)
+    # Inspect what the model actually receives, rather than the internal class.
+    schema = json.loads(client.calls[0]["messages"][0]["content"].split("JSON Schema:\n", 1)[1])
+    validator = Draft202012Validator(schema)
+    validator.validate(payload)
+    omitted = {**payload, "activities": [{k: v for k, v in activity.items() if k != "place_name"}]}
+    assert any(error.validator == "required" and list(error.path) == ["activities", 0]
+               for error in validator.iter_errors(omitted))
+    assert len(client.calls) == 1 and result.unprocessed_count == 0
+    assert result.mentions[0].atomic_place_name is None and result.mentions[0].meal_role == "LUNCH"
+
+
+@pytest.mark.asyncio
+async def test_explicit_anonymous_meals_leave_second_answer_available_for_visit_details():
+    from tests.test_semantic_supplement_budget import Client as TwoAnswerClient, provider as with_visits
+
+    source = "成都两天。\nDay1：望江楼公园，园内看望江楼，中午午餐待定。\nDay2：金沙遗址博物馆，中午午餐待定。"
+    first = dict(destination="成都", day_labels=[None, None], activities=[
+        dict(source_quote="望江楼公园", place_name="望江楼公园", role="PLANNED", day_index=1, category="景点"),
+        dict(source_quote="午餐待定", place_name=None, role="PLANNED", day_index=1, category="餐饮", meal_role="LUNCH"),
+        dict(source_quote="金沙遗址博物馆", place_name="金沙遗址博物馆", role="PLANNED", day_index=2, category="景点"),
+        dict(source_quote="午餐待定", place_name=None, role="PLANNED", day_index=2, occurrence=2, category="餐饮", meal_role="LUNCH"),
+    ])
+    second = dict(city_fields=[], source_visits=[dict(parent_index=0, kind="VISIT", source_quote="望江楼",
+        occurrence=2, optional=False, evidence="望江楼公园，园内看望江楼")])
+    client = TwoAnswerClient(first, second)
+    output = await TripUnderstandingPipeline(with_visits(client), RecordingPlaces()).run(source)
+    assert len(client.calls) == 2
+    assert output.inference_binding["calls"][1]["stage"] == "SOURCE_VISITS_SUPPLEMENT"
+    assert [(m.day_index, m.meal_role) for m in output.proposal.mentions if m.meal_role] == [(1, "LUNCH"), (2, "LUNCH")]
+    assert [detail.name for detail in output.public_result.days[0].activities[0].source_details] == ["望江楼"]
+    assert not any(issue.category in {"MISSING_PLACE_NAME_FIELD", "SOURCE_VISITS_UNPROCESSED"}
+                   for issue in output.proposal.diagnostics)

@@ -2525,6 +2525,12 @@ class ExperienceQwenProvider:
         self.rates = (input_cny_per_million, output_cny_per_million)
         self.prompt = PROMPT_PATH.read_text(encoding="utf-8")
         self.schema = SemanticDraft.model_json_schema()
+        # The live validator distinguishes an explicit anonymous activity from
+        # an omitted name decision. Require that same decision on the wire;
+        # retain the class default so historical stored drafts remain readable.
+        activity_schema = self.schema["$defs"]["SemanticActivity"]
+        activity_schema["required"] = [*activity_schema["required"], "place_name"]
+        activity_schema["properties"]["place_name"].pop("default", None)
         if not enable_role_evidence:
             # The evidence experiment increased cost and reduced measured
             # recall. Keep its offline validator available, without adding
