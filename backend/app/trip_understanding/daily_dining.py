@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from datetime import datetime, timezone
 from typing import Literal
@@ -47,6 +48,12 @@ class DailyDiningView(StrictModel):
     days: list[DailyMealView] = Field(default_factory=list)
 
 
+def _unnamed_meal_card(card) -> bool:
+    name = card.name.strip()
+    return name in {"地点待确认", "用餐地点待确认", "午餐", "午饭", "用餐"} or bool(
+        re.match(r"^(?:午餐|午饭|中午|用餐)(?:[：:、\s]|$)", name))
+
+
 def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapStop | None]:
     """Only confirmed execution stops anchor suggestions; a named meal is retained."""
     view = {"day_index": 1, "label": day.label, "status": "NEEDS_CONFIRMATION",
@@ -63,6 +70,17 @@ def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapSt
     if meals:
         view.update(status="EXISTING", message=f"已安排{meals[0].name}，可在地点卡片更换。",
                     existing_activity_token=meals[0].activity_token)
+        return view, None, None
+    pending_meals = [c for c in cards if c.category == "餐饮" and c.status != "READY"
+                     and not _unnamed_meal_card(c)
+                     and (getattr(c, "meal_role", None) == "LUNCH" or
+                          (getattr(c, "meal_role", None) is None and
+                           ((not c.start_time and not explicit_slot) or
+                            (c.start_time and "10:30" <= c.start_time <= "15:00"))))]
+    if pending_meals:
+        meal = pending_meals[0]
+        view.update(message=f"原文用餐地点{meal.name}尚未确认，请先确认这处地点。",
+                    existing_activity_token=meal.activity_token, meal_role="LUNCH")
         return view, None, None
     named = [c for c in cards if c.category not in ("餐饮", "住宿", "交通节点")]
     if not named:
@@ -86,7 +104,7 @@ def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapSt
     if explicit_slot:
         return at_slot(explicit_slot.after_activity_token, explicit_slot.before_activity_token)
     unnamed = next((i for i, c in enumerate(cards) if c.category == "餐饮"
-                    and c.status != "READY" and any(w in c.name for w in ("午餐", "午饭", "中午", "用餐"))), None)
+                    and c.status != "READY" and _unnamed_meal_card(c)), None)
     if unnamed is not None:
         prior = [c for c in named if cards.index(c) < unnamed]
         following = [c for c in named if cards.index(c) > unnamed]

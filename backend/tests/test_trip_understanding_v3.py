@@ -1182,7 +1182,7 @@ async def test_executable_activity_budget_preserves_all_cards_and_returns_limite
             return None
 
     resolver = CountingUnresolvedResolver()
-    output = await TripUnderstandingPipeline(ManyActivitiesProvider(), resolver).run(source_text)
+    output = await TripUnderstandingPipeline(ManyActivitiesProvider(), resolver, max_executable_activities=80).run(source_text)
 
     assert output.public_result.status == "LIMITED"
     assert sum(len(day.activities) for day in output.public_result.days) == 81

@@ -56,6 +56,27 @@ def _identity(source: str, item: SemanticActivity) -> tuple[int, int] | None:
     return start, end
 
 
+def _fill_missing_lodging_evidence(source: str, original: SemanticActivity,
+                                  repaired: SemanticActivity) -> SemanticActivity:
+    from app.trip_understanding.experience_inference import (
+        SourceAnchorIndex, _bound_lodging_evidence, _lodging_context_bounds,
+    )
+
+    if original.lodging_evidence or not original.lodging_event or not repaired.lodging_evidence:
+        return original
+    protected = ("place_name", "day_index", "role", "category", "lodging_event", "lodging_scope")
+    if any(getattr(original, field) != getattr(repaired, field) for field in protected):
+        return original
+    # Keep the first activity's identity and meaning. Only the missing quote
+    # can be copied, and it must cover this exact occurrence in its local day.
+    candidate = original.model_copy(update={"lodging_evidence": repaired.lodging_evidence})
+    anchors = SourceAnchorIndex(source)
+    start, end = anchors.locate(original.source_quote, original.occurrence)
+    span = _bound_lodging_evidence(anchors, candidate, start, end)
+    left, right = _lodging_context_bounds(source, start, end)
+    return candidate if span is not None and left <= span[0] < span[1] <= right else original
+
+
 def merge_preserved_activities(source: str, original: SemanticDraft,
                                validated: InferenceProposal, repaired: SemanticDraft) -> SemanticDraft:
     """A repair can add/fix failed items but cannot erase validated occurrences.
@@ -72,6 +93,13 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
     for identity, _item in preserved:
         counts[identity] = counts.get(identity, 0) + 1
     preserved = [(identity, item) for identity, item in preserved if counts[identity] == 1]
+    repaired_by_identity: dict[tuple[int, int], list[SemanticActivity]] = {}
+    for item in repaired.activities:
+        if (identity := _identity(source, item)) is not None:
+            repaired_by_identity.setdefault(identity, []).append(item)
+    preserved = [(identity, _fill_missing_lodging_evidence(source, item, candidates[0])
+                  if len(candidates := repaired_by_identity.get(identity, [])) == 1 else item)
+                 for identity, item in preserved]
     originals = dict(preserved)
     rows = list(repaired.activities)
     for index, item in enumerate(rows):
@@ -96,6 +124,22 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
         # No truncation masquerades as a successful repair.
         return original
     return repaired.model_copy(update={"activities": rows})
+
+
+def improves_only_lodging_evidence(before: InferenceProposal, after: InferenceProposal) -> bool:
+    """Keep a repaired quote even when an unrelated source error still remains."""
+    fields = {"lodging_event", "lodging_scope", "lodging_role_uncertain", "lodging_evidence",
+              "lodging_evidence_start", "lodging_evidence_end"}
+    if after.unprocessed_count >= before.unprocessed_count:
+        return False
+    if [m.model_dump(exclude=fields) for m in before.mentions] != [m.model_dump(exclude=fields) for m in after.mentions]:
+        return False
+    # Discarding a failed source item must not look like better recovery.
+    if [d for d in before.diagnostics if d.category != "LODGING_EVIDENCE_SCOPE_MISMATCH"] != [
+        d for d in after.diagnostics if d.category != "LODGING_EVIDENCE_SCOPE_MISMATCH"]:
+        return False
+    return all(not current.lodging_role_uncertain or previous.lodging_role_uncertain
+               for previous, current in zip(before.mentions, after.mentions, strict=True))
 
 
 def complete_activities_from_truncated_json(content: str) -> dict | None:

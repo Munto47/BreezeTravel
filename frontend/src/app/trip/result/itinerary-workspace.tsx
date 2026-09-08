@@ -35,7 +35,7 @@ import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import PlacePhoto, { PlacePhotoProvider } from './place-photo'
 import AccessibleDialog from './accessible-dialog'
-import { DAY_ACCENTS, DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
+import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, distanceLabel } from './result-presentation'
 
 
 type DayView = UserFacingTripResult['days'][number]
@@ -463,7 +463,8 @@ export default function ItineraryWorkspace({
 
                   <div className="min-w-0 px-4 py-4 sm:px-5">
                     {renderDaySuggestion?.(dayIndex)}
-                    {!day.activities.length && <p className="py-4 text-sm text-slate-500">这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。</p>}
+                    {!!day.unprocessed_count && <p className="py-4 text-sm text-amber-800" data-testid={`day-unprocessed-${dayIndex}`}>这一天有部分原文尚未整理完成，请对照原文补全。已确认的安排可以继续使用。</p>}
+                    {!day.activities.length && !day.unprocessed_count && <p className="py-4 text-sm text-slate-500">{day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
 
                     {layoutMode === 'LIST' ? (
                       <ol className="mt-3 grid gap-3" aria-label={`${day.label} 地点列表`}>
@@ -474,7 +475,7 @@ export default function ItineraryWorkspace({
                               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0c789d] text-xs font-bold text-white">{position + 1}</span>
                               <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
-                                <span className="text-xs text-slate-500">已确认 · 可更改</span>
+                                <span className="text-xs text-slate-500">{activityCategoryLabel(activity)} · 已确认 · 可更改</span>
                               </button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
@@ -640,7 +641,7 @@ export default function ItineraryWorkspace({
                                     <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" aria-hidden="true" />
                                   </span>
                                   <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{activity.category}</span>
+                                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{activityCategoryLabel(activity)}</span>
                                     <span className={activity.status === 'READY'
                                       ? 'rounded-full bg-emerald-50 px-2 py-1 text-emerald-700'
                                       : 'rounded-full bg-amber-50 px-2 py-1 text-amber-800'}

@@ -42,6 +42,7 @@ async function fixture(page, options = {}) {
     state.result.days[0].activities = [card('青溪公园','景点','READY','park'),card('青溪博物馆','景点','READY','museum')]
     state.result.days[1].activities = [card('原文午餐餐厅','餐饮','READY','lunch')]
   }
+  if (options.pendingLunch) state.result.days[1].activities = [{...card('原文午餐餐厅','餐饮','NEEDS_CONFIRMATION','lunch'), meal_role:'LUNCH'}]
   if (options.segments) state.result.stay = { ...state.result.stay, status:'LIMITED', message:'按过夜行程分别选择住宿。',
     segments:['广州','深圳'].map((city,index) => ({segment_token:`segment-${index}`,city,overnight_days:[`Day ${index+1}`],status:'AVAILABLE',message:'比较当晚最后一站和次日第一站。',preserved_hotels:[],candidates:[{
       candidate_token:`stay-synthetic-${index}-00000000`,name:`合成${city}连锁酒店`,brand:'合成品牌',brand_note:'合成门店核验说明',category:'住宿',area_or_address:'合成测试地址',commute_summary:'部分通勤尚未确认',reason:'合成建议',available_actions:['CHOOSE_STAY'],selected:false,
@@ -100,6 +101,13 @@ async function fixture(page, options = {}) {
         state.diningRefreshes.push(request.headers())
         if (options.refreshFailure && state.diningPosts === 1) return reply({},503)
       }
+      if (options.pendingLunch) {
+        const lunch=state.result.days[1].activities[0]
+        return reply({status:'AVAILABLE',message:'用餐安排',days:[{day_index:2,label:'Day 2',
+          status:lunch.status==='READY'?'EXISTING':'NEEDS_CONFIRMATION',meal_role:'LUNCH',
+          message:lunch.status==='READY'?'已安排原文午餐餐厅。':'原文已安排午餐，请先确认地点，不重复推荐。',
+          existing_activity_token:lunch.activity_token,candidates:[]}]})
+      }
       if (!options.meals) return reply({status:'UNAVAILABLE',message:'合成用餐查询未配置。',days:[]})
       if (state.version && !state.diningPosts) return reply({status:'NEEDS_UPDATE',message:'行程已调整，请更新用餐建议。',days:[]})
       return reply({status:'AVAILABLE',message:'中途用餐建议',days:[{day_index:1,label:'Day 1',status:'AVAILABLE',message:'选择后才加入行程。',area:'合成商圈',...(options.nearbyArea?{area_relation:'NEARBY',area_distance_m:480}:{}),next_name:'青溪博物馆',after_activity_token:state.result.days[0].activities[0].activity_token,candidates:[{
@@ -142,6 +150,28 @@ async function fixture(page, options = {}) {
   await expect(options.progress ? page.locator('.e-progress-workspace') : page.getByTestId('itinerary-workspace')).toBeVisible()
   return state
 }
+
+for (const width of [1440,390]) test(`pending source lunch is confirmed in place without duplicate insertion at ${width}px`, async ({page}) => {
+  await page.setViewportSize({width,height:900})
+  const state=await fixture(page,{pendingLunch:true})
+  const meal=page.getByTestId('day-lane-2').getByTestId('daily-meal-card')
+  await expect(meal).toContainText('原文已安排午餐')
+  await expect(meal.getByRole('button',{name:'加入行程',exact:true})).toHaveCount(0)
+  await expect(meal.getByRole('button',{name:'更新用餐建议',exact:true})).toHaveCount(0)
+  await meal.getByRole('button',{name:'确认原文午餐',exact:true}).click()
+  expect(state.searches).toEqual([])
+  const dropdown=meal.getByTestId('pending-place-dropdown')
+  await expect(dropdown.getByRole('textbox').first()).toHaveValue('原文午餐餐厅')
+  await dropdown.getByRole('button',{name:'搜索',exact:true}).click()
+  await dropdown.getByRole('button',{name:/雨湖餐厅/}).click()
+  await dropdown.getByRole('button',{name:'使用这个地点',exact:true}).click()
+  await expect(page.getByTestId('day-lane-2').getByRole('heading',{name:'雨湖餐厅',exact:true})).toBeVisible()
+  await expect(meal).toContainText('已安排原文午餐餐厅')
+  expect(state.commands).toEqual([{command_type:'PLACE_CONFIRM',activity_token:'synthetic-card-lunch-0000000000',candidate_token:'synthetic-replace-candidate-000'}])
+  expect(state.result.days[1].activities).toHaveLength(1)
+  expect(state.diningPosts).toBe(0)
+  expect(state.mapPosts).toBe(0)
+})
 
 test('filter preserves original records, truthful status, empty days and positional commands', () => {
   const raw = fixtureResult(), before = JSON.stringify(raw), shown = view.confirmedTripView(raw)

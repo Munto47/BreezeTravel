@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from pydantic import Field
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
-from app.trip_understanding.models import InferenceProposal, SemanticDiagnostic, StrictModel
+from app.trip_understanding.models import SourceSemanticPlan, SemanticDiagnostic, StrictModel
 
 if TYPE_CHECKING:
     from app.trip_understanding.experience_inference import ExperienceQwenProvider
@@ -99,7 +99,7 @@ def aggregate_binding(provider, bindings: list[dict], started: float, **extra) -
         "temperature": 0, **extra}
 
 
-async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> InferenceProposal:
+async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> SourceSemanticPlan:
     from app.trip_understanding.experience_inference import SemanticDraft, _known_source_places, _with_coverage_diagnostics
 
     started = time.perf_counter()
@@ -115,7 +115,6 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
         usage = getattr(response, "usage", None)
         plan_call.update(input_tokens=getattr(usage, "prompt_tokens", None), output_tokens=getattr(usage, "completion_tokens", None))
         content = response.choices[0].message.content or ""
-        plan_call["response_sha256"] = hashlib.sha256(content.encode()).hexdigest()
         if getattr(response.choices[0], "finish_reason", None) != "length":
             sections = anchored_sections(source, DayStructure.model_validate_json(content))
         plan_call["outcome"] = "SUCCESS" if sections else "WHOLE_DOCUMENT_REQUIRED"
@@ -186,6 +185,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
             external_call_count=binding["external_calls"])
     mentions = []
     unprocessed = len(diagnostics)
+    unprocessed_by_day = {day: 1 for day, _left, _right in sections if day not in results}
     day_labels = {}
     for day, (left, right, output) in sorted(results.items()):
         offset = left - len(prefix)
@@ -222,12 +222,14 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Infer
                 "span_end": issue.span_end + offset if issue.span_end is not None else None,
                 "field": f"days[{day}].{issue.field}"}))
         unprocessed += output.unprocessed_count
+        if output.unprocessed_count:
+            unprocessed_by_day[day] = output.unprocessed_count
         if day in output.day_labels:
             day_labels[day] = output.day_labels[day]
     first = results[min(results)][2]
     result = first.model_copy(update={"source_hash": hashlib.sha256(source.encode()).hexdigest(),
         "mentions": mentions, "diagnostics": diagnostics, "day_labels": day_labels, "day_count": len(sections),
-        "unprocessed_count": unprocessed})
+        "unprocessed_count": unprocessed, "unprocessed_by_day": unprocessed_by_day})
     result = _with_coverage_diagnostics(source, SemanticDraft(activities=[]), result, _known_source_places(source))
     binding = aggregate_binding(provider, bindings, started, day_scope_count=len(sections),
         day_scopes_completed=len(results), semantic_partial_recovery=bool(result.unprocessed_count),

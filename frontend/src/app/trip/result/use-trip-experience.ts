@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { confirmedDays, confirmedSourceLodgings, confirmedTripView, storedPositionCommand } from '@/lib/confirmed-trip-view'
 import * as api from '@/lib/trip-understanding-v3'
+import { recoverExpiredLogin } from '@/lib/request-safety'
+import { useAuthStore } from '@/stores/authStore'
 import {
   releaseCancelledTripInput,
   releaseFailedTripInput,
@@ -1434,6 +1436,23 @@ export function useTripExperience() {
         )
         return true
       } catch (error) {
+        if (
+          operation.type === 'claim' &&
+          error instanceof Error &&
+          error.message === 'LOGIN_REQUIRED'
+        ) {
+          // Login is required to finish or confirm this save. Keep its
+          // resource and key so authentication resumes the same action.
+          operation = { ...operation, recoveryChecked: true }
+          setPending(operation)
+          sessionStorage.setItem(PENDING_KEY, JSON.stringify(operation))
+          sessionStorage.setItem('bt_claim_after_login', 'true')
+          // Prevent the still-mounted result from replaying before the
+          // navigation reaches login with a newly authenticated account.
+          useAuthStore.getState().logout(false)
+          recoverExpiredLogin()
+          return false
+        }
         if (error instanceof Error && rejected.has(error.message)) {
           const versionConflict =
             error.message === 'TRIP_UPDATED' ||

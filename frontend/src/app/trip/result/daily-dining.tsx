@@ -2,8 +2,9 @@
 
 import {useEffect, useRef, useState} from 'react'
 import {UtensilsCrossed} from 'lucide-react'
-import {readDailyDining, type DailyDiningView, type DailyMealView, type TripUnderstandingCommand} from '@/lib/trip-understanding-v3'
+import {readDailyDining, type ActivityCardView, type DailyDiningView, type DailyMealView, type TripUnderstandingCommand} from '@/lib/trip-understanding-v3'
 import type {WorkspaceCommandResult} from './itinerary-workspace'
+import PendingPlaceDropdown from './pending-place-dropdown'
 
 export function useDailyDining(resource: string | null, etag: string) {
   const [value, setValue] = useState<DailyDiningView | null>(null)
@@ -50,12 +51,21 @@ export function useDailyDining(resource: string | null, etag: string) {
   return {value, refresh, busy}
 }
 
-export function DailyMealCard({day, state, disabled, onRefresh, onCommand}: {
+export function DailyMealCard({day, state, disabled, onRefresh, onCommand, resource, existingActivity}: {
   day?: DailyMealView; state: DailyDiningView | null; disabled: boolean
+  resource: string; existingActivity?: ActivityCardView
   onRefresh: () => void; onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
 }) {
   const [writing, setWriting] = useState(false)
   const [error, setError] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const confirmButton = useRef<HTMLButtonElement>(null)
+  const pendingMeal = day?.status === 'NEEDS_CONFIRMATION' && !!day.existing_activity_token
+  useEffect(() => {setConfirming(false)}, [day?.existing_activity_token, day?.status])
+  function closeConfirmation() {
+    setConfirming(false)
+    requestAnimationFrame(() => confirmButton.current?.focus({preventScroll: true}))
+  }
   const lock = useRef(false)
   const action = 'min-h-11 rounded-xl px-3 text-sm font-medium text-sky-800 hover:bg-white disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-sky-500'
   async function adopt(token: string) {
@@ -73,11 +83,15 @@ export function DailyMealCard({day, state, disabled, onRefresh, onCommand}: {
     {day?.area && day.area_relation === 'NEARBY' && day.area_distance_m != null && <p className="mt-1 text-xs text-slate-500">距首选饭店直线约{day.area_distance_m}米，步行路线待确认。</p>}
     <p className="mt-1 text-xs text-slate-600">{day?.message || state?.message || '正在准备中途用餐建议，地点卡片已可使用。'}</p>
     {day?.next_name && <p className="mt-1 text-xs text-slate-500">前往{day.next_name}之前用餐</p>}
-    {day?.candidates.map((item,index) => {
+    {!pendingMeal && day?.candidates.map((item,index) => {
       const card = <div className="flex flex-wrap items-center justify-between gap-2 py-2"><div className="min-w-0"><p className="text-sm font-medium">{item.name}{index===0 && <span className="ml-2 text-xs text-sky-700">建议</span>}</p><p className="text-xs text-slate-500">{item.area_or_address}</p><p className="text-xs text-slate-500">{item.reason}</p></div><button className={action} disabled={disabled || writing || state?.status !== 'AVAILABLE'} onClick={() => void adopt(item.candidate_token)}>加入行程</button></div>
       return index===0 ? <div key={item.candidate_token}>{card}</div> : <details key={item.candidate_token}><summary className="min-h-11 cursor-pointer py-3 text-xs text-sky-800">备选 · {item.name}</summary>{card}</details>
     })}
-    {state && state.status !== 'PREPARING' && (!day || ['UNAVAILABLE','EMPTY','NEEDS_CONFIRMATION'].includes(day.status)) && <button className={action} disabled={disabled || writing} onClick={onRefresh}>更新用餐建议</button>}
+    {pendingMeal && existingActivity && <div className="relative">
+      <button ref={confirmButton} type="button" className={action} disabled={disabled || writing} aria-expanded={confirming} onClick={() => setConfirming(value => !value)}>确认原文午餐</button>
+      {confirming && <PendingPlaceDropdown card={existingActivity} resource={resource} disabled={disabled || writing} onCommand={onCommand} onClose={closeConfirmation}/>}
+    </div>}
+    {state && state.status !== 'PREPARING' && !pendingMeal && (!day || ['UNAVAILABLE','EMPTY','NEEDS_CONFIRMATION'].includes(day.status)) && <button className={action} disabled={disabled || writing} onClick={onRefresh}>更新用餐建议</button>}
     {error && <p role="status" className="text-xs text-slate-600">{error}</p>}
   </aside>
 }

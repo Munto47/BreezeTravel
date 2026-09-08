@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.db.connection import get_pool
 from app.trip_understanding.failures import safe_failure_binding
 from app.trip_understanding.dining import verify_command_candidate
+from app.trip_understanding.dining_jobs import DailyDiningJob, RecommendationTripView
 from app.trip_understanding.anonymous import AnonymousDailyLimitError, anonymous_day_start
 from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.lodging_recovery import result_cards
@@ -494,6 +495,16 @@ class TripUnderstandingRepository(
     MemoryShareRepository,
     Protocol,
 ):
+    async def load_recommendation_trip_view(self, understanding_id: str, revision: int) -> RecommendationTripView: ...
+
+    async def read_daily_dining(self, resource: PublicResourceRecord, *, request_key: str | None = None,
+                               expected_etag: str | None = None, replay_info: dict | None = None): ...
+
+    async def claim_daily_dining(self, worker_id: str) -> DailyDiningJob | None: ...
+
+    async def complete_daily_dining(self, job: DailyDiningJob, *, worker_id: str, status: str,
+                                    payload: list, stats: dict, now: datetime) -> None: ...
+
     async def create_demo(
         self,
         *,
@@ -777,6 +788,108 @@ class PostgresTripUnderstandingRepository(
                 JOIN trip_understanding_revisions r ON r.understanding_id=u.understanding_id AND r.revision=u.current_revision
                 JOIN trip_understanding_sources s ON s.source_id=r.source_id WHERE u.understanding_id=$1""", understanding_id)
         return str(value or "TEXT")
+
+    async def _read_recommendation_trip_view(self, conn, understanding_id: str, revision: int) -> RecommendationTripView:
+        row = await conn.fetchrow("""SELECT result.public_json,result.opaque_etag,source.source_type
+            FROM trip_understanding_results result
+            JOIN trip_understanding_revisions revision ON revision.understanding_id=result.understanding_id
+                AND revision.revision=result.revision
+            LEFT JOIN trip_understanding_sources source ON source.source_id=revision.source_id
+            WHERE result.understanding_id=$1 AND result.revision=$2""", understanding_id, revision)
+        if row is None:
+            raise ResourceNotReadyError("recommendation trip version is unavailable")
+        plan = await self._read_map_plan(conn, understanding_id, revision)
+        return RecommendationTripView(revision=revision, etag=row["opaque_etag"],
+            result=UserFacingTripResult.model_validate(_json_value(row["public_json"])), plan=plan,
+            source_type=str(row["source_type"] or "TEXT"))
+
+    async def load_recommendation_trip_view(self, understanding_id: str, revision: int) -> RecommendationTripView:
+        """Internal worker read: one immutable revision, no enqueue or source-text access."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction(isolation="repeatable_read", readonly=True):
+            return await self._read_recommendation_trip_view(conn, understanding_id, revision)
+
+    async def read_daily_dining(self, resource: PublicResourceRecord, *, request_key: str | None = None,
+                               expected_etag: str | None = None, replay_info: dict | None = None):
+        from app.trip_understanding.daily_dining import DailyDiningView
+        from app.trip_understanding.dining_jobs import _project_daily_row, enqueue_initial_dining
+
+        if replay_info is not None:
+            replay_info["replayed"] = False
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            aggregate = await conn.fetchrow("""SELECT current_revision,state FROM trip_understandings
+                WHERE understanding_id=$1 AND public_resource_id=$2 FOR UPDATE""",
+                resource.understanding_id, resource.public_resource_id)
+            if aggregate is None or aggregate["state"] == "DELETED":
+                raise ResourceNotReadyError("trip cards are not available")
+            scope = f"understanding:{resource.understanding_id}:dining-refresh"
+            key_hash = _sha256_text(request_key) if request_key is not None else None
+            request_hash = _sha256_text(json.dumps({"expected_etag": expected_etag}, sort_keys=True))
+            if key_hash is not None:
+                previous = await conn.fetchrow("SELECT * FROM trip_understanding_idempotency_records WHERE scope=$1 AND key_hash=$2",
+                                               scope, key_hash)
+                if previous is not None:
+                    if previous["request_hash"].strip() != request_hash:
+                        raise IdempotencyConflictError("dining refresh idempotency key was reused")
+                    if replay_info is not None:
+                        replay_info["replayed"] = True
+                    return (DailyDiningView.model_validate(_json_value(previous["response_json"])["view"]),
+                            _json_value(previous["response_headers_json"])["ETag"])
+            revision = int(aggregate["current_revision"])
+            trip = await self._read_recommendation_trip_view(conn, resource.understanding_id, revision)
+            if expected_etag is not None and expected_etag != trip.etag:
+                raise RevisionConflictError()
+            if request_key is not None:
+                await enqueue_initial_dining(conn, resource.understanding_id, revision, request_key)
+                await conn.execute("""UPDATE trip_daily_dining_jobs SET status='QUEUED',request_key=$3,
+                    attempts=CASE WHEN finished_at<NOW()-INTERVAL '15 minutes' THEN 0 ELSE attempts END
+                    WHERE understanding_id=$1 AND revision=$2 AND request_key<>$3
+                    AND ((status='UNAVAILABLE' AND finished_at<NOW()-INTERVAL '30 seconds'
+                          AND (attempts<3 OR finished_at<NOW()-INTERVAL '15 minutes'))
+                        OR (status='READY' AND finished_at<NOW()-INTERVAL '15 minutes'))""",
+                    resource.understanding_id, revision, request_key)
+            row = await conn.fetchrow("SELECT * FROM trip_daily_dining_jobs WHERE understanding_id=$1 AND revision=$2",
+                                      resource.understanding_id, revision)
+            view = _project_daily_row(row, resource=resource, etag=trip.etag, trip=trip)
+            if key_hash is not None:
+                await conn.execute("""INSERT INTO trip_understanding_idempotency_records
+                    (scope,key_hash,request_hash,state,response_status,response_json,response_headers_json,created_at,completed_at)
+                    VALUES($1,$2,$3,'COMPLETED',200,$4::jsonb,$5::jsonb,NOW(),NOW())""", scope, key_hash, request_hash,
+                    json.dumps({"view": view.model_dump(mode="json"), "public_resource_id": resource.public_resource_id}, ensure_ascii=False),
+                    json.dumps({"ETag": trip.etag}))
+            return view, trip.etag
+
+    async def claim_daily_dining(self, worker_id: str) -> DailyDiningJob | None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            # Expired dispatched jobs keep their unknown external effects; no automatic retry.
+            await conn.execute("""UPDATE trip_daily_dining_jobs SET status='UNAVAILABLE',
+                lease_owner=NULL,lease_until=NULL,finished_at=NOW() WHERE status='BUILDING' AND lease_until<NOW()""")
+            row = await conn.fetchrow("""SELECT j.* FROM trip_daily_dining_jobs j
+                JOIN trip_understandings u ON u.understanding_id=j.understanding_id
+                WHERE j.status='QUEUED' AND u.state NOT IN ('DELETED','FAILED') AND u.current_revision=j.revision
+                ORDER BY j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1""")
+            if row is None:
+                return None
+            await conn.execute("""UPDATE trip_daily_dining_jobs SET status='BUILDING',
+                lease_owner=$3,lease_until=NOW()+INTERVAL '120 seconds',attempts=attempts+1
+                WHERE understanding_id=$1 AND revision=$2""", row["understanding_id"], row["revision"], worker_id)
+            trip = await self._read_recommendation_trip_view(conn, row["understanding_id"], row["revision"])
+            return DailyDiningJob(understanding_id=row["understanding_id"], revision=row["revision"],
+                                  attempt=row["attempts"] + 1, trip=trip)
+
+    async def complete_daily_dining(self, job: DailyDiningJob, *, worker_id: str, status: str,
+                                    payload: list, stats: dict, now: datetime) -> None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            # The revision, lease and attempt prevent stale results or deletion from being undone.
+            await conn.execute("""UPDATE trip_daily_dining_jobs SET status=$4,payload_json=$5::jsonb,metrics_json=$7::jsonb,
+                finished_at=$6,lease_owner=NULL,lease_until=NULL
+                WHERE understanding_id=$1 AND revision=$2 AND lease_owner=$3
+                    AND status='BUILDING' AND lease_until>$6 AND attempts=$8""",
+                job.understanding_id, job.revision, worker_id, status,
+                json.dumps(payload, ensure_ascii=False), now, json.dumps(stats), job.attempt)
 
     async def create_demo(
         self,
@@ -4822,6 +4935,36 @@ class InMemoryTripUnderstandingRepository(
             if job["understanding_id"] == understanding_id and job_id in self.sources:
                 return self.sources[job_id].source_type
         return "TEXT"
+
+    async def load_recommendation_trip_view(self, understanding_id: str, revision: int) -> RecommendationTripView:
+        result_id = next((key for key, owner in self.result_owners.items()
+            if owner == understanding_id and self.result_revisions.get(key) == revision), None)
+        stored = self.results.get(result_id or "")
+        if stored is None:
+            raise ResourceNotReadyError("recommendation trip version is unavailable")
+        return RecommendationTripView(revision=revision, etag=stored.opaque_etag,
+            result=stored.result.model_copy(deep=True), plan=self._memory_plan(understanding_id, revision),
+            source_type=await self.get_map_source_type(understanding_id))
+
+    async def read_daily_dining(self, resource: PublicResourceRecord, *, request_key: str | None = None,
+                               expected_etag: str | None = None, replay_info: dict | None = None):
+        from app.trip_understanding.dining_jobs import _project_daily_row
+
+        if replay_info is not None:
+            replay_info["replayed"] = False
+        plan, etag = await self.get_current_place_plan(resource)
+        if expected_etag is not None and expected_etag != etag:
+            raise RevisionConflictError()
+        trip = await self.load_recommendation_trip_view(resource.understanding_id, plan.plan_ref.revision)
+        return _project_daily_row({"status": "UNAVAILABLE"}, resource=resource, etag=etag, trip=trip), etag
+
+    async def claim_daily_dining(self, worker_id: str) -> DailyDiningJob | None:
+        # This fixture repository does not dispatch external restaurant jobs.
+        return None
+
+    async def complete_daily_dining(self, job: DailyDiningJob, *, worker_id: str, status: str,
+                                    payload: list, stats: dict, now: datetime) -> None:
+        raise ResourceNotReadyError("durable daily dining jobs require PostgreSQL")
 
     async def create_demo(
         self,

@@ -556,14 +556,8 @@ class PostgresStayRecommendationRepositoryMixin:
         return value is not None
 
     async def load_stay_plan(self, job: StayRecommendationJobRecord) -> StayRecommendationPlan:
-        pool = await self._get_pool()
-        async with pool.acquire() as conn:
-            map_plan = await self._read_map_plan(
-                conn,
-                job.understanding_id,
-                job.plan_ref.revision,
-            )
-        plan = stay_plan_from_map(map_plan)
+        trip = await self.load_recommendation_trip_view(job.understanding_id, job.plan_ref.revision)
+        plan = stay_plan_from_map(trip.plan)
         if plan is None or plan.plan_ref != job.plan_ref:
             raise ResourceNotFoundError("stay recommendation plan does not exist")
         return plan

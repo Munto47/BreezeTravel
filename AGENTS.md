@@ -1,6 +1,6 @@
 # 行程查开发约定
 
-BreezeTravel是唯一产品主仓。本轮用户已批准本地五城识别、餐饮、住宿重构，协同规划保持兼容。
+BreezeTravel是唯一产品主仓。2026-09-08用户已批准核心流程重建和公网正式交付；五城识别、餐饮、住宿及协同兼容均须通过完整用户流程验收，本地仅为中间环境。
 
 ## 开发入口
 用户最新明确授权优先。只维护三个事实入口：[产品定义](docs/product/PROJECT_CHARTER.md)、[实施计划](docs/governance/IMPLEMENTATION_PLAN.md)、[当前状态](docs/governance/CURRENT_GOAL.md)。API、数据、测试文档只说明各自接口；历史文件不覆盖当前目标。

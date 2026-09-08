@@ -8,6 +8,24 @@ from tests.test_daily_dining import card, day_context
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("name,meal_role", [("楼外楼孤山路店", None), ("合成午餐饭店", "LUNCH")])
+async def test_named_source_lunch_waiting_for_identity_does_not_offer_a_second_lunch(name, meal_role):
+    # First row reproduces the public field shape of the observed Hangzhou failure.
+    lunch = card(name, 1, category="餐饮", status="NEEDS_CONFIRMATION")
+    lunch.meal_role = meal_role
+    day, stops = day_context([card("上午景点", 0), lunch, card("下午景点", 2)])
+
+    async def forbidden(**_):
+        pytest.fail("Confirm the original named meal before searching for another lunch")
+
+    rows = await build_daily_meals(NS(days=[day]), NS(stops=stops), search=forbidden)
+    assert rows[0]["status"] == "NEEDS_CONFIRMATION"
+    assert rows[0]["existing_activity_token"] == lunch.activity_token
+    assert rows[0]["meal_role"] == "LUNCH"
+    assert rows[0]["candidates"] == []
+
+
+@pytest.mark.asyncio
 async def test_unconfirmed_explicit_lunch_neighbors_do_not_move_lunch_to_evening():
     morning = card("未确认上午景点", 0, status="NEEDS_CONFIRMATION")
     afternoon = card("未确认午后景点", 1, status="NEEDS_CONFIRMATION")

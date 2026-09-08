@@ -86,7 +86,7 @@ def attribute(manifest: Path, measurement: Path, labels: Path, raw_directory: Pa
                 "raw": [v for v in raw if v.get("place_name") == item["name"]]})
         results.append({"case_id": case_id, "missing_and_hierarchy": missing, "extra_or_misassigned": extras})
     return {"schema_version": "private-offline-attribution-v1", "external_calls": 0,
-        "measurement": str(measurement.resolve()), "runtime_fingerprint": report["source_fingerprint"],
+        "measurement": str(measurement.resolve()), "source_commit": report.get("source_commit"),
         "label_policy": "FIXED_INDEPENDENT_LABELS_NO_EDITS", "split": "development",
         "classification_limit": "Stage hypotheses, not semantic verdicts; variants and repeated occurrences require source review",
         "missing_by_stage": dict(Counter(item["category"] for case in results for item in case["missing_and_hierarchy"] if item["category"] != "MATCHED")),

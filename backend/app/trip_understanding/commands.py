@@ -6,6 +6,7 @@ from typing import Callable
 
 from app.trip_understanding.errors import CommandTargetChangedError
 from app.trip_understanding.models import (
+    MAX_TRIP_ACTIVITIES,
     ActivityCardView,
     ActivityDeleteCommand,
     ActivityInsertCommand,
@@ -61,7 +62,7 @@ def _ensure_day(days: list[TripDayView], day_index: int) -> None:
 
 def _result_status(days: list[TripDayView], constraints=()) -> str:
     cards = [card for day in days for card in day.activities] + list(constraints)
-    if len(cards) > 80:
+    if len(cards) > MAX_TRIP_ACTIVITIES:
         return "LIMITED"
     ready = sum(card.status == "READY" for card in cards)
     if cards and ready == len(cards):
@@ -212,6 +213,13 @@ def apply_public_command(
         if anchor.status != "READY" or (anchor.city and anchor.city != confirmed_place.city):
             raise CommandTargetChangedError("dining anchor needs confirmation")
         day = result.days[day_index]
+        if command.meal_role == "LUNCH":
+            from app.trip_understanding.daily_dining import meal_context
+
+            meal, _, _ = meal_context(day, [])
+            if meal.get("existing_activity_token"):
+                # A still-valid candidate from an old page cannot duplicate the source lunch.
+                raise CommandTargetChangedError("this day already has a lunch place to retain or confirm")
         if any(card.name == confirmed_place.name and card.area_or_address == confirmed_place.area_or_address for card in day.activities):
             raise CommandTargetChangedError("dining place is already in this day")
         inserted_card = ActivityCardView(activity_token=token_factory(), name=confirmed_place.name,

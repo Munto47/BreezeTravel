@@ -77,6 +77,11 @@ def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], s
             continue
         if atomic_place_rejection_reason(name) or not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", name):
             continue
+        if re.search(r"内部专用|内部食堂|不对外(?:开放|营业)|仅限(?:内部|员工|职工)", name):
+            # Provider restaurant codes also include staff-only canteens.
+            # Explicit access restrictions cannot be a visitor meal suggestion;
+            # public restaurant brands containing 食堂 remain eligible.
+            continue
         if not (scope.matches(row) if scope else _admin_matches(row, expected_city=anchor.city, expected_district=None)):
             continue
         signals = classify_amap_type_signals(str(row.get("typecode") or ""), str(row.get("type") or ""))

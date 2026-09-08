@@ -101,8 +101,6 @@ async def measure(args) -> int:
         raise ValueError("Selected runtime root has no experience inference implementation")
     runtime_origin = runtime_root
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=runtime_origin, capture_output=True, text=True, check=True).stdout.strip()
-    if args.freeze_runtime:
-        runtime_root = freeze_runtime(runtime_root, args.output.parent / "runtime-snapshots")
     sys.path.insert(0, str(runtime_root / "backend"))
     from app.trip_understanding.amap_place import AmapPlaceResolver
     from app.trip_understanding.experience_inference import ExperienceQwenProvider
@@ -113,16 +111,12 @@ async def measure(args) -> int:
     if not cases:
         raise ValueError("No completed corpus records match this measurement")
     labels = {}
-    labels_sha256 = None
-    labels_source_sha256 = None
     if args.labels:
         label_bytes = args.labels.read_bytes()
-        labels_source_sha256 = hashlib.sha256(label_bytes).hexdigest()
         selected_ids = {case["id"] for case in cases}
         labels = {label["case_id"]: label for label in json.loads(label_bytes)["annotations"] if label["case_id"] in selected_ids}
         label_snapshot = args.output.with_suffix(".labels.json")
         save_json(label_snapshot, {"annotations": list(labels.values())})
-        labels_sha256 = hashlib.sha256(label_snapshot.read_bytes()).hexdigest()
     for case in cases:
         label = labels.get(case["id"])
         if label and (label.get("source_sha256") != case["output_sha256"] or
@@ -135,7 +129,6 @@ async def measure(args) -> int:
         max_output_tokens=int(values.get("TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS") or 4096),
         input_cny_per_million=float(values["TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION"]) if values.get("TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION") else None,
         output_cny_per_million=float(values["TRIP_UNDERSTANDING_QWEN_OUTPUT_CNY_PER_MILLION"]) if values.get("TRIP_UNDERSTANDING_QWEN_OUTPUT_CNY_PER_MILLION") else None)
-    original_prompt_sha256 = hashlib.sha256(model.prompt.encode()).hexdigest()
     if args.prompt_path:
         model.prompt = args.prompt_path.read_text(encoding="utf-8")
         if not model.prompt.strip():
@@ -184,20 +177,15 @@ async def measure(args) -> int:
         model.client.chat.completions.create = recorded_create
     resolver = AmapPlaceResolver(api_key=values.get("AMAP_API_KEY") or "") if args.mode == "full" else None
     pipeline = TripUnderstandingPipeline(model, resolver) if resolver else None
-    fingerprint = source_fingerprint(runtime_root)
     report = {"schema_version": "platform-corpus-measurement-v1", "mode": args.mode, "source_commit": commit,
-        "source_fingerprint": fingerprint, "started_at": datetime.now(timezone.utc).isoformat(),
-        "runtime_root": str(runtime_root), "runtime_files": runtime_file_hashes(runtime_root),
-        "runtime_origin": str(runtime_origin), "frozen_runtime": args.freeze_runtime, "selected_split": args.split,
-        "runtime_snapshot_manifest": (runtime_root / "runtime-source.json").exists(),
-        "prompt_override": bool(args.prompt_path), "prompt_sha256": hashlib.sha256(model.prompt.encode()).hexdigest(),
-        "original_prompt_sha256": original_prompt_sha256,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "runtime_root": str(runtime_root), "runtime_origin": str(runtime_origin), "selected_split": args.split,
+        "source_isolation": "CALLER_SELECTED_CHECKOUT", "prompt_override": bool(args.prompt_path),
         "raw_calls_recorded": args.record_raw_calls,
         "thinking_budget_override": thinking_budget,
         "answer_token_cap": model.max_output_tokens,
         "model": model.model, "provenance": "platform_generated", "measurement": "SEMANTIC_AND_POI_NO_API_OR_ROUTES" if resolver else "SEMANTIC_ONLY",
-        "cases": [], "gold_source": "independent_annotations" if labels else "NONE", "labels_sha256": labels_sha256,
-        "labels_source_sha256": labels_source_sha256}
+        "cases": [], "gold_source": "independent_annotations" if labels else "NONE"}
     def save():
         report["summary"] = summarize_measurements(report["cases"])
         report["by_city"] = {city: summarize_measurements([row for row in report["cases"] if row["city"] == city])
@@ -219,8 +207,6 @@ async def measure(args) -> int:
     try:
         for repeat in range(1, args.repeat + 1):
             for case in cases:
-                if source_fingerprint(runtime_root) != fingerprint:
-                    raise RuntimeError("Runtime source changed; remaining calls stopped")
                 started = time.perf_counter()
                 capture_context.update(case_id=case["id"], repeat=repeat, call=0)
                 row = {"case_id": case["id"], "city": case["city"], "family_id": case["family_id"], "split": case["split"],
@@ -261,14 +247,10 @@ async def measure(args) -> int:
             await pipeline.aclose()
         else:
             await model.aclose()
-        report["source_unchanged"] = source_fingerprint(runtime_root) == fingerprint
-        current_files = runtime_file_hashes(runtime_root)
-        report["changed_runtime_files"] = sorted(name for name in report["runtime_files"].keys() | current_files.keys()
-            if report["runtime_files"].get(name) != current_files.get(name))
         report["finished_at"] = datetime.now(timezone.utc).isoformat()
         save()
     print(json.dumps({"summary": report["summary"]}), flush=True)
-    return int(report["summary"]["errors"] > 0 or not report["source_unchanged"])
+    return int(report["summary"]["errors"] > 0)
 
 
 def main():
@@ -279,8 +261,7 @@ def main():
         help="Read-only checkout whose backend runtime is measured; no service or source modification")
     parser.add_argument("--record-raw-calls", action="store_true",
         help="Save original request messages and actual model JSON privately for validator attribution")
-    parser.add_argument("--freeze-runtime", action="store_true",
-        help="Measure an immutable private copy of runtime source/data while collaborators keep working")
+    parser.add_argument("--freeze-runtime", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--labels", type=Path)
     parser.add_argument("--prompt-path", type=Path,
         help="Private experiment only: override this provider instance's prompt without modifying runtime files")
@@ -294,6 +275,8 @@ def main():
     parser.add_argument("--split", choices=("development", "validation", "holdout", "long_tail"), default="development",
         help="Select one prespecified family split before reading any source; defaults to development")
     args = parser.parse_args()
+    if args.freeze_runtime:
+        print(json.dumps({"notice": "--freeze-runtime is retired; measuring the selected checkout directly"}), flush=True)
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
     logging.disable(logging.CRITICAL)

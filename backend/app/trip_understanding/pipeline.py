@@ -17,6 +17,7 @@ from app.trip_understanding.errors import (
     PlaceProviderUnavailableError,
 )
 from app.trip_understanding.models import (
+    MAX_TRIP_ACTIVITIES,
     PendingLodgingRefView,
     ActivityCardView,
     ActivityAlternativeView,
@@ -34,6 +35,8 @@ from app.trip_understanding.models import (
     ResolvedActivity,
     ResolvedPlace,
     SourceClaimRecord,
+    SourceSemanticPlan,
+    SemanticDiagnostic,
     StaySuggestionView,
     TripUnderstandingProgressMetrics,
     TripDayView,
@@ -128,8 +131,11 @@ MULTI_CITY_HEADER_RE = re.compile(
 )
 BASIC_CITY_HEADER_RE = re.compile(
     rf"^\s*(?P<city>(?:{_DOMESTIC_CITY_PATTERN})(?:市)?|[\u4e00-\u9fff]{{2,6}}市)"
-    r"\s*[一二两三四五六七八九十0-9]+"
-    r"(?:日|天)(?:[一二两三四五六七八九十0-9]+晚)?(?:游|行程|攻略|旅行)"
+    r"\s*[一二两三四五六七八九十0-9]+\s*"
+    # A bare heading such as “上海一天。” also states the destination. Require
+    # its phrase boundary; “上海一天太短” remains comparison/narrative text.
+    r"(?:日|天)(?:[一二两三四五六七八九十0-9]+晚)?"
+    r"(?:(?:游|行程|攻略|旅行)|(?=[ \t]*(?:[。.!?！？；;：:，,\r\n]|$)))"
 )
 DESTINATION_CONTEXT_RE = re.compile(
     r"(?:围绕|一段|整理|关于)\s*"
@@ -1031,6 +1037,27 @@ def _apply_terminal_cancellations(
     )
 
 
+def _adapt_legacy_proposal(
+    source_text: str, proposal: InferenceProposal,
+) -> tuple[InferenceProposal, frozenset[tuple[int, int]]]:
+    """Compatibility entrance for historical rule/fixture extraction only.
+
+    A current model's SourceSemanticPlan never passes through lexical role,
+    cancellation or destination recovery a second time.
+    """
+    if isinstance(proposal, SourceSemanticPlan):
+        raise TypeError("source semantic plans cannot use the legacy adapter")
+    proposal, pending_spans = _apply_terminal_cancellations(
+        source_text, _apply_contextual_category_hints(source_text, proposal),
+    )
+    destination = normalized_destination_name(source_text, proposal.destination_name)
+    if destination != proposal.destination_name:
+        binding = dict(proposal.binding)
+        binding["destination_source_recovery_count"] = int(binding.get("destination_source_recovery_count", 0)) + 1
+        proposal = proposal.model_copy(update={"destination_name": destination, "binding": binding})
+    return proposal, pending_spans
+
+
 class EvidenceCompiler:
     def compile(
         self,
@@ -1118,6 +1145,7 @@ class PublicResultProjector:
         day_labels: dict[int, str] | None = None,
         day_count: int = 0,
         include_alternatives: bool = False,
+        unprocessed_by_day: dict[int, int] | None = None,
     ) -> UserFacingTripResult:
         planned = [
             activity
@@ -1225,7 +1253,8 @@ class PublicResultProjector:
                     activity_token=alternative.public_activity_token, branch_label=mention.branch_label,
                     choice_group_token=group_token(mention.choice_group_id), branch_token=group_token(mention.branch_id)))
             day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
-                                        activities=cards, alternatives=choices, meal_slots=meal_slots))
+                                        activities=cards, alternatives=choices, meal_slots=meal_slots,
+                                        unprocessed_count=(unprocessed_by_day or {}).get(day_index, 0)))
         resolved_count = sum(item.place is not None for item in planned)
         if planned and resolved_count == len(planned):
             result_status = "READY"
@@ -1279,6 +1308,42 @@ class PublicResultProjector:
         )
 
 
+def _projection_omissions(
+    plan: SourceSemanticPlan, compiled: list[CompiledActivity], result: UserFacingTripResult,
+) -> list[SemanticDiagnostic]:
+    """A public result cannot certify source items that its views dropped.
+
+    Identity lookup can leave cards pending, but an identified visit/alternative
+    still needs a visible destination in its original day and role. Anonymous
+    meals and lodging actions intentionally use separate context projections.
+    """
+    public = {
+        (day_index, role, item.activity_token)
+        for day_index, day in enumerate(result.days, 1)
+        for role, items in ((ActivityRole.PLANNED, day.activities), (ActivityRole.OPTIONAL, day.alternatives))
+        for item in items
+    }
+    issues = []
+    missing_days = set(range(len(result.days) + 1, plan.day_count + 1))
+    for item in compiled:
+        mention = item.mention
+        if mention.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or not mention.atomic_place_name:
+            continue
+        if atomic_place_rejection_reason(mention.atomic_place_name) is not None:
+            continue
+        # Undated source hotels are retained by the lodging-recovery projection.
+        if mention.pending_lodging_scope:
+            continue
+        day_index = mention.day_index or 1
+        if (day_index, mention.role, item.public_activity_token) not in public:
+            missing_days.discard(day_index)
+            issues.append(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field=f"days[{day_index}]",
+                span_start=mention.span_start, span_end=mention.span_end))
+    issues.extend(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field=f"days[{day}]")
+                  for day in sorted(missing_days))
+    return issues
+
+
 class TripUnderstandingPipeline:
     def __init__(
         self,
@@ -1286,7 +1351,7 @@ class TripUnderstandingPipeline:
         place_resolver: PlaceResolver,
         compiler: EvidenceCompiler | None = None,
         projector: PublicResultProjector | None = None,
-        max_executable_activities: int = 80,
+        max_executable_activities: int = MAX_TRIP_ACTIVITIES,
         max_place_concurrency: int = 4,
     ) -> None:
         if max_place_concurrency < 1 or max_place_concurrency > 8:
@@ -1484,32 +1549,15 @@ class TripUnderstandingPipeline:
         ):
             raise ValueError("confirmation spans must be valid source code-point ranges")
         proposal = await self.inference_provider.propose(source_text)
-        model_meaning = proposal.binding.get("semantic_policy") == "MODEL_MEANING_SOURCE_VALIDATED_V1"
+        model_meaning = isinstance(proposal, SourceSemanticPlan)
         cancellation_pending_spans: set[tuple[int, int]] = set()
         if not model_meaning:
-            # Historical rule-based experiments keep their original behavior.
-            # The live experience adapter supplies day/order/roles directly;
-            # lexical recovery must not rewrite those meanings a second time.
-            proposal, cancellation_pending_spans = _apply_terminal_cancellations(
-                source_text, _apply_contextual_category_hints(source_text, proposal),
-            )
-        destination_name = (
-            proposal.destination_name if model_meaning else normalized_destination_name(
-                source_text, proposal.destination_name,
-            )
-        )
-        if destination_name != proposal.destination_name:
-            binding = dict(proposal.binding)
-            binding["destination_source_recovery_count"] = int(
-                binding.get("destination_source_recovery_count", 0)
-            ) + 1
-            proposal = proposal.model_copy(
-                update={"destination_name": destination_name, "binding": binding}
-            )
+            proposal, cancellation_pending_spans = _adapt_legacy_proposal(source_text, proposal)
         search_cities = ((proposal.destination_name.removesuffix("市"),) if model_meaning
                          else resolution_cities(source_text, proposal.destination_name))
         projection_options = ({"day_labels": proposal.day_labels, "day_count": proposal.day_count,
-                               "include_alternatives": True} if model_meaning else {})
+                               "include_alternatives": True, "unprocessed_by_day": proposal.unprocessed_by_day}
+                              if model_meaning else {})
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()
         cancellation_pending_activity_ids: set[str] = set()
@@ -1874,6 +1922,13 @@ class TripUnderstandingPipeline:
             resolved,
             **projection_options,
         )
+        if isinstance(proposal, SourceSemanticPlan):
+            projection_issues = _projection_omissions(proposal, compiled, public_result)
+            if projection_issues:
+                proposal = proposal.model_copy(update={
+                    "diagnostics": [*proposal.diagnostics, *projection_issues],
+                    "unprocessed_count": proposal.unprocessed_count + len(projection_issues),
+                })
         if proposal.day_labels:
             days = [day.model_copy(update={"label": proposal.day_labels.get(index, day.label)})
                     for index, day in enumerate(public_result.days, 1)]

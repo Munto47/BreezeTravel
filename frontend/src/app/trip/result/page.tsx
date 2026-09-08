@@ -184,7 +184,7 @@ export default function TripResultPage() {
           ? '上次修改未保存'
           : accountSaved
             ? '已保存到账号'
-            : '已整理'
+            : result?.coverage?.complete === false ? '部分待补全' : '已整理'
   const progressTitle =
     trip.phase === 'CHECKING_PLACES'
       ? '正在核对地点'
@@ -356,12 +356,14 @@ export default function TripResultPage() {
       user &&
       result &&
       !trip.busy &&
-      !trip.pending &&
+      (!trip.pending ||
+        (trip.pending.type === 'claim' && trip.pending.recoveryChecked)) &&
       !accountSaved &&
       sessionStorage.getItem('bt_claim_after_login') === 'true'
     ) {
       sessionStorage.removeItem('bt_claim_after_login')
-      void trip.claim()
+      if (trip.pending) void trip.reconcile()
+      else void trip.claim()
     }
   }, [user, result, trip, accountSaved])
   async function confirmDelete() {
@@ -950,7 +952,9 @@ export default function TripResultPage() {
                     toolbar={<ItineraryPngExport result={result} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
                     renderDaySuggestion={dayIndex => <DailyMealCard
+                      resource={trip.resource}
                       day={dailyDining.value?.days.find(day => day.day_index===dayIndex)}
+                      existingActivity={trip.unresolvedDays[dayIndex-1]?.activities.find(card => card.activity_token===dailyDining.value?.days.find(day => day.day_index===dayIndex)?.existing_activity_token)}
                       state={dailyDining.value} disabled={disabled || dirty || dailyDining.busy}
                       onRefresh={() => void dailyDining.refresh()} onCommand={trip.workspaceCommand}/>}
                     disabled={disabled || dirty}

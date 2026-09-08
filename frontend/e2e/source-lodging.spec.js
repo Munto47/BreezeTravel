@@ -43,8 +43,9 @@ test('whole-trip lodging is independent of visit numbers and stored command posi
   expect(pending.days[0].activities[0].status).toBe('NEEDS_CONFIRMATION')
 })
 
-async function fixture(page,{unresolved=false,mapView=null}={}) {
+async function fixture(page,{unresolved=false,mapView=null,dayTwoActivities=null}={}) {
   const original=fixtureResult(unresolved)
+  if(dayTwoActivities)original.days[1].activities=dayTwoActivities
   if(mapView)original.map={status:mapView.status,message:mapView.message,available_actions:[]}
   const state={result:structuredClone(original),version:0,commands:[],searches:[],mapPosts:0,mapView}
   await page.route('**/webapi.amap.com/**',route=>route.abort())
@@ -87,6 +88,40 @@ async function fixture(page,{unresolved=false,mapView=null}={}) {
   await expect(page.getByTestId('itinerary-workspace')).toBeVisible()
   return state
 }
+
+for(const width of [1440,390])test(`confirmed hotel purpose is visible and accessible in both layouts at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:950})
+  const cases=[
+    ['取件酒店','LUGGAGE_PICKUP','取行李'],
+    ['当晚酒店','OVERNIGHT','入住'],
+    ['离店酒店','CHECK_OUT','退房'],
+    ['出发酒店','DEPARTURE','酒店出发'],
+    ['到访酒店','VISIT_ONLY','仅到访'],
+    ['未知用途酒店',null,'住宿'],
+    ['用途待确认酒店','LUGGAGE_PICKUP','住宿',true],
+  ]
+  const activities=cases.map(([name,event,,uncertain],index)=>card(`purpose-${index}`,name,{
+    category:'住宿',lodging_event:event,lodging_scope:'DAY',lodging_role_uncertain:!!uncertain,
+  }))
+  const state=await fixture(page,{dayTwoActivities:activities})
+  for(const [name,,purpose] of cases){
+    const mainCard=page.getByTestId('activity-card').filter({has:page.getByRole('heading',{name,exact:true})})
+    const details=mainCard.getByRole('button',{name:new RegExp(`${name} ${purpose} 已确认`)})
+    await details.scrollIntoViewIfNeeded()
+    await expect(details).toBeVisible()
+    await expect(details.getByText(purpose,{exact:true})).toBeVisible()
+  }
+  await page.getByRole('button',{name:'切换为列表',exact:true}).click()
+  const list=page.getByRole('list',{name:'Day 2 地点列表',exact:true})
+  for(const [name,,purpose] of cases){
+    const details=list.getByRole('button',{name:`${name} ${purpose} · 已确认 · 可更改`,exact:true})
+    await details.scrollIntoViewIfNeeded()
+    await expect(details).toBeVisible()
+  }
+  expect(state.result.days[1].activities).toEqual(activities)
+  expect(state.commands).toEqual([])
+  expect(state.mapPosts).toBe(0)
+})
 
 for(const width of [1440,390])test(`whole-trip hotel can be viewed, changed, deleted and undone without route generation at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:950})

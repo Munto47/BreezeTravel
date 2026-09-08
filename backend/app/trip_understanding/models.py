@@ -10,6 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.trip_understanding.timing import ActivityTiming
 
 
+MAX_TRIP_ACTIVITIES = 160
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -96,7 +99,25 @@ class InferenceProposal(StrictModel):
     day_labels: dict[int, str] = Field(default_factory=dict)
     day_count: int = Field(default=0, ge=0, le=14)
     unprocessed_count: int = Field(default=0, ge=0)
+    # Only source-scoped processing may assign unfinished work to a day.
+    # Unknown attribution remains in the global count, never guessed from an empty day.
+    unprocessed_by_day: dict[Annotated[int, Field(ge=1, le=14)], Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
     diagnostics: list[SemanticDiagnostic] = Field(default_factory=list)
+
+
+class SourceSemanticPlan(InferenceProposal):
+    """Source-validated meaning produced by every current model adapter.
+
+    Days, roles, branches, order and per-visit city evidence are authoritative
+    here. Downstream identity lookup may resolve a place or leave it pending;
+    it must not reinterpret those semantics. ``binding`` contains observations
+    only and cannot select a different processing contract.
+
+    Contract additions are optional fields with defaults for historical records;
+    the type itself requires no wire discriminator or public version change.
+    Readers replaying model drafts must explicitly construct this type rather
+    than infer it from diagnostic text.
+    """
 
 
 class CompiledActivity(StrictModel):
@@ -271,6 +292,7 @@ class TripDayView(StrictModel):
     activities: list[ActivityCardView]
     alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
     meal_slots: list[MealSlotView] = Field(default_factory=list)
+    unprocessed_count: int = Field(default=0, ge=0)
 
 
 class MapReadinessView(StrictModel):
@@ -656,7 +678,7 @@ class ActivityInsertCommand(ActivityTiming):
     city: str | None = Field(default=None, max_length=40)
     command_type: Literal["ACTIVITY_INSERT"]
     day_index: int = Field(ge=1, le=14)
-    position: int = Field(ge=0, le=80)
+    position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
     name: str = Field(min_length=1, max_length=40)
     category: str = Field(default="地点", min_length=1, max_length=40)
     area_or_address: str = Field(default="地点待确认", min_length=1, max_length=120)
@@ -672,7 +694,7 @@ class ActivityMoveCommand(StrictModel):
     command_type: Literal["ACTIVITY_MOVE"]
     activity_token: str = Field(min_length=20, max_length=80)
     target_day_index: int = Field(ge=1, le=14)
-    target_position: int = Field(ge=0, le=80)
+    target_position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
 
 
 class ActivityTextEditCommand(StrictModel):
@@ -713,7 +735,7 @@ class ActivityTimeSetCommand(ActivityTiming):
 
 class ActivityTimesShiftCommand(StrictModel):
     command_type: Literal["ACTIVITY_TIMES_SHIFT"]
-    activity_tokens: list[str] = Field(min_length=1, max_length=80)
+    activity_tokens: list[str] = Field(min_length=1, max_length=MAX_TRIP_ACTIVITIES)
     minutes: int = Field(gt=0, le=1440)
 
 
@@ -725,7 +747,7 @@ class ActivityTimingUpdate(StrictModel):
 
 class ActivityTimesApplyCommand(StrictModel):
     command_type: Literal["ACTIVITY_TIMES_APPLY"]
-    changes: list[ActivityTimingUpdate] = Field(min_length=1, max_length=80)
+    changes: list[ActivityTimingUpdate] = Field(min_length=1, max_length=MAX_TRIP_ACTIVITIES)
 
 
 class PlaceConfirmCommand(StrictModel):

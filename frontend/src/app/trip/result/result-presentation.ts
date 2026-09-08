@@ -17,6 +17,21 @@ export const DAY_ACCENTS = [
   ['from-rose-50', 'to-orange-50', 'text-orange-800'],
 ] as const
 
+const LODGING_PURPOSE_LABELS: Record<NonNullable<ActivityCardView['lodging_event']>, string> = {
+  OVERNIGHT: '入住',
+  CHECK_OUT: '退房',
+  DEPARTURE: '酒店出发',
+  LUGGAGE_PICKUP: '取行李',
+  VISIT_ONLY: '仅到访',
+}
+
+export function activityCategoryLabel(card: ActivityCardView): string {
+  if (card.category !== '住宿' || card.status !== 'READY' || card.lodging_role_uncertain || !card.lodging_event) {
+    return card.category
+  }
+  return LODGING_PURPOSE_LABELS[card.lodging_event] || card.category
+}
+
 export type TransportConnector =
   | { status: 'AVAILABLE'; mode: 'walking' | 'transit'; durationMinutes: number; distanceMeters: number | null }
   | { status: 'NEEDS_UPDATE' | 'PENDING' | 'UNAVAILABLE' }

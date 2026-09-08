@@ -21,13 +21,13 @@ from pydantic import Field, ValidationError, field_validator
 from app.trip_understanding.errors import InferenceProviderUnavailableError
 from app.trip_understanding.guide_choices import choice_scopes, explicit_binary_choice_clauses, explicit_choice_branches, explicit_optional_labels, explicit_visit_labels
 from app.trip_understanding.models import (
-    ActivityRole, ActivityTiming, DestinationBasis, InferenceProposal,
+    MAX_TRIP_ACTIVITIES, ActivityRole, ActivityTiming, DestinationBasis, SourceSemanticPlan,
     ProposedMention, SemanticDiagnostic, StrictModel,
 )
 from app.trip_understanding.pipeline import BASIC_CITY_HEADER_RE, DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
 from app.trip_understanding.place_labels import normalized_place_label
 from app.trip_understanding.timing_evidence import validated_timing
-from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, merge_preserved_activities
+from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, improves_only_lodging_evidence, merge_preserved_activities
 
 
 PROMPT_PATH = Path(__file__).with_name("experience_inference_prompt.md")
@@ -75,7 +75,7 @@ class SemanticDraft(StrictModel):
     destination: str = Field(default="目的地待确认", min_length=1, max_length=40)
     day_labels: list[str | None] = Field(default_factory=list, max_length=14)
     activities: list[SemanticActivity] = Field(
-        max_length=160,
+        max_length=MAX_TRIP_ACTIVITIES,
         description="按执行顺序逐地点列出；同句并列的多个独立地点分别成项，二选一的两个地点都保留为OPTIONAL。",
     )
     unprocessed_quotes: list[str] = Field(default_factory=list, max_length=80)
@@ -1159,7 +1159,7 @@ def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActiv
         first_day = re.search(r"第[^。\n]{1,5}天|(?:Day|D)\s*\d+|\d{1,2}月\d{1,2}日", source, re.I)
         document_evidence = bool(first_day and right <= first_day.start())
         header_evidence = bool(header and header.group("city").removesuffix("市") == city
-            and left <= header.start("city") < header.end("city") <= right)
+            and left <= header.start("city") < header.start("city") + len(city) <= right)
         if ((document_evidence or header_evidence)
             and not any(city_offsets(name, 0, len(source)) for name in DOMESTIC_CITY_NAMES if name != city)):
             # A source-bound, single-city preamble scopes all days regardless
@@ -1472,6 +1472,17 @@ def _bound_lodging_evidence(anchors: SourceAnchorIndex, item: SemanticActivity,
         return None
     name_start, name_end = start + relative[0], start + relative[1]
     span = _bound_role_evidence(anchors, item.lodging_evidence, name_start, name_end)
+    if not item.lodging_evidence and item.lodging_event == "LUGGAGE_PICKUP":
+        # Reuse an already-bound explicit action quote, never nearby prose or
+        # a hotel name alone. The model's action is unchanged; stays are not inferred.
+        quote_start, quote_end = anchors.locate(item.source_quote, item.occurrence)
+        quote = anchors.source[quote_start:quote_end].strip()
+        pickup = rf"(?:傍晚|下午|上午|晚上|中午|随后|然后|最后|返程前|离开前)?(?:再|再次)?回(?:到)?\s*{re.escape(item.place_name)}\s*取行李"
+        left = max(anchors.source.rfind(mark, 0, quote_start) for mark in "\n。！？；;") + 1
+        prefix = anchors.source[left:quote_start]
+        if (quote_start <= name_start < name_end <= quote_end and re.fullmatch(pickup, quote) and not re.search(
+                r"不|没|未|无需|无须|勿|别|如果|假如|若|万一|可能|考虑|备选|可|只有|除非|有空|有时间|有余力|来得及|视情况|的话", prefix)):
+            span = (quote_start, quote_end)
     return span if span and (span[0] < name_start or span[1] > name_end) else None
 
 
@@ -1551,7 +1562,7 @@ def _bound_lodging_exclusion(anchors: SourceAnchorIndex, item: SemanticActivity,
     return span if set(item.lodging_excluded_nights) <= (explicit or implicit) else None
 
 
-def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> InferenceProposal:
+def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> SourceSemanticPlan:
     if allow_partial:
         draft = draft.model_copy(deep=True)
     draft = _recover_unique_quote_occurrences(source, draft)
@@ -1941,7 +1952,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             lodging_exclusion_evidence=item.lodging_exclusion_evidence if exclusion_span else None,
             lodging_exclusion_evidence_start=exclusion_span[0] if exclusion_span else None,
             lodging_exclusion_evidence_end=exclusion_span[1] if exclusion_span else None,
-            lodging_evidence=item.lodging_evidence if lodging_span else None,
+            lodging_evidence=(item.lodging_evidence or source[lodging_span[0]:lodging_span[1]]) if lodging_span else None,
             lodging_evidence_start=lodging_span[0] if lodging_span else None,
             lodging_evidence_end=lodging_span[1] if lodging_span else None,
             time_hint=hint, city_hint=city, city_evidence=city_evidence, **timing,
@@ -1978,7 +1989,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     explicit_destination = draft.destination in source_destination_cities(source) or any(
         mention.city_hint == draft.destination and mention.city_evidence for mention in mentions
     )
-    return InferenceProposal(
+    return SourceSemanticPlan(
         source_hash=hashlib.sha256(source.encode()).hexdigest(),
         destination_name=draft.destination,
         destination_basis=(DestinationBasis.EXPLICIT if explicit_destination
@@ -2056,8 +2067,8 @@ def _known_source_places(source: str) -> list[dict]:
     return source_place_hints(source, limit=160)
 
 
-def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: InferenceProposal,
-                               hints: list[dict]) -> InferenceProposal:
+def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: SourceSemanticPlan,
+                               hints: list[dict]) -> SourceSemanticPlan:
     """Known nouns are coverage questions, never automatic planned visits."""
     covered = [(mention.span_start, mention.span_end) for mention in proposal.mentions]
     covered.extend((issue.span_start, issue.span_end) for issue in proposal.diagnostics
@@ -2080,7 +2091,7 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Infe
 
 
 def _recover_partial_proposal(source: str, draft: SemanticDraft,
-                              extra_category: str | None = None) -> InferenceProposal | None:
+                              extra_category: str | None = None) -> SourceSemanticPlan | None:
     try:
         proposal = proposal_from_draft(source, draft, allow_partial=True)
     except (ValueError, ValidationError):
@@ -2095,7 +2106,7 @@ def _recover_partial_proposal(source: str, draft: SemanticDraft,
     return proposal
 
 
-def _retain_repair_omissions(source: str, original: SemanticDraft, proposal: InferenceProposal) -> InferenceProposal:
+def _retain_repair_omissions(source: str, original: SemanticDraft, proposal: SourceSemanticPlan) -> SourceSemanticPlan:
     """Removing an invalid item from repair is not proof it was not a visit."""
     anchors = SourceAnchorIndex(source)
     diagnostics = []
@@ -2160,7 +2171,7 @@ class ExperienceQwenProvider:
             await self.client.close()
             self._owned = False
 
-    async def propose(self, source_text: str) -> InferenceProposal:
+    async def propose(self, source_text: str) -> SourceSemanticPlan:
         # The deadline measures a Provider run, excluding queue backpressure.
         async with self._slots:
             if self.enable_day_sections and len(source_text) >= 900 and 2 <= _explicit_day_count(source_text) <= 14:
@@ -2169,7 +2180,7 @@ class ExperienceQwenProvider:
                 return await propose_by_day(self, source_text)
             return await self._propose(source_text)
 
-    async def _propose(self, source_text: str, task_instruction: str = "", call_sink: list | None = None) -> InferenceProposal:
+    async def _propose(self, source_text: str, task_instruction: str = "", call_sink: list | None = None) -> SourceSemanticPlan:
         started = time.perf_counter()
         calls: list[dict[str, object]] = [] if call_sink is None else call_sink
         source_places = _known_source_places(source_text)
@@ -2182,13 +2193,13 @@ class ExperienceQwenProvider:
             {"role": "user", "content": source_text},
         ]
         failure = "INVALID_STRUCTURED_OUTPUT"
-        proposal: InferenceProposal | None = None
-        validated_partial: tuple[InferenceProposal, int] | None = None
+        proposal: SourceSemanticPlan | None = None
+        validated_partial: tuple[SourceSemanticPlan, int] | None = None
         restored_draft_attempt: int | None = None
         degraded_timing = 0
         grounded_days = 0
         recovery_draft: SemanticDraft | None = None
-        recovery_partial: InferenceProposal | None = None
+        recovery_partial: SourceSemanticPlan | None = None
         final_draft: SemanticDraft | None = None
         semantic_partial_used = False
         try:
@@ -2211,7 +2222,6 @@ class ExperienceQwenProvider:
                     call["output_tokens"] = getattr(usage, "completion_tokens", None)
                     call["reported_model"] = getattr(response, "model", None)
                     content = response.choices[0].message.content or ""
-                    call["response_sha256"] = hashlib.sha256(content.encode()).hexdigest()
                     draft: SemanticDraft | None = None
                     try:
                         if getattr(response.choices[0], "finish_reason", None) == "length":
@@ -2238,7 +2248,8 @@ class ExperienceQwenProvider:
                             recovered = _recover_partial_proposal(source_text, checked_recovery,
                                 "OUTPUT_TRUNCATED" if str(exc) == "OUTPUT_TRUNCATED" else None)
                             if recovered is not None and (recovery_partial is None or
-                                    len(recovered.mentions) > len(recovery_partial.mentions)):
+                                    len(recovered.mentions) > len(recovery_partial.mentions) or
+                                    improves_only_lodging_evidence(recovery_partial, recovered)):
                                 recovery_draft, recovery_partial = checked_recovery, recovered
                         if (attempt == 0 and isinstance(exc, SourceAnchorValidationError) and exc.issues
                             and checked_recovery is not None
@@ -2353,11 +2364,8 @@ class ExperienceQwenProvider:
             cost = round((input_tokens * self.rates[0] + output_tokens * self.rates[1]) / 1_000_000, 8)
         binding = {
             "provider": "QWEN", "model": self.model, "semantic_policy": SEMANTIC_POLICY,
-            "prompt_sha256": hashlib.sha256(self.prompt.encode()).hexdigest(),
-            "schema_sha256": hashlib.sha256(json.dumps(self.schema, sort_keys=True).encode()).hexdigest(),
             "deadline_ms": round(self.deadline_seconds * 1000), "max_output_tokens": self.max_output_tokens,
             "temperature": SEMANTIC_TEMPERATURE,
-            "repair_prompt_sha256": hashlib.sha256(REPAIR_INSTRUCTION.encode()).hexdigest(),
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),
             "fallback_used": bool(degraded_timing or grounded_days or semantic_partial_used), "degraded_timing_activities": degraded_timing,
             "semantic_partial_recovery": semantic_partial_used,

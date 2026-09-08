@@ -11,7 +11,7 @@ from app.trip_understanding import landmark_hints
 from app.trip_understanding._three_city_place_lexicon import PlaceLexiconEntry, ThreeCityPlaceLexicon
 from app.trip_understanding.amap_place import AmapPlaceResolver
 from app.trip_understanding.experience_inference import SemanticDraft, proposal_from_draft
-from app.trip_understanding.models import ActivityRole, DestinationBasis, InferenceProposal, ProposedMention
+from app.trip_understanding.models import ActivityRole, DestinationBasis, SourceSemanticPlan, ProposedMention
 from app.trip_understanding.pipeline import TripUnderstandingPipeline, _model_activity_cities
 
 
@@ -30,7 +30,7 @@ def proposal_for(names, *, destination="上海", prefix="", roles=None):
             atomic_place_name=name, category_hint="景点",
         ))
         cursor = start + len(name)
-    return source, InferenceProposal(
+    return source, SourceSemanticPlan(
         source_hash=hashlib.sha256(source.encode()).hexdigest(), destination_name=destination,
         destination_basis=DestinationBasis.SOFT_ASSUMPTION, mentions=mentions,
         binding={"semantic_policy": "MODEL_MEANING_SOURCE_VALIDATED_V1"}, day_count=1,

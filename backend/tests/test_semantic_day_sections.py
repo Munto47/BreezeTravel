@@ -1,11 +1,14 @@
 """Whole-document context, literal day scopes, partial results and call accounting."""
 import json
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
 
 from app.trip_understanding.experience_inference import ExperienceQwenProvider
 from app.trip_understanding.semantic_sections import DayStructure, anchored_sections
+from app.trip_understanding.models import ActivityMoveCommand, ResolvedPlace, UndoCommand, UserFacingTripResult
+from app.trip_understanding.pipeline import PublicResultProjector, TripUnderstandingPipeline
 
 
 def source():
@@ -151,3 +154,140 @@ async def test_reanchored_day_inputs_keep_previous_tail_and_original_place_spans
     assert [(item.atomic_place_name, item.day_index) for item in result.mentions] == [("星河公园", 1), ("月光桥", 2)]
     assert all(text[item.span_start:item.span_end] == item.raw_text for item in result.mentions)
     assert result.binding["external_calls"] == len(client.calls) == 3
+
+
+class RecordingPlaces:
+    """Synthetic place identities: exercises wiring without network or a database."""
+
+    def __init__(self, *, districts=None):
+        self.calls = []
+        self.districts = districts or {}
+
+    async def resolve(self, *, city, atomic_place_name, category_hint=None):
+        self.calls.append((city, atomic_place_name))
+        return ResolvedPlace(canonical_place_id=f"synthetic:{city}:{atomic_place_name}",
+            name=atomic_place_name, category="景点", area_or_address="模拟地址",
+            provider_binding={"city": city, "adcode": self.districts.get(city)})
+
+
+@pytest.mark.asyncio
+async def test_failed_day_remains_visible_after_provider_and_pipeline():
+    result = await TripUnderstandingPipeline(provider(ScopedClient(second_fails=True)), RecordingPlaces()).run(source())
+    assert len(result.public_result.days) == 2
+    assert not result.public_result.days[1].activities
+    assert [day.unprocessed_count for day in result.public_result.days] == [0, 1]
+    assert result.public_result.coverage.unprocessed_count > 0
+    assert result.public_result.status == "PARTIAL_RESULT"
+    assert result.public_result.coverage.complete is False
+
+
+class OptionalDayClient(ScopedClient):
+    async def create(self, **kwargs):
+        response = await super().create(**kwargs)
+        payload = json.loads(response.choices[0].message.content)
+        for activity in payload.get("activities", []):
+            if activity.get("day_index") == 2:
+                activity.update(role="OPTIONAL", role_evidence="月光桥作为备选")
+        response.choices[0].message.content = json.dumps(payload)
+        return response
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("metadata", [None, {}, {"semantic_policy": "another-experiment"}])
+async def test_optional_only_day_survives_pipeline_independently_of_observation_metadata(metadata):
+    text = source().replace("Day2：月光桥。", "Day2：月光桥作为备选。")
+    live_adapter = provider(OptionalDayClient())
+
+    class ObservedProvider:
+        async def propose(self, source_text):
+            proposal = await live_adapter.propose(source_text)
+            return proposal if metadata is None else proposal.model_copy(update={"binding": metadata})
+
+    result = await TripUnderstandingPipeline(ObservedProvider(), RecordingPlaces()).run(text)
+    assert len(result.public_result.days) == 2
+    assert not result.public_result.days[1].activities
+    assert [item.name for item in result.public_result.days[1].alternatives] == ["月光桥"]
+    assert [day.unprocessed_count for day in result.public_result.days] == [0, 0]
+    assert result.public_result.coverage.complete is True
+
+
+@pytest.mark.asyncio
+async def test_day_sections_keep_each_city_and_guard_the_source_district():
+    text = "旅行背景：" + "准备充分。" * 190 + "\nDay1：上海浦东新区：星河公园。\nDay2：北京东城区：月光桥。"
+
+    class CityClient(ScopedClient):
+        async def create(self, **kwargs):
+            response = await super().create(**kwargs)
+            payload = json.loads(response.choices[0].message.content)
+            for activity in payload.get("activities", []):
+                day = activity["day_index"]
+                city, district = ("上海", "浦东新区") if day == 1 else ("北京", "东城区")
+                payload["destination"] = city
+                activity.update(city=city, city_evidence=f"Day{day}：{city}{district}",
+                    role_evidence=f"Day{day}：{city}{district}：{activity['place_name']}")
+            response.choices[0].message.content = json.dumps(payload)
+            return response
+
+    places = RecordingPlaces(districts={"上海": "310101", "北京": "110101"})
+    result = await TripUnderstandingPipeline(provider(CityClient()), places).run(text)
+    assert sorted(places.calls) == [("上海", "星河公园"), ("北京", "月光桥")]
+    assert result.activities[0].resolver_receipt["failure_category"] == "SOURCE_DISTRICT_MISMATCH"
+    assert result.public_result.days[0].activities[0].status == "NEEDS_CONFIRMATION"
+    assert result.public_result.days[1].activities[0].status == "READY"
+    assert result.public_result.coverage.complete is False
+
+
+@pytest.mark.asyncio
+async def test_projection_cannot_claim_complete_after_losing_an_understood_alternative():
+    text = source().replace("Day2：月光桥。", "Day2：月光桥作为备选。")
+
+    class LossyProjector(PublicResultProjector):
+        def project(self, *args, **kwargs):
+            result = super().project(*args, **kwargs)
+            return result.model_copy(update={"days": result.days[:1]})
+
+    result = await TripUnderstandingPipeline(provider(OptionalDayClient()), RecordingPlaces(),
+        projector=LossyProjector()).run(text)
+    assert result.public_result.status == "PARTIAL_RESULT"
+    assert result.public_result.coverage.complete is False
+    assert result.public_result.coverage.unprocessed_count == 1
+    issue = next(item for item in result.proposal.diagnostics if item.category == "PUBLIC_PROJECTION_OMISSION")
+    assert text[issue.span_start:issue.span_end] == "月光桥"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["memory", "postgres"])
+async def test_day_unprocessed_count_survives_save_edit_readback_and_undo(kind):
+    from tests.test_experience_v3_journey import repository_for
+    from app.trip_understanding.service import TripUnderstandingApplicationService
+
+    text = source()
+    now = datetime.now(timezone.utc)
+    output = await TripUnderstandingPipeline(provider(ScopedClient(second_fails=True)), RecordingPlaces()).run(text)
+    async with repository_for(kind) as repository:
+        created = await repository.create_demo(capability_hash="a" * 64, source_text=text,
+            idempotency_key="unfinished-day", request_hash="b" * 64, now=now, ttl_hours=24)
+        job = await repository.claim_next(worker_id="day-retention", now=now, lease_seconds=60)
+        await repository.complete_job(job, output, now=now)
+        resource = await repository.authorize(created.accepted.public_resource_id, capability_hash="a" * 64, now=now)
+        stored = await repository.get_result(resource)
+        assert [day.unprocessed_count for day in stored.result.days] == [0, 1]
+        service = TripUnderstandingApplicationService(repository)
+        await service.apply_command(resource, ActivityMoveCommand(command_type="ACTIVITY_MOVE",
+            activity_token=stored.result.days[0].activities[0].activity_token, target_day_index=2, target_position=0),
+            expected_etag=stored.opaque_etag, idempotency_key="move-to-unfinished-day", now=now)
+        resource = await repository.authorize(created.accepted.public_resource_id, capability_hash="a" * 64, now=now)
+        edited = await repository.get_result(resource)
+        assert [day.unprocessed_count for day in edited.result.days] == [0, 1]
+        assert not edited.result.days[0].activities and edited.result.days[1].activities
+        await service.apply_command(resource, UndoCommand(command_type="UNDO"), expected_etag=edited.opaque_etag,
+            idempotency_key="undo-unfinished-day-move", now=now)
+        resource = await repository.authorize(created.accepted.public_resource_id, capability_hash="a" * 64, now=now)
+        restored = await repository.get_result(resource)
+        assert [day.unprocessed_count for day in restored.result.days] == [0, 1]
+        assert restored.result.days[0].activities and not restored.result.days[1].activities
+        assert restored.result.coverage.complete is False
+        old_payload = restored.result.model_dump()
+        for day in old_payload["days"]:
+            day.pop("unprocessed_count")
+        assert [day.unprocessed_count for day in UserFacingTripResult.model_validate(old_payload).days] == [0, 0]

@@ -11,6 +11,11 @@ from app.trip_understanding.experience_inference import (
 )
 from app.trip_understanding.full_text import ControlledSnapshotPlaceResolver
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
+from app.trip_understanding.commands import apply_public_command
+from app.trip_understanding.models import (
+    ActivityInsertCommand, ActivityMoveCommand, InferenceProposal, PlaceConfirmCommand,
+    ResolvedPlace, SourceSemanticPlan,
+)
 
 
 class Client:
@@ -132,3 +137,75 @@ async def test_transport_timeout_does_not_fall_back_to_example_or_rules():
     assert caught.value.category == "DEADLINE_EXCEEDED"
     assert caught.value.provider_binding["input_tokens"] is None
     assert caught.value.provider_binding["estimated_cost_cny"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count", [80, 81, 160])
+async def test_supported_activity_count_is_fully_resolved_visible_and_editable(count):
+    names = [f"测试{index:03d}公园" for index in range(count)]
+    source = "北京 Day1：" + "、".join(names)
+    payload = draft("北京", [dict(source_quote=name, place_name=name, role="PLANNED", day_index=1) for name in names])
+    calls = []
+
+    class AllPlaces:
+        async def resolve(self, *, city, atomic_place_name, category_hint=None):
+            calls.append(atomic_place_name)
+            return ResolvedPlace(canonical_place_id=f"synthetic:{atomic_place_name}", name=atomic_place_name,
+                category="景点", area_or_address="模拟地址", provider_binding={"city": city})
+
+    output = await TripUnderstandingPipeline(provider(Client(json.dumps(payload, ensure_ascii=False))), AllPlaces()).run(source)
+    assert isinstance(output.proposal, SourceSemanticPlan)
+    assert calls == names
+    assert [card.name for card in output.public_result.days[0].activities] == names
+    assert output.public_result.status == "READY" and output.public_result.coverage.complete is True
+    assert output.resolution_receipt["budget_limited_count"] == 0
+    original = output.public_result
+    moved = apply_public_command(original, ActivityMoveCommand(command_type="ACTIVITY_MOVE",
+        activity_token=original.days[0].activities[0].activity_token, target_day_index=1, target_position=count - 1)).result
+    assert [card.name for card in moved.days[0].activities] == [*names[1:], names[0]]
+    assert moved.status == "READY" and moved.coverage.complete is True
+    assert moved.coverage.confirmed_place_count == count
+
+
+@pytest.mark.asyncio
+async def test_insert_and_confirm_at_the_160th_position_preserves_all_existing_cards():
+    original = (await TripUnderstandingPipeline(provider(Client(json.dumps(draft("北京", [
+        dict(source_quote="故宫博物院", place_name="故宫博物院", role="PLANNED", day_index=1, category="景点"),
+    ]), ensure_ascii=False))), ControlledSnapshotPlaceResolver()).run("北京 Day1：故宫博物院")).public_result
+    card = original.days[0].activities[0]
+    original.days[0].activities = [card.model_copy(update={"activity_token": f"activity-{index:024d}", "name": f"模拟{index}公园"})
+                                    for index in range(159)]
+    inserted = apply_public_command(original, ActivityInsertCommand(command_type="ACTIVITY_INSERT",
+        day_index=1, position=159, name="最后公园")).result
+    assert len(inserted.days[0].activities) == 160
+    assert inserted.status == "PARTIAL_RESULT"
+    confirmed = apply_public_command(inserted, PlaceConfirmCommand(command_type="PLACE_CONFIRM",
+        activity_token=inserted.days[0].activities[-1].activity_token, candidate_token="c" * 40),
+        confirmed_place=SimpleNamespace(name="最后公园", category="景点", city="北京", area_or_address="已核验地址")).result
+    assert confirmed.status == "READY" and confirmed.coverage.complete is True
+    assert confirmed.coverage.confirmed_place_count == 160
+    assert [row.name for row in confirmed.days[0].activities[:-1]] == [f"模拟{index}公园" for index in range(159)]
+    # An over-limit edit remains visible and explicitly limited, never truncated.
+    overflow = apply_public_command(confirmed, ActivityInsertCommand(command_type="ACTIVITY_INSERT",
+        day_index=1, position=160, name="超出边界公园")).result
+    assert len(overflow.days[0].activities) == 161
+    assert overflow.status == "LIMITED" and overflow.coverage.complete is False
+
+
+@pytest.mark.asyncio
+async def test_legacy_adapter_cannot_be_selected_or_bypassed_using_observation_metadata():
+    source = "北京 Day1：故宫。Day2：景山公园作为备选。"
+    semantic = proposal_from_draft(source, SemanticDraft.model_validate(draft("北京", [
+        dict(source_quote="故宫", place_name="故宫", role="PLANNED", day_index=1),
+        dict(source_quote="景山公园", place_name="景山公园", role="OPTIONAL", day_index=2),
+    ])))
+
+    class ExistingFixtureProvider:
+        async def propose(self, text):
+            return InferenceProposal.model_validate(semantic.model_dump())
+
+    result = await TripUnderstandingPipeline(ExistingFixtureProvider(), ControlledSnapshotPlaceResolver()).run(source)
+    assert not isinstance(result.proposal, SourceSemanticPlan)
+    assert result.inference_binding["semantic_policy"] == "MODEL_MEANING_SOURCE_VALIDATED_V1"
+    # Historical adapters retain their historical projection despite this metadata.
+    assert not any(day.alternatives for day in result.public_result.days)
