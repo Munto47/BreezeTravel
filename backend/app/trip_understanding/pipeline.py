@@ -1190,13 +1190,15 @@ class PublicResultProjector:
         include_alternatives: bool = False,
         unprocessed_by_day: dict[int, int] | None = None,
         unassigned_alternative_ids: Sequence[str] = (),
+        source_text: str | None = None,
     ) -> UserFacingTripResult:
         planned = [
             activity
             for activity in activities
             if activity.compiled.mention.role == ActivityRole.PLANNED
             and not _is_internal_detail(activity.compiled.mention)
-            and not (activity.compiled.mention.meal_role and not activity.compiled.mention.atomic_place_name)
+            and not ((activity.compiled.mention.meal_role or activity.compiled.mention.category_hint == "餐饮")
+                     and not activity.compiled.mention.atomic_place_name)
             and not (activity.compiled.mention.category_hint in {"住宿", "交通节点"} and not activity.compiled.mention.atomic_place_name)
         ]
         activity_day_count = max(
@@ -1238,13 +1240,17 @@ class PublicResultProjector:
                     # Unnamed lodging gaps and transport actions retain their
                     # source semantics without inventing a place to confirm.
                     continue
-                if mention.meal_role and not mention.atomic_place_name:
+                if (mention.meal_role or mention.category_hint == "餐饮") and not mention.atomic_place_name:
+                    from app.trip_understanding.source_meal_context import source_meal_block
+
                     preceding = [row for row in daily if row.compiled.mention.sequence_index < mention.sequence_index
                                  and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
                     following = [row for row in daily if row.compiled.mention.sequence_index > mention.sequence_index
                                  and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
-                    meal_slots.append(MealSlotView(meal_role=mention.meal_role, selection_status="UNSELECTED",
-                        preference_text=" ".join(mention.raw_text.split()) if len(mention.raw_text) <= 1000 else None,
+                    preference = (source_meal_block(source_text, mention.span_start, mention.span_end)
+                        if source_text and source_text[mention.span_start:mention.span_end] == mention.raw_text else None) or mention.raw_text
+                    meal_slots.append(MealSlotView(meal_role=mention.meal_role or "UNSPECIFIED", selection_status="UNSELECTED",
+                        preference_text=" ".join(preference.split()) if len(preference) <= 1000 else None,
                         after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
                         before_activity_token=following[0].compiled.public_activity_token if following else None))
                     continue
@@ -1393,7 +1399,7 @@ def _projection_omissions(
     }
     parent_tokens = {item.mention.mention_id: item.public_activity_token for item in compiled}
     visible_details = Counter((card.activity_token, detail.name, detail.optional)
-        for day in result.days for card in day.activities for detail in card.source_details)
+        for day in result.days for card in (*day.activities, *day.alternatives) for detail in card.source_details)
     issues = []
     missing_days = set(range(len(result.days) + 1, plan.day_count + 1))
     for item in compiled:
@@ -1647,7 +1653,8 @@ class TripUnderstandingPipeline:
                          else resolution_cities(source_text, proposal.destination_name))
         projection_options = ({"day_labels": proposal.day_labels, "day_count": proposal.day_count,
                                "include_alternatives": True, "unprocessed_by_day": proposal.unprocessed_by_day,
-                               "unassigned_alternative_ids": proposal.unassigned_alternative_ids}
+                               "unassigned_alternative_ids": proposal.unassigned_alternative_ids,
+                               "source_text": source_text}
                               if model_meaning else {})
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()

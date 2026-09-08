@@ -65,6 +65,7 @@ export type WorkspaceCommandResult =
 type ItineraryWorkspaceProps = {
   toolbar?: ReactNode
   days: UserFacingTripResult['days']
+  sourceMealDescriptions?: string[][]
   disabled: boolean
   routesPending: boolean
   mapView: MapRenderView
@@ -81,6 +82,7 @@ type ItineraryWorkspaceProps = {
 
 export default function ItineraryWorkspace({
   days,
+  sourceMealDescriptions,
   toolbar,
   resource,
   onRender,
@@ -466,7 +468,7 @@ export default function ItineraryWorkspace({
                     {!!day.meal_slots?.length && <section className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950" data-testid={`source-meals-${dayIndex}`} aria-label={`${day.label}原文用餐安排`}>
                       <h3 className="font-semibold">原文用餐安排</h3>
                       <ul className="mt-1 space-y-1">
-                        {sourceMeals(day).map((text, index) => <li key={index} className="break-words">{text}</li>)}
+                        {(sourceMealDescriptions?.[dayIndex - 1] ?? sourceMeals(day)).map((text, index) => <li key={index} className="break-words">{text}</li>)}
                       </ul>
                     </section>}
                     {renderDaySuggestion?.(dayIndex)}

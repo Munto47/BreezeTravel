@@ -1567,7 +1567,7 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
     """
     label_pattern = (r"第\s*(?:\d{1,2}|[一二两三四五六七八九十]{1,3})\s*天|"
                      r"(?<![A-Za-z0-9])(?:Day|D)\s*\d{1,2}(?![A-Za-z0-9])")
-    roots = [mention for mention in preceding if mention.role == ActivityRole.PLANNED
+    roots = [mention for mention in preceding if mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}
         and not mention.parent_mention_id and mention.span_end <= start]
     if not roots:
         return None
@@ -1601,16 +1601,34 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
         return None
     if item.parent_source_quote and _bound_role_evidence(anchors, item.role_evidence, start, end) is None:
         return None
+    from app.trip_understanding.guide_choices import explicit_choice_branches
+
+    branches = explicit_choice_branches(source)
+    parent_branch = next((branch.branch_id for branch in branches
+        if branch.start <= parent.span_start < parent.span_end <= branch.end), None)
+    child_branch = next((branch.branch_id for branch in branches
+        if branch.start <= start < end <= branch.end), None)
+    if parent_branch != child_branch:
+        return None  # An omitted second parent cannot lend the first branch's identity.
     def literal_day(position):
-        labels = list(re.finditer(label_pattern, source[:position], re.I))
-        if not labels:
+        candidates = list(re.finditer(label_pattern, source[:position], re.I))
+        if not candidates:
             return 0
+        labels = []
+        for candidate in candidates:
+            left = max(source.rfind(mark, 0, candidate.start()) for mark in "\n。；;") + 1
+            prefix = source[left:candidate.start()]
+            if not prefix.strip(" \t#>*_~+-"):
+                labels.append(candidate)
+            elif re.search(r"更正|调整|变更|挪|对调|交换|顺延|改期|移到|移至|改到|推迟|提前", prefix):
+                return None  # A moved visit still needs semantic day review.
+        if not labels or len({_explicit_day_count(label[0]) for label in labels}) != len(labels):
+            return None
         label = labels[-1]
         if re.match(r"[ \t*_]*[-–—~～/至到][ \t*_]*(?:\d|[一二两三四五六七八九十])", source[label.end():]):
             return None
-        left = max(source.rfind(mark, 0, label.start()) for mark in "\n。；;") + 1
-        if source[left:label.start()].strip(" \t#>*_~+-"):
-            return None  # A day reference within prose does not establish scope.
+        if re.match(r"[.．]\d", source[label.end():]):
+            return None
         return _explicit_day_count(label[0])
 
     parent_day, child_day = literal_day(parent.span_start), literal_day(start)
@@ -1625,7 +1643,8 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
         return None
     if "\n" in gap:
         body = gap.rsplit("\n", 1)[1]
-        if re.match(r"[ \t]*(?:#{1,6}\s+|(?:其他|全程|全篇|参考|说明|总结|补充)[^\n:：]{0,12}[:：])", body):
+        if re.match(r"[ \t]*(?:#{1,6}\s+|(?:其他|全程|全篇|参考|说明|总结|补充)[^\n:：]{0,12}[:：]|"
+                    r"(?:方案|版本)[ \t]*[A-Za-zＡ-Ｚａ-ｚ一二三123][ \t]*[:：])", body):
             return None
         parent_line = source.rfind("\n", 0, parent.span_start) + 1
         if sum(parent_line <= mention.span_start for mention in roots) > 1:
@@ -1636,7 +1655,7 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
     if view and not re.search(r"参观|游览|进入|前往|走到|登上", before[view.end():]):
         return None
     relation_text = source[max(parent.span_start, parent.span_end - 1):start]
-    internal_scope = re.search(r"(?:园|馆|寺|院|区)(?:内|里|中)|内部|(?:重点|必看|必逛)(?:参观|游览|看)?\s*[:：]", relation_text)
+    internal_scope = re.search(r"(?:园|馆|寺|院|区)(?:内|里|中)|内部|(?:重点|必看|必逛|必玩)(?:参观|游览|看)?\s*[:：]", relation_text)
     local_visit = re.search(r"(?:参观|游览|游玩|打卡|登上|登|上|逛|看)[^。；;\n]{0,35}$", before)
     if not internal_scope and not local_visit and not inferred_parent and not _is_parent_visit_detail(
             source, item.place_name, start, end, day, preceding):
@@ -1657,11 +1676,13 @@ def _is_explicit_dish_description(source: str, place: str | None, start: int, en
 
 def _source_meal_role(source: str, start: int, end: int) -> str | None:
     """An explicit local meal word can classify a meal; a venue name cannot."""
+    from app.trip_understanding.source_meal_context import source_meal_block
+
     left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
     right = min((pos for mark in "\n。；;，," if (pos := source.find(mark, end)) >= 0), default=len(source))
     clause = source[left:right]
     dining_action = (r"(?:用餐|就餐|进餐|吃饭|品尝|享用|尝(?:尝|一尝)?|吃(?:午饭|午餐|中饭)"
-                     r"|吃(?=[^，,。；;\n]{0,12}(?:小吃|点心)))")
+                     r"|(?<!小)吃(?=[^，,。；;\s]))")
     if re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|不可|不要|别|取消|不|未|没)(?:建议|打算|计划)?"
                  r"(?:(?:在|去|到)[^，,。；;\n]{0,45})?" + dining_action, clause):
         return None
@@ -1676,7 +1697,13 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
     # The source may state the meal as an action rather than the word 午餐:
     # 中午在店里品尝点心 / 中午在景点附近用餐. Keep a real meal slot,
     # while noon by itself says nothing about whether this stop is a meal.
-    if not snack and ("中午" not in clause or not re.search(dining_action, clause)):
+    block = source_meal_block(source, start, end)
+    noon = "中午" in clause or bool(block and re.match(r"中午\s*[：:]", block))
+    headed_role = next((role for word, role in (("早餐", "BREAKFAST"), ("早饭", "BREAKFAST"),
+        ("午餐", "LUNCH"), ("午饭", "LUNCH"), ("晚餐", "DINNER"), ("晚饭", "DINNER"),
+        ("下午茶", "SNACK"), ("夜宵", "SNACK"), ("宵夜", "SNACK"))
+        if block and re.match(word + r"\s*[：:]", block)), None)
+    if not snack and (not (noon or headed_role) or not re.search(dining_action, clause)):
         return None
     before = source[left:start].rstrip(" 【「『*_`")
     after = source[end:right].lstrip(" 】」』*_`")
@@ -1687,7 +1714,7 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
         # A sightseeing stop cannot borrow another venue's later meal in
         # the same sentence. OPTIONAL/EXCLUDED roles remain unchanged.
         return None
-    return "LUNCH" if "中午" in clause else "SNACK"
+    return headed_role or ("LUNCH" if noon else "SNACK")
 
 
 def _bound_role_evidence(anchors: SourceAnchorIndex, quote: str | None, start: int, end: int) -> tuple[int, int] | None:
@@ -2214,7 +2241,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     diagnostics.extend(choice_diagnostics)
     unprocessed += len(choice_diagnostics)
     labels: dict[int, str] = {}
-    valid_parent_ids = {mention.mention_id for mention in mentions if mention.role == ActivityRole.PLANNED}
+    valid_parent_ids = {mention.mention_id for mention in mentions
+                        if mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}}
     mentions = [mention.model_copy(update={"parent_mention_id": None, "relation_type": None})
                 if mention.parent_mention_id and mention.parent_mention_id not in valid_parent_ids else mention
                 for mention in mentions]

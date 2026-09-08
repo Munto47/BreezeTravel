@@ -177,11 +177,11 @@ export interface UserFacingTripResult {
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: Array<{ label: string; activities: ActivityCardView[]; unprocessed_count?: number;
-    meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK';after_activity_token?:string|null;before_activity_token?:string|null;
+    meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK'|'UNSPECIFIED';after_activity_token?:string|null;before_activity_token?:string|null;
       preference_text?:string|null;
       selection_status?:'UNKNOWN'|'UNSELECTED'|'SELECTED';selected_activity_token?:string|null}>;
     choice_selections?: Array<{choice_group_token:string;branch_token:string;activity_tokens:string[];status:'SELECTED'|'MODIFIED'}>;
-    alternatives?: Array<{name: string; category: string; city?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null}> }>
+    alternatives?: Array<{name: string; category: string; city?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
   map: {
     status:
       | 'PREPARING'
@@ -205,8 +205,9 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
+  | { command_type: 'ALTERNATIVE_INSERT'; day_index: number; alternative_token: string; position: number }
   | { command_type: 'CHOICE_CLEAR'; day_index: number; choice_group_token: string; preserve_activities?: boolean }
-  | { command_type: 'CHOICE_SELECT'; day_index: number; choice_group_token: string; branch_token: string; position: number }
+  | { command_type: 'CHOICE_SELECT'; day_index: number; choice_group_token: string; branch_token: string; position?: number }
   | { command_type: 'LODGING_RECOVER'; pending_token: string; candidate_token: string; intent: LodgingRecoveryIntent }
   | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK' }
   | {

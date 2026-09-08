@@ -5,6 +5,7 @@ import { confirmedDays, confirmedSourceLodgings, confirmedTripView, storedPositi
 import * as api from '@/lib/trip-understanding-v3'
 import { recoverExpiredLogin } from '@/lib/request-safety'
 import { useAuthStore } from '@/stores/authStore'
+import {sourceMeals} from './source-meals'
 import {
   releaseCancelledTripInput,
   releaseFailedTripInput,
@@ -2044,6 +2045,7 @@ export function useTripExperience() {
     mode,
     isDemo,
     result: displayedResult,
+    sourceMealDescriptions: result?.days.map(sourceMeals) || [],
     sourceLodgings: confirmedSourceLodgings(result),
     pendingLodgings: result?.pending_lodgings || [],
     pendingLodgingDetails,

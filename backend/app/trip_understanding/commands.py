@@ -10,6 +10,7 @@ from app.trip_understanding.models import (
     ActivityCardView,
     ActivityDeleteCommand,
     ActivityInsertCommand,
+    AlternativeInsertCommand,
     ChoiceSelectCommand,
     ChoiceClearCommand,
     ChoiceSelectionView,
@@ -79,11 +80,17 @@ def refresh_meal_slot_tokens(days: list[TripDayView], token_map: dict[str, str])
                     slot.selection_status = "UNSELECTED"
 
 
-def refresh_choice_selection_tokens(days: list[TripDayView], token_map: dict[str, str]) -> None:
+def refresh_choice_selection_tokens(
+    days: list[TripDayView], token_map: dict[str, str], token_factory: Callable[[], str] = _default_token,
+) -> None:
     """Preserve a choice through token renewal, recording later manual changes."""
     for day in days:
         cards = {card.activity_token: index for index, card in enumerate(day.activities)}
         for alternative in day.alternatives:
+            # Source alternatives are actionable only within this public
+            # version. Group/branch identity and legacy missing tokens stay.
+            if alternative.activity_token is not None:
+                alternative.activity_token = token_factory()
             for field in ("after_activity_token", "before_activity_token"):
                 previous = getattr(alternative, field)
                 refreshed = token_map.get(previous, previous)
@@ -347,18 +354,23 @@ def apply_public_command(
         if command.day_index > len(result.days):
             raise CommandTargetChangedError("choice day is unavailable")
         day = result.days[command.day_index - 1]
-        if command.position > len(day.activities):
-            raise CommandTargetChangedError("choice position no longer exists")
         group = [item for item in day.alternatives if item.choice_group_token == command.choice_group_token]
         branches = {item.branch_token for item in group}
         if (len(branches) != 2 or None in branches or command.branch_token not in branches
                 or not all(item.choice_group_selectable for item in group)
                 or any(item.choice_group_token == command.choice_group_token for item in day.choice_selections)):
             raise CommandTargetChangedError("choice is no longer available in this version")
+        position = command.position
+        if position is None:
+            source_positions = {item.insertion_position for item in group}
+            if len(source_positions) != 1 or None in source_positions:
+                raise CommandTargetChangedError("choice source position needs an explicit selection")
+            position = next(iter(source_positions))
+        if not 0 <= position <= len(day.activities):
+            raise CommandTargetChangedError("choice position no longer exists")
         members = [item for item in group if item.branch_token == command.branch_token]
         if len(result_cards(result)) + len(members) > MAX_TRIP_ACTIVITIES:
             raise CommandTargetChangedError("the selected branch exceeds trip capacity")
-        position = command.position
         added = []
         for member in members:
             if atomic_place_rejection_reason(member.name) is not None:
@@ -372,6 +384,28 @@ def apply_public_command(
             added.append(card.activity_token)
         day.choice_selections.append(ChoiceSelectionView(choice_group_token=command.choice_group_token,
             branch_token=command.branch_token, activity_tokens=added))
+        changed.add(day.label)
+    elif isinstance(command, AlternativeInsertCommand):
+        if command.day_index > len(result.days):
+            raise CommandTargetChangedError("alternative day is unavailable")
+        day = result.days[command.day_index - 1]
+        matches = [(index, item) for index, source_day in enumerate(result.days, start=1)
+                   for item in source_day.alternatives if item.activity_token == command.alternative_token]
+        if len(matches) != 1 or matches[0][0] != command.day_index:
+            raise CommandTargetChangedError("alternative is no longer unique in this day's current result")
+        member = matches[0][1]
+        if command.position > len(day.activities) or len(result_cards(result)) >= MAX_TRIP_ACTIVITIES:
+            raise CommandTargetChangedError("alternative position or trip capacity is unavailable")
+        if atomic_place_rejection_reason(member.name) is not None:
+            raise CommandTargetChangedError("alternative requires clarification")
+        inserted_card = ActivityCardView(
+            activity_token=token_factory(), name=member.name, city=member.city,
+            category=member.category, meal_role=member.meal_role,
+            source_details=[detail.model_copy(deep=True) for detail in member.source_details],
+            area_or_address="地点待确认", **timing_values(member), status="NEEDS_CONFIRMATION",
+            available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
+        )
+        day.activities.insert(command.position, inserted_card)
         changed.add(day.label)
     elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
@@ -483,7 +517,7 @@ def apply_public_command(
         token_map[old_token] = pending.pending_token
 
     refresh_meal_slot_tokens(result.days, token_map)
-    refresh_choice_selection_tokens(result.days, token_map)
+    refresh_choice_selection_tokens(result.days, token_map, token_factory)
 
     result.status = _result_status(result.days, result.lodging_constraints)
     refresh_result_coverage(result)

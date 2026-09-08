@@ -68,11 +68,11 @@ def _visible_slice(source: str, start: int, end: int) -> str:
     return "".join(char for char, index in zip(visible, indices, strict=True) if start <= index < end)
 
 
-def _local_condition(source: str, start: int, end: int) -> bool:
+def _local_condition(source: str, start: int, end: int, *, lower_bound: int = 0) -> bool:
     # Read the actual source, not a model-selected short quote. A condition
     # before this member can govern a comma-separated list, while a later
     # sibling's conditional clause cannot apply backwards to it.
-    sentence_left = max(source.rfind(mark, 0, start) for mark in "\n。！？!?") + 1
+    sentence_left = max(lower_bound, max(source.rfind(mark, 0, start) for mark in "\n。！？!?") + 1)
     clause_left = max(sentence_left, *(source.rfind(mark, sentence_left, start) + 1 for mark in "；;"))
     clause_right = min((p for mark in "\n。！？!?；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
     local = _visible_slice(source, clause_left, clause_right)
@@ -96,7 +96,8 @@ def _local_condition(source: str, start: int, end: int) -> bool:
         r"(?:有(?:时间|余力|兴趣)|时间(?:充裕|足够|允许)|体力(?:允许|充足))\s*[，,：:]", preceding))
 
 
-def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, optional: bool) -> bool:
+def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, optional: bool,
+                              *, condition_start: int = 0) -> bool:
     left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
     right = min((p for mark in "\n。；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
     before = _visible_slice(source, left, start)
@@ -106,7 +107,7 @@ def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, 
         return True
     if re.match(r"\s*(?:已取消|取消|本次不去|不去了|不参观)", after):
         return True
-    return not optional and _local_condition(source, start, end)
+    return not optional and _local_condition(source, start, end, lower_bound=condition_start)
 
 
 def _shared_purpose_roots(source: str, parent: ProposedMention, roots: list[ProposedMention]):
@@ -238,6 +239,7 @@ def apply_source_visit_supplement(
     additions = []
     reconciled_ids = set()
     addition_origins = {}
+    validated_rows = {}
     response_visits = {}
     issues = []
     issue_days = {}
@@ -260,7 +262,15 @@ def apply_source_visit_supplement(
                 if day:
                     issue_days[day] = issue_days.get(day, 0) + 1
 
-    for index, raw in enumerate(rows):
+    # Reconcile a known internal OPTIONAL occurrence before using independent
+    # visits as boundaries for its parent's gates/purpose. Preserve the response
+    # order of VISITs and restore the original row order in the returned plan.
+    def visit_first(indexed):
+        index, raw = indexed
+        kind = raw.get("kind") if isinstance(raw, dict) else getattr(raw, "kind", None)
+        return kind != "VISIT", index
+
+    for index, raw in sorted(enumerate(rows), key=visit_first):
         try:
             if isinstance(raw, (SourceVisitSupplement, SourceVisitPurpose, SourceVisitLocation)):
                 row = raw
@@ -292,7 +302,7 @@ def apply_source_visit_supplement(
             span, quote_indices = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else (None, [])
         parent = by_id.get(parent_ids[row.parent_index]) if row.parent_index < len(parent_ids) else None
         diagnostic_span = evidence_spans[0] if len(evidence_spans) == 1 else span
-        if (not parent or parent.role != ActivityRole.PLANNED or parent.parent_mention_id
+        if (not parent or parent.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or parent.parent_mention_id
             or not parent.atomic_place_name or parent.day_index is None
             or len(set(parent_ids)) != len(parent_ids) or not span or not evidence_spans
             or source[parent.span_start:parent.span_end] != parent.raw_text):
@@ -310,7 +320,12 @@ def apply_source_visit_supplement(
             for evidence_span in evidence_spans:
                 if not evidence_span[0] <= span[0] < span[1] <= evidence_span[1]:
                     continue
-                if _cancelled_or_conditional(source, *span, row.evidence, row.optional):
+                # OPTIONAL is relative to this exact parent visit. Its own
+                # precondition must not turn every mandatory internal item
+                # into another optional item; later internal conditions stay.
+                condition_start = parent.span_end if parent.role == ActivityRole.OPTIONAL else 0
+                if _cancelled_or_conditional(source, *span, row.evidence, row.optional,
+                                            condition_start=condition_start):
                     continue
                 local_left = max(source.rfind(mark, parent.span_end, span[0]) for mark in "\n。；;，,") + 1
                 local_before = source[max(parent.span_end, local_left):span[0]].replace("**", "")
@@ -320,11 +335,13 @@ def apply_source_visit_supplement(
                     if gate is None or not _gate_direction(row, source, span[0], gate[1], evidence_span):
                         continue
                     name = gate[0]
-                if _scope_parent(source, anchors, row, parent, roots, *span, explicit_kind=row.kind != "VISIT"):
+                scope_roots = [mention for mention in roots if mention.mention_id not in reconciled_ids]
+                if _scope_parent(source, anchors, row, parent, scope_roots, *span, explicit_kind=row.kind != "VISIT"):
                     selected = evidence_span
                     break
         elif (action_span := _purpose_supported(row)) is not None:
-            purpose_roots = _shared_purpose_roots(source, parent, roots)
+            purpose_roots = _shared_purpose_roots(source, parent,
+                [mention for mention in roots if mention.mention_id not in reconciled_ids])
             for evidence_span, evidence_indices in evidence_matches:
                 # The explicit revised wire accepts a parent-name anchor only
                 # for its exact supplied visit, never another same-name day.
@@ -366,6 +383,7 @@ def apply_source_visit_supplement(
             role=ActivityRole.OPTIONAL if row.optional else ActivityRole.REFERENCE,
             day_index=parent.day_index, sequence_index=len(proposal.mentions) + index, atomic_place_name=name,
             category_hint=parent.category_hint, parent_mention_id=parent.mention_id,
+            choice_group_id=parent.choice_group_id, branch_id=parent.branch_id, branch_label=parent.branch_label,
             relation_type="INTERNAL_DETAIL", detail_kind=row.kind, role_evidence=source[selected[0]:selected[1]],
             role_evidence_start=selected[0], role_evidence_end=selected[1])
         if same_occurrence:
@@ -378,6 +396,7 @@ def apply_source_visit_supplement(
             reconciled_ids.add(original.mention_id)
         additions.append(child)
         addition_origins[child.mention_id] = (index, diagnostic_span)
+        validated_rows[child.mention_id] = row
         existing[key] = child
         purpose_evidence.add(purpose_key)
         if row.kind == "VISIT":
@@ -416,6 +435,21 @@ def apply_source_visit_supplement(
     additions = [child for child in additions if child.mention_id not in rejected_ids]
     # An order failure leaves the original independent optional untouched.
     reconciled_ids &= {child.mention_id for child in additions}
+    if rejected_ids:
+        # A gate cannot rely on a reconciliation later rejected by the order
+        # check. Validate it against the actually retained independent visits.
+        scope_roots = [mention for mention in roots if mention.mention_id not in reconciled_ids]
+        for child in additions:
+            if child.detail_kind == "VISIT":
+                continue
+            parent = by_id[child.parent_mention_id]
+            actual_roots = _shared_purpose_roots(source, parent, scope_roots) if child.detail_kind in {"EXTERIOR_ONLY", "PICKUP_ONLY"} else scope_roots
+            if not _scope_parent(source, anchors, validated_rows[child.mention_id], parent, actual_roots,
+                                 child.span_start, child.span_end, explicit_kind=True):
+                reject(*addition_origins[child.mention_id])
+                rejected_ids.add(child.mention_id)
+    additions = sorted((child for child in additions if child.mention_id not in rejected_ids),
+                       key=lambda child: addition_origins[child.mention_id][0])
     retained = [mention for mention in proposal.mentions if mention.mention_id not in reconciled_ids]
     if len(retained) + len(additions) > MAX_TRIP_ACTIVITIES:
         raise InferenceProviderUnavailableError(INPUT_CAPACITY_EXCEEDED,

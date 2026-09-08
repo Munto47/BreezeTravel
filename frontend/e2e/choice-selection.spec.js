@@ -7,7 +7,7 @@ test.beforeAll(() => {
   snapshots = JSON.parse(execFileSync(process.env.EXPERIENCE_PYTHON || 'python', ['-c', `
 import asyncio,json
 from app.trip_understanding.commands import apply_public_command
-from app.trip_understanding.models import UserFacingTripResult,ChoiceClearCommand,UndoCommand,ActivityMoveCommand,ActivityInsertCommand
+from app.trip_understanding.models import UserFacingTripResult,ChoiceClearCommand,UndoCommand,ActivityMoveCommand,AlternativeInsertCommand
 from tests.test_choice_group_selection import build_choice_states,select_command,build_unsupported_choice_result
 async def main():
     values=await build_choice_states()
@@ -36,8 +36,8 @@ async def main():
     day=states['unsupported'].days[2]
     assert all(a.choice_group_selectable is False for a in day.alternatives)
     item=day.alternatives[0]
-    insert=ActivityInsertCommand(command_type='ACTIVITY_INSERT',day_index=3,position=len(day.activities),
-        name=item.name,category=item.category,city=item.city)
+    insert=AlternativeInsertCommand(command_type='ALTERNATIVE_INSERT',day_index=3,position=len(day.activities),
+        alternative_token=item.activity_token)
     states['inserted']=apply_public_command(states['unsupported'],insert).result
     edges.append(dict(start='unsupported',end='inserted',command=insert.model_dump(mode='json',exclude_unset=True)))
     transition('inserted','undone_insert',UndoCommand(command_type='UNDO'),undo_result=states['unsupported'])
@@ -62,6 +62,11 @@ async function show(page, width, initial = 'before', old = false, dayIndex = 1) 
       expect(edge, JSON.stringify({state: state.key, body})).toBeTruthy()
       const expected = {...edge.command}
       if (expected.preserve_activities === false) delete expected.preserve_activities
+      if (body.command_type === 'CHOICE_SELECT' && body.position === undefined) {
+        const members = snapshots.states[state.key].days[body.day_index - 1].alternatives.filter(item => item.choice_group_token === body.choice_group_token)
+        expect(members.every(item => item.insertion_position === expected.position)).toBe(true)
+        delete expected.position
+      }
       expect(body).toEqual(expected)
       state.commands.push(body)
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -104,7 +109,7 @@ function visitContent(value) {
 
 for (const width of [1440, 390]) test(`source choice select confirm clear and undo at ${width}px`, async ({page}, info) => {
   const state = await show(page, width)
-  await expect(page.getByLabel('方案加入位置')).toHaveValue('1')
+  await expect(page.getByLabel('方案加入位置')).toHaveValue('source')
   await page.getByRole('button', {name: '选择方案：方案一', exact: true}).evaluate(button => {button.click(); button.click()})
   await changed(page, state, 'selected')
   expect(state.commands.filter(c => c.command_type === 'CHOICE_SELECT')).toHaveLength(1)
@@ -183,14 +188,15 @@ test('complex saved choice permits one manual pending visit without selecting th
   await group.getByRole('button', {name: '加入待确认：静安寺', exact: true}).click()
   await changed(page, state, 'inserted')
   expect(state.commands).toEqual([{
-    command_type: 'ACTIVITY_INSERT', day_index: 3, position: 0,
-    name: '静安寺', category: '景点', city: null,
+    command_type: 'ALTERNATIVE_INSERT', day_index: 3, position: 0,
+    alternative_token: original.days[2].alternatives[0].activity_token,
   }])
   expect(visitContent(state.result.days.slice(0, 2))).toEqual(visitContent(original.days.slice(0, 2)))
   // An originally empty day supplies no before/after anchor. Once a manual
   // stop exists, the command correctly clears the ungrounded default position.
   // No group member or branch identity changes.
-  expect(state.result.days[2].alternatives).toEqual(original.days[2].alternatives.map(a => ({...a, insertion_position: null})))
+  expect(state.result.days[2].alternatives.map(({activity_token, ...a}) => a)).toEqual(original.days[2].alternatives.map(({activity_token, ...a}) => ({...a, insertion_position: null})))
+  expect(state.result.days[2].alternatives.every((a, i) => a.activity_token !== original.days[2].alternatives[i].activity_token)).toBe(true)
   expect(state.result.days[2].choice_selections).toEqual([])
   expect(state.result.days[2].activities).toHaveLength(1)
   expect(state.result.days[2].activities[0]).toMatchObject({name: '静安寺', status: 'NEEDS_CONFIRMATION'})
@@ -210,7 +216,7 @@ test('complex saved choice permits one manual pending visit without selecting th
   expect(visitContent(state.result.days)).toEqual(visitContent(original.days))
   await page.reload()
   await expect(page.getByTestId('activity-card')).toHaveCount(16)
-  expect(state.commands.map(c => c.command_type)).toEqual(['ACTIVITY_INSERT', 'UNDO'])
+  expect(state.commands.map(c => c.command_type)).toEqual(['ALTERNATIVE_INSERT', 'UNDO'])
   await info.attach('saved-real-answer-and-real-command-snapshots', {
     body: JSON.stringify({scope: 'SAVED_REAL_MODEL_RESPONSE_FIXED_IDENTITY_ZERO_EXTERNAL_CALLS', ...state}),
     contentType: 'application/json',

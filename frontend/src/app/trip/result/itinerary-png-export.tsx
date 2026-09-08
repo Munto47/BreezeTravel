@@ -9,11 +9,12 @@ import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import { DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
 import {sourceMeals} from './source-meals'
 
-function exportStatus(result: UserFacingTripResult) {
-  // The page may pass the confirmed-only mainline. Coverage retains the same
-  // unresolved places; taking the larger count avoids hiding or double counting.
+function exportStatus(result: UserFacingTripResult, unresolvedDays: UserFacingTripResult['days'] = []) {
+  // The page passes the confirmed-only mainline. Coverage counts named places;
+  // older results can also contain anonymous pending cards, retained separately.
   const pending = Math.max(result.coverage?.unresolved_place_count || 0,
-    result.days.reduce((sum, day) => sum + day.activities.filter(card => card.status !== 'READY').length, 0))
+    result.days.reduce((sum, day) => sum + day.activities.filter(card => card.status !== 'READY').length, 0),
+    unresolvedDays.reduce((sum, day) => sum + day.activities.length, 0))
   const messages: string[] = []
   if ((result.coverage?.unprocessed_count || 0) > 0 ||
     (result.coverage?.unclassified_mention_count || 0) > 0 ||
@@ -24,12 +25,12 @@ function exportStatus(result: UserFacingTripResult) {
   return messages
 }
 
-function dayExportStatus(day: UserFacingTripResult['days'][number]) {
+function dayExportStatus(day: UserFacingTripResult['days'][number], unresolvedDay?: UserFacingTripResult['days'][number]) {
   const messages: string[] = []
   if (day.unprocessed_count) messages.push(`原文未整理：${day.unprocessed_count} 处`)
-  const pending = day.activities.filter(card => card.status !== 'READY').length
+  const pending = Math.max(day.activities.filter(card => card.status !== 'READY').length, unresolvedDay?.activities.length || 0)
   if (pending) messages.push(`待确认地点：${pending} 处`)
-  if (day.alternatives?.length) messages.push(`备选：${day.alternatives.length} 处，未纳入主线`)
+  if (day.alternatives?.length) messages.push(`备选与方案：${day.alternatives.length} 处`)
   if (!day.activities.length) messages.push('尚无主线地点')
   return messages.join(' · ')
 }
@@ -76,13 +77,15 @@ function wrapText(context: CanvasRenderingContext2D, text: string, maxWidth: num
 async function renderItinerary(
   result: UserFacingTripResult,
   mapView: MapRenderView | null,
+  unresolvedDays: UserFacingTripResult['days'],
+  sourceMealDescriptions?: string[][],
 ) {
   if ('fonts' in document) await document.fonts.ready
   const leftWidth = 140
   const padding = 36
   const width = 1440
-  const statusMessages = exportStatus(result)
-  const dayMessages = result.days.map(dayExportStatus)
+  const statusMessages = exportStatus(result, unresolvedDays)
+  const dayMessages = result.days.map((day, index) => dayExportStatus(day, unresolvedDays[index]))
   const headerHeight = 188 + statusMessages.length * 24
   const canvas = document.createElement('canvas')
   canvas.width = width
@@ -102,7 +105,7 @@ async function renderItinerary(
     return serpentineLayout(layoutWidth, day.activities.length, 119 + (lines - 1) * nameLineHeight)
   })
   context.font = '600 14px "Microsoft YaHei", sans-serif'
-  const sourceLines = result.days.map(day => {
+  const sourceLines = result.days.map((day, dayIndex) => {
     const parents = day.activities.filter(card => card.source_details?.length)
     const lines = parents.length ? [{text: '原文安排 · 门口及内部地点未单独核验', heading: true}] : []
     for (const parent of parents) {
@@ -111,11 +114,27 @@ async function renderItinerary(
         lines.push(...wrapText(context, `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
       })
     }
-    const meals = sourceMeals(day)
+    const meals = sourceMealDescriptions?.[dayIndex] ?? sourceMeals(day)
     if (meals.length) {
       lines.push({text: '原文用餐安排', heading: true})
       for (const meal of meals) {
         lines.push(...wrapText(context, meal, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
+      }
+    }
+    if (day.alternatives?.length) {
+      lines.push({text: '原文备选与方案 · 未选择的内容不属于主线', heading: true})
+      for (const alternative of day.alternatives) {
+        const selection = day.choice_selections?.find(item => item.choice_group_token === alternative.choice_group_token)
+        const state = selection?.status === 'MODIFIED' ? '已调整，原方案供对照' :
+          selection?.branch_token === alternative.branch_token && alternative.branch_token ? '已选择，地点状态见行程' : '备选'
+        const label = `${alternative.branch_label ? `${alternative.branch_label} · ` : ''}${alternative.name}（${state}）`
+        lines.push(...wrapText(context, label, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: true})))
+        if (alternative.source_details?.length) {
+          lines.push({text: '随此地点的原文安排 · 门口及内部地点未单独核验', heading: false})
+          for (const [index, detail] of alternative.source_details.entries()) {
+            lines.push(...wrapText(context, `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
+          }
+        }
       }
     }
     return lines
@@ -251,7 +270,7 @@ async function renderItinerary(
 
   context.fillStyle = '#607984'
   context.font = '400 12px "Microsoft YaHei", sans-serif'
-  context.fillText('地点状态见各卡片；备选地点未纳入主线。路线时效与参观条件需另行核对。', padding, height - 30)
+  context.fillText('地点状态见各卡片；原文备选与方案另列。路线时效与参观条件需另行核对。', padding, height - 30)
   return canvas
 }
 
@@ -269,11 +288,15 @@ export default function ItineraryPngExport({
   mapView,
   etag,
   disabled,
+  unresolvedDays = [],
+  sourceMealDescriptions,
 }: {
   result: UserFacingTripResult
   mapView: MapRenderView | null
   etag: string
   disabled: boolean
+  unresolvedDays?: UserFacingTripResult['days']
+  sourceMealDescriptions?: string[][]
 }) {
   const currentEtag = useRef(etag)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -291,7 +314,7 @@ export default function ItineraryPngExport({
     setBusy(true)
     setError('')
     try {
-      const canvas = await renderItinerary(result, mapView)
+      const canvas = await renderItinerary(result, mapView, unresolvedDays, sourceMealDescriptions)
       if (startingEtag !== currentEtag.current) throw new Error('ITINERARY_CHANGED')
       const blob = await canvasBlob(canvas)
       if (startingEtag !== currentEtag.current) throw new Error('ITINERARY_CHANGED')
@@ -346,7 +369,7 @@ export default function ItineraryPngExport({
             </div>
             <button type="button" aria-label="关闭图片预览" onClick={() => setPreviewUrl('')} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]"><X className="h-5 w-5" aria-hidden="true" /></button>
           </div>
-          <p id="png-preview-description" className="mt-2 text-sm text-slate-600">全部 {result.days.length} 天 · 不含地图；备选未纳入主线。{exportStatus(result).join('；')}</p>
+          <p id="png-preview-description" className="mt-2 text-sm text-slate-600">全部 {result.days.length} 天 · 不含地图；原文备选与方案另列。{exportStatus(result, unresolvedDays).join('；')}</p>
           <div className="mt-4 max-h-[55vh] overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-2">
             {/* Blob URL is created locally from structured result data. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}

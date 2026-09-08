@@ -185,6 +185,22 @@ test('filter preserves original records, truthful status, empty days and positio
   expect(view.storedPositionCommand({ command_type: 'ACTIVITY_INSERT', day_index: 1, position: 0, name: '新地点' }, raw).position).toBe(1)
 })
 
+test('choice and single alternative positions refer to visible visits with pending cards retained', () => {
+  const raw = fixtureResult()
+  raw.days[0].alternatives[0].insertion_position = 3
+  const shown = view.confirmedTripView(raw)
+  expect(shown.days[0].alternatives[0].insertion_position).toBe(3)
+  expect(raw.days[0].alternatives[0].insertion_position).toBe(3)
+  const sourceChoice = {command_type: 'CHOICE_SELECT', day_index: 1, choice_group_token: 'fixed-group', branch_token: 'fixed-branch'}
+  expect(view.storedPositionCommand(sourceChoice, raw)).toEqual(sourceChoice)
+  for (const command_type of ['CHOICE_SELECT', 'ALTERNATIVE_INSERT']) {
+    expect(view.storedPositionCommand({command_type, day_index: 1, position: 1}, raw).position).toBe(3)
+    expect(view.storedPositionCommand({command_type, day_index: 2, position: 0}, raw).position).toBe(1)
+    expect(view.storedPositionCommand({command_type, day_index: 1, position: 9}, raw).position).toBe(11)
+  }
+  expect(raw.days.map(day => day.activities.filter(card => card.status !== 'READY').length)).toEqual([2, 1])
+})
+
 test('photo types follow business categories and distinguish landscape, streets and architecture', () => {
   for (const [name, category, type] of [...types,
     ['山水酒店', '餐饮', 'restaurant'], ['星河餐厅', '住宿', 'hotel'], ['天坛公园', '景点', 'historic'],

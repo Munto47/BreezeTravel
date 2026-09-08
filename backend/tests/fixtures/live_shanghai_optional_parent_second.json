@@ -1,0 +1,27 @@
+{
+  "scope": "ONE_NEW_REAL_SECOND_AFTER_SAVED_REAL_SHANGHAI_FIRST; ALL_RAW_ROWS_PRESERVED",
+  "first_fixture": "live_owner_shanghai_meal_context.json",
+  "response": "{\n\"city_fields\": [],\n\"source_visits\": [\n{\n\"parent_index\": 0,\n\"kind\": \"VISIT\",\n\"source_quote\": \"豫园\",\n\"optional\": false,\n\"evidence\": \"上午：豫园 + 城隍庙（豫园门票 30 元，园林可逛；城隍庙小吃浅尝，别买太多）携程\"\n},\n{\n\"parent_index\": 1,\n\"kind\": \"VISIT\",\n\"source_quote\": \"城隍庙\",\n\"optional\": false,\n\"evidence\": \"上午：豫园 + 城隍庙（豫园门票 30 元，园林可逛；城隍庙小吃浅尝，别买太多）携程\"\n},\n{\n\"parent_index\": 2,\n\"kind\": \"VISIT\",\n\"source_quote\": \"南京路步行街\",\n\"optional\": false,\n\"evidence\": \"中午：步行到南京路步行街，吃老字号：大壶春生煎、沈大成条头糕、鲜得来排骨年糕携程\"\n},\n{\n\"parent_index\": 3,\n\"kind\": \"VISIT\",\n\"source_quote\": \"外滩万国建筑群\",\n\"optional\": false,\n\"evidence\": \"下午：外滩万国建筑群，走到外白渡桥、乍浦路桥（拍陆家嘴三件套最佳机位）\"\n},\n{\n\"parent_index\": 4,\n\"kind\": \"VISIT\",\n\"source_quote\": \"外白渡桥\",\n\"optional\": false,\n\"evidence\": \"下午：外滩万国建筑群，走到外白渡桥、乍浦路桥（拍陆家嘴三件套最佳机位）\"\n},\n{\n\"parent_index\": 5,\n\"kind\": \"VISIT\",\n\"source_quote\": \"乍浦路桥\",\n\"optional\": false,\n\"evidence\": \"下午：外滩万国建筑群，走到外白渡桥、乍浦路桥（拍陆家嘴三件套最佳机位）\"\n},\n{\n\"parent_index\": 6,\n\"kind\": \"VISIT\",\n\"source_quote\": \"陆家嘴滨江\",\n\"optional\": false,\n\"evidence\": \"傍晚：坐2 元轮渡过江到陆家嘴滨江，看日落\"\n},\n{\n\"parent_index\": 6,\n\"kind\": \"VISIT\",\n\"source_quote\": \"陆家嘴滨江\",\n\"optional\": false,\n\"evidence\": \"晚上：陆家嘴滨江散步，打卡三件套；想登高可选上海中心 118 层，不登楼江边看夜景也足够精彩；外滩亮灯 19:00‑22:00携程\"\n},\n{\n\"parent_index\": 7,\n\"kind\": \"VISIT\",\n\"source_quote\": \"武康大楼\",\n\"optional\": false,\n\"evidence\": \"上午：地铁到武康大楼，走武康路→安福路→五原路，老洋房、梧桐树，适合拍照，慢慢闲逛携程\"\n},\n{\n\"parent_index\": 8,\n\"kind\": \"VISIT\",\n\"source_quote\": \"武康路\",\n\"optional\": false,\n\"evidence\": \"上午：地铁到武康大楼，走武康路→安福路→五原路，老洋房、梧桐树，适合拍照，慢慢闲逛携程\"\n},\n{\n\"parent_index\": 9,\n\"kind\": \"VISIT\",\n\"source_quote\": \"安福路\",\n\"optional\": false,\n\"evidence\": \"上午：地铁到武康大楼，走武康路→安福路→五原路，老洋房、梧桐树，适合拍照，慢慢闲逛携程\"\n},\n{\n\"parent_index\": 10,\n\"kind\": \"VISIT\",\n\"source_quote\": \"五原路\",\n\"optional\": false,\n\"evidence\": \"上午：地铁到武康大楼，走武康路→安福路→五原路，老洋房、梧桐树，适合拍照，慢慢闲逛携程\"\n},\n{\n\"parent_index\": 11,\n\"kind\": \"VISIT\",\n\"source_quote\": \"上海博物馆（人民广场馆）\",\n\"optional\": false,\n\"evidence\": \"下午：上海博物馆（人民广场馆，免费），看青铜器陶瓷；之后思南公馆，逛石库门街区携程\"\n},\n{\n\"parent_index\": 12,\n\"kind\": \"VISIT\",\n\"source_quote\": \"思南公馆\",\n\"optional\": false,\n\"evidence\": \"下午：上海博物馆（人民广场馆，免费），看青铜器陶瓷；之后思南公馆，逛石库门街区携程\"\n},\n{\n\"parent_index\": 13,\n\"kind\": \"VISIT\",\n\"source_quote\": \"新天地\",\n\"optional\": false,\n\"evidence\": \"傍晚：新天地，石库门改造商圈，中共一大会址可顺路参观；田子坊简单逛一圈即可，商业化较重携程\"\n},\n{\n\"parent_index\": 14,\n\"kind\": \"VISIT\",\n\"source_quote\": \"中共一大会址\",\n\"optional\": true,\n\"evidence\": \"傍晚：新天地，石库门改造商圈，中共一大会址可顺路参观；田子坊简单逛一圈即可，商业化较重携程\"\n},\n{\n\"parent_index\": 15,\n\"kind\": \"VISIT\",\n\"source_quote\": \"田子坊\",\n\"optional\": true,\n\"evidence\": \"傍晚：新天地，石库门改造商圈，中共一大会址可顺路参观；田子坊简单逛一圈即可，商业化较重携程\"\n},\n{\n\"parent_index\": 17,\n\"kind\": \"VISIT\",\n\"source_quote\": \"上海中心 118 层\",\n\"optional\": true,\n\"evidence\": \"晚上：陆家嘴滨江散步，打卡三件套；想登高可选上海中心 118 层，不登楼江边看夜景也足够精彩；外滩亮灯 19:00‑22:00携程\"\n},\n{\n\"parent_index\": 20,\n\"kind\": \"VISIT\",\n\"source_quote\": \"静安寺\",\n\"optional\": true,\n\"evidence\": \"上午：静安寺（外观或购票入内）+ 南京西路逛街，愚园路散步看老房子\"\n},\n{\n\"parent_index\": 21,\n\"kind\": \"VISIT\",\n\"source_quote\": \"南京西路\",\n\"optional\": true,\n\"evidence\": \"上午：静安寺（外观或购票入内）+ 南京西路逛街，愚园路散步看老房子\"\n},\n{\n\"parent_index\": 22,\n\"kind\": \"VISIT\",\n\"source_quote\": \"愚园路\",\n\"optional\": true,\n\"evidence\": \"上午：静安寺（外观或购票入内）+ 南京西路逛街，愚园路散步看老房子\"\n},\n{\n\"parent_index\": 23,\n\"kind\": \"VISIT\",\n\"source_quote\": \"北外滩滨江\",\n\"optional\": true,\n\"evidence\": \"下午：可选：①北外滩滨江（人少江景好）；②朵云书院（上海中心 52 楼，咖啡看城市全景）；③徐家汇，逛徐家汇天主教堂、美罗城商圈\"\n},\n{\n\"parent_index\": 24,\n\"kind\": \"VISIT\",\n\"source_quote\": \"朵云书院\",\n\"optional\": true,\n\"evidence\": \"下午：可选：①北外滩滨江（人少江景好）；②朵云书院（上海中心 52 楼，咖啡看城市全景）；③徐家汇，逛徐家汇天主教堂、美罗城商圈\"\n},\n{\n\"parent_index\": 25,\n\"kind\": \"VISIT\",\n\"source_quote\": \"徐家汇\",\n\"optional\": true,\n\"evidence\": \"下午：可选：①北外滩滨江（人少江景好）；②朵云书院（上海中心 52 楼，咖啡看城市全景）；③徐家汇，逛徐家汇天主教堂、美罗城商圈\"\n},\n{\n\"parent_index\": 26,\n\"kind\": \"VISIT\",\n\"source_quote\": \"云南南路小吃街\",\n\"optional\": true,\n\"evidence\": \"傍晚：云南南路小吃街收尾，买伴手礼，准备返程携程\"\n},\n{\n\"parent_index\": 27,\n\"kind\": \"VISIT\",\n\"source_quote\": \"上海迪士尼\",\n\"optional\": true,\n\"evidence\": \"全天上海迪士尼，地铁 11 号线直达，尽量早到；必玩：飞跃地平线、加勒比海盗、创极速光轮、疯狂动物城园区；晚上看烟花秀再回市区携程\"\n}\n]\n}",
+  "reported_model": "qwen3.7-flash-2026-07-15",
+  "usage": {
+    "completion_tokens": 2022,
+    "prompt_tokens": 2711,
+    "total_tokens": 4733,
+    "completion_tokens_details": null,
+    "prompt_tokens_details": {
+      "audio_tokens": null,
+      "cached_tokens": 0,
+      "text_tokens": 2711
+    }
+  },
+  "latency_ms": 15229,
+  "actual_model_http": 1,
+  "actual_place_http": 0,
+  "source_provenance": "Historical owner-provided input already used for development; not blind or verified human-authored.",
+  "expected_internal_names": [
+    "飞跃地平线",
+    "加勒比海盗",
+    "创极速光轮",
+    "疯狂动物城园区"
+  ]
+}

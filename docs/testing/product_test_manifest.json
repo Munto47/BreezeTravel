@@ -28,6 +28,7 @@
         "tests/test_source_meal_words.py",
         "tests/test_semantic_supplement_budget.py",
         "tests/test_source_visit_supplement.py",
+        "tests/test_source_visit_optional_parents.py",
         "tests/test_source_supplement_literal_binding.py",
         "tests/test_source_gate_action_quotes.py",
         "tests/test_source_warning_day_sections.py",
@@ -99,7 +100,10 @@
         "tests/test_meal_preferences.py",
         "tests/test_source_visit_local_evidence_contract.py",
         "tests/test_source_snack_intent.py",
-        "tests/test_source_visit_condition_scope.py"
+        "tests/test_anonymous_meal_context.py",
+        "tests/test_source_visit_condition_scope.py",
+        "tests/test_alternative_insert.py",
+        "tests/test_source_choice_position.py"
       ]
     },
     "postgres": {
@@ -135,7 +139,9 @@
         "tests/test_dining_source_gap_adoption.py",
         "tests/test_meal_slot_selection.py",
         "tests/test_choice_group_selection.py",
-        "tests/test_meal_preferences.py"
+        "tests/test_meal_preferences.py",
+        "tests/test_anonymous_meal_context.py",
+        "tests/test_alternative_insert.py"
       ]
     },
     "browser-core": {
@@ -174,7 +180,9 @@
         "e2e/collaboration-backup.spec.js",
         "e2e/meal-export.spec.js",
         "e2e/choice-selection.spec.js",
-        "e2e/meal-preferences.spec.js"
+        "e2e/meal-preferences.spec.js",
+        "e2e/anonymous-meal-context.spec.js",
+        "e2e/alternative-export.spec.js"
       ],
       "args": [
         "--grep-invert",

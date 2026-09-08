@@ -316,7 +316,7 @@ class LodgingConstraintView(ActivityCardView):
 
 
 class MealSlotView(StrictModel):
-    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"]
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK", "UNSPECIFIED"]
     preference_text: str | None = Field(default=None, min_length=1, max_length=1000)
     after_activity_token: str | None = None
     before_activity_token: str | None = None
@@ -764,12 +764,19 @@ class ActivityInsertCommand(ActivityTiming):
     time_hint: str | None = Field(default=None, max_length=80)
 
 
+class AlternativeInsertCommand(StrictModel):
+    command_type: Literal["ALTERNATIVE_INSERT"]
+    day_index: int = Field(strict=True, ge=1, le=14)
+    alternative_token: str = Field(min_length=20, max_length=80)
+    position: int = Field(strict=True, ge=0, le=MAX_TRIP_ACTIVITIES)
+
+
 class ChoiceSelectCommand(StrictModel):
     command_type: Literal["CHOICE_SELECT"]
     day_index: int = Field(ge=1, le=14)
     choice_group_token: str = Field(min_length=20, max_length=80)
     branch_token: str = Field(min_length=20, max_length=80)
-    position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
+    position: int | None = Field(default=None, ge=0, le=MAX_TRIP_ACTIVITIES)
 
 
 class ChoiceClearCommand(StrictModel):
@@ -892,6 +899,7 @@ class DiningInsertCommand(StrictModel):
 
 TripUnderstandingCommand = Annotated[
     ActivityInsertCommand
+    | AlternativeInsertCommand
     | ChoiceSelectCommand
     | ChoiceClearCommand
     | DiningInsertCommand

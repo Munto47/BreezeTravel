@@ -33,13 +33,16 @@ export function confirmedTripView(result: UserFacingTripResult | null) {
 // The server still owns all original positions. Translate a visible insertion
 // boundary by token after removing the dragged card, never by hidden count.
 export function storedPositionCommand(command: TripUnderstandingCommand, result: UserFacingTripResult | null): TripUnderstandingCommand {
-  if (!result || !['ACTIVITY_MOVE', 'ACTIVITY_INSERT'].includes(command.command_type)) return command
+  if (!result || !['ACTIVITY_MOVE', 'ACTIVITY_INSERT', 'ALTERNATIVE_INSERT', 'CHOICE_SELECT'].includes(command.command_type)) return command
   if (command.command_type === 'ACTIVITY_MOVE') {
     const cards = (result.days[command.target_day_index - 1]?.activities || [])
       .filter(card => card.activity_token !== command.activity_token)
     return { ...command, target_position: storedPosition(cards, command.target_position) }
   }
-  if (command.command_type === 'ACTIVITY_INSERT') {
+  if (command.command_type === 'ACTIVITY_INSERT' || command.command_type === 'ALTERNATIVE_INSERT' || command.command_type === 'CHOICE_SELECT') {
+    // An omitted choice position means the server's exact source boundary,
+    // including hidden visits. Only an explicit user selection is translated.
+    if (command.position === undefined) return command
     return { ...command, position: storedPosition(result.days[command.day_index - 1]?.activities || [], command.position) }
   }
   return command

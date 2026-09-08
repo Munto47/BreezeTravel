@@ -99,6 +99,9 @@ async function exportPng(page, info, result) {
   expect(labels.every(Boolean)).toBe(true)
   const days = labels.map((label, i) => drawn.filter(line => line.y >= label.y - 43 &&
     line.y < (labels[i + 1] ? labels[i + 1].y - 43 : drawn[0].canvasHeight)))
+  for (const [i, day] of result.days.entries()) for (const slot of day.meal_slots || []) {
+    if (slot.preference_text) expect(days[i].map(line => line.text).join('')).toContain(slot.preference_text)
+  }
   // Content of a day must finish above the next day panel, not just inside PNG.
   for (let i = 0; i < days.length - 1; i++) {
     for (const line of days[i].filter(line => /餐厅待选择|之后|之前|原文用餐/.test(line.text))) {
@@ -131,7 +134,7 @@ test('actual fixed adoption consumes only its lunch, leaving other meals and day
   expect(days[0].filter(text => text.includes('餐厅待选择')).map(text => text.split(' · ')[0])).toEqual(['早餐', '晚餐'])
   expect(days[1].filter(text => text.startsWith('午餐 · 餐厅待选择'))).toHaveLength(1)
   expect(days.flat().filter(text => text === '合成采纳餐厅')).toHaveLength(1)
-  expect(days[0]).toContain('午餐 · 已安排：「合成采纳餐厅」')
+  expect(days[0].join('')).toContain('午餐 · 已安排：「合成采纳餐厅」')
 })
 
 test('one restaurant cannot consume two source lunches in the same interval', async ({page}, info) => {
@@ -160,9 +163,9 @@ for (const state of ['moved', 'pending', 'legacy']) test(`export reads ${state} 
   await show(page, result, 390)
   const days = await exportPng(page, info, result)
   expect(days[0].some(text => text.startsWith('午餐 · 餐厅待选择'))).toBe(false)
-  if (state === 'moved') expect(days[0]).toContain('午餐 · 已安排：「合成采纳餐厅」')
+  if (state === 'moved') expect(days[0].join('')).toContain('午餐 · 已安排：「合成采纳餐厅」')
   if (state === 'pending') {
-    expect(days[0]).toContain('午餐 · 已选餐厅需确认')
+    expect(days[0].join('')).toContain('午餐 · 餐厅需确认：「合成采纳餐厅」')
     expect(days[0].some(text => text.includes('午餐 · 已安排'))).toBe(false)
   }
   if (state === 'legacy') {

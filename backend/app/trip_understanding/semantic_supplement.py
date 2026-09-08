@@ -21,7 +21,7 @@ SOURCE_VISITS_PROMPT = """你只补充已经提取的原访问，不重新提取
 只返回JSON，只允许city_fields与source_visits两个顶层字段。不得返回activities、主线、改名、改日、改顺序或替代父景点。
 city_fields只修city_targets，每项为{"index":原index,"city":城市名或null,"city_evidence":逐字证据或null}。index不是parent_index。只有原文明示本次所属城市时才填城市及逐字依据，不能借风味、景点常识、区域口号或其他日期；没有明确城市依据则两个字段都null。
 source_visits有两种互斥结构。内部地点和门口动作：{parent_index,kind:VISIT或ENTRY或EXIT,source_quote,optional,evidence}。source_quote必须在本次evidence中唯一出现，evidence必须在原文中唯一定位；不返回occurrence，不数全文其他名称的出现次数。访问用途：{parent_index,kind:EXTERIOR_ONLY或PICKUP_ONLY,optional,evidence}，只凭本次父访问的完整原文用途证据定位，不返回source_quote或occurrence。
-parent_index只取parents表，同名不同日是不同访问；不能把前一次内景挂到后来取物的访问。标题父名可对应同日正文的本次说明，不能改变父名、位置或顺序。
+parent_index只取parents表，同名不同日或不同分支是不同访问；不能把前一次内景挂到后来取物的访问。父访问为OPTIONAL时仍可补其内部安排，但不得选择该父或分支；optional仅表示这个父内部另有条件的项目，不继承父本身未选状态。标题父名可对应同日正文的本次说明，不能改变父名、位置或顺序。
 VISIT只保留不同于父地点本身的内部地点；父地点不得再次作为自己的VISIT。保留父景点内部实际参观的每个具名亭殿、展馆、展厅和园内路线点，source_quote只写原名，按内景执行顺序；有时间/若有余力等条件时optional=true。背景介绍、眺望远处对象、附近另一景区、独立下一站、菜品、广告和取消项不是内景。
 ENTRY/EXIT分别保留从哪个门进入、从哪个门出去，source_quote为门或出口的原名，evidence包含进/出动作；南门、北门这种短名也保留，不当独立路线站点。
 EXTERIOR_ONLY是此父访问明确只看外观、不进入内部，PICKUP_ONLY是此父访问只取寄存物、不参观。用途结构只填evidence，逐字引用当前父访问名称及用途、否定或限制；不能把眺望对象不进馆转嫁给出发广场，不继承另一日内景。不添加普通实际入园的用途。
@@ -47,7 +47,7 @@ def _source_supplement_schema() -> dict:
 
 
 _VISIT_CUE = re.compile(
-    r"园内|馆内|寺内|院内|内部|重点(?:参观|游览|看)?[：:]|必看|必逛|"
+    r"园内|馆内|寺内|院内|内部|重点(?:参观|游览|看)?[：:]|必看|必逛|必玩|"
     r"(?:门|入口|出口)[^。；;\n]{0,12}(?:进|出)|只看外观|不进(?:馆|展厅)|不用买票进馆|"
     r"只在门外|取寄存|取行李"
 )
@@ -55,7 +55,10 @@ _PENDING = "SOURCE_VISITS_UNPROCESSED"
 
 
 def source_visit_parents(proposal: SourceSemanticPlan) -> list:
-    return [item for item in proposal.mentions if item.role == ActivityRole.PLANNED
+    # Keep existing main-visit indices stable; optional visits append to the
+    # request table without changing their position or role in the plan.
+    return [item for role in (ActivityRole.PLANNED, ActivityRole.OPTIONAL)
+            for item in proposal.mentions if item.role == role
             and item.atomic_place_name and item.day_index is not None and not item.parent_mention_id
             and item.category_hint in {"景点", "地点"}]
 
@@ -95,6 +98,7 @@ async def supplement_source_visits(provider: ExperienceQwenProvider, source: str
         return draft, proposal
     parent_ids = [item.mention_id for item in parents]
     inputs = [{"index": index, "name": item.atomic_place_name, "day": item.day_index,
+               "role": item.role.value, "branch": item.branch_label,
                "start": item.span_start, "end": item.span_end} for index, item in enumerate(parents)]
     call = {"attempt": 2, "stage": "SOURCE_VISITS_SUPPLEMENT", "input_tokens": None,
             "output_tokens": None, "outcome": "UNKNOWN"}
