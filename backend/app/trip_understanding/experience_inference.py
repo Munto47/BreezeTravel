@@ -2536,11 +2536,12 @@ class ExperienceQwenProvider:
         self.rates = (input_cny_per_million, output_cny_per_million)
         self.prompt = PROMPT_PATH.read_text(encoding="utf-8")
         self.schema = SemanticDraft.model_json_schema()
-        # The live validator distinguishes an explicit anonymous activity from
-        # an omitted name decision. Require that same decision on the wire;
-        # retain the class default so historical stored drafts remain readable.
+        # Require explicit name/day decisions and trip extent on the live wire.
+        # Null still represents an unnamed activity or an unassigned hotel;
+        # class defaults remain permissive for historical stored drafts.
         activity_schema = self.schema["$defs"]["SemanticActivity"]
-        activity_schema["required"] = [*activity_schema["required"], "place_name"]
+        activity_schema["required"] = [*activity_schema["required"], "place_name", "day_index"]
+        self.schema["required"] = [*self.schema["required"], "day_labels", "unprocessed_quotes"]
         activity_schema["properties"]["place_name"].pop("default", None)
         if not enable_role_evidence:
             # The evidence experiment increased cost and reduced measured
@@ -2610,7 +2611,12 @@ class ExperienceQwenProvider:
                         response = await self.client.chat.completions.create(
                             model=self.model, messages=messages, temperature=SEMANTIC_TEMPERATURE,
                             max_tokens=self.max_output_tokens,
-                            response_format={"type": "json_object"},
+                            # First extraction and its bounded repair use the
+                            # same server-enforced contract. Unsupported schema
+                            # requests fail through APIError; never downgrade.
+                            response_format={"type": "json_schema", "json_schema": {
+                                "name": "BreezeTravelSemanticDraft", "strict": True, "schema": self.schema,
+                            }},
                             extra_body={"enable_thinking": False},
                         )
                     finally:

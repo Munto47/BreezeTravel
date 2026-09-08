@@ -10,6 +10,7 @@
         "tests/test_trip_understanding_v3.py",
         "tests/test_trip_understanding_v3_api.py",
         "tests/test_experience_inference.py",
+        "tests/test_experience_strict_wire_contract.py",
         "tests/test_trip_input_capacity.py",
         "tests/test_experience_runtime.py",
         "tests/test_experience_twelve_tasks.py",

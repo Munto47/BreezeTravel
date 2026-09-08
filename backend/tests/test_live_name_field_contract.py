@@ -108,7 +108,7 @@ async def test_actual_request_schema_requires_a_name_decision_even_for_anonymous
     source = "成都一天。中午午餐待定。"
     activity = dict(source_quote="午餐待定", place_name=None, role="PLANNED",
                     day_index=1, category="餐饮", meal_role="LUNCH")
-    payload = dict(destination="成都", day_labels=[None], activities=[activity])
+    payload = dict(destination="成都", day_labels=[None], activities=[activity], unprocessed_quotes=[])
     client = Client(json.dumps(payload))
     result = await provider(client).propose(source)
     # Inspect what the model actually receives, rather than the internal class.
