@@ -138,6 +138,7 @@ async def test_amap_exact_city_category_match_is_adopted_with_redacted_receipt()
         "140400",
         "140500",
         "140600",
+        "140700",
     ]
     assert "key=test-only" in str(request.url)
     assert "test-only" not in str(outcome.receipt)
@@ -388,6 +389,7 @@ async def test_amap_safe_alias_excludes_a_different_venue_candidate() -> None:
         "140400",
         "140500",
         "140600",
+        "140700",
     ]
     assert len(observed) == 1
 

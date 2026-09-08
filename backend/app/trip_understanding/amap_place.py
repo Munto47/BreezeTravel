@@ -47,7 +47,7 @@ _PROVIDER_MATCH_TIERS = (
     "VENUE_SUFFIX_EQUIVALENT",
 )
 _STRICT_PROVIDER_TYPE_VENUE_KINDS = frozenset(
-    {"博物馆", "美术馆", "纪念馆", "科技馆", "图书馆", "展览馆", "艺术馆"}
+    {"博物馆", "美术馆", "纪念馆", "科技馆", "天文馆", "图书馆", "展览馆", "艺术馆"}
 )
 _CITY_ADMIN_RULES = {
     "北京": {"province": "北京", "adcode_prefix": "11", "municipality": True},
@@ -141,6 +141,7 @@ _LEXICAL_CATEGORY_MARKERS = (
             "美术馆",
             "纪念馆",
             "科技馆",
+            "天文馆",
             "图书馆",
             "水族馆",
             "公园",
@@ -307,6 +308,7 @@ def _identity_qualified(value: str) -> bool:
         or re.search(r"(?:东|西|南|北|新|旧|老|总)馆|(?:东|西|南|北)门|.+店$", value)
         or re.search(r"(?:博物馆|博物院|美术馆|科技馆|酒店|饭店|公园|景区).+(?:馆|楼|厅|门|店|中心|区|堂)$",
                      re.sub(r"(?:风景区|景区)$", "", value))
+        or re.search(r"天文馆.+(?:馆|厅|基地|观测站)$", value)
     )
 
 
@@ -317,7 +319,7 @@ def _place_venue_kind(value: str) -> str | None:
         return direct
     value = _PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip()
     campus = re.fullmatch(
-        r"(?P<base>.+(?:博物院|博物馆|美术馆|科技馆|纪念馆|图书馆|展览馆|艺术馆))"
+        r"(?P<base>.+(?:博物院|博物馆|美术馆|科技馆|天文馆|纪念馆|图书馆|展览馆|艺术馆))"
         r"[（(·— -]?[A-Za-z0-9\u4e00-\u9fff·]{0,16}(?:馆区|院区|校区|分馆|馆)[）)]?",
         value,
     )
