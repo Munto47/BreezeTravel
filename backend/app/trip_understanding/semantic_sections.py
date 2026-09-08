@@ -39,8 +39,12 @@ sections每项day_index、start_quote、occurrence；start_quote逐字复制每�
 不得自己补日期，不把末尾重复摘要或修改标题当新的旅行日。"""
 
 
-def _at_day_heading_boundary(source: str, start: int) -> bool:
+def _at_day_heading_boundary(source: str, start: int, end: int) -> bool:
     """A prose reference to another day cannot start a separate day slice."""
+    # Source quotes can be substrings. Day1 inside Day10 is not another Day1
+    # heading, even though it begins at a valid line boundary.
+    if re.fullmatch(r"[A-Za-z0-9]{2}", source[end - 1:end + 1]):
+        return False
     prefix = source[source.rfind("\n", 0, start) + 1:start]
     # Retain ordinary Markdown headings, emphasis, quotes and list markers.
     # This recognizes formatting only; unsupported inline schedules stay whole.
@@ -68,7 +72,7 @@ def anchored_sections(source: str, plan: DayStructure) -> list[tuple[int, int, i
                 candidate_start, candidate_end = anchors.locate(item.start_quote, occurrence)
             except ValueError:
                 break
-            if _at_day_heading_boundary(source, candidate_start) and (
+            if _at_day_heading_boundary(source, candidate_start, candidate_end) and (
                 _explicit_day_count(source[candidate_start:candidate_end]) == item.day_index
             ):
                 heading_starts.append(candidate_start)

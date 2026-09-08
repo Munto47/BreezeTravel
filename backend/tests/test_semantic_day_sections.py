@@ -1,5 +1,6 @@
 """Whole-document context, literal day scopes, partial results and call accounting."""
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -123,6 +124,65 @@ def test_unsupported_or_ambiguous_headings_remain_whole_document(text):
 def test_unique_heading_does_not_override_cross_day_dependency():
     text = "第一天：星河公园。\n第二天：月光桥。\n后来将月光桥改到第一天。"
     assert anchored_sections(text, chinese_day_plan(cross_day=True)) == []
+
+
+def observed_fourteen_day_structure():
+    # The unchanged capacity input and actual global-structure response. Only
+    # this response is real; generated day detail/identity replies below are
+    # controlled integration fixtures, not a live quality claim.
+    sample = json.loads((Path(__file__).parent / "fixtures/live_capacity_day_structure.json").read_text(encoding="utf-8"))
+    return sample["source"], DayStructure.model_validate(sample["structure_response"])
+
+
+def test_observed_day1_and_day10_are_distinct_complete_heading_tokens():
+    text, plan = observed_fourteen_day_structure()
+    assert plan.cross_day_dependencies is False
+    sections = anchored_sections(text, plan)
+    assert len(sections) == 14
+    assert [day for day, _, _ in sections] == list(range(1, 15))
+    assert all(text[left:right].startswith(f"Day{day}：") for day, left, right in sections)
+    assert "".join(text[left:right] for _, left, right in sections) == text[text.index("Day1："):]
+
+
+@pytest.mark.parametrize("suffix", ["\nDay1：重复摘要。", "\nDay10：重复摘要。", "\n## **Day1**：更正安排。"])
+def test_real_repeated_heading_still_prevents_slicing(suffix):
+    text, plan = observed_fourteen_day_structure()
+    assert anchored_sections(text + suffix, plan) == []
+
+
+def test_observed_fourteen_day_structure_still_respects_cross_day_guard():
+    text, plan = observed_fourteen_day_structure()
+    assert anchored_sections(text, plan.model_copy(update={"cross_day_dependencies": True})) == []
+
+
+@pytest.mark.asyncio
+async def test_observed_structure_dispatches_all_fourteen_scopes_without_dropping_revisits():
+    from tests.test_trip_capacity_readback import CapacityModelClient, CapacityPlaces
+
+    text, plan = observed_fourteen_day_structure()
+    names_by_day = [line.partition("：")[2].rstrip("。").split("、")
+                    for line in text.splitlines() if line.startswith("Day")]
+
+    class ObservedStructureClient(CapacityModelClient):
+        def __init__(self):
+            super().__init__(names_by_day)
+            self.calls = []
+
+        async def create(self, **kwargs):
+            self.calls.append(kwargs)
+            response = await super().create(**kwargs)
+            if "只分析旅行原文的全局结构" in kwargs["messages"][0]["content"]:
+                response.choices[0].message.content = plan.model_dump_json()
+            return response
+
+    client = ObservedStructureClient()
+    output = await TripUnderstandingPipeline(provider(client), CapacityPlaces()).run(text)
+    assert len(client.calls) == 15
+    assert output.inference_binding["day_scopes_completed"] == 14
+    assert not output.inference_binding.get("day_scope_fallback")
+    assert [[card.name for card in day.activities] for day in output.public_result.days] == names_by_day
+    assert sum(len(day.activities) for day in output.public_result.days) == 160
+    assert output.public_result.coverage.complete is True
 
 
 @pytest.mark.asyncio
