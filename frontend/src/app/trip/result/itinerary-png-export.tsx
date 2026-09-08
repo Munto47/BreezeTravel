@@ -58,6 +58,20 @@ function fitText(
   return `${output}…`
 }
 
+function wrapText(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const lines: string[] = []
+  let line = ''
+  for (const character of text) {
+    if (line && context.measureText(line + character).width > maxWidth) {
+      lines.push(line)
+      line = ''
+    }
+    line += character
+  }
+  if (line) lines.push(line)
+  return lines
+}
+
 async function renderItinerary(
   result: UserFacingTripResult,
   mapView: MapRenderView | null,
@@ -70,12 +84,26 @@ async function renderItinerary(
   const statusMessages = exportStatus(result)
   const dayMessages = result.days.map(dayExportStatus)
   const headerHeight = 188 + statusMessages.length * 24
-  const height = headerHeight + dayLayouts.reduce((sum, layout, index) => sum + layout.height + 30 + (dayMessages[index] ? 32 : 0), 0) + 64
   const canvas = document.createElement('canvas')
   canvas.width = width
-  canvas.height = height
   const context = canvas.getContext('2d')
   if (!context) throw new Error('CANVAS_UNAVAILABLE')
+  context.font = '600 14px "Microsoft YaHei", sans-serif'
+  const sourceLines = result.days.map(day => {
+    const parents = day.activities.filter(card => card.source_details?.length)
+    if (!parents.length) return []
+    const lines = [{text: '原文安排 · 园内地点未单独核验', heading: true}]
+    for (const parent of parents) {
+      lines.push(...wrapText(context, `${parent.name}：`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: true})))
+      parent.source_details?.forEach((detail, index) => {
+        lines.push(...wrapText(context, `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
+      })
+    }
+    return lines
+  })
+  const sourceHeights = sourceLines.map(lines => lines.length ? lines.length * 24 + 32 : 0)
+  const height = headerHeight + dayLayouts.reduce((sum, layout, index) => sum + layout.height + 30 + (dayMessages[index] ? 32 : 0) + sourceHeights[index], 0) + 64
+  canvas.height = height
 
   const gradient = context.createLinearGradient(0, 0, width, height)
   gradient.addColorStop(0, '#def5ff')
@@ -115,7 +143,7 @@ async function renderItinerary(
     const layout = dayLayouts[dayIndex]
     const message = dayMessages[dayIndex]
     const noticeHeight = message ? 32 : 0
-    const dayHeight = layout.height + 30 + noticeHeight
+    const dayHeight = layout.height + 30 + noticeHeight + sourceHeights[dayIndex]
     const baseX = padding + leftWidth
     const baseY = y + 8 + noticeHeight
     context.fillStyle = 'rgba(255,255,255,0.88)'
@@ -191,6 +219,11 @@ async function renderItinerary(
       context.fillStyle = card.status === 'READY' ? '#0c789d' : '#855b19'
       context.font = '600 11px "Microsoft YaHei", sans-serif'
       context.fillText(card.status === 'READY' ? '已确认' : '待确认', x + 26, cardY + 95)
+    })
+    sourceLines[dayIndex].forEach((line, index) => {
+      context.fillStyle = line.heading ? '#0c789d' : '#425c66'
+      context.font = `${line.heading ? '600' : '400'} 14px "Microsoft YaHei", sans-serif`
+      context.fillText(line.text, baseX + 16, y + layout.height + noticeHeight + 24 + index * 24)
     })
     dayY += dayHeight
   })

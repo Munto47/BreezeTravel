@@ -112,7 +112,7 @@ PUBLIC_RESULT_ALLOWED_KEYS = {
     "lodging_role_uncertain", "lodging_scope", "meal_role", "meal_slots",
     "overnight_days", "pending_lodgings", "pending_token", "preserved_hotels",
     "scope", "segment_token", "segments", "brand_group", "brand_note",
-    "city", "alternatives",
+    "city", "alternatives", "source_details", "optional",
     "activity_token",
     "activities",
     "area_or_address",

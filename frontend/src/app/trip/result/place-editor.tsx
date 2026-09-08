@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
+import SourceDetails from './source-details'
 import {
   queryTripPlaceCandidates,
   readTripUnderstandingResult,
@@ -212,6 +213,7 @@ export default function PlaceEditor({
           {notice}
         </p>
       )}
+      <SourceDetails card={card} />
       <section className="e-form-section">
         <h3>确认或更换地点</h3>
         <form

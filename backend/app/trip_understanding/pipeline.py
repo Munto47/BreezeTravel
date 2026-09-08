@@ -35,6 +35,7 @@ from app.trip_understanding.models import (
     ResolvedActivity,
     ResolvedPlace,
     SourceClaimRecord,
+    SourceDetailView,
     SourceSemanticPlan,
     SemanticDiagnostic,
     StaySuggestionView,
@@ -678,8 +679,13 @@ def derive_visit_time_hint(source_text: str, span_start: int, span_end: int) -> 
     return None
 
 
+def _is_internal_detail(mention) -> bool:
+    return bool(mention.parent_mention_id and mention.relation_type == "INTERNAL_DETAIL"
+                and mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL, ActivityRole.REFERENCE})
+
+
 def is_atomic_planned_place(mention, *, source_index=None) -> bool:
-    if mention.role != ActivityRole.PLANNED or mention.day_index is None:
+    if mention.role != ActivityRole.PLANNED or mention.day_index is None or _is_internal_detail(mention):
         return False
     candidate = (mention.atomic_place_name or "").strip()
     if atomic_place_rejection_reason(candidate) is not None:
@@ -1160,6 +1166,7 @@ class PublicResultProjector:
             activity
             for activity in activities
             if activity.compiled.mention.role == ActivityRole.PLANNED
+            and not _is_internal_detail(activity.compiled.mention)
             and not (activity.compiled.mention.meal_role and not activity.compiled.mention.atomic_place_name)
             and not (activity.compiled.mention.category_hint in {"住宿", "交通节点"} and not activity.compiled.mention.atomic_place_name)
         ]
@@ -1169,7 +1176,14 @@ class PublicResultProjector:
         )
         alternatives = [activity.compiled for activity in activities
                         if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL
+                        and not _is_internal_detail(activity.compiled.mention)
                         and activity.compiled.mention.mention_id not in unassigned_alternative_ids]
+        details_by_parent: dict[str, list[SourceDetailView]] = {}
+        for child in sorted((item.compiled.mention for item in activities), key=lambda mention: mention.sequence_index):
+            if (_is_internal_detail(child) and child.atomic_place_name
+                    and atomic_place_rejection_reason(child.atomic_place_name) is None):
+                details_by_parent.setdefault(child.parent_mention_id, []).append(
+                    SourceDetailView(name=child.atomic_place_name, optional=child.role == ActivityRole.OPTIONAL))
         day_count = min(14, max(day_count, activity_day_count, max(day_labels or {}, default=0),
                                max((item.mention.day_index or 1 for item in alternatives), default=1)))
         day_views: list[TripDayView] = []
@@ -1178,6 +1192,7 @@ class PublicResultProjector:
             meal_slots = []
             daily = sorted((activity for activity in activities
                 if activity.compiled.mention.role == ActivityRole.PLANNED
+                and not _is_internal_detail(activity.compiled.mention)
                 and activity.compiled.mention.day_index == day_index),
                 key=lambda activity: activity.compiled.mention.sequence_index)
             for item in sorted(
@@ -1185,6 +1200,7 @@ class PublicResultProjector:
                     activity
                     for activity in activities
                     if activity.compiled.mention.role == ActivityRole.PLANNED
+                    and not _is_internal_detail(activity.compiled.mention)
                     and activity.compiled.mention.day_index == day_index
                 ),
                 key=lambda activity: activity.compiled.mention.sequence_index,
@@ -1240,6 +1256,7 @@ class PublicResultProjector:
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
+                        source_details=details_by_parent.get(mention.mention_id, []),
                     )
                 )
             choices = []
@@ -1333,10 +1350,21 @@ def _projection_omissions(
         for role, items in ((ActivityRole.PLANNED, day.activities), (ActivityRole.OPTIONAL, day.alternatives))
         for item in items
     }
+    parent_tokens = {item.mention.mention_id: item.public_activity_token for item in compiled}
+    visible_details = Counter((card.activity_token, detail.name, detail.optional)
+        for day in result.days for card in day.activities for detail in card.source_details)
     issues = []
     missing_days = set(range(len(result.days) + 1, plan.day_count + 1))
     for item in compiled:
         mention = item.mention
+        if _is_internal_detail(mention) and mention.atomic_place_name:
+            detail = (parent_tokens.get(mention.parent_mention_id), mention.atomic_place_name, mention.role == ActivityRole.OPTIONAL)
+            if visible_details[detail]:
+                visible_details[detail] -= 1
+            else:
+                issues.append(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field="source_details",
+                    span_start=mention.span_start, span_end=mention.span_end))
+            continue
         if mention.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or not mention.atomic_place_name:
             continue
         if atomic_place_rejection_reason(mention.atomic_place_name) is not None:
@@ -1967,6 +1995,7 @@ class TripUnderstandingPipeline:
         elif (fallback_used or unavailable_count) and public_result.status != "PARTIAL_RESULT":
             public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
         recognized = [item for item in resolved if item.compiled.mention.role == ActivityRole.PLANNED
+                      and not _is_internal_detail(item.compiled.mention)
                       and item.compiled.mention.atomic_place_name]
         confirmed = sum(item.place is not None for item in recognized)
         pending_semantics = {

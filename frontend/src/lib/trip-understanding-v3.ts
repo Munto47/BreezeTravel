@@ -50,6 +50,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  source_details?: Array<{name: string; optional: boolean}>
   lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | 'VISIT_ONLY' | null
   lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
   lodging_role_uncertain?: boolean

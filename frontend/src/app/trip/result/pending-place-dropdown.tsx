@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PROVINCES } from '@/data/cities'
 import { queryTripPlaceCandidates, queryPendingLodgingCandidates, type ActivityCardView, type LodgingRecoveryIntent, type PlaceCandidateView, type TripSupplementaryView, type TripUnderstandingCommand } from '@/lib/trip-understanding-v3'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
+import SourceDetails from './source-details'
 
 /** An anchored, non-modal search. Opening never searches or confirms a place. */
 type PendingHotel = NonNullable<TripSupplementaryView['pending_lodgings']>[number]
@@ -90,6 +91,7 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
   }
   return <div ref={root} className="pending-place-dropdown" data-testid="pending-place-dropdown" role="region" aria-label={`修改地点 ${target.name}`} onKeyDown={event=>{if(event.key==='Escape'&&!locked){event.stopPropagation();close.current()}}}>
     <div className="pending-place-head"><strong>地点</strong><button type="button" aria-label="收起地点确认" disabled={locked} onClick={onClose}>×</button></div>
+    {card && <SourceDetails card={card} />}
     <label style={{display:'grid',gap:4,marginBottom:8,fontSize:13}}>查询城市
       <select aria-label="查询城市" value={city} disabled={locked}
         style={{width:'100%',minHeight:44,padding:'8px',border:'1px solid #d4e9f0',borderRadius:12,background:'#fff',color:'inherit',fontSize:13}}

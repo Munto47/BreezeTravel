@@ -53,6 +53,21 @@ async def truncated_whole_replay():
 
 async def public_replays():
     results = {}
+    # Explicit synthetic source and raw response run through the same adapter,
+    # identity resolver and projector. Inner visits must keep their parent exit,
+    # including the optional child, without inventing additional place lookups.
+    detail_source = "北京一日游。\nDay1：故宫博物院，园内路线：太和殿、乾清宫。若有时间，可看园内珍宝馆。之后去景山公园。"
+    detail_rows = [dict(source_quote=name, place_name=name, role="PLANNED", day_index=1,
+        category="景点", city="北京", city_evidence="北京")
+        for name in ("故宫博物院", "太和殿", "乾清宫", "景山公园")]
+    detail_rows.insert(3, dict(source_quote="珍宝馆", place_name="珍宝馆", role="OPTIONAL", day_index=1,
+        category="景点", city="北京", city_evidence="北京", parent_source_quote="故宫博物院",
+        role_evidence="若有时间，可看园内珍宝馆"))
+    detail_client = Client(json.dumps(dict(destination="北京", day_labels=["Day1"], activities=detail_rows), ensure_ascii=False))
+    detail_output = await TripUnderstandingPipeline(provider(detail_client), FixedReplayPlaces()).run(detail_source)
+    assert len(detail_client.calls) == 1
+    assert detail_output.resolution_receipt["attempted_count"] == 2
+    results["source_details"] = detail_output.public_result.model_dump(mode="json")
     for kind in ("partial", "optional"):
         client = ScopedClient(second_fails=True) if kind == "partial" else OptionalDayClient()
         text = source()

@@ -2822,8 +2822,11 @@ class PostgresTripUnderstandingRepository(
             confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
                 expected_etag=expected_etag, now=candidate_now)
             meal_trip = await self._read_recommendation_trip_view(conn, resource.understanding_id, source_revision)
+            current_place_id = (await conn.fetchval("""SELECT canonical_place_id FROM trip_understanding_activities
+                WHERE understanding_id=$1 AND revision=$2 AND public_activity_token=$3""",
+                resource.understanding_id, source_revision, command.activity_token) if isinstance(command, PlaceConfirmCommand) else None)
             mutation = apply_public_command(current_result, command, undo_result=undo_result, confirmed_place=confirmed_place,
-                source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
+                current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
             public_payload = mutation.result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
             parent_revision = int(aggregate["current_revision"])
@@ -5991,8 +5994,12 @@ class InMemoryTripUnderstandingRepository(
         confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
             expected_etag=expected_etag, now=effective_now if isinstance(command, (LodgingRecoverCommand, DiningInsertCommand)) else now)
         meal_trip = await self.load_recommendation_trip_view(resource.understanding_id, source_revision)
+        previous_input = self.g03_pipeline_inputs.get((resource.understanding_id, source_revision), {})
+        previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(undo_result or stored.result)
+        current_place_id = (previous_bindings.get(command.activity_token, {}).get("canonical_place_id")
+            if isinstance(command, PlaceConfirmCommand) else None)
         mutation = apply_public_command(stored.result, command, undo_result=undo_result, confirmed_place=confirmed_place,
-            source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
+            current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
         result_id = str(uuid4())
         opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
         self.results[result_id] = StoredResult(
@@ -6009,10 +6016,6 @@ class InMemoryTripUnderstandingRepository(
                 "updated_at": now,
             }
         )
-        previous_input = self.g03_pipeline_inputs.get(
-            (resource.understanding_id, source_revision), {}
-        )
-        previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(undo_result or stored.result)
         bindings = {new: dict(previous_bindings.get(old) or {}) for old, new in mutation.token_map.items()}
         for old, new in mutation.token_map.items():
             if old in meal_trip.source_lunch_gaps:
@@ -6821,6 +6824,8 @@ class InMemoryTripUnderstandingRepository(
              "day_index": item.compiled.mention.day_index,
              "sequence_index": item.compiled.mention.sequence_index,
              "role": item.compiled.mention.role.value,
+             "parent_mention_id": item.compiled.mention.parent_mention_id,
+             "relation_type": item.compiled.mention.relation_type,
              "time_hint": item.compiled.mention.time_hint,
              "canonical_place_id": item.place.canonical_place_id if item.place else None}
             for item in output.activities

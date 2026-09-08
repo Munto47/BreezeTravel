@@ -12,7 +12,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 
 SPEC = importlib.util.spec_from_file_location("release_upgrade", Path(__file__).parents[1] / "release_upgrade.py")
@@ -710,8 +710,45 @@ class UpgradeTests(unittest.TestCase):
         self.assertNotIn("private-model-key", log.read_text())
 
 
-def previous_model_compatibility(local_env: Path, previous_model_dir: Path) -> dict:
-    """Read a real saved new record with exact old deployed model source, locally."""
+def _candidate_saved_payload(connection, candidate_result_id: str) -> dict:
+    """Read the exact result written by the candidate's acceptance journey.
+
+    The caller supplies that journey's result ID. Representative new fields
+    prevent an unrelated old-shape row from standing in for the new write.
+    """
+    try:
+        result_id = str(UUID(candidate_result_id))
+    except (ValueError, TypeError, AttributeError):
+        raise RuntimeError("Candidate result ID is required; previous-code compatibility is NOT_RUN") from None
+    row = connection.execute("""SELECT public_json FROM trip_understanding_results
+        WHERE result_id=%s""", (result_id,)).fetchone()
+    if row is None:
+        raise RuntimeError("Requested candidate result was not found; previous-code compatibility is NOT_RUN")
+    payload = row[0]
+    days = payload.get("days", []) if isinstance(payload, dict) else []
+    if not isinstance(days, list):
+        days = []
+    has_details = any(isinstance(card.get("source_details"), list) and card["source_details"]
+        for day in days if isinstance(day, dict) and isinstance(day.get("activities"), list)
+        for card in day.get("activities", []) if isinstance(card, dict))
+    has_unprocessed = any(isinstance(day.get("unprocessed_count"), int)
+        and not isinstance(day["unprocessed_count"], bool) and day["unprocessed_count"] > 0
+        for day in days if isinstance(day, dict))
+    coverage = payload.get("coverage", {}) if isinstance(payload, dict) else {}
+    if not (has_details and has_unprocessed and isinstance(coverage, dict)
+            and isinstance(coverage.get("unprocessed_count"), int)
+            and not isinstance(coverage["unprocessed_count"], bool)
+            and coverage["unprocessed_count"] > 0 and coverage.get("complete") is False):
+        raise RuntimeError("Candidate result lacks nonempty source details and unfinished coverage; previous-code compatibility is NOT_RUN")
+    return payload
+
+
+def previous_model_compatibility(local_env: Path, previous_model_dir: Path, *, candidate_result_id: str) -> dict:
+    """Read one caller-selected candidate write with the exact old models.
+
+    Model loading alone does not verify same-database editing, undo or queued
+    worker recovery; those remain separate user-path checks.
+    """
     import psycopg
     from dotenv import dotenv_values
     from pydantic import ValidationError
@@ -726,13 +763,11 @@ def previous_model_compatibility(local_env: Path, previous_model_dir: Path) -> d
                         password=values["EXPERIENCE_PG_PASSWORD"],
                         dbname=release.identifier(values["EXPERIENCE_DATABASE"]), connect_timeout=5) as connection:
         connection.execute("BEGIN READ ONLY")
-        row = connection.execute("""SELECT public_json FROM trip_understanding_results
-            WHERE jsonb_path_exists(public_json, '$.days[*].unprocessed_count')
-            ORDER BY created_at DESC LIMIT 1""").fetchone()
-    if row is None:
-        raise RuntimeError("No actual stored new record found; previous-code compatibility is NOT_RUN")
-    payload = row[0]
-    UserFacingTripResult.model_validate(payload)
+        payload = _candidate_saved_payload(connection, candidate_result_id)
+    try:
+        UserFacingTripResult.model_validate(payload)
+    except ValidationError:
+        raise RuntimeError("Candidate result cannot be read by current models; previous-code compatibility is NOT_RUN") from None
     timing_name = "app.trip_understanding.timing"
     original_timing = sys.modules[timing_name]
     modules = []
@@ -751,12 +786,70 @@ def previous_model_compatibility(local_env: Path, previous_model_dir: Path) -> d
                       for item in error.errors(include_input=False, include_url=False)]
             return {"actual_new_saved_record": True, "current_model_read": "PASS",
                     "previous_deployed_model_read": "FAIL", "incompatible_fields": errors,
-                    "previous_code_rollback": "UNAVAILABLE", "data_preserving_recovery": "CURRENT_CODE_ONLY"}
+                    "previous_code_rollback": "UNAVAILABLE", "data_preserving_recovery": "CURRENT_CODE_ONLY",
+                    "same_database_edit_undo_queued_jobs": "NOT_RUN"}
         return {"actual_new_saved_record": True, "current_model_read": "PASS",
-                "previous_deployed_model_read": "PASS", "previous_code_rollback": "OTHER_PATHS_NOT_RUN"}
+                "previous_deployed_model_read": "PASS", "previous_code_rollback": "OTHER_PATHS_NOT_RUN",
+                "same_database_edit_undo_queued_jobs": "NOT_RUN"}
     finally:
         sys.modules[timing_name] = original_timing
         sys.modules.pop("upgrade_previous_models", None)
+
+
+class CandidateModelCompatibilityTests(unittest.TestCase):
+    def setUp(self):
+        self.result_id = str(uuid4())
+        self.payload = {"days": [{"unprocessed_count": 1, "activities": [
+            {"source_details": [{"name": "太和殿", "optional": False}]}]}],
+            "coverage": {"unprocessed_count": 1, "complete": False}}
+        self.connection = Mock()
+        self.connection.execute.return_value.fetchone.return_value = (self.payload,)
+
+    def test_reads_only_the_requested_candidate_result(self):
+        self.assertIs(_candidate_saved_payload(self.connection, self.result_id), self.payload)
+        query, parameters = self.connection.execute.call_args.args
+        self.assertIn("WHERE result_id=%s", query)
+        self.assertEqual(parameters, (self.result_id,))
+        self.assertNotIn("ORDER BY", query)
+        self.assertEqual(self.connection.execute.call_count, 1)
+
+    def test_missing_or_invalid_id_is_not_run_without_query(self):
+        for invalid in (None, "", "not-a-result-id", "' OR true --"):
+            with self.subTest(value=invalid), self.assertRaisesRegex(RuntimeError, "NOT_RUN"):
+                _candidate_saved_payload(self.connection, invalid)
+        self.connection.execute.assert_not_called()
+
+    def test_cli_requires_candidate_id_before_reading_environment_or_database(self):
+        completed = subprocess.run([sys.executable, str(Path(__file__).resolve()),
+            "--local-env", "does-not-exist.env", "--previous-model-dir", "does-not-exist-models"],
+            capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("requires --candidate-result-id", completed.stderr)
+
+    def test_unknown_id_never_falls_back_to_another_saved_result(self):
+        self.connection.execute.return_value.fetchone.return_value = None
+        with self.assertRaisesRegex(RuntimeError, "NOT_RUN"):
+            _candidate_saved_payload(self.connection, self.result_id)
+        self.assertEqual(self.connection.execute.call_count, 1)
+
+    def test_old_shape_empty_details_and_missing_unprocessed_are_not_run(self):
+        import copy
+        changes = (
+            lambda value: value["days"][0]["activities"][0].pop("source_details"),
+            lambda value: value["days"][0]["activities"][0].update(source_details=[]),
+            lambda value: value["days"][0].pop("unprocessed_count"),
+            lambda value: value["days"][0].update(unprocessed_count=0),
+            lambda value: value["coverage"].update(unprocessed_count=0),
+            lambda value: value["coverage"].update(complete=True),
+        )
+        for change in changes:
+            candidate = copy.deepcopy(self.payload)
+            change(candidate)
+            self.connection.reset_mock()
+            self.connection.execute.return_value.fetchone.return_value = (candidate,)
+            with self.subTest(candidate=candidate), self.assertRaisesRegex(RuntimeError, "NOT_RUN"):
+                _candidate_saved_payload(self.connection, self.result_id)
+            self.assertEqual(self.connection.execute.call_count, 1)
 
 
 def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
@@ -935,9 +1028,12 @@ if __name__ == "__main__":
         parser.add_argument("--local-env", type=Path, required=True)
         parser.add_argument("--pg-bin", type=Path)
         parser.add_argument("--previous-model-dir", type=Path)
+        parser.add_argument("--candidate-result-id", help="Exact result ID written by this candidate's acceptance journey")
         args = parser.parse_args()
         if args.previous_model_dir:
-            result = previous_model_compatibility(args.local_env, args.previous_model_dir)
+            if not args.candidate_result_id:
+                parser.error("--previous-model-dir requires --candidate-result-id from this candidate's actual new write")
+            result = previous_model_compatibility(args.local_env, args.previous_model_dir, candidate_result_id=args.candidate_result_id)
         elif args.pg_bin:
             result = local_restore_drill(args.local_env, args.pg_bin)
         else:

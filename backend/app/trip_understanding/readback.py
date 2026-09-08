@@ -125,6 +125,26 @@ class _ImportView:
     pending_mentions: list[dict] = field(default_factory=list)
 
 
+def _with_source_relationships(mentions, structure):
+    """Join existing source structure to its unique per-day activity position.
+
+    Both records belong to the same initial revision, before user edits can
+    change order. Ambiguous or absent historical metadata grants no relation.
+    """
+    by_position = {}
+    for item in structure:
+        key = (item.get("day_index"), item.get("sequence_index"), item.get("role"))
+        by_position.setdefault(key, []).append(item)
+    result = []
+    for item in mentions:
+        row = dict(item)
+        matches = by_position.get((row.get("day_index"), row.get("sequence_index"), row.get("role")), [])
+        if len(matches) == 1:
+            row.update(parent_mention_id=matches[0].get("parent_mention_id"), relation_type=matches[0].get("relation_type"))
+        result.append(row)
+    return result
+
+
 class _ReadbackProjection:
     async def get_source_view(self, resource, *, now):
         data = await self._read_import(resource, now=now)
@@ -157,6 +177,8 @@ class _ReadbackProjection:
         if data.status == "AVAILABLE":
             for mention in data.mentions:
                 if mention["role"] not in {"OPTIONAL", "EXCLUDED"}:
+                    continue
+                if mention["role"] == "OPTIONAL" and mention.get("parent_mention_id") and mention.get("relation_type") == "INTERNAL_DETAIL":
                     continue
                 index = mention.get("day_index")
                 label = (data.result.days[index - 1].label if data.result and index and index <= len(data.result.days)
@@ -235,7 +257,17 @@ class PostgresReadbackMixin(_ReadbackProjection):
                 ORDER BY a.day_index NULLS LAST,a.sequence_index,a.activity_id""", resource.understanding_id, row["source_id"])
             current = await conn.fetch("SELECT * FROM trip_understanding_activities WHERE understanding_id=$1 AND revision=$2",
                 resource.understanding_id, row["current_revision"])
-            return _ImportView("AVAILABLE", text, result, [dict(item) for item in mentions],
+            structure = []
+            if mentions:
+                original = await conn.fetchrow("""SELECT r.proposal_json,p.public_json FROM trip_understanding_revisions r
+                    JOIN trip_understanding_results p ON p.understanding_id=r.understanding_id AND p.revision=r.revision
+                    WHERE r.understanding_id=$1 AND r.revision=$2""", resource.understanding_id, mentions[0]["revision"])
+                original_result = _json(original["public_json"]) if original else {}
+                # Historical results without parent details still need their
+                # original supplementary exit; an edit must not hide them.
+                if any("source_details" in card for day in original_result.get("days", []) for card in day.get("activities", [])):
+                    structure = _json(original["proposal_json"]).get("structure", [])
+            return _ImportView("AVAILABLE", text, result, _with_source_relationships(mentions, structure),
                 {item["public_activity_token"]: item["canonical_place_id"] for item in current}, [dict(item) for item in current])
 
 

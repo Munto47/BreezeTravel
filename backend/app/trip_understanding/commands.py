@@ -100,6 +100,7 @@ def apply_public_command(
     token_factory: Callable[[], str] = _default_token,
     undo_result: UserFacingTripResult | None = None,
     confirmed_place=None,
+    current_place_id: str | None = None,
     source_lunch_gaps: dict[str, str] | None = None,
     dining_plan=None,
 ) -> PublicCommandMutation:
@@ -177,6 +178,11 @@ def apply_public_command(
         else:
             day_index, _, card = _find_card(result.days, command.activity_token)
             changed.add(result.days[day_index].label)
+        if card.source_details:
+            same_parent = (current_place_id == confirmed_place.canonical_place_id if current_place_id
+                else card.name == confirmed_place.name and card.city == confirmed_place.city)
+            if not same_parent:
+                card.source_details = []
         card.name = confirmed_place.name
         card.category = confirmed_place.category
         card.area_or_address = confirmed_place.area_or_address
@@ -289,6 +295,8 @@ def apply_public_command(
     elif isinstance(command, ActivityTextEditCommand):
         day_index, _position, card = _find_card(result.days, command.activity_token)
         if command.name is not None:
+            if command.name != card.name:
+                card.source_details = []
             card.name = command.name
             card.area_or_address = "地点待确认"
             card.photo_url = None
@@ -303,6 +311,7 @@ def apply_public_command(
         changed.add(result.days[day_index].label)
     elif isinstance(command, PlaceReplaceCommand):
         day_index, _position, card = _find_card(result.days, command.activity_token)
+        card.source_details = []
         card.name = command.replacement.name
         card.category = command.replacement.category
         card.area_or_address = command.replacement.area_or_address

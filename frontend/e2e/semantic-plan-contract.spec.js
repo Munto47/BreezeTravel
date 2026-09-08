@@ -61,6 +61,65 @@ async function exportObservedPng(page, info, filename) {
   return rendered.map(item => item.text)
 }
 
+for (const width of [1440, 390]) {
+  test(`source internal arrangements: parent details survive page, refresh and PNG at ${width}px`, async ({page}, info) => {
+    await page.setViewportSize({width, height: 900})
+    await page.addInitScript(() => {
+      window.exportText = []
+      const original = CanvasRenderingContext2D.prototype.fillText
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
+        const position = this.getTransform().transformPoint({x, y})
+        window.exportText.push({text: String(text), x: position.x, y: position.y,
+          width: this.measureText(String(text)).width, canvasWidth: this.canvas.width, canvasHeight: this.canvas.height})
+        return original.call(this, text, x, y, ...rest)
+      }
+    })
+    const result = results.source_details
+    expect(result.days[0].activities.map(card => card.name)).toEqual(['故宫博物院', '景山公园'])
+    expect(result.days[0].alternatives).toEqual([])
+    expect(result.coverage.recognized_place_count).toBe(2)
+    expect(result.coverage.complete).toBe(true)
+    const expected = [{name: '太和殿', optional: false}, {name: '乾清宫', optional: false}, {name: '珍宝馆', optional: true}]
+    expect(result.days[0].activities[0].source_details).toEqual(expected)
+    await show(page, 'source_details')
+    const parent = page.getByTestId('activity-card').filter({has: page.getByRole('heading', {name: '故宫博物院', exact: true})})
+    await expect(page.getByTestId('activity-card')).toHaveCount(2)
+    await expect(parent).toContainText('原文安排 · 3 项')
+    await parent.getByRole('button', {name: /故宫博物院.*查看详情/}).click()
+    const details = page.getByTestId('source-internal-details')
+    await expect(details).toBeVisible()
+    await expect(details.getByRole('listitem')).toHaveText(['太和殿', '乾清宫', '珍宝馆备选'])
+    await expect(details).toContainText('地点身份与开放情况未单独核验')
+    await details.scrollIntoViewIfNeeded()
+    await page.screenshot({path: info.outputPath(`source-details-${width}.png`)})
+    await page.getByRole('button', {name: '收起地点确认', exact: true}).click()
+    await page.reload()
+    await expect(page.getByTestId('activity-card')).toHaveCount(2)
+    await parent.getByRole('button', {name: /故宫博物院.*查看详情/}).click()
+    await expect(details.getByRole('listitem')).toHaveText(['太和殿', '乾清宫', '珍宝馆备选'])
+    await page.getByRole('button', {name: '收起地点确认', exact: true}).click()
+    await page.getByRole('button', {name: '切换为列表', exact: true}).click()
+    const list = page.getByRole('list', {name: `${result.days[0].label} 地点列表`, exact: true})
+    await expect(list.getByRole('button', {name: /已确认 · 可更改$/})).toHaveCount(2)
+    await list.getByRole('button', {name: /故宫博物院/}).click()
+    await expect(details.getByRole('listitem')).toHaveText(['太和殿', '乾清宫', '珍宝馆备选'])
+    await page.getByRole('button', {name: '收起地点确认', exact: true}).click()
+    await page.getByRole('button', {name: '切换为横链', exact: true}).click()
+    const texts = await exportObservedPng(page, info, `source-arrangements-${width}`)
+    expect(texts).toContain('共 1 天 · 2 个地点 · 生成时地图底图未包含')
+    expect(texts.filter(text => text === '已确认')).toHaveLength(2)
+    expect(texts).toContain('原文安排 · 园内地点未单独核验')
+    expect(texts).toContain('故宫博物院：')
+    const sourceNames = texts.filter(text => /^\d+\. /.test(text))
+    expect(sourceNames).toEqual(['1. 太和殿', '2. 乾清宫', '3. 珍宝馆（备选）'])
+    const drawn = await page.evaluate(() => window.exportText.filter(item => /^\d+\. |原文安排|故宫博物院：/.test(item.text)))
+    for (const item of drawn) {
+      expect(item.x + item.width, item.text).toBeLessThan(item.canvasWidth)
+      expect(item.y, item.text).toBeLessThan(item.canvasHeight - 64)
+    }
+  })
+}
+
 for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 390], ['optional', 390]]) {
   test(`PNG completion status: ${kind} at ${width}px`, async ({page}, info) => {
     await page.setViewportSize({width, height: 900})

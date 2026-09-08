@@ -246,6 +246,11 @@ class KnowledgeSuggestionView(StrictModel):
         return value
 
 
+class SourceDetailView(StrictModel):
+    name: str = Field(min_length=1, max_length=120)
+    optional: bool = False
+
+
 class ActivityCardView(ActivityTiming):
     photo_url: str | None = None
     city: str | None = None
@@ -271,6 +276,7 @@ class ActivityCardView(ActivityTiming):
         default_factory=list,
         max_length=3,
     )
+    source_details: list[SourceDetailView] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
 
 
 class ActivityAlternativeView(StrictModel):
