@@ -44,13 +44,9 @@ def _same_visit_facts(before: SourceSemanticPlan, after: SourceSemanticPlan) -> 
         item.model_dump(exclude={"city_hint", "city_evidence"}) for item in after.mentions]
 
 
-async def repair_city_metadata(provider: ExperienceQwenProvider, source: str, draft: SemanticDraft,
-                               proposal: SourceSemanticPlan, calls: list) -> tuple[SemanticDraft, SourceSemanticPlan]:
-    # Only the first extraction's city-only failure enters here. This consumes
-    # its existing second-call allowance inside the original provider deadline.
-    from app.trip_understanding.experience_inference import (
-        SourceAnchorIndex, _proposal_from_live_draft, _validation_issues,
-    )
+def city_metadata_targets(source: str, draft: SemanticDraft, proposal: SourceSemanticPlan) -> list[dict]:
+    """Expose only source-bound rejected fields, never editable visit facts."""
+    from app.trip_understanding.experience_inference import SourceAnchorIndex
 
     anchors = SourceAnchorIndex(source)
     targets = set()
@@ -70,11 +66,50 @@ async def repair_city_metadata(provider: ExperienceQwenProvider, source: str, dr
         span = (left + relative[0], left + relative[1]) if relative else (left, right)
         if span == (issue.span_start, issue.span_end):
             targets.add(index)
-    if not targets:
-        return draft, proposal
-    inputs = [{"index": index, "name": item.place_name, "day_index": item.day_index,
+    return [{"index": index, "name": item.place_name, "day_index": item.day_index,
                "source_quote": item.source_quote, "occurrence": item.occurrence}
               for index, item in enumerate(draft.activities) if index in targets]
+
+
+def apply_city_metadata(source: str, draft: SemanticDraft, proposal: SourceSemanticPlan,
+                        patches: list[CityMetadataPatch]) -> tuple[SemanticDraft, SourceSemanticPlan, int]:
+    from app.trip_understanding.experience_inference import _proposal_from_live_draft
+
+    targets = {item["index"] for item in city_metadata_targets(source, draft, proposal)}
+    counts = Counter(patch.index for patch in patches)
+    accepted = 0
+    current_draft, current_plan = draft, proposal
+    for patch in patches:
+        if patch.index not in targets or counts[patch.index] != 1:
+            continue
+        # An explicit (null, null) clears only fields previously rejected.
+        if bool(patch.city) != bool(patch.city_evidence):
+            continue
+        rows = list(current_draft.activities)
+        rows[patch.index] = rows[patch.index].model_copy(update={"city": patch.city, "city_evidence": patch.city_evidence})
+        candidate = current_draft.model_copy(update={"activities": rows})
+        try:
+            checked = _proposal_from_live_draft(source, candidate, allow_partial=True)
+        except ValueError:
+            continue
+        if (not _same_visit_facts(current_plan, checked) or any(
+                issue.category == "UNSUPPORTED_CITY_REMOVED" and issue.field == f"activities[{patch.index}].city"
+                for issue in checked.diagnostics)):
+            continue
+        current_draft, current_plan = candidate, checked
+        accepted += 1
+    return current_draft, current_plan, accepted
+
+
+async def repair_city_metadata(provider: ExperienceQwenProvider, source: str, draft: SemanticDraft,
+                               proposal: SourceSemanticPlan, calls: list) -> tuple[SemanticDraft, SourceSemanticPlan]:
+    # Only the first extraction's city-only failure enters here. This consumes
+    # its existing second-call allowance inside the original provider deadline.
+    from app.trip_understanding.experience_inference import _validation_issues
+
+    inputs = city_metadata_targets(source, draft, proposal)
+    if not inputs:
+        return draft, proposal
     call = {"attempt": len(calls) + 1, "stage": "CITY_METADATA_REPAIR", "input_tokens": None,
             "output_tokens": None, "outcome": "UNKNOWN"}
     calls.append(call)
@@ -106,28 +141,6 @@ async def repair_city_metadata(provider: ExperienceQwenProvider, source: str, dr
         call["outcome"] = "INVALID_STRUCTURED_OUTPUT"
         call["validation_errors"] = _validation_issues(exc, set(CityMetadataResponse.model_fields) | set(CityMetadataPatch.model_fields))
         return draft, proposal
-    counts = Counter(patch.index for patch in patches)
-    accepted = 0
-    current_draft, current_plan = draft, proposal
-    for patch in patches:
-        if patch.index not in targets or counts[patch.index] != 1:
-            continue
-        # A city without its evidence, or evidence without a city, is not a
-        # meaningful correction. Explicit (null, null) clears only bad fields.
-        if bool(patch.city) != bool(patch.city_evidence):
-            continue
-        rows = list(current_draft.activities)
-        rows[patch.index] = rows[patch.index].model_copy(update={"city": patch.city, "city_evidence": patch.city_evidence})
-        candidate = current_draft.model_copy(update={"activities": rows})
-        try:
-            checked = _proposal_from_live_draft(source, candidate, allow_partial=True)
-        except ValueError:
-            continue
-        if (not _same_visit_facts(current_plan, checked) or any(
-                issue.category == "UNSUPPORTED_CITY_REMOVED" and issue.field == f"activities[{patch.index}].city"
-                for issue in checked.diagnostics)):
-            continue
-        current_draft, current_plan = candidate, checked
-        accepted += 1
+    current_draft, current_plan, accepted = apply_city_metadata(source, draft, proposal, patches)
     call.update(outcome="SUCCESS" if accepted else "NO_VALID_CITY_METADATA", accepted_city_fields=accepted)
     return current_draft, current_plan

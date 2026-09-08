@@ -1,0 +1,272 @@
+"""Validate second-answer visit instructions without calls or mainline edits."""
+from __future__ import annotations
+
+from collections.abc import Sequence
+import re
+from typing import Literal
+
+from pydantic import Field, ValidationError
+
+from app.trip_understanding.errors import InferenceProviderUnavailableError
+from app.trip_understanding.failures import INPUT_CAPACITY_EXCEEDED
+from app.trip_understanding.models import (
+    MAX_TRIP_ACTIVITIES, ActivityRole, ProposedMention, SemanticDiagnostic,
+    SourceSemanticPlan, StrictModel,
+)
+
+
+class SourceVisitSupplement(StrictModel):
+    parent_index: int = Field(ge=0, le=159, strict=True)
+    kind: Literal["VISIT", "ENTRY", "EXIT", "EXTERIOR_ONLY", "PICKUP_ONLY"]
+    source_quote: str = Field(min_length=1, max_length=100)
+    occurrence: int = Field(default=1, ge=1, le=160, strict=True)
+    optional: bool = Field(default=False, strict=True)
+    evidence: str = Field(min_length=1, max_length=500)
+
+
+def _literal_spans(source: str, quote: str) -> list[tuple[int, int]]:
+    spans = []
+    offset = 0
+    while quote and (left := source.find(quote, offset)) >= 0:
+        spans.append((left, left + len(quote)))
+        offset = left + len(quote)
+    return spans
+
+
+def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, optional: bool) -> bool:
+    left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
+    right = min((p for mark in "\n。；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
+    before = source[left:start].replace("**", "")
+    after = source[end:right].replace("**", "")
+    cancelled = re.search(r"(?:取消|不去|不看|不参观|不进入|不进|不再去|跳过)[^。；;，,\n]{0,10}$", before)
+    if cancelled and not re.search(r"(?:没有|并未|未|不)\s*$", before[:cancelled.start()]):
+        return True
+    if re.match(r"\s*(?:已取消|取消|本次不去|不去了|不参观)", after):
+        return True
+    # A proposed condition cannot disappear while its literal evidence stays.
+    return bool(not optional and re.search(r"若|如果|假如|时间(?:充裕|足够|允许)|有(?:时间|余力)|有兴趣", evidence))
+
+
+def _shared_purpose_roots(source: str, parent: ProposedMention, roots: list[ProposedMention]):
+    """A shared clause can constrain both adjacent named venues, not just last."""
+    paired = set()
+    last_end = parent.span_end
+    for other in sorted(roots, key=lambda item: item.span_start):
+        if other.span_start < last_end or other.day_index != parent.day_index:
+            continue
+        gap = source[last_end:other.span_start]
+        if not re.fullmatch(r"[ \t*_]*(?:(?:、|和|及|与|\+|/)[ \t*_]*)+", gap):
+            break
+        paired.add(other.mention_id)
+        last_end = other.span_end
+    return [item for item in roots if item.mention_id not in paired]
+
+
+def _scope_parent(source, anchors, row, parent, roots, start, end, *, explicit_kind=False):
+    from app.trip_understanding.experience_inference import SemanticActivity, _validated_internal_parent
+
+    item = SemanticActivity(source_quote=row.source_quote,
+        place_name=row.source_quote if len(row.source_quote) <= 40 else None,
+        role=ActivityRole.OPTIONAL if row.optional else ActivityRole.REFERENCE,
+        day_index=parent.day_index, parent_source_quote=parent.atomic_place_name, role_evidence=row.evidence)
+    return _validated_internal_parent(source, anchors, item, start, end, parent.day_index,
+        roots, parent.mention_id if explicit_kind else None) == parent.mention_id
+
+
+def _gate_direction(row, source, start, end, evidence_span):
+    left, right = evidence_span
+    before = source[left:start].rstrip(" *_\t")
+    after = source[end:right].lstrip(" *_\t")
+    if re.search(r"(?:不|不要|不再|并非)(?:从|由|经)?\s*$", before):
+        return False
+    if row.kind == "ENTRY":
+        return bool(re.match(r"(?:进入|进|入园|入馆|入内)", after)
+            or re.search(r"(?:入口|进门)(?:在|为|是|：|:)\s*$", before))
+    return bool(re.match(r"(?:出去|出|离开)", after)
+        or re.search(r"(?:出口|出门)(?:在|为|是|：|:)\s*$", before))
+
+
+def _purpose_supported(row):
+    text = row.evidence
+    if re.search(r"俯瞰|眺望|远眺|遥望|望向|远望", text):
+        return None  # Do not transfer a viewing object's restriction to its viewpoint.
+    if row.kind == "EXTERIOR_ONLY":
+        explicit = re.search(r"(?:只|仅)(?:看|拍摄|参观)?(?:外观|外部|外立面)", text)
+        if explicit:
+            if re.search(r"不|并非|不是", text[max(0, explicit.start() - 3):explicit.start()]):
+                return None
+            return explicit.span()
+        restriction = re.search(r"(?:不|不用|无需|不必)[^。；;\n]{0,8}(?:进|入)(?:馆|园|内|内部|场馆)", text)
+        return restriction.span() if restriction and re.search(r"外观|外面|门外|外部|外立面|外广场", text) else None
+    action = re.search(r"取[^。；;\n]{0,8}(?:行李|寄存|物品|物)", text)
+    return action.span() if (action and re.search(r"(?:只|仅)[^。；;\n]{0,12}取", text)
+        and re.search(r"不(?:进|入|参观)[^。；;\n]{0,6}(?:展厅|内部|馆|园)", text)) else None
+
+
+def apply_source_visit_supplement(
+    source: str, proposal: SourceSemanticPlan,
+    rows: Sequence[SourceVisitSupplement | dict], *, parent_ids: Sequence[str],
+) -> SourceSemanticPlan:
+    """Append validated children; parent IDs are the request's immutable table.
+
+    This synchronous function neither infers task state from binding nor writes
+    SUCCESS. The caller retains normal cancellation/deadline ownership. A bad
+    row remains unfinished while valid siblings survive. Capacity is never
+    truncated; the existing capacity failure is propagated to the caller.
+    """
+    from app.trip_understanding.experience_inference import SourceAnchorIndex, _coverage_day_scopes
+
+    if not isinstance(proposal, SourceSemanticPlan):
+        raise TypeError("source visit supplement requires a source semantic plan")
+    anchors = SourceAnchorIndex(source)
+    by_id = {mention.mention_id: mention for mention in proposal.mentions}
+    roots = [mention for mention in proposal.mentions if not mention.parent_mention_id]
+    additions = []
+    addition_origins = {}
+    response_visits = {}
+    issues = []
+    issue_days = {}
+    day_scopes = _coverage_day_scopes(source)
+    existing = {(m.parent_mention_id, m.detail_kind or "VISIT", m.span_start, m.span_end): m
+        for m in proposal.mentions if m.parent_mention_id and m.relation_type == "INTERNAL_DETAIL"}
+    purpose_evidence = {(m.parent_mention_id, m.detail_kind, m.role_evidence_start, m.role_evidence_end)
+        for m in proposal.mentions if m.detail_kind in {"EXTERIOR_ONLY", "PICKUP_ONLY"}}
+    known_issues = {(d.category, d.field, d.span_start, d.span_end) for d in proposal.diagnostics}
+
+    def reject(index, span):
+        issue = SemanticDiagnostic(category="SOURCE_VISIT_UNRESOLVED", field=f"source_visits[{index}]",
+            span_start=span[0] if span else None, span_end=span[1] if span else None)
+        key = (issue.category, issue.field, issue.span_start, issue.span_end)
+        if key not in known_issues:
+            known_issues.add(key)
+            issues.append(issue)
+            if span:
+                day = next((day for day, left, right in day_scopes if left <= span[0] < span[1] <= right), None)
+                if day:
+                    issue_days[day] = issue_days.get(day, 0) + 1
+
+    for index, raw in enumerate(rows):
+        try:
+            row = raw if isinstance(raw, SourceVisitSupplement) else SourceVisitSupplement.model_validate(raw)
+        except ValidationError:
+            spans = _literal_spans(source, raw.get("evidence", "")) if isinstance(raw, dict) and isinstance(raw.get("evidence"), str) else []
+            reject(index, spans[0] if len(spans) == 1 else None)
+            continue
+        evidence_spans = _literal_spans(source, row.evidence)
+        quotes = _literal_spans(source, row.source_quote)
+        span = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else None
+        parent = by_id.get(parent_ids[row.parent_index]) if row.parent_index < len(parent_ids) else None
+        diagnostic_span = evidence_spans[0] if len(evidence_spans) == 1 else span
+        if (not parent or parent.role != ActivityRole.PLANNED or parent.parent_mention_id
+            or not parent.atomic_place_name or parent.day_index is None
+            or len(set(parent_ids)) != len(parent_ids) or not span or not evidence_spans
+            or source[parent.span_start:parent.span_end] != parent.raw_text):
+            reject(index, diagnostic_span)
+            continue
+        selected = None
+        if row.kind in {"VISIT", "ENTRY", "EXIT"}:
+            for evidence_span in evidence_spans:
+                if not evidence_span[0] <= span[0] < span[1] <= evidence_span[1]:
+                    continue
+                if _cancelled_or_conditional(source, *span, row.evidence, row.optional):
+                    continue
+                local_left = max(source.rfind(mark, parent.span_end, span[0]) for mark in "\n。；;，,") + 1
+                local_before = source[max(parent.span_end, local_left):span[0]].replace("**", "")
+                if row.kind == "VISIT" and re.search(r"(?:(?:园|馆)内(?:有|设有|包括|收藏)|(?:介绍|说明)[^。；;，,]{0,15}(?:有|包括))\s*$", local_before):
+                    continue
+                if row.kind != "VISIT" and not _gate_direction(row, source, *span, evidence_span):
+                    continue
+                if _scope_parent(source, anchors, row, parent, roots, *span, explicit_kind=row.kind != "VISIT"):
+                    selected = evidence_span
+                    break
+        elif (action_span := _purpose_supported(row)) is not None:
+            purpose_roots = _shared_purpose_roots(source, parent, roots)
+            for evidence_span in evidence_spans:
+                # The explicit revised wire accepts a parent-name anchor only
+                # for its exact supplied visit, never another same-name day.
+                if not (span == (parent.span_start, parent.span_end)
+                    or evidence_span[0] <= span[0] < span[1] <= evidence_span[1]):
+                    continue
+                action = (evidence_span[0] + action_span[0], evidence_span[0] + action_span[1])
+                if _cancelled_or_conditional(source, *action, row.evidence, row.optional):
+                    continue
+                if _scope_parent(source, anchors, row, parent, purpose_roots, *action, explicit_kind=True):
+                    selected = evidence_span
+                    break
+        if selected is None:
+            reject(index, diagnostic_span)
+            continue
+        key = (parent.mention_id, row.kind, *span)
+        old = existing.get(key)
+        if old:
+            if old.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL, ActivityRole.REFERENCE} or (old.role == ActivityRole.OPTIONAL) != row.optional:
+                reject(index, diagnostic_span)
+            elif row.kind == "VISIT" and key not in response_visits.setdefault(parent.mention_id, []):
+                response_visits[parent.mention_id].append(key)
+            continue
+        purpose_key = (parent.mention_id, row.kind, *selected)
+        if row.kind in {"EXTERIOR_ONLY", "PICKUP_ONLY"} and purpose_key in purpose_evidence:
+            continue
+        child = ProposedMention(mention_id=f"source-visit-{parent.mention_id}-{row.kind}-{span[0]}-{span[1]}",
+            raw_text=source[span[0]:span[1]], span_start=span[0], span_end=span[1],
+            role=ActivityRole.OPTIONAL if row.optional else ActivityRole.REFERENCE,
+            day_index=parent.day_index, sequence_index=len(proposal.mentions) + index, atomic_place_name=row.source_quote,
+            category_hint=parent.category_hint, parent_mention_id=parent.mention_id,
+            relation_type="INTERNAL_DETAIL", detail_kind=row.kind, role_evidence=row.evidence,
+            role_evidence_start=selected[0], role_evidence_end=selected[1])
+        additions.append(child)
+        addition_origins[child.mention_id] = (index, diagnostic_span)
+        existing[key] = child
+        purpose_evidence.add(purpose_key)
+        if row.kind == "VISIT":
+            response_visits.setdefault(parent.mention_id, []).append(key)
+    rejected_ids = set()
+    for parent_id, response_order in response_visits.items():
+        old_visits = sorted((m for m in proposal.mentions if m.parent_mention_id == parent_id
+            and m.relation_type == "INTERNAL_DETAIL" and (m.detail_kind or "VISIT") == "VISIT"
+            and m.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL, ActivityRole.REFERENCE}),
+            key=lambda m: m.sequence_index)
+        new_visits = [m for m in additions if m.parent_mention_id == parent_id and m.detail_kind == "VISIT"]
+        if not old_visits or not new_visits:
+            continue
+        old_keys = [(parent_id, "VISIT", m.span_start, m.span_end) for m in old_visits]
+        old_by_key = dict(zip(old_keys, old_visits, strict=True))
+        if [key for key in response_order if key in old_by_key] != old_keys:
+            # Missing/reversed old anchors cannot authorize a guessed insertion.
+            for child in new_visits:
+                reject(*addition_origins[child.mention_id])
+                rejected_ids.add(child.mention_id)
+            continue
+        left, pending = -1, []
+        for key in [*response_order, None]:
+            if key is not None and key not in old_by_key:
+                pending.append(existing[key])
+                continue
+            right = old_by_key[key].sequence_index if key else left + len(pending) + 1
+            if right - left - 1 < len(pending):
+                for child in pending:
+                    reject(*addition_origins[child.mention_id])
+                    rejected_ids.add(child.mention_id)
+            else:
+                for offset, child in enumerate(pending, 1):
+                    child.sequence_index = left + offset
+            left, pending = right, []
+    additions = [child for child in additions if child.mention_id not in rejected_ids]
+    if len(proposal.mentions) + len(additions) > MAX_TRIP_ACTIVITIES:
+        raise InferenceProviderUnavailableError(INPUT_CAPACITY_EXCEEDED,
+            provider_binding=proposal.binding, external_call_count=int(proposal.binding.get("external_calls", 0)))
+    covered = {(m.span_start, m.span_end) for m in additions}
+    removed = [d for d in proposal.diagnostics if d.category == "KNOWN_PLACE_UNCLASSIFIED"
+        and (d.span_start, d.span_end) in covered]
+    diagnostics = [d for d in proposal.diagnostics if d not in removed] + issues
+    by_day = dict(proposal.unprocessed_by_day)
+    for issue in removed:
+        day = next((day for day, left, right in day_scopes
+            if left <= issue.span_start < issue.span_end <= right), None)
+        if day and by_day.get(day):
+            by_day[day] -= 1
+    for day, count in issue_days.items():
+        by_day[day] = by_day.get(day, 0) + count
+    return proposal.model_copy(update={"mentions": [*proposal.mentions, *additions], "diagnostics": diagnostics,
+        "unprocessed_count": max(0, proposal.unprocessed_count - len(removed)) + len(issues),
+        "unprocessed_by_day": by_day})

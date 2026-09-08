@@ -125,6 +125,7 @@ async def measure(args) -> int:
     values = dotenv_values(args.config_env, interpolate=False)
     model = ExperienceQwenProvider(api_key=values.get("QWEN_API_KEY") or "", base_url=values.get("QWEN_API_URL") or "",
         model=values.get("TRIP_UNDERSTANDING_QWEN_MODEL") or "",
+        enable_source_visits=True,
         deadline_seconds=float(values.get("TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS") or 60),
         max_output_tokens=int(values.get("TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS") or 4096),
         input_cny_per_million=float(values["TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION"]) if values.get("TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION") else None,

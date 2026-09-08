@@ -1192,6 +1192,8 @@ def _explicit_plain_place_groups(source: str, atomic_places: set[str]) -> tuple[
 
 def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActivity,
                     start: int, end: int, place_spans: list[tuple[int, int]]) -> tuple[str | None, str | None, bool]:
+    from app.trip_understanding.city_source_terms import city_word_has_local_feature_suffix
+
     if not item.city:
         return None, None, False
     if not item.city_evidence or not item.city_evidence.strip():
@@ -1215,9 +1217,11 @@ def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActiv
             break
     def city_offsets(name: str, left: int, right: int) -> list[int]:
         return [left + match.start() for match in re.finditer(re.escape(name), source[left:right])
-                if not any(begin <= left + match.start() < finish for begin, finish in place_spans)
+                if not any(begin <= left + match.start() < left + match.end() <= finish
+                           for begin, finish in place_spans)
+                and not city_word_has_local_feature_suffix(source, left + match.end())
                 and not re.match(
-                    r"(?:路|街|大学|博物馆|饭店|酒店|风味|口味|菜|小吃|烤鸭|铜锅|涮肉|炸酱面)",
+                    r"(?:大学|博物馆|饭店|酒店|风味|口味|菜|小吃|烤鸭|铜锅|涮肉|炸酱面)",
                     source[left + match.end():],
                 )]
 
@@ -1637,10 +1641,30 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
     left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
     right = min((pos for mark in "\n。；;，," if (pos := source.find(mark, end)) >= 0), default=len(source))
     clause = source[left:right]
+    dining_action = r"(?:用餐|就餐|进餐|吃饭|品尝|享用|吃(?:午饭|午餐|中饭))"
+    if re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|取消|不|未|没)"
+                 r"(?:(?:在|去|到)[^，,。；;\n]{0,45})?" + dining_action, clause):
+        return None
     roles = {role for pattern, role in ((r"早餐|早饭|早点", "BREAKFAST"),
         (r"午餐|午饭|中饭", "LUNCH"), (r"晚餐|晚饭", "DINNER"),
         (r"下午茶|夜宵|宵夜", "SNACK")) if re.search(pattern, clause)}
-    return next(iter(roles)) if len(roles) == 1 else None
+    if roles:
+        return next(iter(roles)) if len(roles) == 1 else None
+    # The source may state the meal as an action rather than the word 午餐:
+    # 中午在店里品尝点心 / 中午在景点附近用餐. Keep a real meal slot,
+    # while noon by itself says nothing about whether this stop is a meal.
+    if "中午" not in clause or not re.search(dining_action, clause):
+        return None
+    before = source[left:start].rstrip(" 【「『*_`")
+    after = source[end:right].lstrip(" 】」』*_`")
+    if (re.search(r"(?:参观|游览|经过|路过|打卡|拍摄|登上)$", before)
+        or re.match(r"(?:参观|游览|拍摄|打卡|(?:之?后|随后|接着|再)(?:去|到|前往|在))", after)
+        or (re.search(dining_action, before)
+            and re.search(r"(?:之?后|随后|接着|再)(?:去|到|前往)$", before))):
+        # A sightseeing stop cannot borrow another venue's later meal in
+        # the same sentence. OPTIONAL/EXCLUDED roles remain unchanged.
+        return None
+    return "LUNCH"
 
 
 def _bound_role_evidence(anchors: SourceAnchorIndex, quote: str | None, start: int, end: int) -> tuple[int, int] | None:
@@ -2458,6 +2482,7 @@ class ExperienceQwenProvider:
         client: Any | None = None,
         enable_day_sections: bool = True,
         enable_role_evidence: bool = False,
+        enable_source_visits: bool = False,
     ) -> None:
         if not api_key or not model or not base_url.startswith("https://"):
             raise ValueError("Live inference requires configured HTTPS credentials and model")
@@ -2465,6 +2490,9 @@ class ExperienceQwenProvider:
             raise ValueError("Invalid inference budget")
         self.model = model
         self.enable_day_sections = enable_day_sections
+        # Live workers and live measurements enable the bounded supplement.
+        # Historical raw replays may only contain the original answer pair.
+        self.enable_source_visits = enable_source_visits
         self.deadline_seconds = deadline_seconds
         self.max_output_tokens = max_output_tokens
         self.rates = (input_cny_per_million, output_cny_per_million)
@@ -2607,8 +2635,16 @@ class ExperienceQwenProvider:
                             # heading into another visit. Preserve this partial
                             # even if the one field-only request times out.
                             final_draft, proposal = checked_recovery, recovery_partial
-                            final_draft, proposal = await repair_city_metadata(
-                                self, source_text, final_draft, proposal, calls)
+                            from app.trip_understanding.semantic_supplement import (
+                                mark_source_visits_pending, needs_source_visit_supplement, supplement_source_visits,
+                            )
+                            if self.enable_source_visits and needs_source_visit_supplement(source_text, proposal):
+                                proposal = mark_source_visits_pending(source_text, proposal)
+                                final_draft, proposal = await supplement_source_visits(
+                                    self, source_text, final_draft, proposal, calls)
+                            else:
+                                final_draft, proposal = await repair_city_metadata(
+                                    self, source_text, final_draft, proposal, calls)
                             semantic_partial_used = bool(proposal.unprocessed_count)
                             break
                         if (attempt == 0 and isinstance(exc, SourceAnchorValidationError) and exc.issues
@@ -2696,7 +2732,26 @@ class ExperienceQwenProvider:
                         # Spend at most the existing second-call allowance on
                         # the affected hotel fields, within this same deadline.
                         final_draft, proposal = await repair_lodging_metadata(self, source_text, final_draft, proposal, calls)
+                    if self.enable_source_visits and proposal is not None:
+                        from app.trip_understanding.semantic_supplement import (
+                            mark_source_visits_pending, needs_source_visit_supplement, supplement_source_visits,
+                        )
+                        if needs_source_visit_supplement(source_text, proposal):
+                            proposal = mark_source_visits_pending(source_text, proposal)
+                            if attempt == 0 and final_draft is not None and len(calls) == 1:
+                                final_draft, proposal = await supplement_source_visits(
+                                    self, source_text, final_draft, proposal, calls)
                     break
+        except InferenceProviderUnavailableError as exc:
+            if str(exc) != INPUT_CAPACITY_EXCEEDED:
+                raise
+            # A valid supplement can exceed the same total activity bound.
+            # Do not restore a smaller first answer and silently omit it; use
+            # this invocation's actual calls when reporting the failure.
+            proposal = recovery_partial = validated_partial = None
+            failure = INPUT_CAPACITY_EXCEEDED
+            if calls:
+                calls[-1]["outcome"] = failure
         except TimeoutError:
             failure = "DEADLINE_EXCEEDED"
             if calls:
@@ -2714,6 +2769,15 @@ class ExperienceQwenProvider:
             final_draft = recovery_draft
             semantic_partial_used = True
             restored_draft_attempt = 1
+        if self.enable_source_visits and proposal is not None and not any(
+            call.get("stage") == "SOURCE_VISITS_SUPPLEMENT" for call in calls
+        ):
+            from app.trip_understanding.semantic_supplement import mark_source_visits_pending, needs_source_visit_supplement
+
+            # A hotel repair or recovered first answer can leave the loop
+            # early. Its successful fields do not account for visit details.
+            if needs_source_visit_supplement(source_text, proposal):
+                proposal = mark_source_visits_pending(source_text, proposal)
         if proposal is not None and final_draft is not None:
             proposal = _with_coverage_diagnostics(source_text, final_draft, proposal, source_places)
         known_usage = all(isinstance(c.get("input_tokens"), int) and isinstance(c.get("output_tokens"), int) for c in calls)
@@ -2724,6 +2788,7 @@ class ExperienceQwenProvider:
             cost = round((input_tokens * self.rates[0] + output_tokens * self.rates[1]) / 1_000_000, 8)
         binding = {
             "provider": "QWEN", "model": self.model, "semantic_policy": SEMANTIC_POLICY,
+            "source_visit_supplement_enabled": self.enable_source_visits,
             "deadline_ms": round(max(0, available_seconds) * 1000), "max_output_tokens": self.max_output_tokens,
             "temperature": SEMANTIC_TEMPERATURE,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),

@@ -170,6 +170,7 @@ async def measure(args):
     get_settings.cache_clear()
     model = ExperienceQwenProvider(api_key=values["QWEN_API_KEY"], base_url=values["QWEN_API_URL"],
         model=values["TRIP_UNDERSTANDING_QWEN_MODEL"],
+        enable_source_visits=True,
         deadline_seconds=float(values.get("TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS") or 60),
         max_output_tokens=int(values.get("TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS") or 4096))
     pipeline = TripUnderstandingPipeline(model, AmapPlaceResolver(api_key=values["AMAP_API_KEY"]), max_place_concurrency=4)

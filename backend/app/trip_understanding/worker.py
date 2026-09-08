@@ -53,6 +53,7 @@ def build_configured_full_pipeline(settings: Settings):
         model=settings.trip_understanding_qwen_model,
         deadline_seconds=settings.trip_understanding_qwen_deadline_seconds,
         max_output_tokens=settings.trip_understanding_qwen_max_output_tokens,
+        enable_source_visits=True,
         input_cny_per_million=(
             settings.trip_understanding_qwen_input_cny_per_million
         ),

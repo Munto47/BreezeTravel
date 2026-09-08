@@ -132,6 +132,108 @@ print(json.dumps(asyncio.run(replay()), ensure_ascii=False))
   }
 })
 
+test.describe('source visit second answer to saved page', () => {
+  let replay
+  test.beforeAll(() => {
+    replay = JSON.parse(execFileSync(process.env.EXPERIENCE_PYTHON || 'python', ['-m', 'tests.source_visit_page_replay'], {
+      cwd: path.resolve(__dirname, '../../backend'), encoding: 'utf8',
+      env: {...process.env, RUNTIME_PROFILE: 'test', PYTHONPATH: '.', PYTHONIOENCODING: 'utf-8'},
+    }))
+  })
+
+  for (const width of [1440, 390]) {
+    test(`gates and visit purposes retain order, failed occurrence and saved readback at ${width}px`, async ({page}, info) => {
+      await page.setViewportSize({width, height: 900})
+      await page.addInitScript(() => {
+        window.exportText = []
+        const original = CanvasRenderingContext2D.prototype.fillText
+        CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
+          const position = this.getTransform().transformPoint({x, y})
+          window.exportText.push({text: String(text), x: position.x, y: position.y,
+            width: this.measureText(String(text)).width, canvasWidth: this.canvas.width, canvasHeight: this.canvas.height})
+          return original.call(this, text, x, y, ...rest)
+        }
+      })
+      expect(replay.model_calls).toBe(2)
+      expect(replay.external_calls).toBe(0)
+      expect(replay.readback).toBe('MEMORY_API_PERSISTED_AND_REREAD')
+      const result = replay.result
+      expect(result.coverage.complete).toBe(false)
+      expect(result.coverage.recognized_place_count).toBe(5)
+      expect(result.days.map(day => day.unprocessed_count)).toEqual([0, 1])
+      const checks = [
+        [1, '故宫博物院', ['入口：午门', '乾清宫', '太和殿', '珍宝馆备选', '出口：神武门']],
+        [1, '景山公园', ['仅看外观，不入内部']],
+        [2, '故宫博物院', ['仅取物，不参观']],
+        [2, '天坛公园', ['出口：北门']],
+      ]
+      await show(page, 'source_visit_second_answer', result)
+      await expect(page.getByTestId('activity-card')).toHaveCount(5)
+      await expect(page.getByTestId('day-lane-1').getByTestId('activity-card').getByRole('heading')).toHaveText([
+        '南门涮肉', '故宫博物院', '景山公园',
+      ])
+      await expect(page.getByTestId('day-lane-2').getByTestId('activity-card').getByRole('heading')).toHaveText([
+        '故宫博物院', '天坛公园',
+      ])
+      await expect(page.getByTestId('day-unprocessed-1')).toHaveCount(0)
+      await expect(page.getByTestId('day-unprocessed-2')).toContainText('1 处原文内容尚未整理完成')
+
+      async function inspectInstructions(day, name, expected, screenshot) {
+        const parent = page.getByTestId(`day-lane-${day}`).getByTestId('activity-card')
+          .filter({has: page.getByRole('heading', {name, exact: true})})
+        await expect(parent).toContainText(`原文安排 · ${expected.length} 项`)
+        await parent.scrollIntoViewIfNeeded()
+        await parent.getByRole('button', {name: new RegExp(`${name}.*查看详情`)}).click()
+        const details = page.getByTestId('source-internal-details')
+        await expect(details.getByRole('listitem')).toHaveText(expected)
+        await expect(details).toContainText('地点身份与开放情况未单独核验')
+        await expect(details).not.toContainText('入口：南门')
+        await details.scrollIntoViewIfNeeded()
+        if (screenshot) await page.screenshot({path: info.outputPath(`source-visit-day${day}-${name}-${width}.png`)})
+        await page.getByRole('button', {name: '收起地点确认', exact: true}).click()
+      }
+
+      for (const check of checks) await inspectInstructions(...check, true)
+      await expect(page.locator('body')).not.toContainText('SOURCE_VISIT_UNRESOLVED')
+      await expect(page.locator('body')).not.toContainText('parent_index')
+      await page.reload()
+      await expect(page.getByTestId('activity-card')).toHaveCount(5)
+      await expect(page.getByTestId('day-unprocessed-2')).toContainText('1 处原文内容尚未整理完成')
+      for (const check of checks) await inspectInstructions(...check, false)
+
+      await page.getByRole('button', {name: '切换为列表', exact: true}).click()
+      for (const [day, name, expected] of checks) {
+        const list = page.getByRole('list', {name: `${result.days[day - 1].label} 地点列表`, exact: true})
+        await list.getByRole('button', {name: new RegExp(`${name}.*已确认 · 可更改$`)}).click()
+        await expect(page.getByTestId('source-internal-details').getByRole('listitem')).toHaveText(expected)
+        await page.getByRole('button', {name: '收起地点确认', exact: true}).click()
+      }
+      await page.getByRole('button', {name: '切换为横链', exact: true}).click()
+      const texts = await exportObservedPng(page, info, `source-visit-purposes-${width}`)
+      expect(texts).toContain('共 2 天 · 5 个地点 · 生成时地图底图未包含')
+      expect(texts.filter(text => text === '已确认')).toHaveLength(5)
+      expect(texts).toContain('原文尚未完整整理，请返回行程补全')
+      expect(texts).toContain('原文未整理：1 处')
+      expect(texts.filter(text => text === '原文安排 · 门口及内部地点未单独核验')).toHaveLength(2)
+      expect(texts.filter(text => /^\d+\. /.test(text))).toEqual([
+        '1. 入口：午门', '2. 乾清宫', '3. 太和殿', '4. 珍宝馆（备选）', '5. 出口：神武门',
+        '1. 仅看外观，不入内部', '1. 仅取物，不参观', '1. 出口：北门',
+      ])
+      expect(texts.some(text => text.includes('入口：南门'))).toBe(false)
+      const drawn = await page.evaluate(() => window.exportText.filter(item => /^\d+\. |原文安排/.test(item.text)))
+      for (const item of drawn) {
+        expect(item.x, item.text).toBeGreaterThanOrEqual(0)
+        expect(item.x + item.width, item.text).toBeLessThan(item.canvasWidth)
+        expect(item.y, item.text).toBeGreaterThan(0)
+        expect(item.y, item.text).toBeLessThan(item.canvasHeight - 64)
+      }
+      await info.attach('source-visit-two-answer-memory-readback', {
+        body: JSON.stringify(replay), contentType: 'application/json',
+      })
+    })
+  }
+})
+
 for (const width of [1440, 390]) {
   test(`source internal arrangements: parent details survive page, refresh and PNG at ${width}px`, async ({page}, info) => {
     await page.setViewportSize({width, height: 900})
@@ -179,7 +281,7 @@ for (const width of [1440, 390]) {
     const texts = await exportObservedPng(page, info, `source-arrangements-${width}`)
     expect(texts).toContain('共 1 天 · 2 个地点 · 生成时地图底图未包含')
     expect(texts.filter(text => text === '已确认')).toHaveLength(2)
-    expect(texts).toContain('原文安排 · 园内地点未单独核验')
+    expect(texts).toContain('原文安排 · 门口及内部地点未单独核验')
     expect(texts).toContain('故宫博物院：')
     const sourceNames = texts.filter(text => /^\d+\. /.test(text))
     expect(sourceNames).toEqual(['1. 太和殿', '2. 乾清宫', '3. 珍宝馆（备选）'])

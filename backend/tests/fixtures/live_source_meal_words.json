@@ -1,0 +1,430 @@
+{
+  "provenance": "2026-09-08平台生成validation输入的真实Qwen已保存响应；仅摘录原请求source及完整响应，无改动。固定回放，不代表新增真实质量样本。",
+  "source_ref": "2699eff",
+  "cases": [
+    {
+      "case_id": "qwen-beijing-02-call-3",
+      "source": "这份为期三天的北京亲子游攻略，专为带父母出行设计。核心原则是“少爬山、少换酒店、重体验”，建议全程入住一家位于地铁2号线或4号线沿线（如前门、宣武门或复兴门附近）的高星级酒店，既方便前往各景点，又避免行李奔波。\n\n**第二天：天坛祈福与现代都市风貌**\n\n上午首选【天坛公园】。相比长城，天坛地势平坦，路面平整，非常适合老年人行走。重点参观祈年殿、回音壁和圜丘。天坛面积大但路径清晰，建议入园后直接打车或乘坐园内电瓶车到祈年殿附近开始游览，再慢慢往回走，这样能节省大量体力。中午在天坛东门附近的【护国寺小吃总店】品尝豌豆黄、驴打滚等传统点心，清淡软糯，符合老人口味。\n\n下午前往【国家博物馆】。这里免费但对时间要求严格，需提前预约。馆内藏品丰富，尤其是古代中国展厅，能让父母直观感受中华文明的延续。建议在馆内餐厅简餐，避免外出排队劳累。傍晚时分，前往【前门大街】。这里既有老字号店铺，又有修缮一新的步行街。可以带孩子去【全聚德前门老店】吃顿烤鸭，或者去【张一元茶馆】喝杯茉莉花茶，聊聊家常。前门夜景灯光柔和，步行舒适，适合作为一天行程的收尾。\n\n**",
+      "responses": [
+        {
+          "destination": "北京",
+          "day_labels": [
+            null,
+            null,
+            null
+          ],
+          "activities": [
+            {
+              "source_quote": "天坛公园",
+              "occurrence": 1,
+              "place_name": "天坛公园",
+              "role": "PLANNED",
+              "day_index": 2,
+              "category": "景点",
+              "city": "北京",
+              "city_evidence": "第二天：天坛祈福与现代都市风貌"
+            },
+            {
+              "source_quote": "护国寺小吃总店",
+              "occurrence": 1,
+              "place_name": "护国寺小吃总店",
+              "role": "PLANNED",
+              "day_index": 2,
+              "category": "餐饮",
+              "meal_role": "LUNCH",
+              "city": "北京",
+              "city_evidence": "第二天：天坛祈福与现代都市风貌"
+            },
+            {
+              "source_quote": "国家博物馆",
+              "occurrence": 1,
+              "place_name": "国家博物馆",
+              "role": "PLANNED",
+              "day_index": 2,
+              "category": "景点",
+              "city": "北京",
+              "city_evidence": "第二天：天坛祈福与现代都市风貌"
+            },
+            {
+              "source_quote": "前门大街",
+              "occurrence": 1,
+              "place_name": "前门大街",
+              "role": "PLANNED",
+              "day_index": 2,
+              "category": "地点",
+              "city": "北京",
+              "city_evidence": "第二天：天坛祈福与现代都市风貌"
+            },
+            {
+              "source_quote": "全聚德前门老店",
+              "occurrence": 1,
+              "place_name": "全聚德前门老店",
+              "role": "OPTIONAL",
+              "day_index": 2,
+              "category": "餐饮",
+              "city": "北京",
+              "city_evidence": "第二天：天坛祈福与现代都市风貌"
+            },
+            {
+              "source_quote": "张一元茶馆",
+              "occurrence": 1,
+              "place_name": "张一元茶馆",
+              "role": "OPTIONAL",
+              "day_index": 2,
+              "category": "餐饮",
+              "city": "北京",
+              "city_evidence": "第二天：天坛祈福与现代都市风貌"
+            }
+          ]
+        },
+        {
+          "activities": [
+            {
+              "index": 0,
+              "city": "北京",
+              "city_evidence": "这份为期三天的北京亲子游攻略"
+            },
+            {
+              "index": 1,
+              "city": "北京",
+              "city_evidence": "这份为期三天的北京亲子游攻略"
+            },
+            {
+              "index": 2,
+              "city": "北京",
+              "city_evidence": "这份为期三天的北京亲子游攻略"
+            },
+            {
+              "index": 3,
+              "city": "北京",
+              "city_evidence": "这份为期三天的北京亲子游攻略"
+            },
+            {
+              "index": 4,
+              "city": "北京",
+              "city_evidence": "这份为期三天的北京亲子游攻略"
+            },
+            {
+              "index": 5,
+              "city": "北京",
+              "city_evidence": "这份为期三天的北京亲子游攻略"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "qwen-guangzhou-10-call-2",
+      "source": "这是一份为您定制的广州5天摄影之旅。广州是一座新旧交融的城市，既有岭南古韵，又有现代摩登。本行程注重光影变化与构图视角，兼顾实地拍摄与地标远眺，力求在有限时间内捕捉城市的多元面貌。\n\n**第一天：老城韵味与西关风情**\n上午从【荔湾博物馆】开始，这里拥有经典的镬耳墙建筑，是拍摄岭南传统民居结构的绝佳地点。随后步行至【永庆坊】，重点拍摄李小龙祖居周边的青砖小巷与月台花窗，清晨光线柔和，适合人文纪实。中午建议在恩宁路附近品尝地道粤式点心。下午前往【沙面岛】，这里的欧式建筑群在午后阳光下质感极佳，建议利用长焦压缩画面，突出建筑细节。傍晚时分，登上【圣心大教堂】外的广场（注：教堂内部通常对非信徒或特定时间限制开放，若无法进入，外部哥特式立面已足够震撼），拍摄其尖顶与蓝天对比。晚餐推荐尝试正宗的白切鸡与煲仔饭，住宿建议选择荔湾区附近，方便次日出行。\n\n**",
+      "responses": [
+        {
+          "destination": "广州",
+          "day_labels": [
+            "第一天"
+          ],
+          "activities": [
+            {
+              "source_quote": "荔湾博物馆",
+              "place_name": "荔湾博物馆",
+              "role": "PLANNED",
+              "day_index": 1,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "永庆坊",
+              "place_name": "永庆坊",
+              "role": "PLANNED",
+              "day_index": 1,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "恩宁路附近",
+              "place_name": null,
+              "role": "PLANNED",
+              "day_index": 1,
+              "category": "餐饮",
+              "meal_role": "LUNCH",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "沙面岛",
+              "place_name": "沙面岛",
+              "role": "PLANNED",
+              "day_index": 1,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "圣心大教堂",
+              "place_name": "圣心大教堂",
+              "role": "PLANNED",
+              "day_index": 1,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "晚餐推荐尝试正宗的白切鸡与煲仔饭",
+              "place_name": null,
+              "role": "PLANNED",
+              "day_index": 1,
+              "category": "餐饮",
+              "meal_role": "DINNER",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "qwen-guangzhou-10-call-3",
+      "source": "这是一份为您定制的广州5天摄影之旅。广州是一座新旧交融的城市，既有岭南古韵，又有现代摩登。本行程注重光影变化与构图视角，兼顾实地拍摄与地标远眺，力求在有限时间内捕捉城市的多元面貌。\n\n**第二天：中轴线上的古今对话**\n上午前往【北京路步行街】，重点拍摄大佛寺的夜景外立面（建议傍晚抵达，亮灯后金碧辉煌，极具赛博朋克感）。白天可拍摄清代古道遗址与现代商业建筑的交错。中午在广州塔附近用餐。下午核心任务是拍摄【广州塔】（小蛮腰）。最佳机位并非仅仅站在塔下，而是前往【二沙岛】的大草坪或【海印公园】，利用前景花草衬托塔身全貌。若想拍摄塔身细节，可乘坐摩天轮（需确认当日运营状态）或在塔内观景台俯瞰珠江。傍晚沿【珠江夜游】航线或选择在海珠桥、解放桥等桥梁上拍摄两岸灯光秀，这是广州最具代表性的城市天际线镜头。\n\n**",
+      "responses": [
+        {
+          "destination": "广州",
+          "day_labels": [
+            null,
+            null
+          ],
+          "activities": [
+            {
+              "source_quote": "北京路步行街",
+              "occurrence": 1,
+              "place_name": "北京路步行街",
+              "role": "PLANNED",
+              "day_index": 2,
+              "category": "景点"
+            },
+            {
+              "source_quote": "大佛寺",
+              "occurrence": 1,
+              "place_name": "大佛寺",
+              "role": "OPTIONAL",
+              "day_index": 2,
+              "category": "景点"
+            },
+            {
+              "source_quote": "广州塔附近用餐",
+              "occurrence": 1,
+              "place_name": null,
+              "role": "PLANNED",
+              "day_index": 2,
+              "category": "餐饮",
+              "meal_role": "LUNCH"
+            },
+            {
+              "source_quote": "广州塔",
+              "occurrence": 1,
+              "place_name": "广州塔",
+              "role": "PLANNED",
+              "day_index": 2,
+              "category": "景点"
+            },
+            {
+              "source_quote": "二沙岛",
+              "occurrence": 1,
+              "place_name": "二沙岛",
+              "role": "OPTIONAL",
+              "day_index": 2,
+              "category": "景点"
+            },
+            {
+              "source_quote": "海印公园",
+              "occurrence": 1,
+              "place_name": "海印公园",
+              "role": "OPTIONAL",
+              "day_index": 2,
+              "category": "景点"
+            },
+            {
+              "source_quote": "珠江夜游",
+              "occurrence": 1,
+              "place_name": "珠江夜游",
+              "role": "OPTIONAL",
+              "day_index": 2,
+              "category": "景点"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "qwen-guangzhou-10-call-5",
+      "source": "这是一份为您定制的广州5天摄影之旅。广州是一座新旧交融的城市，既有岭南古韵，又有现代摩登。本行程注重光影变化与构图视角，兼顾实地拍摄与地标远眺，力求在有限时间内捕捉城市的多元面貌。\n\n**第四天：现代都市与自然生态**\n上午前往【广东省博物馆】，其“月光宝盒”造型独特，外部线条流畅。馆内采光良好，适合拍摄现代建筑几何美学。中午在周边商圈解决午餐。下午前往【白云山】，乘坐缆车上山，在摩星岭或山顶公园拍摄广州市区全景，视野开阔，能清晰看到远处眺望的珠江新城高楼群。下山后可前往【越秀公园】，拍摄五羊石雕这一城市标志，背景是现代化的高楼大厦，形成强烈的时空对比。晚上可回到天河CBD区域，从【花城广场】拍摄广州大剧院、图书馆等“两馆一阁”，夜晚灯光璀璨，适合广角大场景拍摄。\n\n**",
+      "responses": [
+        {
+          "destination": "广州",
+          "day_labels": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "activities": [
+            {
+              "source_quote": "广东省博物馆",
+              "occurrence": 1,
+              "place_name": "广东省博物馆",
+              "role": "PLANNED",
+              "day_index": 4,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅"
+            },
+            {
+              "source_quote": "周边商圈",
+              "occurrence": 1,
+              "place_name": null,
+              "role": "PLANNED",
+              "day_index": 4,
+              "category": "餐饮",
+              "meal_role": "LUNCH",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅"
+            },
+            {
+              "source_quote": "白云山",
+              "occurrence": 1,
+              "place_name": "白云山",
+              "role": "PLANNED",
+              "day_index": 4,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅"
+            },
+            {
+              "source_quote": "珠江新城",
+              "occurrence": 1,
+              "place_name": "珠江新城",
+              "role": "REFERENCE",
+              "day_index": 4,
+              "category": "地点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅"
+            },
+            {
+              "source_quote": "越秀公园",
+              "occurrence": 1,
+              "place_name": "越秀公园",
+              "role": "PLANNED",
+              "day_index": 4,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅"
+            },
+            {
+              "source_quote": "天河CBD区域",
+              "occurrence": 1,
+              "place_name": "天河CBD区域",
+              "role": "PLANNED",
+              "day_index": 4,
+              "category": "地点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅"
+            },
+            {
+              "source_quote": "花城广场",
+              "occurrence": 1,
+              "place_name": "花城广场",
+              "role": "PLANNED",
+              "day_index": 4,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "qwen-guangzhou-10-call-6",
+      "source": "这是一份为您定制的广州5天摄影之旅。广州是一座新旧交融的城市，既有岭南古韵，又有现代摩登。本行程注重光影变化与构图视角，兼顾实地拍摄与地标远眺，力求在有限时间内捕捉城市的多元面貌。\n\n**第五天：休闲收尾与特色体验**\n上午游览【上下九步行街】，虽然商业化较重，但其骑楼建筑风格保存完好，适合拍摄具有年代感的街景。中午品尝云吞面等传统小吃。下午根据返程时间，可选择在【琶洲展馆】附近短暂停留，或返回市区购买手信。若时间充裕，可去【黄埔军校旧址】（需提前预约）拍摄近代历史建筑，位于长洲岛上，江风拂面，别有风味。结束行程前，建议在海珠桥或猎德大桥上最后看一眼珠江日落，为旅程画上完美句号。\n\n**温馨提示**：广州气候湿热，请备好雨具与防晒用品。部分景点如博物馆、大学可能需要实名预约，请务必提前查询最新政策。交通方面，地铁覆盖主要景点，效率最高；打车时请注意避开早晚高峰拥堵路段。",
+      "responses": [
+        {
+          "destination": "广州",
+          "day_labels": [
+            null,
+            null,
+            null,
+            null,
+            "第五天：休闲收尾与特色体验"
+          ],
+          "activities": [
+            {
+              "source_quote": "上午游览【上下九步行街】",
+              "place_name": "上下九步行街",
+              "role": "PLANNED",
+              "day_index": 5,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "中午品尝云吞面等传统小吃",
+              "place_name": null,
+              "role": "PLANNED",
+              "day_index": 5,
+              "category": "餐饮",
+              "meal_role": "LUNCH",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "可选择在【琶洲展馆】附近短暂停留",
+              "place_name": "琶洲展馆",
+              "role": "OPTIONAL",
+              "day_index": 5,
+              "category": "地点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "或返回市区购买手信",
+              "place_name": null,
+              "role": "OPTIONAL",
+              "day_index": 5,
+              "category": "地点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "若时间充裕，可去【黄埔军校旧址】（需提前预约）拍摄近代历史建筑",
+              "place_name": "黄埔军校旧址",
+              "role": "OPTIONAL",
+              "day_index": 5,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "建议在海珠桥或猎德大桥上最后看一眼珠江日落",
+              "place_name": "海珠桥",
+              "role": "OPTIONAL",
+              "day_index": 5,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            },
+            {
+              "source_quote": "建议在海珠桥或猎德大桥上最后看一眼珠江日落",
+              "place_name": "猎德大桥",
+              "role": "OPTIONAL",
+              "day_index": 5,
+              "category": "景点",
+              "city": "广州",
+              "city_evidence": "这是一份为您定制的广州5天摄影之旅。"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

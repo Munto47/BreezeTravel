@@ -92,7 +92,7 @@ async function renderItinerary(
   const sourceLines = result.days.map(day => {
     const parents = day.activities.filter(card => card.source_details?.length)
     if (!parents.length) return []
-    const lines = [{text: '原文安排 · 园内地点未单独核验', heading: true}]
+    const lines = [{text: '原文安排 · 门口及内部地点未单独核验', heading: true}]
     for (const parent of parents) {
       lines.push(...wrapText(context, `${parent.name}：`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: true})))
       parent.source_details?.forEach((detail, index) => {

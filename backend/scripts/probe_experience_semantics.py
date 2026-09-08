@@ -19,7 +19,8 @@ async def run(args):
     inputs = json.loads(args.inputs.read_text(encoding="utf-8"))
     values = dotenv_values(ROOT / ".local-artifacts/experience/experience.env", interpolate=False)
     model = ExperienceQwenProvider(api_key=values.get("QWEN_API_KEY") or "", base_url=values.get("QWEN_API_URL") or "",
-        model=values.get("TRIP_UNDERSTANDING_QWEN_MODEL") or "", deadline_seconds=60, max_output_tokens=4096)
+        model=values.get("TRIP_UNDERSTANDING_QWEN_MODEL") or "", deadline_seconds=60, max_output_tokens=4096,
+        enable_source_visits=True)
     original = model.client.chat.completions.create
     calls = []
     async def record(**kwargs):

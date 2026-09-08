@@ -68,6 +68,7 @@ class ProposedMention(ActivityTiming):
     branch_label: str | None = None
     parent_mention_id: str | None = None
     relation_type: Literal["INTERNAL_DETAIL"] | None = None
+    detail_kind: Literal["VISIT", "ENTRY", "EXIT", "EXTERIOR_ONLY", "PICKUP_ONLY"] | None = None
     role_evidence: str | None = None
     role_evidence_start: int | None = Field(default=None, ge=0)
     role_evidence_end: int | None = Field(default=None, ge=0)

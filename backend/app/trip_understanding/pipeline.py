@@ -326,6 +326,8 @@ def _reviewed_places_support_soft_city(source_text: str, proposal: InferenceProp
 
 def _model_activity_cities(source_text: str, proposal: InferenceProposal, mention) -> tuple[str, ...]:
     """Use an activity's validated city; never search all cities and pick one."""
+    from app.trip_understanding.city_source_terms import city_word_has_local_feature_suffix
+
     if mention.city_hint:
         return (mention.city_hint,)
     if mention.city_evidence is not None:
@@ -366,20 +368,7 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
         if city == destination:
             continue
         for match in re.finditer(re.escape(city), source_text):
-            # Travel descriptions often mention an internal street that is
-            # not a separate visit, e.g. 苏州街 or 乌鲁木齐中路. Such city
-            # prefixes do not establish a second destination.
-            road_suffix = re.match(
-                r"(?:[东南西北中]路|路(?:步行街)?|街)(?=$|[\s，,。；;：:、/／→+）)*]|逛|散步|吃饭|周边|附近|沿线)",
-                source_text[match.end():],
-            )
-            # A delimited lake name (e.g. 昆明湖 or 昆明湖游船) is also
-            # not a city visit. Keep concatenations such as 昆明湖州 ambiguous.
-            lake_suffix = re.match(
-                r"湖(?:游船)?(?=$|[\s，,。；;：:、/／→+（）()*！？!?])",
-                source_text[match.end():],
-            )
-            if not (road_suffix or lake_suffix) and not inside_atomic_name(match):
+            if not city_word_has_local_feature_suffix(source_text, match.end()) and not inside_atomic_name(match):
                 return ("目的地待确认",)
     return (destination,)
 
@@ -699,6 +688,29 @@ def derive_visit_time_hint(source_text: str, span_start: int, span_end: int) -> 
 def _is_internal_detail(mention) -> bool:
     return bool(mention.parent_mention_id and mention.relation_type == "INTERNAL_DETAIL"
                 and mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL, ActivityRole.REFERENCE})
+
+
+def _public_source_detail(mention) -> SourceDetailView | None:
+    """One public rendering shared by projection and its preservation check."""
+    if not _is_internal_detail(mention) or not mention.atomic_place_name:
+        return None
+    kind = mention.detail_kind or "VISIT"
+    if kind == "VISIT":
+        if atomic_place_rejection_reason(mention.atomic_place_name) is not None:
+            return None
+        name = mention.atomic_place_name
+    elif kind in {"ENTRY", "EXIT"}:
+        name = ("入口：" if kind == "ENTRY" else "出口：") + mention.atomic_place_name
+    else:
+        name = "仅看外观，不入内部" if kind == "EXTERIOR_ONLY" else "仅取物，不参观"
+    return SourceDetailView(name=name, optional=mention.role == ActivityRole.OPTIONAL)
+
+
+def _source_detail_order(mention) -> tuple[int, int]:
+    # The raw response can list both gates together before its room names.
+    # A typed exit must follow visits, not become the second touring step.
+    rank = {"ENTRY": 0, "VISIT": 1, "EXIT": 2, "EXTERIOR_ONLY": 3, "PICKUP_ONLY": 3}
+    return rank[mention.detail_kind or "VISIT"], mention.sequence_index
 
 
 def is_atomic_planned_place(mention, *, source_index=None) -> bool:
@@ -1196,11 +1208,10 @@ class PublicResultProjector:
                         and not _is_internal_detail(activity.compiled.mention)
                         and activity.compiled.mention.mention_id not in unassigned_alternative_ids]
         details_by_parent: dict[str, list[SourceDetailView]] = {}
-        for child in sorted((item.compiled.mention for item in activities), key=lambda mention: mention.sequence_index):
-            if (_is_internal_detail(child) and child.atomic_place_name
-                    and atomic_place_rejection_reason(child.atomic_place_name) is None):
-                details_by_parent.setdefault(child.parent_mention_id, []).append(
-                    SourceDetailView(name=child.atomic_place_name, optional=child.role == ActivityRole.OPTIONAL))
+        for child in sorted((item.compiled.mention for item in activities), key=_source_detail_order):
+            detail = _public_source_detail(child)
+            if detail is not None:
+                details_by_parent.setdefault(child.parent_mention_id, []).append(detail)
         day_count = min(14, max(day_count, activity_day_count, max(day_labels or {}, default=0),
                                max((item.mention.day_index or 1 for item in alternatives), default=1)))
         day_views: list[TripDayView] = []
@@ -1375,8 +1386,9 @@ def _projection_omissions(
     for item in compiled:
         mention = item.mention
         if _is_internal_detail(mention) and mention.atomic_place_name:
-            detail = (parent_tokens.get(mention.parent_mention_id), mention.atomic_place_name, mention.role == ActivityRole.OPTIONAL)
-            if visible_details[detail]:
+            view = _public_source_detail(mention)
+            detail = (parent_tokens.get(mention.parent_mention_id), view.name, view.optional) if view else None
+            if detail and visible_details[detail]:
                 visible_details[detail] -= 1
             else:
                 issues.append(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field="source_details",
