@@ -1243,7 +1243,7 @@ class PublicResultProjector:
                                  and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
                     following = [row for row in daily if row.compiled.mention.sequence_index > mention.sequence_index
                                  and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
-                    meal_slots.append(MealSlotView(meal_role=mention.meal_role,
+                    meal_slots.append(MealSlotView(meal_role=mention.meal_role, selection_status="UNSELECTED",
                         after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
                         before_activity_token=following[0].compiled.public_activity_token if following else None))
                     continue

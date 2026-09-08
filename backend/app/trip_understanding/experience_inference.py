@@ -27,6 +27,7 @@ from app.trip_understanding.models import (
 )
 from app.trip_understanding.pipeline import BASIC_CITY_HEADER_RE, DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
 from app.trip_understanding.place_labels import normalized_place_label
+from app.trip_understanding.source_capacity import saturated_source_capacity
 from app.trip_understanding.timing_evidence import validated_timing
 from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, improves_only_lodging_evidence, merge_preserved_activities
 
@@ -2302,6 +2303,7 @@ def _repair_prompt(source: str, previous: str, error: ValueError) -> str:
         "MISSING_EXPLICIT_VISIT_PLACE": "保留实际步行、逛一圈或落日的到访站；同一地点在两个分支分别出现时分别保留。",
         "SOURCE_ROLE_CONFLICT": "同日同一原文地点片段同时写成主线与备选；按原文确定角色或引用真正另一次出现，不能凭同一片段多加一站。",
         "EXPLICIT_CANCELLATION_CONFLICT": "最终更正已明确取消该地点，不能沿用初稿主线或备选；重新核对最终保留、取消、移日的全部安排及顺序。",
+        "SATURATED_SOURCE_COVERAGE_UNVERIFIED": "本答已达到160项，尚不能确认原文全部安排已保留。核对整份原文与现有各项，不删正确项凑数量；未覆盖的实际安排保留在unprocessed_quotes，不把取消、参考或重复输出当新增到访。",
     }
     relevant = [text for category, text in explanations.items() if any(issue.get("category") == category for issue in issues)]
     return REPAIR_INSTRUCTION + "".join(relevant) + "\n" + json.dumps({
@@ -2415,6 +2417,22 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
         "unprocessed_count": proposal.unprocessed_count + len(diagnostics), "unprocessed_by_day": by_day})
 
 
+def _capacity_checked_proposal(source: str, proposal: SourceSemanticPlan, *, allow_partial: bool) -> SourceSemanticPlan:
+    check = saturated_source_capacity(source, proposal.mentions)
+    if check == "OVERFLOW":
+        raise SourceAnchorValidationError([{"field": "activities", "category": "TOO_MANY_ACTIVITIES"}])
+    if check != "UNVERIFIED":
+        return proposal
+    category = "SATURATED_SOURCE_COVERAGE_UNVERIFIED"
+    if not allow_partial:
+        raise SourceAnchorValidationError([{"field": "source.capacity", "category": category}])
+    if any(issue.category == category for issue in proposal.diagnostics):
+        return proposal
+    return proposal.model_copy(update={"diagnostics": [*proposal.diagnostics,
+        SemanticDiagnostic(category=category, field="source.capacity")],
+        "unprocessed_count": proposal.unprocessed_count + 1})
+
+
 def _proposal_from_live_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> SourceSemanticPlan:
     """A missing wire field is not the model's explicit unnamed-place decision.
 
@@ -2433,7 +2451,7 @@ def _proposal_from_live_draft(source: str, draft: SemanticDraft, *, allow_partia
             # identity check. Give these fields the existing bounded repair;
             # partial mode retains the safe name and original city warning.
             raise SourceAnchorValidationError(city_issues, repair_draft=draft)
-        return proposal
+        return _capacity_checked_proposal(source, proposal, allow_partial=allow_partial)
     issues = [{"field": f"activities[{index}].place_name", "category": "MISSING_PLACE_NAME_FIELD"}
               for index, _item in missing]
     if not allow_partial:
@@ -2457,8 +2475,9 @@ def _proposal_from_live_draft(source: str, draft: SemanticDraft, *, allow_partia
                 day = 1
             if day is not None:
                 by_day[day] = by_day.get(day, 0) + 1
-    return proposal.model_copy(update={"diagnostics": [*proposal.diagnostics, *diagnostics],
+    proposal = proposal.model_copy(update={"diagnostics": [*proposal.diagnostics, *diagnostics],
         "unprocessed_count": proposal.unprocessed_count + len(missing), "unprocessed_by_day": by_day})
+    return _capacity_checked_proposal(source, proposal, allow_partial=True)
 
 
 def _recover_partial_proposal(source: str, draft: SemanticDraft,
@@ -2833,6 +2852,15 @@ class ExperienceQwenProvider:
                 proposal = mark_source_visits_pending(source_text, proposal)
         if proposal is not None and final_draft is not None:
             proposal = _with_coverage_diagnostics(source_text, final_draft, proposal, source_places)
+            if saturated_source_capacity(source_text, proposal.mentions) == "OVERFLOW":
+                proposal = None
+                failure = INPUT_CAPACITY_EXCEEDED
+                if calls:
+                    calls[-1]["outcome"] = failure
+            else:
+                # Field-only or source-detail repairs can return before the
+                # ordinary validation loop. A full reply still needs coverage.
+                proposal = _capacity_checked_proposal(source_text, proposal, allow_partial=True)
         known_usage = all(isinstance(c.get("input_tokens"), int) and isinstance(c.get("output_tokens"), int) for c in calls)
         input_tokens = sum(int(c["input_tokens"]) for c in calls) if known_usage else None
         output_tokens = sum(int(c["output_tokens"]) for c in calls) if known_usage else None

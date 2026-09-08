@@ -60,6 +60,22 @@ def _ensure_day(days: list[TripDayView], day_index: int) -> None:
         days.append(TripDayView(label=f"Day {len(days) + 1}", activities=[]))
 
 
+def refresh_meal_slot_tokens(days: list[TripDayView], token_map: dict[str, str]) -> None:
+    """Keep saved meal selection on its card; never rematch by meal position."""
+    for day in days:
+        cards = {card.activity_token: card for card in day.activities}
+        for slot in day.meal_slots:
+            for field in ("after_activity_token", "before_activity_token", "selected_activity_token"):
+                previous = getattr(slot, field)
+                refreshed = token_map.get(previous, previous)
+                setattr(slot, field, refreshed if refreshed in cards else None)
+            if slot.selection_status == "SELECTED":
+                selected = cards.get(slot.selected_activity_token)
+                if selected is None or selected.category != "餐饮" or selected.meal_role != slot.meal_role:
+                    slot.selected_activity_token = None
+                    slot.selection_status = "UNSELECTED"
+
+
 def _result_status(days: list[TripDayView], constraints=()) -> str:
     cards = [card for day in days for card in day.activities] + list(constraints)
     if len(cards) > MAX_TRIP_ACTIVITIES:
@@ -223,6 +239,7 @@ def apply_public_command(
             raise CommandTargetChangedError("dining anchor needs confirmation")
         day = result.days[day_index]
         lunch_gap = None
+        selected_slot = None
         if command.meal_role == "LUNCH":
             from app.trip_understanding.daily_dining import meal_context
 
@@ -230,6 +247,12 @@ def apply_public_command(
             if meal.get("existing_activity_token"):
                 # A still-valid candidate from an old page cannot duplicate the source lunch.
                 raise CommandTargetChangedError("this day already has a lunch place to retain or confirm")
+            slots = [slot for slot in day.meal_slots if slot.meal_role == command.meal_role]
+            if len(slots) == 1 and dining_plan is not None:
+                context, _, _ = meal_context(day, dining_plan.stops, source_gaps=source_lunch_gaps)
+                if (context.get("after_activity_token") == command.after_activity_token
+                        and bool(context.get("insert_before")) == command.insert_before):
+                    selected_slot = slots[0]
             gaps = [card for card in day.activities if card.activity_token in (source_lunch_gaps or {})]
             if len(gaps) > 1:
                 raise CommandTargetChangedError("multiple source lunches need a specific choice first")
@@ -258,6 +281,9 @@ def apply_public_command(
         else:
             inserted_card = ActivityCardView(**values)
             day.activities.insert(position + (0 if command.insert_before else 1), inserted_card)
+        if selected_slot is not None:
+            selected_slot.selection_status = "SELECTED"
+            selected_slot.selected_activity_token = inserted_card.activity_token
         changed.add(day.label)
     elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
@@ -349,13 +375,7 @@ def apply_public_command(
         pending.pending_token = token_factory()
         token_map[old_token] = pending.pending_token
 
-    for day in result.days:
-        current_tokens = {card.activity_token for card in day.activities}
-        for slot in day.meal_slots:
-            for field in ("after_activity_token", "before_activity_token"):
-                previous = getattr(slot, field)
-                refreshed = token_map.get(previous, previous)
-                setattr(slot, field, refreshed if refreshed in current_tokens else None)
+    refresh_meal_slot_tokens(result.days, token_map)
 
     result.status = _result_status(result.days, result.lodging_constraints)
     refresh_result_coverage(result)

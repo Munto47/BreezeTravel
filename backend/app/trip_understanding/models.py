@@ -305,6 +305,14 @@ class MealSlotView(StrictModel):
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"]
     after_activity_token: str | None = None
     before_activity_token: str | None = None
+    selection_status: Literal["UNKNOWN", "UNSELECTED", "SELECTED"] = "UNKNOWN"
+    selected_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+
+    @model_validator(mode="after")
+    def selection_has_token(self):
+        if (self.selection_status == "SELECTED") != (self.selected_activity_token is not None):
+            raise ValueError("selected meal status and activity must agree")
+        return self
 
 
 class TripDayView(StrictModel):
@@ -313,6 +321,20 @@ class TripDayView(StrictModel):
     alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
     meal_slots: list[MealSlotView] = Field(default_factory=list)
     unprocessed_count: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def selected_meals_belong_to_day(self):
+        cards = {card.activity_token: card for card in self.activities}
+        selected_tokens = set()
+        for slot in self.meal_slots:
+            if slot.selection_status != "SELECTED":
+                continue
+            selected = cards.get(slot.selected_activity_token)
+            if (selected is None or selected.category != "餐饮" or selected.meal_role != slot.meal_role
+                    or slot.selected_activity_token in selected_tokens):
+                raise ValueError("selected meal must reference this day's matching restaurant")
+            selected_tokens.add(slot.selected_activity_token)
+        return self
 
 
 class MapReadinessView(StrictModel):

@@ -177,7 +177,8 @@ export interface UserFacingTripResult {
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: Array<{ label: string; activities: ActivityCardView[]; unprocessed_count?: number;
-    meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK';after_activity_token?:string|null;before_activity_token?:string|null}>;
+    meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK';after_activity_token?:string|null;before_activity_token?:string|null;
+      selection_status?:'UNKNOWN'|'UNSELECTED'|'SELECTED';selected_activity_token?:string|null}>;
     alternatives?: Array<{name: string; category: string; city?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; activity_token?: string | null}> }>
   map: {
     status:

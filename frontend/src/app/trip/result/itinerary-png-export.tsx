@@ -72,6 +72,30 @@ function wrapText(context: CanvasRenderingContext2D, text: string, maxWidth: num
   return lines
 }
 
+function sourceMeals(day: UserFacingTripResult['days'][number]) {
+  const labels = {BREAKFAST: '早餐', LUNCH: '午餐', DINNER: '晚餐', SNACK: '加餐'}
+  return (day.meal_slots || []).map(slot => {
+    const label = labels[slot.meal_role]
+    if (slot.selection_status === 'SELECTED') {
+      const selected = day.activities.find(card => card.activity_token === slot.selected_activity_token)
+      return selected
+        ? `${label} · ${selected.status === 'READY' ? '已安排' : '餐厅需确认'}：「${selected.name}」`
+        : `${label} · 已选餐厅需确认`
+    }
+    const after = day.activities.findIndex(card => card.activity_token === slot.after_activity_token)
+    const before = day.activities.findIndex(card => card.activity_token === slot.before_activity_token)
+    // Position only describes the source arrangement. Selection comes from
+    // this result version's explicit relation, never a nearby restaurant.
+    const hasPosition = (after >= 0 || before >= 0) && !(after >= 0 && before >= 0 && after >= before)
+    const relation = hasPosition ? [
+      after >= 0 ? `在「${day.activities[after].name}」之后` : '',
+      before >= 0 ? `在「${day.activities[before].name}」之前` : '',
+    ].filter(Boolean).join('，') : ''
+    const status = slot.selection_status === 'UNSELECTED' ? `${label} · 餐厅待选择` : `原文有${label}安排`
+    return `${status}${relation ? `（${relation}）` : ''}`
+  })
+}
+
 async function renderItinerary(
   result: UserFacingTripResult,
   mapView: MapRenderView | null,
@@ -103,13 +127,19 @@ async function renderItinerary(
   context.font = '600 14px "Microsoft YaHei", sans-serif'
   const sourceLines = result.days.map(day => {
     const parents = day.activities.filter(card => card.source_details?.length)
-    if (!parents.length) return []
-    const lines = [{text: '原文安排 · 门口及内部地点未单独核验', heading: true}]
+    const lines = parents.length ? [{text: '原文安排 · 门口及内部地点未单独核验', heading: true}] : []
     for (const parent of parents) {
       lines.push(...wrapText(context, `${parent.name}：`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: true})))
       parent.source_details?.forEach((detail, index) => {
         lines.push(...wrapText(context, `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
       })
+    }
+    const meals = sourceMeals(day)
+    if (meals.length) {
+      lines.push({text: '原文用餐安排', heading: true})
+      for (const meal of meals) {
+        lines.push(...wrapText(context, meal, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
+      }
     }
     return lines
   })

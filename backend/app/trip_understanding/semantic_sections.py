@@ -243,6 +243,14 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
     result = first.model_copy(update={"source_hash": hashlib.sha256(source.encode()).hexdigest(),
         "mentions": mentions, "diagnostics": diagnostics, "day_labels": day_labels, "day_count": len(sections),
         "unprocessed_count": unprocessed, "unprocessed_by_day": unprocessed_by_day})
+    from app.trip_understanding.experience_inference import _capacity_checked_proposal, SourceAnchorValidationError
+
+    try:
+        result = _capacity_checked_proposal(source, result, allow_partial=True)
+    except SourceAnchorValidationError:
+        binding = aggregate_binding(provider, bindings, started, outcome=INPUT_CAPACITY_EXCEEDED)
+        raise InferenceProviderUnavailableError(INPUT_CAPACITY_EXCEEDED, provider_binding=binding,
+            external_call_count=binding["external_calls"]) from None
     result = _with_coverage_diagnostics(source, SemanticDraft(activities=[]), result, _known_source_places(source))
     binding = aggregate_binding(provider, bindings, started, day_scope_count=len(sections),
         day_scopes_completed=len(results), semantic_partial_recovery=bool(result.unprocessed_count),
