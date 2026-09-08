@@ -42,14 +42,15 @@ def explicit_reference_context(source: str, start: int, end: int) -> str | None:
 
 
 def _identity(source: str, item: SemanticActivity) -> tuple[int, int] | None:
-    from app.trip_understanding.experience_inference import SourceAnchorIndex, _literal_place_span
+    from app.trip_understanding.experience_inference import SourceAnchorIndex
 
+    anchors = SourceAnchorIndex(source)
     try:
-        start, end = SourceAnchorIndex(source).locate(item.source_quote, item.occurrence)
+        start, end = anchors.locate(item.source_quote, item.occurrence)
     except ValueError:
         return None
     if item.place_name:
-        relative = _literal_place_span(source[start:end], item.place_name)
+        relative = anchors.place_span(start, end, item.place_name)
         if relative is None:
             return None
         return start + relative[0], start + relative[1]
@@ -97,9 +98,42 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
     for item in repaired.activities:
         if (identity := _identity(source, item)) is not None:
             repaired_by_identity.setdefault(identity, []).append(item)
-    preserved = [(identity, _fill_missing_lodging_evidence(source, item, candidates[0])
-                  if len(candidates := repaired_by_identity.get(identity, [])) == 1 else item)
-                 for identity, item in preserved]
+    # A valid place span does not certify the original row's rejected time.
+    # Only an independently source-validated answer may improve those fields;
+    # the merged answer is still fully validated by the caller afterward.
+    from app.trip_understanding.experience_inference import _proposal_from_live_draft
+
+    try:
+        _proposal_from_live_draft(source, repaired)
+    except ValueError:
+        repair_valid = False
+    else:
+        repair_valid = True
+    invalid_time_spans = {
+        _identity(source, original.activities[int(match[1])])
+        for issue in getattr(validated, "diagnostics", [])
+        if issue.category in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE"}
+        and (match := re.fullmatch(r"activities\[(\d+)\]\.time_evidence", issue.field or ""))
+        and int(match[1]) < len(original.activities)
+    }
+    improved = []
+    for identity, item in preserved:
+        candidates = repaired_by_identity.get(identity, [])
+        if len(candidates) == 1:
+            candidate = candidates[0]
+            item = _fill_missing_lodging_evidence(source, item, candidate)
+            if repair_valid and all(getattr(item, key) == getattr(candidate, key)
+                                    for key in ("place_name", "day_index", "role")):
+                updates = {}
+                if identity in invalid_time_spans:
+                    updates.update({key: getattr(candidate, key) for key in (
+                        "start_time", "end_time", "visit_duration_minutes", "timing_source",
+                        "locked", "fixed_commitment", "time_evidence")})
+                if item.category == "地点":
+                    updates["category"] = candidate.category
+                item = item.model_copy(update=updates)
+        improved.append((identity, item))
+    preserved = improved
     originals = dict(preserved)
     rows = list(repaired.activities)
     for index, item in enumerate(rows):
@@ -109,6 +143,19 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
     existing = {_identity(source, item) for item in rows}
     for position, (identity, item) in enumerate(preserved):
         if identity in existing:
+            continue
+        # A unique broken quote can still occupy the repaired item's intended
+        # slot. Restore the already validated original quote/occurrence there;
+        # never use this name-only fallback for same-day repeated visits.
+        key = (item.place_name, item.day_index, item.role)
+        def same_key(row):
+            return (row.place_name, row.day_index, row.role) == key
+        matching_slots = [index for index, row in enumerate(rows) if same_key(row)]
+        if (item.place_name and len(matching_slots) == 1
+                and sum(same_key(row) for row in original.activities) == 1
+                and _identity(source, rows[matching_slots[0]]) is None):
+            rows[matching_slots[0]] = item
+            existing.add(identity)
             continue
         following = {key for key, _row in preserved[position + 1:]}
         insert_at = next((index for index, row in enumerate(rows) if _identity(source, row) in following), len(rows))

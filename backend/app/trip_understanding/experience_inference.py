@@ -171,6 +171,34 @@ class SourceAnchorIndex:
                 raise ValueError("SOURCE_QUOTE_NOT_FOUND")
         return self.indices[start], self.indices[start + len(visible_quote) - 1] + 1
 
+    def place_span(self, start: int, end: int, place: str | None) -> tuple[int, int] | None:
+        """Relative original coordinates for a literal name in an anchored quote.
+
+        Balanced decoration may separate a whole base name from its whole
+        parenthesized qualifier. Both components must remain contiguous source
+        text; this does not splice words or accept an omitted/different branch.
+        The full-source index matters when the quote excludes the opening bold
+        marker but includes the closing marker between base and qualifier.
+        """
+        literal = _literal_place_span(self.source[start:end], place)
+        if literal is not None or not place:
+            return literal
+        qualified = re.fullmatch(r"([^()（）\r\n]+)([（(][^()（）\r\n]+[）)])", place)
+        if qualified is None or {"（": "）", "(": ")"}[qualified[2][0]] != qualified[2][-1]:
+            return None
+        visible_left, visible_right = bisect_left(self.indices, start), bisect_left(self.indices, end)
+        offset = self.visible.find(place, visible_left, visible_right)
+        if offset < 0:
+            return None
+        base_end = offset + len(qualified[1])
+        name_start = self.indices[offset]
+        qualifier_start = self.indices[base_end]
+        name_end = self.indices[offset + len(place) - 1] + 1
+        if (self.source[name_start:self.indices[base_end - 1] + 1] != qualified[1]
+                or self.source[qualifier_start:name_end] != qualified[2]):
+            return None
+        return name_start - start, name_end - start
+
 
 def _source_occurrence(source: str, quote: str, occurrence: int) -> int:
     return SourceAnchorIndex(source).locate(quote, occurrence)[0]
@@ -303,7 +331,7 @@ def _anchor_lodging_actions(source: str, draft: SemanticDraft) -> tuple[Semantic
         name_spans = list(re.finditer(re.escape(item.place_name), evidence))
         try:
             current_left, current_right = anchors.locate(item.source_quote, item.occurrence)
-            relative = _literal_place_span(source[current_left:current_right], item.place_name)
+            relative = anchors.place_span(current_left, current_right, item.place_name)
             name_left, name_right = ((current_left + relative[0], current_left + relative[1])
                                     if relative else (current_left, current_right))
         except ValueError:
@@ -423,7 +451,7 @@ def _retain_literal_subvenue_labels(source: str, draft: SemanticDraft) -> Semant
             # Keep a literal unselected noun instead of a model-added suffix.
             # This cannot search a POI; planned names still need source proof.
             item = item.model_copy(update={"place_name": item.source_quote})
-        relative = _literal_place_span(source[left:right], item.place_name)
+        relative = anchors.place_span(left, right, item.place_name)
         if relative is not None:
             start, end = left + relative[0], left + relative[1]
             floor_note = re.match(r"[（(][^（）()\n]{1,80}[）)]", source[end:])
@@ -1546,7 +1574,7 @@ def _bound_lodging_evidence(anchors: SourceAnchorIndex, item: SemanticActivity,
     # deriving a stay from the venue name or changing a correctly extracted visit.
     if item.category != "住宿" or item.role != ActivityRole.PLANNED or not item.place_name or not item.lodging_event:
         return None
-    relative = _literal_place_span(anchors.source[start:end], item.place_name)
+    relative = anchors.place_span(start, end, item.place_name)
     if relative is None:
         return None
     name_start, name_end = start + relative[0], start + relative[1]
@@ -1606,7 +1634,7 @@ def _unreviewed_lodging_exclusion(anchors: SourceAnchorIndex, item: SemanticActi
                                   start: int, end: int) -> bool:
     if item.category != "住宿" or item.role != ActivityRole.PLANNED or not item.place_name or item.lodging_excluded_nights:
         return False
-    relative = _literal_place_span(anchors.source[start:end], item.place_name)
+    relative = anchors.place_span(start, end, item.place_name)
     if relative is None:
         return False
     left, right = _lodging_context_bounds(anchors.source, start, end)
@@ -1618,7 +1646,7 @@ def _bound_lodging_exclusion(anchors: SourceAnchorIndex, item: SemanticActivity,
                               start: int, end: int) -> tuple[int, int] | None:
     if item.category != "住宿" or item.role != ActivityRole.PLANNED or not item.place_name or not item.lodging_excluded_nights:
         return None
-    relative = _literal_place_span(anchors.source[start:end], item.place_name)
+    relative = anchors.place_span(start, end, item.place_name)
     if relative is None:
         return None
     span = _bound_role_evidence(anchors, item.lodging_exclusion_evidence, start + relative[0], start + relative[1])
@@ -1731,7 +1759,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                             "source_quote": item.place_name, "occurrence": 1}, ensure_ascii=False))
         else:
             place = item.place_name.strip() if item.place_name else None
-            relative_span = _literal_place_span(source[start:end], place)
+            relative_span = anchors.place_span(start, end, place)
             evidence_start = start + relative_span[0] if relative_span else start
             evidence_end = start + relative_span[1] if relative_span else end
             if item.role_evidence and _bound_role_evidence(anchors, item.role_evidence, evidence_start, evidence_end) is None:
@@ -1861,7 +1889,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     place_spans = [
         (start + relative[0], start + relative[1])
         for item, (start, end) in zip(draft.activities, located, strict=True)
-        if (relative := _literal_place_span(source[start:end], item.place_name)) is not None
+        if (relative := anchors.place_span(start, end, item.place_name)) is not None
     ]
     mentions: list[ProposedMention] = []
     seen: set[tuple[int, int, ActivityRole, int | None]] = set()
@@ -1876,7 +1904,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
         initial_unprocessed = unprocessed
         place = item.place_name.strip() if item.place_name else None
         if place is not None:
-            relative_start, relative_end = _literal_place_span(source[start:end], place)
+            relative_start, relative_end = anchors.place_span(start, end, place)
             end = start + relative_end
             start += relative_start
             place = normalized_place_label(place)
@@ -2050,13 +2078,20 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     mentions = [mention.model_copy(update={"parent_mention_id": None, "relation_type": None})
                 if mention.parent_mention_id and mention.parent_mention_id not in valid_parent_ids else mention
                 for mention in mentions]
+    relative_label = r"(?:(?:Day|D)\s*\d{1,2}|第\s*[一二两三四五六七八九十\d]{1,3}\s*天)"
+    source_relative_days = {
+        _explicit_day_count(match.group())
+        for match in re.finditer(rf"(?<![A-Za-z0-9]){relative_label}(?![A-Za-z0-9])", anchors.visible, re.I)
+    }
     for index, label in enumerate(draft.day_labels, 1):
+        visible_label = _markdown_visible(label)[0].strip() if label else ""
         if label and label in source and label.strip() not in labels.values() and re.fullmatch(r"[\d年月日号./\-一二三四五六七八九十星期周\s]+", label):
             labels[index] = label.strip()
-        elif (label and label in anchors.visible and re.fullmatch(r"(?:(?:Day|D)\s*\d{1,2}|第[一二两三四五六七八九十\d]{1,3}天)", label.strip(), re.I)
-            and _explicit_day_count(label) == index and index <= explicit_days):
+        elif (re.fullmatch(relative_label, visible_label, re.I)
+            and _explicit_day_count(visible_label) == index and index in source_relative_days):
             # A correctly numbered relative label repeats the already retained
-            # day index; removing the redundant label loses no itinerary fact.
+            # day index. Formatting does not invent a new date, but Day1 cannot
+            # borrow its evidence from Day10 or from a trip-length summary.
             continue
         elif label:
             unprocessed += 1
@@ -2156,6 +2191,44 @@ def _known_source_places(source: str) -> list[dict]:
     return source_place_hints(source, limit=160)
 
 
+def _coverage_day_scopes(source: str) -> list[tuple[int, int, int]]:
+    """Narrow source scopes for warning counts, never semantic day assignment.
+
+    Only a complete sequence of unique line headings is usable. The warning
+    scope is the heading's own line, or its immediately following body line
+    when the title stands alone. Later undated paragraphs do not inherit the
+    last travel day; they keep the existing global warning.
+    """
+    from app.trip_understanding.semantic_sections import _at_day_heading_boundary
+
+    labels = list(re.finditer(
+        r"第\s*(?:\d{1,2}|[一二两三四五六七八九十]{1,3})\s*天|"
+        r"(?<![A-Za-z0-9])(?:Day|D)\s*\d{1,2}(?![A-Za-z0-9])", source, re.I))
+    days = [_explicit_day_count(label[0]) for label in labels]
+    if (not labels or len(days) > 14 or days != list(range(1, _explicit_day_count(source) + 1))
+            or not all(_at_day_heading_boundary(source, label.start(), label.end()) for label in labels)):
+        return []
+    if any(re.match(r"[ \t*_]*[-–—~～/至到][ \t*_]*(?:\d|[一二两三四五六七八九十])",
+                    source[label.end():]) for label in labels):
+        return []  # A multi-day range does not bind one day to a source span.
+    # A source location cannot establish the final day after a schedule move.
+    if re.search(r"更正|调整|变更|挪|对调|交换|顺延|改期|(?:移到|移至|改到|推迟|提前).{0,12}(?:天|日|周|星期)", source):
+        return []
+    scopes = []
+    for index, (day, label) in enumerate(zip(days, labels, strict=True)):
+        limit = labels[index + 1].start() if index + 1 < len(labels) else len(source)
+        end = source.find("\n", label.end(), limit)
+        if end < 0:
+            end = limit
+        elif not source[label.end():end].strip(" \t\r:*_："):
+            body_end = source.find("\n", end + 1, limit)
+            body_end = body_end if body_end >= 0 else limit
+            if not re.match(r"[ \t]*(?:#{1,6}\s+|[^\n。:：]{1,40}[:：])", source[end + 1:body_end]):
+                end = body_end  # A new undated section is not the day's body.
+        scopes.append((day, label.start(), end))
+    return scopes
+
+
 def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: SourceSemanticPlan,
                                hints: list[dict]) -> SourceSemanticPlan:
     """Known nouns are coverage questions, never automatic planned visits."""
@@ -2175,8 +2248,20 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
                                      for left, right in covered)]
     if not diagnostics:
         return proposal
+    by_day = dict(proposal.unprocessed_by_day)
+    scopes = _coverage_day_scopes(source)
+    for diagnostic in diagnostics:
+        for day, left, right in scopes:
+            if left <= diagnostic.span_start < diagnostic.span_end <= right:
+                # The original span chooses the scope even for cross-day
+                # repeated names. Existing literal guards only reject relative
+                # dates/references within that scope, not choose another day.
+                if not re.search(r"全程|全篇", source[left:right]) and _unambiguous_literal_place_day(source[left:right],
+                        source[diagnostic.span_start:diagnostic.span_end]) == day:
+                    by_day[day] = by_day.get(day, 0) + 1
+                break
     return proposal.model_copy(update={"diagnostics": [*proposal.diagnostics, *diagnostics],
-        "unprocessed_count": proposal.unprocessed_count + len(diagnostics)})
+        "unprocessed_count": proposal.unprocessed_count + len(diagnostics), "unprocessed_by_day": by_day})
 
 
 def _proposal_from_live_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> SourceSemanticPlan:
@@ -2247,7 +2332,7 @@ def _retain_repair_omissions(source: str, original: SemanticDraft, proposal: Sou
             start, end = anchors.locate(item.source_quote, item.occurrence)
         except ValueError:
             continue  # An ungrounded invented quote is not a new source fact.
-        relative = _literal_place_span(source[start:end], item.place_name)
+        relative = anchors.place_span(start, end, item.place_name)
         if relative:
             start, end = start + relative[0], start + relative[1]
         if any((mention.span_start <= start < end <= mention.span_end)

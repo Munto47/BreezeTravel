@@ -18,6 +18,7 @@
         "tests/test_amap_planetarium_identity.py",
         "tests/test_place_identity_safety.py",
         "tests/test_experience_source_anchors.py",
+        "tests/test_relative_day_labels.py",
         "tests/test_amap_route_trip_understanding.py",
         "tests/test_g03r_place_resolution.py",
         "tests/test_g02_map_stay.py",

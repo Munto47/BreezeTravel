@@ -1,12 +1,13 @@
 """Public results for browser tests, generated from the current backend.
 
-The hotel and missing-name fixtures contain saved real model responses. The
+The hotel, missing-name and truncated fixtures contain saved real responses. The
 model transport is replayed and every external place identity is fixed and
 synthetic. These scenarios test downstream preservation, not live accuracy.
 """
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from app.trip_understanding.models import ResolvedPlace
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
@@ -28,6 +29,28 @@ class FixedReplayPlaces:
         )
 
 
+async def truncated_whole_replay():
+    fixtures = Path(__file__).parent / "fixtures"
+    sample = json.loads((fixtures / "live_capacity_truncated_whole.json").read_text(encoding="utf-8"))
+    text = json.loads((fixtures / sample["source_fixture"]).read_text(encoding="utf-8"))["source"]
+    client = Client(*[sample["model_response_content"]] * sample["identical_attempts"])
+    original_create = client.create
+
+    async def create(**kwargs):
+        response = await original_create(**kwargs)
+        response.choices[0].finish_reason = sample["finish_reason"]
+        return response
+
+    client.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+    live = provider(client)
+    # Replay the saved whole-document failure, not a newly invented per-day
+    # response. The actual provider adapter, pipeline and projector all run.
+    live.enable_day_sections = False
+    output = await TripUnderstandingPipeline(live, FixedReplayPlaces()).run(text)
+    assert len(client.calls) == sample["identical_attempts"]
+    return output.public_result.model_dump(mode="json")
+
+
 async def public_replays():
     results = {}
     for kind in ("partial", "optional"):
@@ -46,6 +69,7 @@ async def public_replays():
         # for missing fields. No client here can contact a model service.
         output = await TripUnderstandingPipeline(provider(Client(content, content)), FixedReplayPlaces()).run(sample["source"])
         results[kind] = output.public_result.model_dump(mode="json")
+    results["truncated_whole"] = await truncated_whole_replay()
     text, pipeline, _, _ = capacity_pipeline(161, 1)
     day_text = "北京15日行程。\n" + "\n".join(f"Day{d}：测试{d:03d}公园。" for d in range(1, 16))
     day_reply = json.dumps(dict(destination="北京", activities=[

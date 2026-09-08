@@ -3,7 +3,7 @@ const {execFileSync} = require('node:child_process')
 const path = require('node:path')
 
 // Execute the actual provider, pipeline and public projection. The first two
-// model replies are synthetic; the hotel and missing-name replies are saved real
+// model replies are synthetic; hotel, missing-name and truncated replies are saved real
 // model outputs. All external place identities are fixed simulations. This
 // checks downstream preservation and the page, not current live model accuracy.
 let results
@@ -14,8 +14,8 @@ test.beforeAll(() => {
   }))
 })
 
-async function show(page, kind) {
-  const result = results[kind], resource = `synthetic-semantic-${kind}`
+async function show(page, kind, result = results[kind]) {
+  const resource = `synthetic-semantic-${kind}`
   await page.route('**/webapi.amap.com/**', r => r.abort())
   await page.route('**/restapi.amap.com/**', r => r.abort())
   await page.route('**/api/**', route => {
@@ -35,7 +35,136 @@ async function show(page, kind) {
   await expect(page.getByTestId('itinerary-workspace')).toBeVisible()
 }
 
+async function exportObservedPng(page, info, filename) {
+  await page.getByRole('button', {name: '导出图片', exact: true}).click()
+  const preview = page.getByAltText('行程横链导出预览', {exact: true})
+  await expect(preview).toBeVisible()
+  await expect.poll(() => preview.evaluate(image => image.naturalWidth)).toBe(1440)
+  await expect(page.getByRole('dialog')).not.toContainText('完整行程')
+  const download = page.waitForEvent('download')
+  await page.getByTestId('download-itinerary-png').click()
+  const png = await download
+  expect(await png.failure()).toBeNull()
+  await png.saveAs(info.outputPath(`${filename}.png`))
+  await page.screenshot({path: info.outputPath(`${filename}-preview.png`)})
+  const rendered = await page.evaluate(() => window.exportText)
+  expect(rendered.some(item => item.text === '行程查 · 行程概览')).toBe(true)
+  expect(rendered.some(item => item.text.includes('完整行程') || item.text.includes('仅展示已匹配'))).toBe(false)
+  expect(rendered.some(item => item.text === '地点状态见各卡片；备选地点未纳入主线。路线时效与参观条件需另行核对。')).toBe(true)
+  for (const item of rendered.filter(item => /尚未完整整理|待确认地点|原文未整理|尚无主线地点|未纳入主线/.test(item.text))) {
+    expect(item.x, item.text).toBeGreaterThanOrEqual(0)
+    expect(item.x + item.width, item.text).toBeLessThan(item.canvasWidth)
+    expect(item.y, item.text).toBeGreaterThan(0)
+    expect(item.y, item.text).toBeLessThan(item.canvasHeight)
+  }
+  await info.attach('png-drawn-text', {body: JSON.stringify(rendered), contentType: 'application/json'})
+  return rendered.map(item => item.text)
+}
+
+for (const [kind, width] of [['truncated_whole', 1440], ['pending_semantics', 390], ['optional', 390]]) {
+  test(`PNG completion status: ${kind} at ${width}px`, async ({page}, info) => {
+    await page.setViewportSize({width, height: 900})
+    // Observe the actual canvas without replacing drawing, encoding or download.
+    await page.addInitScript(() => {
+      window.exportText = []
+      const original = CanvasRenderingContext2D.prototype.fillText
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
+        const position = this.getTransform().transformPoint({x, y})
+        window.exportText.push({text: String(text), x: position.x, y: position.y,
+          width: this.measureText(String(text)).width, canvasWidth: this.canvas.width, canvasHeight: this.canvas.height})
+        return original.call(this, text, x, y, ...rest)
+      }
+    })
+    const result = structuredClone(results[kind === 'pending_semantics' ? 'lodging' : kind])
+    if (kind === 'pending_semantics') {
+      // Fixed public-state counterexample, not a claim about the saved raw:
+      // independent semantic and identity warnings must both survive export.
+      result.days[0].activities[0].status = 'NEEDS_CONFIRMATION'
+      result.days.forEach(day => { day.unprocessed_count = 0 })
+      result.coverage = {...result.coverage, confirmed_place_count: 8, unresolved_place_count: 1,
+        unprocessed_count: 0, unclassified_mention_count: 1, complete: false}
+      result.map.status = 'NEEDS_UPDATE'
+    }
+    await show(page, kind, result)
+    const texts = await exportObservedPng(page, info, `honest-${kind}-${width}`)
+    for (const day of result.days) {
+      expect(texts.filter(text => text === day.label)).toHaveLength(1)
+      for (const card of day.activities.filter(card => card.status === 'READY')) {
+        // Existing fixed-width PNG cards shorten long names with an ellipsis.
+        const hasName = text => text === card.name || (text.endsWith('…') && text.length >= 5 && card.name.startsWith(text.slice(0, -1)))
+        expect(texts.filter(hasName).length, card.name).toBe(
+          result.days.flatMap(day => day.activities).filter(item => item.name === card.name).length)
+      }
+    }
+    if (kind === 'truncated_whole') {
+      expect(result.days).toHaveLength(14)
+      expect(result.days.flatMap(day => day.activities)).toHaveLength(63)
+      expect(result.coverage.unprocessed_count).toBe(54)
+      expect(texts).toContain('原文尚未完整整理，请返回行程补全')
+      expect(texts).toContain('原文未整理：5 处')
+      expect(texts.filter(text => text === '原文未整理：6 处 · 尚无主线地点')).toHaveLength(8)
+      expect(texts.filter(text => text === '已确认')).toHaveLength(63)
+    } else if (kind === 'pending_semantics') {
+      expect(texts).toContain('原文尚未完整整理，请返回行程补全')
+      expect(texts).toContain('待确认地点：1 处，请返回行程确认')
+      expect(texts).not.toContain('待确认地点：2 处，请返回行程确认')
+      // The real page passes only confirmed mainline cards to the exporter;
+      // coverage must still disclose the pending place that is not in its cards.
+      expect(texts).not.toContain(result.days[0].activities[0].name)
+      expect(texts.filter(text => text === '待确认')).toHaveLength(0)
+      expect(texts.filter(text => text === '已确认')).toHaveLength(8)
+      expect(texts).toContain('路线状态：行程已调整，需要更新')
+      expect(texts).toContain('路线需要更新')
+    } else {
+      expect(result.days).toHaveLength(2)
+      expect(result.days[1].activities).toHaveLength(0)
+      expect(result.days[1].alternatives).toHaveLength(1)
+      expect(texts).toContain('备选：1 处，未纳入主线 · 尚无主线地点')
+      expect(texts).not.toContain('月光桥')
+      expect(texts).not.toContain('原文尚未完整整理，请返回行程补全')
+      expect(texts.filter(text => text === '已确认')).toHaveLength(1)
+    }
+  })
+}
+
 for (const width of [1440, 390]) {
+  test(`saved truncated whole response to page: all fourteen days retain honest completion counts at ${width}px`, async ({page}, info) => {
+    await page.setViewportSize({width, height: 900})
+    await show(page, 'truncated_whole')
+    const result = results.truncated_whole
+    const fixture = require('../../backend/tests/fixtures/live_capacity_day_structure.json')
+    const names = fixture.source.split('\n')[1].split('：')[1].replace(/。$/, '').split('、')
+    expect(names).toHaveLength(12)
+    expect(result.status).toBe('PARTIAL_RESULT')
+    expect(result.coverage.complete).toBe(false)
+    expect(result.coverage.unprocessed_count).toBe(54)
+    expect(result.days).toHaveLength(14)
+    expect(result.days.map(day => day.unprocessed_count)).toEqual([0, 0, 0, 0, 0, 5, 6, 6, 6, 6, 6, 6, 6, 6])
+    await expect(page.getByText('部分待补全', {exact: true})).toBeVisible()
+    await expect(page.getByTestId('activity-card')).toHaveCount(63)
+    await expect(page.getByTestId('unmatched-places-note')).toContainText('尚未完整整理')
+    for (let day = 1; day <= 14; day++) {
+      const lane = page.getByTestId(`day-lane-${day}`)
+      await expect(lane).toBeVisible()
+      await expect(lane.getByTestId('activity-card').getByRole('heading')).toHaveText(day <= 5 ? names : day === 6 ? names.slice(0, 3) : [])
+      const warning = page.getByTestId(`day-unprocessed-${day}`)
+      if (day <= 5) await expect(warning).toHaveCount(0)
+      else await expect(warning).toContainText(`${day === 6 ? 5 : 6} 处原文内容尚未整理完成`)
+    }
+    await page.getByTestId('day-unprocessed-6').scrollIntoViewIfNeeded()
+    await expect(page.getByTestId('day-unprocessed-6')).toBeInViewport()
+    await page.screenshot({path: info.outputPath('truncated-day-six-warning.png')})
+    await page.getByTestId('day-unprocessed-14').scrollIntoViewIfNeeded()
+    await expect(page.getByTestId('day-unprocessed-14')).toBeInViewport()
+    await expect(page.getByTestId('day-lane-14').getByTestId('activity-card')).toHaveCount(0)
+    await page.screenshot({path: info.outputPath('truncated-last-empty-day-warning.png')})
+    await info.attach('saved-truncation-page-counts', {body: JSON.stringify({
+      source: 'saved real truncated response; fixed simulated place identities',
+      confirmedCards: 63, days: 14, globalUnprocessed: result.coverage.unprocessed_count,
+      dayUnprocessed: result.days.map(day => day.unprocessed_count), complete: result.coverage.complete,
+    }), contentType: 'application/json'})
+  })
+
   test(`provider to page: failed second day remains explicitly unfinished at ${width}px`, async ({page}, info) => {
     await page.setViewportSize({width, height: 900})
     await show(page, 'partial')

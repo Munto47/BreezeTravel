@@ -8,6 +8,31 @@ import AccessibleDialog from './accessible-dialog'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import { DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
 
+function exportStatus(result: UserFacingTripResult) {
+  // The page may pass the confirmed-only mainline. Coverage retains the same
+  // unresolved places; taking the larger count avoids hiding or double counting.
+  const pending = Math.max(result.coverage?.unresolved_place_count || 0,
+    result.days.reduce((sum, day) => sum + day.activities.filter(card => card.status !== 'READY').length, 0))
+  const messages: string[] = []
+  if ((result.coverage?.unprocessed_count || 0) > 0 ||
+    (result.coverage?.unclassified_mention_count || 0) > 0 ||
+    (pending === 0 && (result.coverage?.complete === false || result.status === 'PARTIAL_RESULT'))) {
+    messages.push('原文尚未完整整理，请返回行程补全')
+  }
+  if (pending > 0) messages.push(`待确认地点：${pending} 处，请返回行程确认`)
+  return messages
+}
+
+function dayExportStatus(day: UserFacingTripResult['days'][number]) {
+  const messages: string[] = []
+  if (day.unprocessed_count) messages.push(`原文未整理：${day.unprocessed_count} 处`)
+  const pending = day.activities.filter(card => card.status !== 'READY').length
+  if (pending) messages.push(`待确认地点：${pending} 处`)
+  if (day.alternatives?.length) messages.push(`备选：${day.alternatives.length} 处，未纳入主线`)
+  if (!day.activities.length) messages.push('尚无主线地点')
+  return messages.join(' · ')
+}
+
 function routeSummary(
   mapView: MapRenderView | null,
   day: UserFacingTripResult['days'][number],
@@ -42,8 +67,10 @@ async function renderItinerary(
   const padding = 36
   const width = 1440
   const dayLayouts = result.days.map(day => serpentineLayout(width-padding*2-leftWidth-16, day.activities.length))
-  const headerHeight = 188
-  const height = headerHeight + dayLayouts.reduce((sum, layout) => sum + layout.height + 30, 0) + 64
+  const statusMessages = exportStatus(result)
+  const dayMessages = result.days.map(dayExportStatus)
+  const headerHeight = 188 + statusMessages.length * 24
+  const height = headerHeight + dayLayouts.reduce((sum, layout, index) => sum + layout.height + 30 + (dayMessages[index] ? 32 : 0), 0) + 64
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -58,7 +85,7 @@ async function renderItinerary(
   context.fillRect(0, 0, width, height)
   context.fillStyle = '#0c789d'
   context.font = '700 17px "Microsoft YaHei", sans-serif'
-  context.fillText('行程查 · 完整行程', padding, 46)
+  context.fillText('行程查 · 行程概览', padding, 46)
   context.fillStyle = '#142f3a'
   context.font = '700 34px "Microsoft YaHei", sans-serif'
   const destination = result.assumptions.find((item) => item.key === 'destination')?.value || '我的行程'
@@ -79,14 +106,18 @@ async function renderItinerary(
   context.fillStyle = routeStatus === 'NEEDS_UPDATE' ? '#8a5a18' : '#0c789d'
   context.font = '600 13px "Microsoft YaHei", sans-serif'
   context.fillText(routeStatusLabel, padding, 148)
+  context.fillStyle = '#855b19'
+  statusMessages.forEach((message, index) => context.fillText(message, padding, 174 + index * 24))
 
   let dayY = headerHeight - 14
   result.days.forEach((day, dayIndex) => {
     const y = dayY
     const layout = dayLayouts[dayIndex]
-    const dayHeight = layout.height + 30
+    const message = dayMessages[dayIndex]
+    const noticeHeight = message ? 32 : 0
+    const dayHeight = layout.height + 30 + noticeHeight
     const baseX = padding + leftWidth
-    const baseY = y + 8
+    const baseY = y + 8 + noticeHeight
     context.fillStyle = 'rgba(255,255,255,0.88)'
     context.beginPath()
     context.roundRect(padding, y, width - padding * 2, dayHeight - 16, 22)
@@ -102,6 +133,11 @@ async function renderItinerary(
     context.fillStyle = '#607984'
     context.font = '400 12px "Microsoft YaHei", sans-serif'
     context.fillText(`${day.activities.length} 个地点`, padding + 28, y + 78)
+    if (message) {
+      context.fillStyle = '#855b19'
+      context.font = '600 13px "Microsoft YaHei", sans-serif'
+      context.fillText(fitText(context, message, width - padding * 2 - leftWidth - 16), baseX + 16, y + 29)
+    }
 
     day.activities.slice(0,-1).forEach((_, index) => {
       const edge=serpentineEdge(layout,index)
@@ -161,7 +197,7 @@ async function renderItinerary(
 
   context.fillStyle = '#607984'
   context.font = '400 12px "Microsoft YaHei", sans-serif'
-  context.fillText('仅展示已匹配地点，可随时更改；路线时效与参观条件需另行核对。', padding, height - 30)
+  context.fillText('地点状态见各卡片；备选地点未纳入主线。路线时效与参观条件需另行核对。', padding, height - 30)
   return canvas
 }
 
@@ -251,16 +287,16 @@ export default function ItineraryPngExport({
         >
           <div data-testid="png-preview" className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold text-[#0c789d]">完整横链 PNG</p>
+              <p className="text-xs font-semibold text-[#0c789d]">行程横链 PNG</p>
               <h2 id="png-preview-title" className="mt-1 text-xl font-semibold text-slate-900">图片预览</h2>
             </div>
             <button type="button" aria-label="关闭图片预览" onClick={() => setPreviewUrl('')} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]"><X className="h-5 w-5" aria-hidden="true" /></button>
           </div>
-          <p id="png-preview-description" className="mt-2 text-sm text-slate-600">完整行程 · 不含地图</p>
+          <p id="png-preview-description" className="mt-2 text-sm text-slate-600">全部 {result.days.length} 天 · 不含地图；备选未纳入主线。{exportStatus(result).join('；')}</p>
           <div className="mt-4 max-h-[55vh] overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-2">
             {/* Blob URL is created locally from structured result data. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt="完整行程横链导出预览" className="max-w-none" />
+            <img src={previewUrl} alt="行程横链导出预览" className="max-w-none" />
           </div>
           <button data-testid="download-itinerary-png" type="button" onClick={download} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2"><Download className="h-4 w-4" aria-hidden="true" />下载 PNG</button>
         </AccessibleDialog>

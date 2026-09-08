@@ -1159,12 +1159,16 @@ async function installInteractionFixture(page, {
   rolloverPreparing = false,
   longDay = false,
   pendingFirst = false,
+  confirmedExportPlaces = false,
 } = {}) {
   let revision = 0
   let etag = 'tu3_interaction_0'
   const view = interactionResult()
   if(pendingFirst) view.days[0].activities[0].status='PLACE_PENDING'
   if(longDay) view.days[0].activities = Array.from({length:13},(_,i)=>({...activity('long-card-'+i,'景点'+(i+1)),status:i===8?'PLACE_PENDING':'READY'}))
+  // Export geometry/route checks need confirmed mainline visits. Pending places
+  // remain in the default fixture and have dedicated coverage export tests.
+  if (confirmedExportPlaces) view.days.forEach(day => day.activities.forEach(card => { card.status = 'READY' }))
   if (exposeWrites) {
     view.map = {
       status: 'NEEDS_UPDATE',
@@ -2963,14 +2967,14 @@ test('PNG export renders the complete structured chain and downloads locally', a
       return original.call(this, text, ...args)
     }
   })
-  const fixture = await installInteractionFixture(page, { mapSnapshot: connectedMapView() })
+  const fixture = await installInteractionFixture(page, { mapSnapshot: connectedMapView(), confirmedExportPlaces: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('transport-connector').first()).toContainText('12 分钟')
 
   await page.getByTestId('export-itinerary-png').click()
   const preview = page.getByTestId('png-preview')
   await expect(preview).toBeVisible()
-  const image = page.getByAltText('完整行程横链导出预览')
+  const image = page.getByAltText('行程横链导出预览')
   await expect.poll(() => image.evaluate((node) => ({ width: node.naturalWidth, height: node.naturalHeight })))
     .toMatchObject({ width: 1440 })
   const drawn = await page.evaluate(() => window.__pngDrawnText)
@@ -3531,7 +3535,7 @@ test('serpentine: complete PNG keeps reverse rows, offscreen places and honest r
    return original.call(this,text,x,y,...args)
   }
  })
- const fixture=await installInteractionFixture(page,{longDay:true,exposeWrites:true,mapSnapshot:{...connectedMapView(),status:'NEEDS_UPDATE'}})
+ const fixture=await installInteractionFixture(page,{longDay:true,confirmedExportPlaces:true,exposeWrites:true,mapSnapshot:{...connectedMapView(),status:'NEEDS_UPDATE'}})
  await page.goto('/trip/result')
  await page.getByTestId('export-itinerary-png').click()
  await expect(page.getByTestId('png-preview')).toBeVisible()
@@ -3542,7 +3546,8 @@ test('serpentine: complete PNG keeps reverse rows, offscreen places and honest r
  expect(row2).toHaveLength(6)
  expect(row2[1].x).toBeLessThan(row2[0].x)
  expect(places[12].y).toBeGreaterThan(places[6].y)
- expect(drawn.some(t=>t.text==='待确认')).toBe(true)
+ expect(drawn.filter(t=>t.text==='已确认')).toHaveLength(14)
+ expect(drawn.some(t=>t.text==='待确认')).toBe(false)
  expect(drawn.filter(t=>t.text==='路线需要更新')).toHaveLength(12)
  expect(drawn.some(t=>/上午|时间待定|停留/.test(t.text))).toBe(false)
  const download=page.waitForEvent('download')

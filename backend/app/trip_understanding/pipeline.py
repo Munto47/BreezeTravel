@@ -283,10 +283,13 @@ def _reviewed_places_support_soft_city(source_text: str, proposal: InferenceProp
     if not lexicon.available:
         # Without the full dictionary, cross-city name ambiguity is unknown.
         return False
+    from app.trip_understanding.experience_inference import SourceAnchorIndex
+
+    source_index = SourceAnchorIndex(source_text)
     planned = [
         item
         for item in proposal.mentions
-        if is_atomic_planned_place(item)
+        if is_atomic_planned_place(item, source_index=source_index)
         and item.category_hint not in {"餐饮", "住宿"}
         and source_text[item.span_start:item.span_end] == item.raw_text
     ]
@@ -675,16 +678,18 @@ def derive_visit_time_hint(source_text: str, span_start: int, span_end: int) -> 
     return None
 
 
-def is_atomic_planned_place(mention) -> bool:
+def is_atomic_planned_place(mention, *, source_index=None) -> bool:
     if mention.role != ActivityRole.PLANNED or mention.day_index is None:
         return False
     candidate = (mention.atomic_place_name or "").strip()
     if atomic_place_rejection_reason(candidate) is not None:
         return False
     raw_candidate = re.sub(r"\r?\n[ \t]*", "", (mention.raw_text or "").strip())
-    if candidate != normalized_place_label(raw_candidate):
+    if candidate == normalized_place_label(raw_candidate):
+        return True
+    if source_index is None or source_index.source[mention.span_start:mention.span_end] != mention.raw_text:
         return False
-    return True
+    return source_index.place_span(mention.span_start, mention.span_end, candidate) == (0, len(mention.raw_text))
 
 
 def _apply_contextual_category_hints(
@@ -1067,6 +1072,9 @@ class EvidenceCompiler:
         source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
         if proposal.source_hash != source_hash:
             raise ValueError("proposal source binding mismatch")
+        from app.trip_understanding.experience_inference import SourceAnchorIndex
+
+        source_index = SourceAnchorIndex(source_text)
         compiled: list[CompiledActivity] = []
         claims: list[SourceClaimRecord] = []
         mention_ids: set[str] = set()
@@ -1083,7 +1091,7 @@ class EvidenceCompiler:
                 activity_id=activity_id,
                 public_activity_token=secrets.token_urlsafe(24),
                 mention=mention,
-                eligible_for_place_search=is_atomic_planned_place(mention),
+                eligible_for_place_search=is_atomic_planned_place(mention, source_index=source_index),
             )
             compiled.append(compiled_activity)
             claim_type = "EXCLUSION" if mention.role == ActivityRole.EXCLUDED else "PLACE_MENTION"
@@ -1188,9 +1196,9 @@ class PublicResultProjector:
                     continue
                 if mention.meal_role and not mention.atomic_place_name:
                     preceding = [row for row in daily if row.compiled.mention.sequence_index < mention.sequence_index
-                                 and is_atomic_planned_place(row.compiled.mention)]
+                                 and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
                     following = [row for row in daily if row.compiled.mention.sequence_index > mention.sequence_index
-                                 and is_atomic_planned_place(row.compiled.mention)]
+                                 and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
                     meal_slots.append(MealSlotView(meal_role=mention.meal_role,
                         after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
                         before_activity_token=following[0].compiled.public_activity_token if following else None))
@@ -1209,7 +1217,7 @@ class PublicResultProjector:
                             else (
                                 "地点待确认"
                                 if source_confirmation_required
-                                else (mention.atomic_place_name if is_atomic_planned_place(mention) else "地点待确认")
+                                else (mention.atomic_place_name if item.compiled.eligible_for_place_search or is_atomic_planned_place(mention) else "地点待确认")
                             )
                         ),
                         category=(

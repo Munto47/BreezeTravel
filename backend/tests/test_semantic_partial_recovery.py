@@ -1,5 +1,6 @@
 """Partial recovery preserves useful source facts without calling real services."""
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -187,6 +188,123 @@ async def test_truncated_long_output_preserves_completed_days_and_cannot_claim_c
     assert result.binding["outcome"] == "PARTIAL_RESULT"
     assert any(issue.category == "OUTPUT_TRUNCATED" for issue in result.diagnostics)
     assert len(client.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_saved_truncated_whole_response_marks_late_days_without_changing_coverage():
+    fixtures = Path(__file__).parent / "fixtures"
+    sample = json.loads((fixtures / "live_capacity_truncated_whole.json").read_text(encoding="utf-8"))
+    source = json.loads((fixtures / sample["source_fixture"]).read_text(encoding="utf-8"))["source"]
+    client = Client(*[sample["model_response_content"]] * sample["identical_attempts"])
+    original_create = client.create
+
+    async def create(**kwargs):
+        response = await original_create(**kwargs)
+        response.choices[0].finish_reason = sample["finish_reason"]
+        return response
+
+    client.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+    live = provider(client)
+    # Replay the exact whole-document stage that failed before the heading fix.
+    # No structure/day responses are invented. Place identities are controlled.
+    live.enable_day_sections = False
+    from tests.test_semantic_day_sections import RecordingPlaces
+
+    output = await TripUnderstandingPipeline(live, RecordingPlaces()).run(source)
+    assert len(client.calls) == 2
+    assert len(output.proposal.mentions) == 63
+    assert [m.day_index for m in output.proposal.mentions] == [day for day in range(1, 6) for _ in range(12)] + [6] * 3
+    first_day_names = source.splitlines()[1].partition("：")[2].rstrip("。").split("、")
+    assert [m.atomic_place_name for m in output.proposal.mentions] == first_day_names * 5 + first_day_names[:3]
+    assert all(m.role.value == "PLANNED" for m in output.proposal.mentions)
+    assert output.public_result.coverage.unprocessed_count == 54
+    assert output.inference_binding["semantic_diagnostic_counts"] == {"KNOWN_PLACE_UNCLASSIFIED": 53, "OUTPUT_TRUNCATED": 1}
+    counts = [day.unprocessed_count for day in output.public_result.days]
+    assert counts[:5] == [0] * 5
+    assert all(count > 0 for count in counts[5:])
+    assert sum(counts) == 53  # The unlocated truncation warning stays global.
+    assert all(not day.activities for day in output.public_result.days[6:])
+    assert output.public_result.coverage.complete is False
+
+
+def coverage_from_literal_hints(source, names, *, proposal=None):
+    import re
+    from app.trip_understanding.experience_inference import _with_coverage_diagnostics
+    from app.trip_understanding.models import SourceSemanticPlan
+
+    hints = [{"span_start": match.start(), "span_end": match.end(), "name": name}
+             for name in names for match in re.finditer(re.escape(name), source)]
+    return _with_coverage_diagnostics(source, SemanticDraft(activities=[]),
+        proposal or SourceSemanticPlan(source_hash="0" * 64, destination_name="目的地待确认", mentions=[], binding={}), hints)
+
+
+def test_unclassified_same_name_uses_its_own_source_position_and_counts_once():
+    source = "Day1：星河公园。\nDay2：星河公园。"
+    original = proposal_from_draft(source, SemanticDraft(activities=[activity("星河公园")]))
+    result = coverage_from_literal_hints(source, ["星河公园"], proposal=original)
+    assert result.mentions == original.mentions
+    assert result.unprocessed_count == 1 and result.unprocessed_by_day == {2: 1}
+    assert result.diagnostics[-1].span_start == source.rindex("星河公园")
+    repeated = coverage_from_literal_hints(source, ["星河公园"], proposal=result)
+    assert repeated == result  # Existing diagnostics are not assigned twice.
+
+
+def test_markdown_day_heading_and_immediate_body_keep_source_day_counts():
+    source = "北京两日游。\n## **第一天**\n星河公园。\n## **第二天**\n月光桥。"
+    result = coverage_from_literal_hints(source, ["星河公园", "月光桥"])
+    assert result.unprocessed_by_day == {1: 1, 2: 1}
+    assert result.unprocessed_count == 2 and result.mentions == []
+
+
+@pytest.mark.parametrize("source", [
+    "Day1：星河公园。\nDay2：月光桥。\n总结\nDay1：星河公园。",
+    "Day1：星河公园。\nDay2：月光桥。\n更正：两天安排对调。",
+    "Day1：星河公园。\nDay2：月光桥。\n更正：前者改到第二天。",
+    "Day1：星河公园。\nDay2：月光桥。\n更正：把前者挪后一天。",
+    "Day2：星河公园。\nDay1：月光桥。",
+    "Day1：星河公园。Day2：月光桥。",
+    "Day1-2：星河公园、月光桥。",
+])
+def test_ambiguous_day_structure_keeps_new_coverage_warnings_global(source):
+    result = coverage_from_literal_hints(source, ["星河公园", "月光桥"])
+    assert result.unprocessed_count >= 2 and result.unprocessed_by_day == {}
+    assert result.mentions == []
+
+
+def test_cross_day_reference_in_a_day_body_is_not_assigned_by_physical_position():
+    source = "Day1：星河公园。\nDay2：月光桥，昨天的晨光湖不再去；明天再考虑落日亭。"
+    result = coverage_from_literal_hints(source, ["晨光湖", "落日亭"])
+    assert result.unprocessed_count == 2 and result.unprocessed_by_day == {}
+
+
+def test_undated_preface_and_footer_do_not_inherit_first_or_last_day():
+    source = "晨光湖作为全程备选。\nDay1：星河公园。\nDay2：月光桥。\n其他建议：落日亭哪一天有空再去。"
+    result = coverage_from_literal_hints(source, ["晨光湖", "星河公园", "月光桥", "落日亭"])
+    assert result.unprocessed_count == 4 and result.unprocessed_by_day == {1: 1, 2: 1}
+
+
+@pytest.mark.parametrize("body", ["其他建议：月光桥。", "### 全程备选月光桥。", "月光桥作为全程备选。"])
+def test_standalone_last_heading_does_not_claim_an_undated_section(body):
+    source = "Day1：星河公园。\nDay2\n" + body
+    result = coverage_from_literal_hints(source, ["星河公园", "月光桥"])
+    assert result.unprocessed_count == 2 and result.unprocessed_by_day == {1: 1}
+
+
+def test_coverage_count_preserves_existing_unlocated_warning_and_complete_day():
+    from app.trip_understanding.models import SemanticDiagnostic
+
+    source = "Day1：星河公园。\nDay2：月光桥。"
+    complete = proposal_from_draft(source, SemanticDraft(activities=[activity("星河公园"), activity("月光桥", 2)]))
+    result = coverage_from_literal_hints(source, ["星河公园", "月光桥"], proposal=complete)
+    assert result.unprocessed_count == 0 and result.unprocessed_by_day == {}
+    partial = complete.model_copy(update={"unprocessed_count": 1,
+        "diagnostics": [SemanticDiagnostic(category="OUTPUT_TRUNCATED")]})
+    unchanged = coverage_from_literal_hints(source, ["星河公园", "月光桥"], proposal=partial)
+    assert unchanged.unprocessed_count == 1 and unchanged.unprocessed_by_day == {}
+    prior_day_warning = complete.model_copy(update={"mentions": complete.mentions[:1],
+        "unprocessed_count": 2, "unprocessed_by_day": {1: 2}})
+    with_missing = coverage_from_literal_hints(source, ["星河公园", "月光桥"], proposal=prior_day_warning)
+    assert with_missing.unprocessed_count == 3 and with_missing.unprocessed_by_day == {1: 2, 2: 1}
 
 
 @pytest.mark.parametrize("newline,heading", [("\n", "### "), ("\r\n", ""), ("\n", "")])
