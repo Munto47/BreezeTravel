@@ -128,6 +128,40 @@ class UpgradeTests(unittest.TestCase):
             self.operation.snapshot()
         self.operation.run.assert_not_called()
 
+    def test_prepared_directory_rejects_different_ref_without_changing_it(self):
+        self.operation.state = {"phase": "PREPARED", "source_ref": "old-ref"}
+        release.save_json(self.operation.state_path, self.operation.state)
+        previous = self.operation.state_path.read_bytes()
+        self.operation.build_web = Mock()
+        self.operation.run = Mock()
+        with self.assertRaisesRegex(release.UpgradeError, "different source ref; use a new release directory"):
+            self.operation.prepare()
+        self.operation.build_web.assert_not_called()
+        self.operation.run.assert_not_called()
+        self.assertEqual(self.operation.state_path.read_bytes(), previous)
+        self.assertFalse(self.operation.mutation_started)
+
+    def test_prepared_directory_same_ref_is_idempotent(self):
+        self.operation.state = {"phase": "PREPARED", "source_ref": self.operation.args.source_ref}
+        release.save_json(self.operation.state_path, self.operation.state)
+        previous = self.operation.state_path.read_bytes()
+        self.operation.build_web = Mock()
+        self.operation.run = Mock()
+        self.operation.prepare()
+        self.operation.build_web.assert_not_called()
+        self.operation.run.assert_not_called()
+        self.assertEqual(self.operation.state_path.read_bytes(), previous)
+
+    def test_read_only_prepare_plan_rejects_different_ref_without_success_output(self):
+        self.operation.state = {"phase": "PREPARED", "source_ref": "old-ref"}
+        self.operation.snapshot = Mock(return_value=dict(self.operation.state))
+        self.operation.prepare = Mock()
+        with patch("sys.stdout", new_callable=io.StringIO) as output, self.assertRaisesRegex(release.UpgradeError, "different source ref"):
+            self.operation.execute()
+        self.assertEqual(output.getvalue(), "")
+        self.operation.prepare.assert_not_called()
+        self.assertFalse(self.operation.state_path.exists())
+
     def test_preview_keeps_real_provider_keys_and_workers_with_separate_data(self):
         self.operation.configure_api("breeze_rehearsal_20260908", live=False)
         content = (self.operation.target / "private-api.env").read_text()
@@ -273,7 +307,10 @@ class UpgradeTests(unittest.TestCase):
         self.operation.backup.assert_called_once()
         self.operation.clone.assert_called_once()
         self.operation.migrate.assert_called_once()
-        self.operation.health.assert_called_once_with(ports={"api": 8018, "yjs": 1246}, context="Previous service recovery")
+        self.assertEqual(self.operation.health.call_args_list, [
+            unittest.mock.call(ports={"api": 8018}, context="Previous service recovery"),
+            unittest.mock.call(ports={"yjs": 1246}, context="Previous service recovery"),
+        ])
 
     def test_old_service_health_failure_keeps_backup_and_stops_before_clone(self):
         for failing_kind, failing_port in (("api", 8018), ("yjs", 1246)):
@@ -313,6 +350,7 @@ class UpgradeTests(unittest.TestCase):
                 self.assertEqual(clock[0], 40)
                 self.assertTrue(all(0 < timeout <= 3 for _, timeout in observed))
                 self.assertFalse(any(":8028/" in url or ":1256/" in url for url, _ in observed))
+                self.assertTrue(all(any(f":{port}/" in url for url, _ in observed) for port in (8018, 1246)))
                 self.assertEqual((backup / "database.dump").read_bytes(), b"retained snapshot")
                 self.assertEqual(json.loads(self.operation.state_path.read_text())["rehearsal_backup"], str(backup))
                 self.assertEqual(self.operation.state["phase"], "SNAPSHOTTING_REHEARSAL")
@@ -338,12 +376,110 @@ class UpgradeTests(unittest.TestCase):
         with patch("sys.stdout", new_callable=io.StringIO) as output, \
                 self.assertRaisesRegex(release.UpgradeError, "backup failed"):
             self.operation.rehearse()
-        self.operation.health.assert_called_once_with(ports={"api": 8018, "yjs": 1246}, context="Previous service recovery")
+        self.assertEqual(self.operation.health.call_args_list, [
+            unittest.mock.call(ports={"api": 8018}, context="Previous service recovery"),
+            unittest.mock.call(ports={"yjs": 1246}, context="Previous service recovery"),
+        ])
         self.operation.clone.assert_not_called()
         self.operation.migrate.assert_not_called()
         self.assertTrue(partial.is_file())
         self.assertNotIn("COPY_RESTORED", output.getvalue())
         self.assertEqual(self.operation.state["phase"], "SNAPSHOTTING_REHEARSAL")
+
+    def test_start_failure_still_starts_other_writer_and_checks_both_health_endpoints(self):
+        for failed_kind in ("api", "yjs"):
+            with self.subTest(failed_kind=failed_kind):
+                self.operation.state = {"phase": "PREPARED"}
+                self.operation.inspect = Mock(return_value={"State": {"Running": True}})
+                for name in ("check_resources", "assert_writer_set", "remove_new_containers", "health", "clone", "migrate"):
+                    setattr(self.operation, name, Mock())
+                self.operation.backup = Mock(return_value=self.root / "retained-backup")
+                failure = release.UpgradeError(f"{failed_kind} start command failed; private log retained")
+
+                def command(*args, **kwargs):
+                    if args == ("docker", "start", "breeze-first-" + failed_kind):
+                        raise failure
+                    return ""
+
+                self.operation.run = Mock(side_effect=command)
+                with self.assertRaisesRegex(release.UpgradeError, f"{failed_kind} start command failed"):
+                    self.operation.rehearse()
+                starts = [call.args for call in self.operation.run.call_args_list if call.args[:2] == ("docker", "start")]
+                self.assertEqual(starts, [("docker", "start", "breeze-first-api"), ("docker", "start", "breeze-first-yjs")])
+                self.assertEqual(self.operation.health.call_args_list, [
+                    unittest.mock.call(ports={"api": 8018}, context="Previous service recovery"),
+                    unittest.mock.call(ports={"yjs": 1246}, context="Previous service recovery"),
+                ])
+                self.operation.clone.assert_not_called()
+                self.operation.migrate.assert_not_called()
+                self.assertEqual(self.operation.state["phase"], "SNAPSHOTTING_REHEARSAL")
+                self.assertEqual(self.operation.state["rehearsal_backup"], str(self.root / "retained-backup"))
+
+    def test_backup_and_both_start_and_health_errors_are_retained_together(self):
+        self.operation.state = {"phase": "PREPARED"}
+        self.operation.inspect = Mock(return_value={"State": {"Running": True}})
+        for name in ("check_resources", "assert_writer_set", "remove_new_containers", "clone", "migrate"):
+            setattr(self.operation, name, Mock())
+        original = release.UpgradeError("initial pg_dump failed; private log retained")
+        self.operation.backup = Mock(side_effect=original)
+
+        def command(*args, **kwargs):
+            if args[:2] == ("docker", "start"):
+                raise release.UpgradeError(args[2] + " command failed")
+            return ""
+
+        self.operation.run = Mock(side_effect=command)
+        self.operation.health = Mock(side_effect=[release.UpgradeError("api unavailable"), release.UpgradeError("yjs unavailable")])
+        with self.assertRaises(release.UpgradeError) as caught:
+            self.operation.rehearse()
+        message = str(caught.exception)
+        for expected in ("Original operation failed: initial pg_dump failed", "api start:", "yjs start:", "api health: api unavailable", "yjs health: yjs unavailable", "backups retained"):
+            self.assertIn(expected, message)
+        self.assertIs(caught.exception.__cause__, original)
+        self.assertEqual(self.operation.health.call_count, 2)
+        self.operation.clone.assert_not_called()
+        self.operation.migrate.assert_not_called()
+        self.assertEqual(self.operation.state["phase"], "SNAPSHOTTING_REHEARSAL")
+
+    def test_uncertain_new_writer_shutdown_preserves_original_error_without_restarting_old(self):
+        self.operation.inspect = Mock(return_value={"State": {"Running": True}})
+        self.operation.assert_writer_set = Mock()
+        self.operation.run = Mock()
+        self.operation.health = Mock()
+        self.operation.remove_new_containers = Mock(side_effect=release.UpgradeError("new writer stop failed"))
+        original = release.UpgradeError("backup failed")
+        with self.assertRaises(release.UpgradeError) as caught:
+            with self.operation.stopped_previous_writers():
+                raise original
+        self.assertIs(caught.exception.__cause__, original)
+        self.assertIn("Original operation failed: backup failed", str(caught.exception))
+        self.assertIn("old writers not restarted", str(caught.exception))
+        self.assertFalse(any(call.args[:2] == ("docker", "start") for call in self.operation.run.call_args_list))
+        self.operation.health.assert_not_called()
+
+    def test_execute_cleanup_failure_does_not_hide_initial_backup_error(self):
+        self.operation.args.execute = True
+        self.operation.args.action = "rehearse"
+        self.operation.state = {"phase": "PREPARED", "source_ref": self.operation.args.source_ref}
+        self.operation.snapshot = Mock(return_value=dict(self.operation.state))
+        self.operation.inspect = Mock(return_value={"State": {"Running": True}})
+        for name in ("run", "check_resources", "assert_writer_set", "health", "clone", "migrate"):
+            setattr(self.operation, name, Mock())
+        original = release.UpgradeError("initial pg_dump failed; private log retained")
+        self.operation.backup = Mock(side_effect=original)
+        self.operation.remove_new_containers = Mock(side_effect=release.UpgradeError("new writer stop failed"))
+        fake_lock = SimpleNamespace(LOCK_EX=1, LOCK_NB=2, flock=Mock())
+        with patch.object(release.platform, "system", return_value="Linux"), \
+                patch.object(release.os, "geteuid", return_value=0, create=True), \
+                patch.object(release.os, "umask"), patch.dict(sys.modules, {"fcntl": fake_lock}), \
+                patch("sys.stdout", new_callable=io.StringIO), self.assertRaises(release.UpgradeError) as caught:
+            self.operation.execute()
+        self.assertIn("Original operation failed: initial pg_dump failed", str(caught.exception))
+        self.assertIn("final container cleanup: new writer stop failed", str(caught.exception))
+        self.assertIs(caught.exception.__cause__.__cause__, original)
+        self.assertEqual(self.operation.state["phase"], "FAILED_SNAPSHOTTING_REHEARSAL")
+        self.operation.clone.assert_not_called()
+        self.operation.migrate.assert_not_called()
 
     def test_preview_build_routes_api_and_yjs_to_the_copy(self):
         self.operation.state = {"phase": "COPY_RESTORED"}

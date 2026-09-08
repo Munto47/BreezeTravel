@@ -186,6 +186,11 @@ class Upgrade:
     def inspect(self, name: str) -> dict:
         return json.loads(self.run("docker", "inspect", name))[0]
 
+    def failure_detail(self, error: BaseException) -> str:
+        if isinstance(error, UpgradeError):
+            return str(error)
+        return self.failure_log(str(error), type(error).__name__)
+
     @staticmethod
     def env(container: dict) -> dict:
         return dict(item.split("=", 1) for item in container["Config"].get("Env", []) if "=" in item)
@@ -259,7 +264,7 @@ class Upgrade:
         return {"host": self.args.expected_host, "current_release": str(self.current),
                 "current_database": self.args.current_db, "new_release": str(self.target),
                 "new_database": self.args.new_db, "rehearsal_database": self.args.rehearsal_db,
-                "ports": self.ports, "phase": self.state.get("phase", "UNPREPARED"),
+                "ports": self.ports, "phase": self.state.get("phase", "UNPREPARED"), "source_ref": self.state.get("source_ref"),
                 "migrations": self.query(self.args.current_db, "SELECT filename FROM applied_migrations ORDER BY filename").splitlines(),
                 "disk_free_bytes": shutil.disk_usage(self.current).free,
                 "memory_available_kib": self.available_memory_kib(),
@@ -320,6 +325,11 @@ class Upgrade:
     def phase(self) -> str:
         return self.state.get("phase", "").removeprefix("FAILED_")
 
+    def check_source_ref(self) -> None:
+        if self.state and (self.args.action == "prepare" or self.args.source_ref != "unspecified"):
+            if self.state.get("source_ref") != self.args.source_ref:
+                raise UpgradeError("Existing release has a different source ref; use a new release directory for new code")
+
     def assert_redis_unused(self, index: int) -> None:
         for name in self.run("docker", "ps", "-q").splitlines():
             item = self.inspect(name)
@@ -335,6 +345,7 @@ class Upgrade:
         os.chmod(path, 0o600)
 
     def prepare(self) -> None:
+        self.check_source_ref()
         if self.phase() in {"PREPARED", "COPY_RESTORED", "PREVIEW_SERVING_UNVERIFIED", "LIVE", "RECOVERED_KEEPING_CURRENT_DATA"}:
             return
         retry_build = self.phase() == "SOURCE_READY"
@@ -443,18 +454,39 @@ process.exit(result.status===null?1:result.status);"""
         names = [self.args.current_api, self.args.current_yjs]
         if any(not self.inspect(n)["State"]["Running"] for n in names):
             raise UpgradeError("Previous writers must be running before the maintenance snapshot")
+        operation_error = None
         try:
             self.run("docker", "stop", "--time", "70", *names)
             self.assert_writer_set(self.args.current_db, set())
             yield
+        except BaseException as exc:
+            operation_error = exc
+            raise
         finally:
             if not self.state.get("traffic_may_have_switched"):
                 # Shut down every partially started new writer before old writers return.
-                self.remove_new_containers()
-                for name in names:
-                    self.run("docker", "start", name)
-                self.health(ports={kind: self.current_ports[kind] for kind in ("api", "yjs")},
-                            context="Previous service recovery")
+                failures = []
+                try:
+                    self.remove_new_containers()
+                except Exception as exc:
+                    failures.append(("new writer shutdown; old writers not restarted", exc))
+                else:
+                    for kind, name in zip(("api", "yjs"), names):
+                        try:
+                            self.run("docker", "start", name)
+                        except Exception as exc:
+                            failures.append((f"{kind} start", exc))
+                    # A failed start acknowledgement must not prevent checking either service.
+                    for kind in ("api", "yjs"):
+                        try:
+                            self.health(ports={kind: self.current_ports[kind]}, context="Previous service recovery")
+                        except Exception as exc:
+                            failures.append((f"{kind} health", exc))
+                if failures:
+                    messages = ([f"Original operation failed: {self.failure_detail(operation_error)}"] if operation_error else [])
+                    messages.extend(f"{stage}: {self.failure_detail(error)}" for stage, error in failures)
+                    raise UpgradeError("; ".join(messages) + "; previous-service recovery incomplete; data and backups retained") from (
+                        operation_error if operation_error is not None else failures[0][1])
 
     def backup(self, db: str, data: Path, label: str) -> Path:
         folder = self.target / f"backup-{label}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -720,6 +752,7 @@ process.exit(result.status===null?1:result.status);"""
     def execute(self) -> None:
         if not self.args.execute:
             report = self.snapshot()
+            self.check_source_ref()
             report.update(action=self.args.action, will_mutate=False,
                           operations={"prepare": ["extract new source", "build frontend"],
                                       "rehearse": ["briefly stop old writers", "backup current data and configuration", "resume old writers", "restore isolated rehearsal database and Yjs", "explicit migration", "COPY_RESTORED means no application or user-path acceptance"],
@@ -738,14 +771,26 @@ process.exit(result.status===null?1:result.status);"""
             except BlockingIOError:
                 raise UpgradeError("Another application upgrade is in progress") from None
             self.snapshot()
+            self.check_source_ref()
             try:
                 getattr(self, self.args.action)()
-            except Exception:
+            except Exception as original:
+                failures = []
                 if self.mutation_started and self.state and not self.state.get("traffic_may_have_switched"):
                     # Discard only disposable containers; never delete databases or collaboration files.
-                    self.remove_new_containers()
+                    try:
+                        self.remove_new_containers()
+                    except Exception as exc:
+                        failures.append(("final container cleanup", exc))
                 if self.mutation_started and self.state_path.exists():
-                    self.record("FAILED_" + (self.phase() or "UNKNOWN"))
+                    try:
+                        self.record("FAILED_" + (self.phase() or "UNKNOWN"))
+                    except Exception as exc:
+                        failures.append(("failure state update", exc))
+                if failures:
+                    messages = [self.failure_detail(original)]
+                    messages.extend(f"{stage}: {self.failure_detail(error)}" for stage, error in failures)
+                    raise UpgradeError("; ".join(messages) + "; data and backups retained") from original
                 raise
 
 
