@@ -192,6 +192,26 @@ async def _events_until_deadline(events, deadline_monotonic: float):
             await close()
 
 
+async def _previous_collaboration_places(graph, config):
+    """Read only this authorized room's previously delivered candidates."""
+    if getattr(graph, "checkpointer", None) is None:
+        return []
+    snapshot = await graph.aget_state(config)
+    values = snapshot.values or {}
+    # New searches append room candidates; older selected places remain referencable.
+    places = {place.place_id: place for place in [
+        *(values.get("conversation_places") or []), *(values.get("synthesized_places") or [])]}
+    if places:
+        return list(places.values())
+    # Old failed follow-ups cleared synthesized_places before this field existed.
+    # Recover their last completed result without reading another room or rerunning tools.
+    async for previous in graph.aget_state_history(config, limit=24):
+        places = previous.values.get("synthesized_places")
+        if places:
+            return list(places)
+    return []
+
+
 async def _event_stream(request: ChatRequest, trace_id: str, http_request: Request):
     """生成 SSE 事件流（使用 graph.astream_events v2）"""
     graph = await get_graph_with_persistence()
@@ -201,6 +221,14 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
     }
     start_time = time.time()
     public_scope = request.room_id or request.thread_id
+    deadline_monotonic = time.monotonic() + get_settings().chat_deadline_seconds
+    try:
+        conversation_places = await asyncio.wait_for(_previous_collaboration_places(graph, config),
+            timeout=min(3.0, get_settings().chat_deadline_seconds))
+    except Exception:
+        yield f"data: {json.dumps({'event': 'error', 'data': {'message': '暂时无法读取房间地点，请稍后重试。'}}, ensure_ascii=False)}\n\n"
+        return
+    selected_ids = set(request.selected_place_ids)
     _prom_metrics.inc("agent_request_total", profile=get_settings().runtime_profile)
 
     # ── 加载用户长期偏好（Long-term Memory）────────────────────────────
@@ -223,7 +251,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         "long_term_memory_enabled": request.use_long_term_memory,
         "room_id": request.room_id,
         "trace_id": trace_id,
-        "deadline_monotonic": time.monotonic() + get_settings().chat_deadline_seconds,
+        "deadline_monotonic": deadline_monotonic,
         "trip_city": request.trip_city,
         # Only a district the visitor explicitly named is a request-wide hard
         # boundary.  Landmark-derived districts stay slot-local; otherwise an
@@ -239,7 +267,10 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         "retrieval_audits": [],
         "retrieval_snapshots": [],
         "synthesized_places": [],
-        "selected_place_ids": request.selected_place_ids,
+        "selected_place_ids": [place.place_id for place in conversation_places
+            if _public_place_id(public_scope, place.place_id) in selected_ids],
+        "conversation_places": conversation_places,
+        "answer_only": False,
         "intent": None,
         "query_rewrite": None,
         "routing_signals": [],
@@ -273,6 +304,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
     _latest_grounded_places: list = []       # 模型超时时仍可返回已获取的 POI
     _latest_tool_failures: list[dict] = []
     degraded = False
+    answer_only = False
 
     # 首批预览硬上限：每类 5 个，总 15 个（与 synthesizer 同步）
     _PREVIEW_PER_CAT = 5
@@ -360,6 +392,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
                     response_text = _public_collaboration_text(
                         output.get("final_response", "") or ""
                     )
+                    answer_only = bool(output.get("answer_only") and response_text)
 
                     final_ids = {p.place_id for p in places}
                     # 预览过但被 Synthesizer 过滤掉的（如菜系硬约束剔除） → 通知前端移除
@@ -398,14 +431,15 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
                         degraded = True
 
         total_ms = int((time.time() - start_time) * 1000)
-        _prom_metrics.observe("agent_duration_seconds", total_ms / 1000, status="ok" if places else "degraded")
-        _prom_metrics.inc("agent_task_completed_total", status="ok" if places else "degraded")
+        completed = bool(places or answer_only)
+        _prom_metrics.observe("agent_duration_seconds", total_ms / 1000, status="ok" if completed else "degraded")
+        _prom_metrics.inc("agent_task_completed_total", status="ok" if completed else "degraded")
         _prom_metrics.observe("agent_react_iterations", react_round, status="ok")
-        public_status = "LIMITED" if degraded or _latest_tool_failures or not places else "READY"
+        public_status = "LIMITED" if degraded or _latest_tool_failures or not completed else "READY"
         yield f"data: {json.dumps({'event': 'done', 'data': {'status': public_status, 'total_places': len(places)}}, ensure_ascii=False)}\n\n"
 
         # ── 写入 Agent 级指标 ──────────────────────────────────────
-        if places:
+        if completed:
             _m.inc("agent_success_count")
         else:
             _m.inc("agent_failure_count")

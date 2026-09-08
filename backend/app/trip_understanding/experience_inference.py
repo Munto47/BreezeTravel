@@ -2090,13 +2090,53 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
         "unprocessed_count": proposal.unprocessed_count + len(diagnostics)})
 
 
+def _proposal_from_live_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> SourceSemanticPlan:
+    """A missing wire field is not the model's explicit unnamed-place decision.
+
+    Keep the permissive SemanticDraft reader for historical/offline drafts.
+    At the live response boundary, require the model to actually provide the
+    nullable name. No source noun is promoted into a name by this check.
+    """
+    missing = [(index, item) for index, item in enumerate(draft.activities)
+               if "place_name" not in item.model_fields_set]
+    if not missing:
+        return proposal_from_draft(source, draft, allow_partial=allow_partial)
+    issues = [{"field": f"activities[{index}].place_name", "category": "MISSING_PLACE_NAME_FIELD"}
+              for index, _item in missing]
+    if not allow_partial:
+        raise SourceAnchorValidationError(issues, repair_draft=draft)
+    missing_indices = {index for index, _item in missing}
+    kept = draft.model_copy(update={"activities": [item for index, item in enumerate(draft.activities)
+                                                  if index not in missing_indices]})
+    proposal = proposal_from_draft(source, kept, allow_partial=True)
+    anchors = SourceAnchorIndex(source)
+    diagnostics = []
+    by_day = dict(proposal.unprocessed_by_day)
+    for issue, (_index, item) in zip(issues, missing, strict=True):
+        try:
+            start, end = anchors.locate(item.source_quote, item.occurrence)
+        except ValueError:
+            start = end = None
+        diagnostics.append(SemanticDiagnostic(**issue, span_start=start, span_end=end))
+        if start is not None:
+            day = _unambiguous_literal_place_day(source, item.source_quote)
+            if day is None and _explicit_day_count(source) == 1:
+                day = 1
+            if day is not None:
+                by_day[day] = by_day.get(day, 0) + 1
+    return proposal.model_copy(update={"diagnostics": [*proposal.diagnostics, *diagnostics],
+        "unprocessed_count": proposal.unprocessed_count + len(missing), "unprocessed_by_day": by_day})
+
+
 def _recover_partial_proposal(source: str, draft: SemanticDraft,
                               extra_category: str | None = None) -> SourceSemanticPlan | None:
     try:
-        proposal = proposal_from_draft(source, draft, allow_partial=True)
+        proposal = _proposal_from_live_draft(source, draft, allow_partial=True)
     except (ValueError, ValidationError):
         return None
-    if not any(mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} for mention in proposal.mentions):
+    if not any(mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} for mention in proposal.mentions) and not any(
+        issue.category == "MISSING_PLACE_NAME_FIELD" and issue.span_start is not None for issue in proposal.diagnostics
+    ):
         return None
     if extra_category:
         proposal = proposal.model_copy(update={
@@ -2110,6 +2150,7 @@ def _retain_repair_omissions(source: str, original: SemanticDraft, proposal: Sou
     """Removing an invalid item from repair is not proof it was not a visit."""
     anchors = SourceAnchorIndex(source)
     diagnostics = []
+    by_day = dict(proposal.unprocessed_by_day)
     for item in original.activities:
         if item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
             continue
@@ -2126,10 +2167,15 @@ def _retain_repair_omissions(source: str, original: SemanticDraft, proposal: Sou
             continue
         diagnostics.append(SemanticDiagnostic(category="REPAIR_OMITTED_SOURCE_ITEM", field="activities.repair",
             span_start=start, span_end=end))
+        day = _unambiguous_literal_place_day(source, item.source_quote)
+        if day is None and _explicit_day_count(source) == 1:
+            day = 1
+        if day is not None:
+            by_day[day] = by_day.get(day, 0) + 1
     if not diagnostics:
         return proposal
     return proposal.model_copy(update={"diagnostics": [*proposal.diagnostics, *diagnostics],
-        "unprocessed_count": proposal.unprocessed_count + len(diagnostics)})
+        "unprocessed_count": proposal.unprocessed_count + len(diagnostics), "unprocessed_by_day": by_day})
 
 
 class ExperienceQwenProvider:
@@ -2235,7 +2281,7 @@ class ExperienceQwenProvider:
                         draft = _expand_source_bound_lists(source_text, SemanticDraft.model_validate_json(content))
                         if attempt == 1 and recovery_draft is not None and recovery_partial is not None:
                             draft = merge_preserved_activities(source_text, recovery_draft, recovery_partial, draft)
-                        proposal = proposal_from_draft(source_text, draft)
+                        proposal = _proposal_from_live_draft(source_text, draft)
                         if attempt == 1 and recovery_draft is not None:
                             proposal = _retain_repair_omissions(source_text, recovery_draft, proposal)
                         final_draft = draft
@@ -2284,7 +2330,7 @@ class ExperienceQwenProvider:
                                     item.model_copy(update={"day_index": assigned[index]}) if index in assigned else item
                                     for index, item in enumerate(checked_draft.activities)
                                 ]})
-                                proposal = proposal_from_draft(source_text, cleaned)
+                                proposal = _proposal_from_live_draft(source_text, cleaned)
                                 final_draft = cleaned
                                 grounded_days = len(affected)
                                 break
@@ -2306,7 +2352,7 @@ class ExperienceQwenProvider:
                                 for index, item in enumerate(checked_draft.activities)
                             ]})
                             try:
-                                candidate = proposal_from_draft(source_text, cleaned)
+                                candidate = _proposal_from_live_draft(source_text, cleaned)
                             except SourceAnchorValidationError as remaining:
                                 # Later role checks can reveal another error only
                                 # after time fields are cleared. Include it in the

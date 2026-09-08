@@ -783,7 +783,7 @@ def test_router_builds_three_valid_calls_for_real_room_opening_prompt():
     assert [call["args"]["query"] for call in calls] == build_place_search_queries(ROOM_OPENING_PROMPT)
     assert all("district" not in call["args"] for call in calls)
     assert [call["args"]["typecodes"] for call in calls] == [
-        ["110000", "140100", "140200", "140400", "140500"],
+        ["110000", "140100", "140200", "140400", "140500", "140600"],
         ["050000"],
         ["100000"],
     ]
@@ -1760,8 +1760,10 @@ def test_synthesizer_reserves_deadline_for_grounded_fallback():
 
 def test_sse_does_not_repeat_cumulative_failures_or_claim_false_pass():
     from app.api import chat as chat_api
+    from app import metrics
 
     failure = {"tool": "search_places", "reason": "invalid_payload"}
+    before_errors = metrics.snapshot()["tool_error_count"]
 
     class FakeGraph:
         async def astream_events(self, *_args, **_kwargs):
@@ -1802,10 +1804,12 @@ def test_sse_does_not_repeat_cumulative_failures_or_claim_false_pass():
         for line in chunk.splitlines():
             if line.startswith("data:"):
                 events.append(json.loads(line[5:].strip()))
-    summaries = [event["data"]["summary"] for event in events if event.get("event") == "thinking"]
-    assert sum("高德地点搜索暂时不可用" in summary for summary in summaries) == 1
-    assert any("质量仍未达标" in summary for summary in summaries)
-    assert "质量检查通过" not in summaries
+    assert metrics.snapshot()["tool_error_count"] - before_errors == 1
+    assert [event["data"] for event in events if event["event"] == "done"] == [
+        {"status": "LIMITED", "total_places": 0}]
+    assert not [event for event in events if event["event"] in {"thinking", "place"}]
+    serialized = json.dumps(events, ensure_ascii=False)
+    assert all(internal not in serialized for internal in ("search_places", "invalid_payload", "critic", "高德"))
 
 
 def test_sse_deadline_after_poi_search_returns_degraded_cards_not_error():
@@ -1849,4 +1853,4 @@ def test_sse_deadline_after_poi_search_returns_degraded_cards_not_error():
     assert updates and "东城区" in updates[0]["data"]["fields"]["description"]
     done = next(event for event in events if event.get("event") == "done")
     assert done["data"]["total_places"] == 1
-    assert done["data"]["degraded"] is True
+    assert done["data"]["status"] == "LIMITED"
