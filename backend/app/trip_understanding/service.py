@@ -107,6 +107,7 @@ class TripUnderstandingApplicationService:
             now=now or datetime.now(timezone.utc),
             retention_days=self.full_retention_days,
             initial_inference_binding=source.internal_binding,
+            initial_plan=source.initial_plan,
         )
 
     async def store_screenshot_batch(

@@ -44,7 +44,8 @@ export function releaseCancelledTripInput(
   }
 }
 
-// Call only after the server explicitly reports UNDERSTANDING_FAILED. An
+// Call only after the server explicitly reports a failed result, including
+// input-capacity failures. An
 // interrupted request or an unfinished result must keep its original key.
 export function releaseFailedTripInput(
   reference: string,

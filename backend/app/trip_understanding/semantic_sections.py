@@ -11,7 +11,8 @@ from typing import TYPE_CHECKING
 from pydantic import Field
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
-from app.trip_understanding.models import SourceSemanticPlan, SemanticDiagnostic, StrictModel
+from app.trip_understanding.failures import INPUT_CAPACITY_EXCEEDED
+from app.trip_understanding.models import MAX_TRIP_ACTIVITIES, SourceSemanticPlan, SemanticDiagnostic, StrictModel
 
 if TYPE_CHECKING:
     from app.trip_understanding.experience_inference import ExperienceQwenProvider
@@ -152,7 +153,9 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
     slots = asyncio.Semaphore(2)
     results = {}
     diagnostics = []
+    capacity_exceeded = False
     async def one_day(day: int, left: int, right: int):
+        nonlocal capacity_exceeded
         async with slots:
             receipt = {"calls": []}
             bindings.append(receipt)
@@ -165,6 +168,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
                 receipt.update(output.binding)
             except InferenceProviderUnavailableError as error:
                 receipt.update(error.provider_binding)
+                capacity_exceeded |= error.category == INPUT_CAPACITY_EXCEEDED
                 diagnostics.append(SemanticDiagnostic(category="DAY_SECTION_UNPROCESSED", field=f"days[{day}]",
                     span_start=left, span_end=right))
             except asyncio.CancelledError:
@@ -179,6 +183,10 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
             if day not in results and not any(issue.field == f"days[{day}]" for issue in diagnostics):
                 diagnostics.append(SemanticDiagnostic(category="DAY_SECTION_UNPROCESSED", field=f"days[{day}]",
                     span_start=left, span_end=right))
+    if capacity_exceeded:
+        binding = aggregate_binding(provider, bindings, started, outcome=INPUT_CAPACITY_EXCEEDED)
+        raise InferenceProviderUnavailableError(INPUT_CAPACITY_EXCEEDED, provider_binding=binding,
+            external_call_count=binding["external_calls"])
     if not results:
         binding = aggregate_binding(provider, bindings, started, outcome="DAY_SCOPES_UNAVAILABLE")
         raise InferenceProviderUnavailableError("DAY_SCOPES_UNAVAILABLE", provider_binding=binding,
@@ -227,6 +235,12 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
         if day in output.day_labels:
             day_labels[day] = output.day_labels[day]
     first = results[min(results)][2]
+    if len(mentions) > MAX_TRIP_ACTIVITIES:
+        # Day scopes share the same trip capacity as a whole-document reply.
+        # Reject before place calls; an overflow is not an unresolved identity.
+        binding = aggregate_binding(provider, bindings, started, outcome=INPUT_CAPACITY_EXCEEDED)
+        raise InferenceProviderUnavailableError(INPUT_CAPACITY_EXCEEDED, provider_binding=binding,
+            external_call_count=binding["external_calls"])
     result = first.model_copy(update={"source_hash": hashlib.sha256(source.encode()).hexdigest(),
         "mentions": mentions, "diagnostics": diagnostics, "day_labels": day_labels, "day_count": len(sections),
         "unprocessed_count": unprocessed, "unprocessed_by_day": unprocessed_by_day})

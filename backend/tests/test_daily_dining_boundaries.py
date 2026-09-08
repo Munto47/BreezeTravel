@@ -48,6 +48,21 @@ def test_leading_legacy_unnamed_lunch_stays_before_first_visit():
     assert anchor.name == "午后景点" and following is None
 
 
+@pytest.mark.parametrize("role,time,position", [("BREAKFAST",None,0),("DINNER",None,2),
+    (None,"08:00",0),(None,"19:00",2)])
+def test_non_lunch_placeholder_does_not_move_lunch_outside_the_sightseeing_middle(role, time, position):
+    meal = card("地点待确认", 2, category="餐饮", status="NEEDS_CONFIRMATION")
+    meal.meal_role = role
+    meal.start_time = time
+    cards = [card("上午景点", 0), card("下午景点", 1)]
+    cards.insert(position, meal)
+    day, stops = day_context(cards)
+    view, anchor, following = meal_context(day, stops)
+    assert anchor.name == "上午景点"
+    assert following.name == "下午景点"
+    assert not view.get("insert_before", False)
+
+
 def test_fallback_after_unknown_first_stop_inserts_before_the_confirmed_later_stop():
     day, stops = day_context([card("首站未确认", 0, status="NEEDS_CONFIRMATION"), card("末站已确认", 1)])
     view, anchor, following = meal_context(day, stops)

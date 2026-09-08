@@ -1,4 +1,21 @@
 """Keep operational failure evidence without retaining prompts or provider bodies."""
+from app.trip_understanding.models import MAX_TRIP_ACTIVITIES
+
+
+INPUT_CAPACITY_EXCEEDED = "INPUT_CAPACITY_EXCEEDED"
+CAPACITY_EXCEEDED_MESSAGE = f"这次整理的内容超过 {MAX_TRIP_ACTIVITIES} 项上限，请分成多份行程后再试。"
+INPUT_DAY_CAPACITY_EXCEEDED = "INPUT_DAY_CAPACITY_EXCEEDED"
+DAY_CAPACITY_EXCEEDED_MESSAGE = "这次整理的行程超过 14 天上限，请分成多份行程后再试。"
+
+
+def public_failure_message(category: str) -> str:
+    if category == INPUT_CAPACITY_EXCEEDED:
+        return CAPACITY_EXCEEDED_MESSAGE
+    if category == INPUT_DAY_CAPACITY_EXCEEDED:
+        return DAY_CAPACITY_EXCEEDED_MESSAGE
+    return "这次没有整理完成，可以重新尝试"
+
+
 def safe_failure_binding(binding: dict | None) -> dict:
     allowed = {
         "provider", "model", "model_snapshot", "status", "reason", "external_calls",

@@ -463,7 +463,7 @@ export default function ItineraryWorkspace({
 
                   <div className="min-w-0 px-4 py-4 sm:px-5">
                     {renderDaySuggestion?.(dayIndex)}
-                    {!!day.unprocessed_count && <p className="py-4 text-sm text-amber-800" data-testid={`day-unprocessed-${dayIndex}`}>这一天有部分原文尚未整理完成，请对照原文补全。已确认的安排可以继续使用。</p>}
+                    {!!day.unprocessed_count && <p className="py-4 text-sm text-amber-800" data-testid={`day-unprocessed-${dayIndex}`}>这一天尚有 {day.unprocessed_count} 处原文内容尚未整理完成，请对照原文补全。已确认的安排可以继续使用。</p>}
                     {!day.activities.length && !day.unprocessed_count && <p className="py-4 text-sm text-slate-500">{day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
 
                     {layoutMode === 'LIST' ? (

@@ -3,10 +3,10 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.trip_understandings_v3 import get_trip_understanding_repository
-from app.experience_main import app
+from app.api.trip_understandings_v3 import get_trip_understanding_repository, router
 from app.trip_understanding.errors import IdempotencyConflictError, RevisionConflictError, ResourceNotReadyError
 from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.models import ActivityDeleteCommand
@@ -157,6 +157,10 @@ async def test_delete_cleans_all_owned_recommendation_replays_and_preserves_othe
 
 
 def test_refresh_api_requires_version_replays_and_fixed_demo_cannot_use_live_engine():
+    # Exercise the real routes with the controlled repository. Production
+    # startup owns PG/Redis/worker connections and has separate runtime tests.
+    app = FastAPI()
+    app.include_router(router, prefix="/api")
     repo = InMemoryTripUnderstandingRepository()
     app.dependency_overrides[get_trip_understanding_repository] = lambda: repo
     class ForbiddenEngine:

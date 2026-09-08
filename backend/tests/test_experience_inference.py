@@ -202,7 +202,7 @@ async def test_legacy_adapter_cannot_be_selected_or_bypassed_using_observation_m
 
     class ExistingFixtureProvider:
         async def propose(self, text):
-            return InferenceProposal.model_validate(semantic.model_dump())
+            return InferenceProposal.model_validate(semantic.model_dump(include=set(InferenceProposal.model_fields)))
 
     result = await TripUnderstandingPipeline(ExistingFixtureProvider(), ControlledSnapshotPlaceResolver()).run(source)
     assert not isinstance(result.proposal, SourceSemanticPlan)

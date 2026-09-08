@@ -41,6 +41,8 @@ export default function BackupDrawer({ places, isOpen, onClose, onAddToTrip }: B
 
           {/* 抽屉主体 */}
           <motion.div
+            role="region"
+            aria-label="尚未排入的地点"
             className="fixed right-0 top-0 h-full z-50 w-80 bg-white/95 backdrop-blur-md shadow-2xl flex flex-col"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -59,6 +61,8 @@ export default function BackupDrawer({ places, isOpen, onClose, onAddToTrip }: B
                 )}
               </div>
               <button
+                type="button"
+                aria-label="关闭未排入地点"
                 onClick={onClose}
                 className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
               >
@@ -69,7 +73,7 @@ export default function BackupDrawer({ places, isOpen, onClose, onAddToTrip }: B
             {/* 说明文案 */}
             <div className="px-5 py-3 bg-amber-50 border-b border-amber-100">
               <p className="text-xs text-amber-700 leading-relaxed">
-                以下地点因时间 / 体力限制未能排入行程，点击「加入」可重新添加。
+                以下已选地点尚未排入时间表，仍会保存并转入行程查。可调整天数或地点后重新排线。
               </p>
             </div>
 

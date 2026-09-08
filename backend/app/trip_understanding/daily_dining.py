@@ -54,13 +54,36 @@ def _unnamed_meal_card(card) -> bool:
         re.match(r"^(?:午餐|午饭|中午|用餐)(?:[：:、\s]|$)", name))
 
 
-def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapStop | None]:
+def source_lunch_gaps(result, records) -> dict[str, str]:
+    """Recover only explicit lunch meaning; retain no source text in derived facts."""
+    rows = {row["public_activity_token"]: row for row in records}
+    gaps = {}
+    for day in result.days:
+        for card in day.activities:
+            if card.category != "餐饮" or card.status == "READY" or not _unnamed_meal_card(card):
+                continue
+            if card.meal_role not in (None, "LUNCH"):
+                continue
+            row = rows.get(card.activity_token, {})
+            receipt = row.get("resolver_receipt") or {}
+            saved = receipt.get("source_lunch_gap")
+            quote = str(row.get("mention_text") or "") if row.get("atomic_place_name") is None else ""
+            explicit = bool(re.search(r"午餐|午饭|中午", quote)) and not re.search(r"不吃|不安排|不要|无需|取消|仅供参考", quote)
+            if card.meal_role != "LUNCH" and not explicit and saved not in {"POSITIONAL", "DAY_MIDPOINT"}:
+                continue
+            midpoint = saved == "DAY_MIDPOINT" or bool(explicit and re.search(r"每天|每日|各天", quote))
+            gaps[card.activity_token] = "DAY_MIDPOINT" if midpoint and not card.start_time and not day.meal_slots else "POSITIONAL"
+    return gaps
+
+
+def meal_context(day, stops: list[MapStop], *, source_gaps: dict[str, str] | None = None) -> tuple[dict, MapStop | None, MapStop | None]:
     """Only confirmed execution stops anchor suggestions; a named meal is retained."""
     view = {"day_index": 1, "label": day.label, "status": "NEEDS_CONFIRMATION",
             "message": "先确认当天地点，再补充中途用餐。", "candidates": []}
     by_token = {s.activity_token: s for s in stops if valid_anchor(s) and not s.is_stay_anchor
                 and not (s.category == "住宿" and s.lodging_scope == "WHOLE_TRIP")}
     cards = day.activities
+    source_gaps = source_gaps or {}
     explicit_slot = next((slot for slot in getattr(day, "meal_slots", []) if slot.meal_role == "LUNCH"), None)
     # A breakfast/dinner with an explicit hour is not treated as lunch.
     meals = [c for c in cards if c.category == "餐饮" and c.status == "READY"
@@ -81,6 +104,9 @@ def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapSt
         meal = pending_meals[0]
         view.update(message=f"原文用餐地点{meal.name}尚未确认，请先确认这处地点。",
                     existing_activity_token=meal.activity_token, meal_role="LUNCH")
+        return view, None, None
+    if sum(card.activity_token in source_gaps for card in cards) > 1:
+        view["message"] = "原文有多处午餐待补充，请先明确要安排哪一处。"
         return view, None, None
     named = [c for c in cards if c.category not in ("餐饮", "住宿", "交通节点")]
     if not named:
@@ -104,7 +130,10 @@ def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapSt
     if explicit_slot:
         return at_slot(explicit_slot.after_activity_token, explicit_slot.before_activity_token)
     unnamed = next((i for i, c in enumerate(cards) if c.category == "餐饮"
-                    and c.status != "READY" and _unnamed_meal_card(c)), None)
+                    and c.status != "READY" and _unnamed_meal_card(c)
+                    and getattr(c, "meal_role", None) in (None, "LUNCH")
+                    and (not c.start_time or "10:30" <= c.start_time <= "15:00")
+                    and source_gaps.get(c.activity_token) != "DAY_MIDPOINT"), None)
     if unnamed is not None:
         prior = [c for c in named if cards.index(c) < unnamed]
         following = [c for c in named if cards.index(c) > unnamed]
@@ -133,7 +162,8 @@ def meal_context(day, stops: list[MapStop]) -> tuple[dict, MapStop | None, MapSt
 
 
 async def build_daily_meals(result, plan, *, search=search_dining, routes=None, area_search=nearby_dining_area,
-                            deadline_seconds: float = 80, stats: dict | None = None) -> list[dict]:
+                            deadline_seconds: float = 80, stats: dict | None = None,
+                            source_gaps: dict[str, str] | None = None) -> list[dict]:
     """Stores verified places, not expiring selection tokens or private source text."""
     output = []
     route_cache: dict[tuple, int | None] = {}
@@ -183,7 +213,7 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None, 
 
     for index, day in enumerate(result.days, 1):
         stops = [s for s in plan.stops if s.day_index == index]
-        view, anchor, next_stop = meal_context(day, stops)
+        view, anchor, next_stop = meal_context(day, stops, source_gaps=source_gaps)
         view["day_index"] = index
         if not anchor:
             output.append(view)

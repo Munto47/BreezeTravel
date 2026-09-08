@@ -1146,6 +1146,7 @@ class PublicResultProjector:
         day_count: int = 0,
         include_alternatives: bool = False,
         unprocessed_by_day: dict[int, int] | None = None,
+        unassigned_alternative_ids: Sequence[str] = (),
     ) -> UserFacingTripResult:
         planned = [
             activity
@@ -1159,7 +1160,8 @@ class PublicResultProjector:
             default=1,
         )
         alternatives = [activity.compiled for activity in activities
-                        if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL]
+                        if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL
+                        and activity.compiled.mention.mention_id not in unassigned_alternative_ids]
         day_count = min(14, max(day_count, activity_day_count, max(day_labels or {}, default=0),
                                max((item.mention.day_index or 1 for item in alternatives), default=1)))
         day_views: list[TripDayView] = []
@@ -1333,6 +1335,10 @@ def _projection_omissions(
             continue
         # Undated source hotels are retained by the lodging-recovery projection.
         if mention.pending_lodging_scope:
+            continue
+        if mention.mention_id in plan.unassigned_alternative_ids:
+            # Preserved as an undated OPTIONAL activity and read by supplementary;
+            # assigning it to Day 1 would change the saved collaboration route.
             continue
         day_index = mention.day_index or 1
         if (day_index, mention.role, item.public_activity_token) not in public:
@@ -1541,6 +1547,7 @@ class TripUnderstandingPipeline:
         progress_callback: Callable[[PipelineProgressUpdate], Awaitable[None]] | None = None,
         collaboration_guard_tokens: Sequence[str] | None = None,
         collaboration_city_guard_token: str | None = None,
+        prepared_plan: SourceSemanticPlan | None = None,
     ) -> PipelineOutput:
         confirmation_spans = tuple(requires_confirmation_spans)
         if any(
@@ -1548,7 +1555,12 @@ class TripUnderstandingPipeline:
             for start, end in confirmation_spans
         ):
             raise ValueError("confirmation spans must be valid source code-point ranges")
-        proposal = await self.inference_provider.propose(source_text)
+        if prepared_plan is not None:
+            proposal = SourceSemanticPlan.model_validate(prepared_plan.model_dump(mode="json"))
+            if proposal.source_hash != hashlib.sha256(source_text.encode("utf-8")).hexdigest():
+                raise ValueError("prepared plan does not match its retained source")
+        else:
+            proposal = await self.inference_provider.propose(source_text)
         model_meaning = isinstance(proposal, SourceSemanticPlan)
         cancellation_pending_spans: set[tuple[int, int]] = set()
         if not model_meaning:
@@ -1556,7 +1568,8 @@ class TripUnderstandingPipeline:
         search_cities = ((proposal.destination_name.removesuffix("市"),) if model_meaning
                          else resolution_cities(source_text, proposal.destination_name))
         projection_options = ({"day_labels": proposal.day_labels, "day_count": proposal.day_count,
-                               "include_alternatives": True, "unprocessed_by_day": proposal.unprocessed_by_day}
+                               "include_alternatives": True, "unprocessed_by_day": proposal.unprocessed_by_day,
+                               "unassigned_alternative_ids": proposal.unassigned_alternative_ids}
                               if model_meaning else {})
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()

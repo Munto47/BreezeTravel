@@ -4,7 +4,7 @@ import {useEffect, useRef, useState} from 'react'
 import {Sparkles, X} from 'lucide-react'
 import {queryTripDiningCandidates, type DiningCandidatesView, type UserFacingTripResult,
   type TripUnderstandingCommand, type PublicTripChecksView, type PublicTripCheckItem,
-  type MapRenderView, type StaySuggestionView} from '@/lib/trip-understanding-v3'
+  type MapRenderView, type StaySuggestionView, type TripSupplementaryView} from '@/lib/trip-understanding-v3'
 import type {WorkspaceCommandResult} from './itinerary-workspace'
 import {boundedTripRequest} from './use-trip-experience'
 import {findingLabel, needsRecheck} from './presentation'
@@ -14,6 +14,7 @@ type Props = {
   resource: string; etag: string; result: UserFacingTripResult; disabled: boolean
   checks: PublicTripChecksView | null; checking: boolean; checksError: string
   map: MapRenderView | null; stay: StaySuggestionView | null
+  supplementary?: TripSupplementaryView | null
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onRetry: () => void; onPreview: (item: PublicTripCheckItem) => void
   onLocate: (item: PublicTripCheckItem) => void; onStay: (token: string) => void
@@ -44,6 +45,9 @@ export default function JourneySuggestions(props: Props) {
   const stale = Boolean(dining && dining.etag !== etag)
   const busy = disabled || writing
   const alternatives = day?.alternatives || []
+  const unassigned = props.supplementary?.status === 'AVAILABLE'
+    ? props.supplementary.days.filter(item => item.day_index === null)
+      .flatMap(item => item.items.filter(choice => choice.role === 'OPTIONAL')) : []
   const stay = props.stay || result.stay
   const items = props.checks?.items || []
 
@@ -144,6 +148,11 @@ export default function JourneySuggestions(props: Props) {
         </div>
       </details>
       <label className="my-3 flex items-center gap-3 text-sm">日期<select aria-label="建议所属日期" className="min-h-11 min-w-0 flex-1 rounded-xl bg-slate-50 px-3" value={currentDayIndex} onChange={event => {setDayIndex(Number(event.target.value)); setAnchorIndex(0); setDining(null); setError('')}}>{result.days.map((item, index) => <option key={index} value={index}>{item.label}</option>)}</select></label>
+      {!!unassigned.length && <details className="border-b border-slate-100 py-2" data-testid="unassigned-alternatives">
+        <summary className="cursor-pointer py-2 text-sm font-semibold">未指定日期 · 备选地点 · {unassigned.length}</summary>
+        <p className="py-2 text-sm text-slate-500">这些地点尚未排入时间表。可在想去的日期新增地点，确认后再更新路线。</p>
+        <ul>{unassigned.map((item, index) => <li key={index} className="py-2 text-sm">{item.name}</li>)}</ul>
+      </details>}
       <details className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">附近餐饮</summary>
         {anchors.length ? <><label className="mt-2 flex items-center gap-2 text-sm">靠近<select aria-label="餐饮附近地点" className="min-h-11 min-w-0 flex-1 rounded-xl bg-slate-50 px-3" value={Math.min(anchorIndex, anchors.length - 1)} onChange={event => {setAnchorIndex(Number(event.target.value)); generation.current++; setSearching(false); setDining(null)}}>{anchors.map((card, index) => <option key={index} value={index}>{card.name}</option>)}</select></label>
           <button type="button" className={action} disabled={busy || searching} onClick={() => void findDining()}>{searching ? '正在查找…' : '找附近餐饮'}</button></> : <p className="py-2 text-sm text-slate-500">先确认当天的一个地点。</p>}

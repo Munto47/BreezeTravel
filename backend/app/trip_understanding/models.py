@@ -119,6 +119,19 @@ class SourceSemanticPlan(InferenceProposal):
     than infer it from diagnostic text.
     """
 
+    # Explicit saved-route alternatives with no assigned day are exposed through
+    # the private supplementary view. Ordinary model plans retain their defaults.
+    unassigned_alternative_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def valid_unassigned_alternatives(self) -> "SourceSemanticPlan":
+        allowed = {item.mention_id for item in self.mentions
+                   if item.role == ActivityRole.OPTIONAL and item.day_index is None and item.atomic_place_name}
+        selected = set(self.unassigned_alternative_ids)
+        if len(selected) != len(self.unassigned_alternative_ids) or not selected <= allowed:
+            raise ValueError("unassigned alternatives must identify distinct undated optional mentions")
+        return self
+
 
 class CompiledActivity(StrictModel):
     activity_id: str
@@ -629,6 +642,8 @@ class PublicEventPayload(StrictModel):
         "已停止整理，保留当前卡片",
         "已停止整理，没有可保留的卡片",
         "这次没有整理完成，可以重新尝试",
+        "这次整理的内容超过 160 项上限，请分成多份行程后再试。",
+        "这次整理的行程超过 14 天上限，请分成多份行程后再试。",
     ]
     phase: Literal["RECEIVED", "CARDS_AVAILABLE", "CHECKING_PLACES"] | None = None
     progress: TripUnderstandingProgressMetrics = Field(
@@ -650,6 +665,8 @@ class PublicResourceRecord(StrictModel):
     current_result_id: str | None = None
     ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
     expires_at: datetime | None = None
+    # Internal authorization/readback state, never part of the public result.
+    failure_category: str | None = Field(default=None, exclude=True)
 
 
 class StoredResult(StrictModel):
@@ -874,6 +891,7 @@ class TripUnderstandingSourcePayload(StrictModel):
     requires_confirmation_spans: tuple[ConfirmationSourceSpan, ...] = ()
     partial_source: bool = False
     internal_binding: dict[str, object] = Field(default_factory=dict)
+    initial_plan: SourceSemanticPlan | None = None
 
 
 class PipelineOutput(StrictModel):

@@ -171,6 +171,9 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   // ── 路线优化 ───────────────────────────────────────────────────────────
   const { itinerary, isOptimizing, backupPool, optimize, restoreItinerary } = useOptimize(threadId, roomId)
   const [isBackupOpen, setIsBackupOpen] = useState(false)
+  useEffect(() => {
+    if (backupPool.length) setIsBackupOpen(true)
+  }, [backupPool])
   const [isPlanning, setIsPlanning] = useState(false)
 
   const { isChatOpen, tripDays: storeDays, setTripDays, setIsChatOpen, setRightTab, setSelectedPlaceId } = useRoomStore()
@@ -527,11 +530,6 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         return
       }
       setPhase('planned')
-      // 备选池提示（A7）
-      if (backupPool.length > 0) {
-        toast(`${backupPool.length} 个地点因时间限制未能排入，已放入「备选」`, 'info')
-        setIsBackupOpen(true)
-      }
     } finally {
       setIsPlanning(false)
     }
@@ -573,11 +571,6 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         places={backupPool}
         isOpen={isBackupOpen}
         onClose={() => setIsBackupOpen(false)}
-        onAddToTrip={(place) => {
-          addPlace(place)
-          toggleVote(place.placeId)
-          setIsBackupOpen(false)
-        }}
       />
 
       <div className="overlay-layer flex flex-col">
@@ -600,6 +593,11 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           onTransfer={() => void handleTransfer()}
           onRetrySave={() => setSaveRetry((value) => value + 1)}
         />
+        {backupPool.length > 0 && <button type="button" data-testid="collaboration-unassigned"
+          className="overlay-interactive mx-4 mt-2 self-start rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+          onClick={() => setIsBackupOpen(true)}>
+          尚未排入 {backupPool.length} 个已选地点 · 查看
+        </button>}
 
         <div className="hidden lg:flex flex-1 min-h-0 items-start gap-3 px-4 pb-3 mt-3">
           <AnimatePresence>

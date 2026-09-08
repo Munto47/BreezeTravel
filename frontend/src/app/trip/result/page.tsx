@@ -834,6 +834,7 @@ export default function TripResultPage() {
                   checksError={trip.checksError || ''}
                   map={displayMap}
                   stay={displayStay}
+                  supplementary={trip.supplementary}
                   onCommand={trip.workspaceCommand}
                   onRetry={() => void trip.retryChecks()}
                   onPreview={openPreview}

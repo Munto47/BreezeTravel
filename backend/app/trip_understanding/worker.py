@@ -165,7 +165,7 @@ class TripUnderstandingWorker:
                 )
                 if source.source_type == "FIXED_DEMO":
                     pipeline = self.demo_pipeline
-                elif job.attempt > 1:
+                elif job.attempt > 1 and source.initial_plan is None:
                     pipeline = self.lease_takeover_pipeline
                 else:
                     pipeline = self.full_pipeline
@@ -198,6 +198,8 @@ class TripUnderstandingWorker:
                     "partial_source": source.partial_source,
                     "progress_callback": persist_progress,
                 }
+                if source.initial_plan is not None:
+                    pipeline_options["prepared_plan"] = source.initial_plan
                 if collaboration_guard_active:
                     pipeline_options.update(
                         {

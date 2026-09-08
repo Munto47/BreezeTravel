@@ -19,6 +19,7 @@ from openai import APIError, AsyncOpenAI
 from pydantic import Field, ValidationError, field_validator
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
+from app.trip_understanding.failures import INPUT_CAPACITY_EXCEEDED, INPUT_DAY_CAPACITY_EXCEEDED
 from app.trip_understanding.guide_choices import choice_scopes, explicit_binary_choice_clauses, explicit_choice_branches, explicit_optional_labels, explicit_visit_labels
 from app.trip_understanding.models import (
     MAX_TRIP_ACTIVITIES, ActivityRole, ActivityTiming, DestinationBasis, SourceSemanticPlan,
@@ -258,6 +259,70 @@ def _recover_unique_quote_occurrences(source: str, draft: SemanticDraft) -> Sema
                     item = item.model_copy(update={"occurrence": 1})
         activities.append(item)
     return draft.model_copy(update={"activities": activities})
+
+
+def _anchor_lodging_actions(source: str, draft: SemanticDraft) -> tuple[SemanticDraft, list[SemanticDiagnostic]]:
+    """Use an already supplied unique action quote to locate its actual visit.
+
+    This changes source coordinates, never the model's event, role, day or
+    order. Repeated evidence and multiple hotel names in one quote remain
+    ambiguous. A name borrowed from another sentence cannot identify an
+    otherwise unnamed action; keep that action with a local unresolved issue.
+    """
+    anchors = SourceAnchorIndex(source)
+    activities = []
+    diagnostics = []
+    for index, item in enumerate(draft.activities):
+        if not (item.category == "住宿" and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}
+                and item.lodging_event and item.lodging_evidence and item.place_name):
+            activities.append(item)
+            continue
+        try:
+            left, right = anchors.locate(item.lodging_evidence)
+        except ValueError:
+            activities.append(item)
+            continue
+        try:
+            anchors.locate(item.lodging_evidence, 2)
+        except ValueError:
+            pass
+        else:
+            activities.append(item)
+            continue
+        preceding_days = list(re.finditer(
+            r"第\s*(?:\d{1,2}|[一二两三四五六七八九十]{1,3})\s*天|(?<![A-Za-z0-9])(?:Day|D)\s*\d{1,2}(?![A-Za-z0-9])",
+            source[:left], re.I))
+        evidence_day = _explicit_day_count(preceding_days[-1][0]) if preceding_days else None
+        if evidence_day is not None and item.day_index is not None and evidence_day != item.day_index:
+            # Another day's action is not evidence for the current visit.
+            # A semantic reschedule must be supplied explicitly, not inferred
+            # from the mere availability of a matching hotel name elsewhere.
+            activities.append(item)
+            continue
+        evidence, _indices = _markdown_visible(item.lodging_evidence)
+        name_spans = list(re.finditer(re.escape(item.place_name), evidence))
+        try:
+            current_left, current_right = anchors.locate(item.source_quote, item.occurrence)
+            relative = _literal_place_span(source[current_left:current_right], item.place_name)
+            name_left, name_right = ((current_left + relative[0], current_left + relative[1])
+                                    if relative else (current_left, current_right))
+        except ValueError:
+            name_left = name_right = -1
+        if len(name_spans) == 1 and not (left <= name_left < name_right <= right):
+            item = item.model_copy(update={"source_quote": item.lodging_evidence, "occurrence": 1})
+        elif not name_spans and item.source_quote == item.place_name:
+            clause_left = max(source.rfind(mark, 0, left) for mark in "\n。；;，,") + 1
+            clause_right = min((position for mark in "\n。；;，," if (position := source.find(mark, right)) >= 0), default=len(source))
+            # A short evidence substring must not erase a name that is present
+            # in that very clause, e.g. evidence='取行李' after a named hotel.
+            if (item.place_name not in source[clause_left:clause_right]
+                    and not (clause_left <= name_left < name_right <= clause_right)):
+                item = item.model_copy(update={"source_quote": item.lodging_evidence,
+                                               "occurrence": 1, "place_name": None})
+                diagnostics.append(SemanticDiagnostic(category="UNBOUND_LODGING_REFERENCE",
+                    field=f"activities[{index}].place_name", span_start=left, span_end=right))
+        activities.append(item)
+    return draft.model_copy(update={"activities": activities}), diagnostics
 
 
 def _retain_named_meal_locations(source: str, draft: SemanticDraft) -> SemanticDraft:
@@ -982,6 +1047,20 @@ def _omits_attached_place_qualifier(anchors: SourceAnchorIndex, place_end: int) 
     ))
 
 
+def _source_bound_activity_overflow(source: str, content: str) -> bool:
+    """Count distinct grounded output rows, never model duplicates or inventions."""
+    try:
+        rows = json.loads(content).get("activities", [])
+        if not isinstance(rows, list) or len(rows) <= MAX_TRIP_ACTIVITIES:
+            return False
+        anchors = SourceAnchorIndex(source)
+        spans = {anchors.locate(item.source_quote, item.occurrence)
+                 for item in (SemanticActivity.model_validate(row) for row in rows)}
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return len(spans) > MAX_TRIP_ACTIVITIES
+
+
 def _validation_issues(exc: ValueError, known_fields: set[str] | None = None) -> list[dict[str, object]]:
     if isinstance(exc, SourceAnchorValidationError):
         return exc.issues[:20]
@@ -1565,6 +1644,7 @@ def _bound_lodging_exclusion(anchors: SourceAnchorIndex, item: SemanticActivity,
 def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: bool = False) -> SourceSemanticPlan:
     if allow_partial:
         draft = draft.model_copy(deep=True)
+    draft, lodging_anchor_diagnostics = _anchor_lodging_actions(source, draft)
     draft = _recover_unique_quote_occurrences(source, draft)
     draft = _retain_named_meal_locations(source, draft)
     draft = _expand_source_bound_lists(source, draft)
@@ -1740,7 +1820,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                 issues.append({"field": "activities.explicit_labels", "category": "MISSING_EXPLICIT_DAY"})
     if issues and not allow_partial:
         raise SourceAnchorValidationError(issues, repair_hints, repair_draft=draft)
-    diagnostics: list[SemanticDiagnostic] = []
+    diagnostics: list[SemanticDiagnostic] = list(lodging_anchor_diagnostics)
     invalid_indices: set[int] = set()
     pending_lodgings = set()
     if allow_partial:
@@ -1989,12 +2069,21 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     explicit_destination = draft.destination in source_destination_cities(source) or any(
         mention.city_hint == draft.destination and mention.city_evidence for mention in mentions
     )
+    unprocessed_by_day = {}
+    for issue in lodging_anchor_diagnostics:
+        quote = source[issue.span_start:issue.span_end]
+        day = _unambiguous_literal_place_day(source, quote)
+        if day is None and explicit_days == 1:
+            day = 1
+        if day is not None:
+            unprocessed_by_day[day] = unprocessed_by_day.get(day, 0) + 1
     return SourceSemanticPlan(
         source_hash=hashlib.sha256(source.encode()).hexdigest(),
         destination_name=draft.destination,
         destination_basis=(DestinationBasis.EXPLICIT if explicit_destination
                            else DestinationBasis.SOFT_ASSUMPTION),
         day_labels=labels, day_count=min(supported_days, 14), unprocessed_count=unprocessed,
+        unprocessed_by_day=unprocessed_by_day,
         mentions=mentions, diagnostics=diagnostics, binding={"semantic_policy": SEMANTIC_POLICY},
     )
 
@@ -2282,6 +2371,10 @@ class ExperienceQwenProvider:
                         if attempt == 1 and recovery_draft is not None and recovery_partial is not None:
                             draft = merge_preserved_activities(source_text, recovery_draft, recovery_partial, draft)
                         proposal = _proposal_from_live_draft(source_text, draft)
+                        if (_explicit_day_count(source_text) > 14 and
+                            any(issue.category == "UNSUPPORTED_DAY_COUNT" for issue in proposal.diagnostics)):
+                            proposal = None
+                            raise ValueError(INPUT_DAY_CAPACITY_EXCEEDED)
                         if attempt == 1 and recovery_draft is not None:
                             proposal = _retain_repair_omissions(source_text, recovery_draft, proposal)
                         final_draft = draft
@@ -2289,6 +2382,22 @@ class ExperienceQwenProvider:
                         failure = "INVALID_STRUCTURED_OUTPUT" if isinstance(exc, ValidationError) else str(exc)
                         call["outcome"] = failure
                         call["validation_errors"] = _validation_issues(exc)
+                        if failure == INPUT_DAY_CAPACITY_EXCEEDED or (_explicit_day_count(source_text) > 14 and any(
+                            (issue["field"].endswith(".day_index") and issue["category"] == "less_than_equal")
+                            or (issue["field"] == "day_labels" and issue["category"] == "too_long")
+                            for issue in call["validation_errors"]
+                        )):
+                            failure = call["outcome"] = INPUT_DAY_CAPACITY_EXCEEDED
+                            break
+                        if any(issue["field"] == "activities" and (
+                            issue["category"] == "TOO_MANY_ACTIVITIES" or
+                            (issue["category"] == "too_long" and _source_bound_activity_overflow(source_text, content)))
+                            for issue in call["validation_errors"]):
+                            # A capacity violation is not a malformed JSON retry.
+                            # Asking the model to squeeze it into the schema can
+                            # silently remove source items to obtain success.
+                            failure = call["outcome"] = INPUT_CAPACITY_EXCEEDED
+                            break
                         checked_recovery = getattr(exc, "repair_draft", None) or draft
                         if checked_recovery is not None:
                             recovered = _recover_partial_proposal(source_text, checked_recovery,

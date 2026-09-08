@@ -84,13 +84,17 @@ export default function HomePage() {
         if (controller.signal.aborted) return
         if (
           failure instanceof Error &&
-          failure.message === 'UNDERSTANDING_FAILED'
+          ['UNDERSTANDING_FAILED', 'INPUT_CAPACITY_EXCEEDED', 'INPUT_DAY_CAPACITY_EXCEEDED'].includes(failure.message)
         ) {
           const recovered = releaseFailedTripInput(reference)
           if (recovered) {
             attempt.current = recovered
             setError(
-              '上次没有整理完成，原文已保留，可以直接重试，也可以先修改文字。',
+              failure.message === 'INPUT_CAPACITY_EXCEEDED'
+                ? '原文已保留。一次最多整理 160 项，请拆分文字后重新整理。'
+                : failure.message === 'INPUT_DAY_CAPACITY_EXCEEDED'
+                  ? '原文已保留。一次最多整理 14 天，请拆分文字后重新整理。'
+                  : '上次没有整理完成，原文已保留，可以直接重试，也可以先修改文字。',
             )
           }
         }

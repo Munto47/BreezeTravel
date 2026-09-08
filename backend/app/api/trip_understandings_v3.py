@@ -12,6 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import get_settings
 from app.trip_understanding.anonymous import AnonymousDailyLimitError
+from app.trip_understanding.failures import (
+    INPUT_CAPACITY_EXCEEDED, INPUT_DAY_CAPACITY_EXCEEDED, public_failure_message,
+)
 from app.trip_understanding.candidates import CandidateSearchRequest, PendingLodgingCandidateRequest, CandidateSearchView, issue_candidate, search_candidates
 from app.trip_understanding.lodging_recovery import confirmed_single_destination, recovery_binding, result_cards, validate_recovery_target
 from app.trip_understanding.dining import (
@@ -345,8 +348,8 @@ async def create_trip_understanding_from_collaboration(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "code": "COLLABORATION_ROUTE_UNAVAILABLE",
-                "message": "请先在协同规划中保存一条可用路线",
+                "code": exc.code,
+                "message": exc.public_message,
             },
         ) from exc
     except IdempotencyConflictError as exc:
@@ -524,6 +527,9 @@ async def get_trip_understanding_result(
         stored = await repository.get_result(resource)
     response.headers["Cache-Control"] = "no-store"
     if resource.state == "FAILED":
+        if resource.failure_category in {INPUT_CAPACITY_EXCEEDED, INPUT_DAY_CAPACITY_EXCEEDED}:
+            raise HTTPException(status_code=409, detail={"code": resource.failure_category,
+                "message": public_failure_message(resource.failure_category)})
         raise HTTPException(status_code=409, detail={"code": "UNDERSTANDING_FAILED", "message": "这次没有整理完成，可以重新尝试"})
     if resource.state == "CANCELLED":
         raise HTTPException(

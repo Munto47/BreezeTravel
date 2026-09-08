@@ -802,12 +802,14 @@ export function useTripExperience() {
           'TRIP_NOT_AVAILABLE',
           'LOGIN_REQUIRED',
           'UNDERSTANDING_FAILED',
+          'INPUT_CAPACITY_EXCEEDED',
+          'INPUT_DAY_CAPACITY_EXCEEDED',
           'UNDERSTANDING_CANCELLED',
         ].includes(code)
       )
         return false
       const recoveredInput =
-        code === 'UNDERSTANDING_FAILED'
+        ['UNDERSTANDING_FAILED', 'INPUT_CAPACITY_EXCEEDED', 'INPUT_DAY_CAPACITY_EXCEEDED'].includes(code)
           ? releaseFailedTripInput(reference!)
           : code === 'UNDERSTANDING_CANCELLED'
             ? releaseCancelledTripInput(reference!)
@@ -840,7 +842,7 @@ export function useTripExperience() {
             ? 'NOT_AVAILABLE'
             : code === 'LOGIN_REQUIRED'
               ? 'LOGIN'
-              : code === 'UNDERSTANDING_FAILED'
+              : ['UNDERSTANDING_FAILED', 'INPUT_CAPACITY_EXCEEDED', 'INPUT_DAY_CAPACITY_EXCEEDED'].includes(code)
                 ? 'FAILED'
                 : 'CANCELLED',
       )
@@ -851,13 +853,17 @@ export function useTripExperience() {
             ? '当前无法访问这份行程。请确认使用保存它的账号，或重新读取。'
             : code === 'LOGIN_REQUIRED'
               ? '请登录保存这份行程的账号后继续。'
-              : code === 'UNDERSTANDING_FAILED'
-                ? recoveredInput
-                  ? '这次没有整理完成，原文已保留。回到首页即可重试，也可以先修改文字。'
-                  : '这次没有整理完成。可以回到首页重新整理。'
-                : recoveredInput
-                  ? '整理已停止，原文仍在首页，可以修改后重新开始。'
-                  : '整理已停止，可以返回首页重新开始。',
+              : code === 'INPUT_CAPACITY_EXCEEDED'
+                ? '这次整理的内容超过 160 项上限，请分成多份行程后再试。'
+                : code === 'INPUT_DAY_CAPACITY_EXCEEDED'
+                  ? '这次整理的行程超过 14 天上限，请分成多份行程后再试。'
+                  : code === 'UNDERSTANDING_FAILED'
+                    ? recoveredInput
+                      ? '这次没有整理完成，原文已保留。回到首页即可重试，也可以先修改文字。'
+                      : '这次没有整理完成。可以回到首页重新整理。'
+                    : recoveredInput
+                      ? '整理已停止，原文仍在首页，可以修改后重新开始。'
+                      : '整理已停止，可以返回首页重新开始。',
       )
       return true
     }

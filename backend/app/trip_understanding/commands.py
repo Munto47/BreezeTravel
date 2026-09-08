@@ -100,10 +100,13 @@ def apply_public_command(
     token_factory: Callable[[], str] = _default_token,
     undo_result: UserFacingTripResult | None = None,
     confirmed_place=None,
+    source_lunch_gaps: dict[str, str] | None = None,
+    dining_plan=None,
 ) -> PublicCommandMutation:
     result = current.model_copy(deep=True)
     changed: set[str] = set()
     inserted_card: ActivityCardView | None = None
+    filled_gap_token: str | None = None
 
     if isinstance(command, UndoCommand):
         if not current.can_undo or undo_result is None:
@@ -213,6 +216,7 @@ def apply_public_command(
         if anchor.status != "READY" or (anchor.city and anchor.city != confirmed_place.city):
             raise CommandTargetChangedError("dining anchor needs confirmation")
         day = result.days[day_index]
+        lunch_gap = None
         if command.meal_role == "LUNCH":
             from app.trip_understanding.daily_dining import meal_context
 
@@ -220,13 +224,34 @@ def apply_public_command(
             if meal.get("existing_activity_token"):
                 # A still-valid candidate from an old page cannot duplicate the source lunch.
                 raise CommandTargetChangedError("this day already has a lunch place to retain or confirm")
+            gaps = [card for card in day.activities if card.activity_token in (source_lunch_gaps or {})]
+            if len(gaps) > 1:
+                raise CommandTargetChangedError("multiple source lunches need a specific choice first")
+            if gaps:
+                lunch_gap = gaps[0]
+                if dining_plan is not None:
+                    context, _, _ = meal_context(day, dining_plan.stops, source_gaps=source_lunch_gaps)
+                    if (context.get("after_activity_token") != command.after_activity_token
+                            or bool(context.get("insert_before")) != command.insert_before):
+                        raise CommandTargetChangedError("lunch position changed; refresh dining suggestions")
         if any(card.name == confirmed_place.name and card.area_or_address == confirmed_place.area_or_address for card in day.activities):
             raise CommandTargetChangedError("dining place is already in this day")
-        inserted_card = ActivityCardView(activity_token=token_factory(), name=confirmed_place.name,
+        values = dict(activity_token=token_factory(), name=confirmed_place.name,
             category="餐饮", area_or_address=confirmed_place.area_or_address, city=confirmed_place.city,
-            meal_role=command.meal_role,
+            meal_role=command.meal_role, photo_url=None, knowledge_suggestions=[],
             status="READY", available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"])
-        day.activities.insert(position + (0 if command.insert_before else 1), inserted_card)
+        if lunch_gap:
+            filled_gap_token = lunch_gap.activity_token
+            inserted_card = lunch_gap.model_copy(update=values)
+            if source_lunch_gaps[filled_gap_token] == "POSITIONAL":
+                day.activities[day.activities.index(lunch_gap)] = inserted_card
+            else:
+                day.activities.remove(lunch_gap)
+                position = day.activities.index(anchor)
+                day.activities.insert(position + (0 if command.insert_before else 1), inserted_card)
+        else:
+            inserted_card = ActivityCardView(**values)
+            day.activities.insert(position + (0 if command.insert_before else 1), inserted_card)
         changed.add(day.label)
     elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
@@ -301,6 +326,8 @@ def apply_public_command(
 
     token_map: dict[str, str] = {}
     inserted_token = inserted_card.activity_token if inserted_card else None
+    if filled_gap_token:
+        token_map[filled_gap_token] = inserted_token
     for card in result_cards(result):
         old_token = card.activity_token
         if inserted_card is card:

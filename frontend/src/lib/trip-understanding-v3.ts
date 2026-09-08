@@ -587,6 +587,10 @@ export async function readTripUnderstandingResult(
       } | null
       if (failure?.detail?.code === 'UNDERSTANDING_FAILED')
         throw new Error('UNDERSTANDING_FAILED')
+      if (failure?.detail?.code === 'INPUT_CAPACITY_EXCEEDED')
+        throw new Error('INPUT_CAPACITY_EXCEEDED')
+      if (failure?.detail?.code === 'INPUT_DAY_CAPACITY_EXCEEDED')
+        throw new Error('INPUT_DAY_CAPACITY_EXCEEDED')
       if (failure?.detail?.code === 'UNDERSTANDING_CANCELLED')
         throw new Error('UNDERSTANDING_CANCELLED')
     }

@@ -10,6 +10,7 @@
         "tests/test_trip_understanding_v3.py",
         "tests/test_trip_understanding_v3_api.py",
         "tests/test_experience_inference.py",
+        "tests/test_trip_input_capacity.py",
         "tests/test_experience_runtime.py",
         "tests/test_experience_twelve_tasks.py",
         "tests/test_experience_timing_candidates.py",
@@ -62,7 +63,11 @@
         "tests/test_experience_layer_replay.py",
         "tests/test_semantic_lodging_evidence_merge.py",
         "tests/test_short_city_headers.py",
-        "tests/test_recommendation_trip_view.py"
+        "tests/test_recommendation_trip_view.py",
+        "tests/test_collaboration_context_question.py",
+        "tests/test_live_name_field_contract.py",
+        "tests/test_lodging_occurrence_anchors.py",
+        "tests/test_collaboration_import.py"
       ]
     },
     "postgres": {
@@ -70,6 +75,7 @@
       "directory": "backend",
       "files": [
         "tests/test_trip_understanding_v3_postgres.py",
+        "tests/test_trip_input_capacity.py",
         "tests/test_g01_map_positive_postgres.py",
         "tests/test_g02_map_stay_postgres.py",
         "tests/test_g03_top3_audit_postgres.py",
@@ -89,7 +95,10 @@
         "tests/test_lodging_constraint_identity_audit.py",
         "tests/test_g03_lodging_preservation.py",
         "tests/test_initial_source_expiry.py",
-        "tests/test_recommendation_trip_view.py"
+        "tests/test_recommendation_trip_view.py",
+        "tests/test_trip_capacity_readback.py",
+        "tests/test_collaboration_import_readback.py",
+        "tests/test_dining_source_gap_adoption.py"
       ]
     },
     "browser-core": {
@@ -122,7 +131,10 @@
         "e2e/pending-lodging-recovery.spec.js",
         "e2e/stay-refresh-readback.spec.js",
         "e2e/map-day-focus.spec.js",
-        "e2e/source-lodging.spec.js"
+        "e2e/source-lodging.spec.js",
+        "e2e/semantic-plan-contract.spec.js",
+        "e2e/trip-capacity.spec.js",
+        "e2e/collaboration-backup.spec.js"
       ],
       "args": [
         "--grep-invert",

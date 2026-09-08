@@ -30,6 +30,7 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
     const restored = parseSavedItinerary(saved)
     if (!restored) return null
     setItinerary(restored)
+    setBackupPool(restored.backupPool || [])
     return restored
   }, [])
 
@@ -83,13 +84,14 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
           if (!response.ok) throw new Error(`排线失败：${response.status}`)
           return await response.json()
         }, 45000)
-        const parsed = parseItineraryFromAPI(data.itinerary)
+        const rawBackup: unknown[] = data.backup_pool ?? []
+        const retainedBackup = rawBackup.map((r) => parsePlaceFromAPI(r as Record<string, unknown>))
+        const parsed = {...parseItineraryFromAPI(data.itinerary), backupPool: retainedBackup}
         setItinerary(parsed)
         setTotalDistanceKm(data.total_distance_km ?? 0)
 
         // 解析备选池（A7）
-        const rawBackup: unknown[] = data.backup_pool ?? []
-        setBackupPool(rawBackup.map((r) => parsePlaceFromAPI(r as Record<string, unknown>)))
+        setBackupPool(retainedBackup)
 
         if (roomId && typeof window !== 'undefined') {
           // Cache only. PostgreSQL workspace/revision/report remains authoritative.

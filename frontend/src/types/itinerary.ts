@@ -38,6 +38,7 @@ export interface Itinerary {
   days: DayPlan[]
   generatedAt: string   // ISO 8601
   version: number       // 每次重新排线递增
+  backupPool?: Place[]  // 已选但未能排入时间表；保存、恢复和转入时仍需保留
 }
 
 function objectValue(value: unknown): Record<string, unknown> | null {
@@ -60,6 +61,41 @@ function stringList(value: unknown, maximum = 20): string[] {
         .filter((item): item is string => typeof item === 'string' && item.length <= 500)
         .slice(0, maximum)
     : []
+}
+
+function parseSavedPlace(value: unknown, slotPlaceId?: string): Place | null {
+  const rawPlace = objectValue(value)
+  if (!rawPlace) return null
+  const placeId = slotPlaceId || boundedString(rawPlace.placeId, 200)
+  const name = boundedString(rawPlace.name, 200)
+  const address = boundedString(rawPlace.address, 500)
+  const city = boundedString(rawPlace.city, 100)
+  const coords = objectValue(rawPlace.coords)
+  const lng = finiteNumber(coords?.lng), lat = finiteNumber(coords?.lat)
+  const category = rawPlace.category
+  if (!placeId || !name || address === null || !city || lng === null || lat === null ||
+    Math.abs(lng) > 180 || Math.abs(lat) > 90 ||
+    !['attraction', 'food', 'hotel', 'transport'].includes(String(category))) return null
+  const ragMeta = objectValue(rawPlace.ragMeta)
+  return {
+    placeId, name, category: category as Place['category'], address, coords: {lng, lat}, city,
+    district: boundedString(rawPlace.district, 100) || undefined,
+    source: ['amap_poi', 'rag', 'synthesized'].includes(String(rawPlace.source))
+      ? rawPlace.source as Place['source'] : 'synthesized',
+    amapRating: finiteNumber(rawPlace.amapRating) ?? undefined,
+    amapPrice: finiteNumber(rawPlace.amapPrice) ?? undefined,
+    openingHours: boundedString(rawPlace.openingHours, 200) || undefined,
+    phone: boundedString(rawPlace.phone, 100) || undefined,
+    amapPhotos: stringList(rawPlace.amapPhotos, 8),
+    ragMeta: ragMeta ? {tipSnippets: stringList(ragMeta.tipSnippets, 3),
+      sentimentScore: finiteNumber(ragMeta.sentimentScore) ?? 0,
+      sourceNoteIds: stringList(ragMeta.sourceNoteIds, 20)} : undefined,
+    description: boundedString(rawPlace.description, 1000) || undefined,
+    tags: stringList(rawPlace.tags, 20), constraintEvidence: [], geoEvidence: [], confirmationActions: [],
+    clusterId: finiteNumber(rawPlace.clusterId) ?? undefined,
+    visitOrder: finiteNumber(rawPlace.visitOrder) ?? undefined,
+    estimatedDuration: finiteNumber(rawPlace.estimatedDuration) ?? undefined,
+  }
 }
 
 /**
@@ -95,53 +131,9 @@ export function parseSavedItinerary(value: unknown): Itinerary | null {
       const placeId = boundedString(slot.placeId, 200)
       const startTime = boundedString(slot.startTime, 20)
       const endTime = boundedString(slot.endTime, 20)
-      const name = boundedString(rawPlace.name, 200)
-      const address = boundedString(rawPlace.address, 500)
-      const placeCity = boundedString(rawPlace.city, 100)
-      const coords = objectValue(rawPlace.coords)
-      const lng = finiteNumber(coords?.lng)
-      const lat = finiteNumber(coords?.lat)
-      const category = rawPlace.category
-      if (
-        !placeId || !startTime || !endTime || !name || address === null ||
-        !placeCity || lng === null || lat === null || Math.abs(lng) > 180 ||
-        Math.abs(lat) > 90 ||
-        !['attraction', 'food', 'hotel', 'transport'].includes(String(category))
-      ) return null
-      const source = ['amap_poi', 'rag', 'synthesized'].includes(String(rawPlace.source))
-        ? rawPlace.source as Place['source']
-        : 'synthesized'
-      const ragMeta = objectValue(rawPlace.ragMeta)
-      const place: Place = {
-        placeId,
-        name,
-        category: category as Place['category'],
-        address,
-        coords: { lng, lat },
-        city: placeCity,
-        district: boundedString(rawPlace.district, 100) || undefined,
-        source,
-        amapRating: finiteNumber(rawPlace.amapRating) ?? undefined,
-        amapPrice: finiteNumber(rawPlace.amapPrice) ?? undefined,
-        openingHours: boundedString(rawPlace.openingHours, 200) || undefined,
-        phone: boundedString(rawPlace.phone, 100) || undefined,
-        amapPhotos: stringList(rawPlace.amapPhotos, 8),
-        ragMeta: ragMeta
-          ? {
-              tipSnippets: stringList(ragMeta.tipSnippets, 3),
-              sentimentScore: finiteNumber(ragMeta.sentimentScore) ?? 0,
-              sourceNoteIds: stringList(ragMeta.sourceNoteIds, 20),
-            }
-          : undefined,
-        description: boundedString(rawPlace.description, 1000) || undefined,
-        tags: stringList(rawPlace.tags, 20),
-        constraintEvidence: [],
-        geoEvidence: [],
-        confirmationActions: [],
-        clusterId: finiteNumber(rawPlace.clusterId) ?? undefined,
-        visitOrder: finiteNumber(rawPlace.visitOrder) ?? undefined,
-        estimatedDuration: finiteNumber(rawPlace.estimatedDuration) ?? undefined,
-      }
+      if (!placeId || !startTime || !endTime) return null
+      const place = parseSavedPlace(rawPlace, placeId)
+      if (!place) return null
       slots.push({
         placeId,
         place,
@@ -162,7 +154,18 @@ export function parseSavedItinerary(value: unknown): Itinerary | null {
       : undefined
     days.push({ dayIndex, clusterId, date, slots, weatherSummary })
   }
-  return { itineraryId, threadId, city, days, generatedAt, version }
+  let backupPool: Place[] | undefined
+  if (raw.backupPool !== undefined) {
+    if (!Array.isArray(raw.backupPool) || raw.backupPool.length > 160) return null
+    backupPool = []
+    for (const rawPlace of raw.backupPool) {
+      const place = parseSavedPlace(rawPlace)
+      if (!place) return null
+      backupPool.push(place)
+    }
+  }
+  return { itineraryId, threadId, city, days, generatedAt, version,
+    ...(backupPool === undefined ? {} : {backupPool}) }
 }
 
 /** 将后端蛇形命名（API 响应）转换为前端驼峰命名 */
