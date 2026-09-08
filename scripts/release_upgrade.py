@@ -453,6 +453,8 @@ process.exit(result.status===null?1:result.status);"""
                 self.remove_new_containers()
                 for name in names:
                     self.run("docker", "start", name)
+                self.health(ports={kind: self.current_ports[kind] for kind in ("api", "yjs")},
+                            context="Previous service recovery")
 
     def backup(self, db: str, data: Path, label: str) -> Path:
         folder = self.target / f"backup-{label}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -559,18 +561,19 @@ process.exit(result.status===null?1:result.status);"""
             self.run(*args)
         self.health()
 
-    def health(self) -> None:
-        for kind, port in self.ports.items():
-            for attempt in range(40):
+    def health(self, *, ports: dict[str, int] | None = None, context: str = "Private application") -> None:
+        for kind, port in (self.ports if ports is None else ports).items():
+            deadline = time.monotonic() + 40
+            while (remaining := deadline - time.monotonic()) > 0:
                 try:
-                    with urlopen(f"http://127.0.0.1:{port}" + ("/" if kind == "web" else "/health"), timeout=3) as response:
+                    with urlopen(f"http://127.0.0.1:{port}" + ("/" if kind == "web" else "/health"), timeout=min(3, remaining)) as response:
                         if response.status == 200:
                             break
                 except OSError:
                     pass
-                time.sleep(1)
+                time.sleep(min(1, max(0, deadline - time.monotonic())))
             else:
-                raise UpgradeError("Private application health did not become ready")
+                raise UpgradeError(f"{context}: {kind} health did not become ready within 40 seconds; data and backups retained")
 
     def rehearse(self) -> None:
         if self.phase() in {"COPY_RESTORED", "PREVIEW_SERVING_UNVERIFIED"}:
@@ -582,6 +585,8 @@ process.exit(result.status===null?1:result.status);"""
             self.record("SNAPSHOTTING_REHEARSAL")
             with self.stopped_previous_writers():
                 backup = self.backup(self.args.current_db, self.current / "yjs-data", "rehearsal")
+                # Keep the completed backup location even if old-service recovery fails.
+                self.record("SNAPSHOTTING_REHEARSAL", rehearsal_backup=str(backup))
             self.record("COPY_BACKUP_READY", rehearsal_backup=str(backup))
         backup = Path(self.state["rehearsal_backup"])
         if self.phase() == "COPY_BACKUP_READY":

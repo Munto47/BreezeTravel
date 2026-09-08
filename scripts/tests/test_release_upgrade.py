@@ -1,5 +1,6 @@
 """Deployment failure scenarios with isolated files and fake Docker operations."""
 import importlib.util
+from contextlib import nullcontext
 import io
 import json
 import os
@@ -263,6 +264,7 @@ class UpgradeTests(unittest.TestCase):
         self.operation.verify_restored_counts = Mock()
         self.operation.query = Mock(return_value="039_daily_dining_metrics.sql")
         self.operation.start = Mock()
+        self.operation.health = Mock()
         with patch("sys.stdout", new_callable=io.StringIO):
             self.operation.rehearse()
             self.operation.rehearse()
@@ -271,6 +273,77 @@ class UpgradeTests(unittest.TestCase):
         self.operation.backup.assert_called_once()
         self.operation.clone.assert_called_once()
         self.operation.migrate.assert_called_once()
+        self.operation.health.assert_called_once_with(ports={"api": 8018, "yjs": 1246}, context="Previous service recovery")
+
+    def test_old_service_health_failure_keeps_backup_and_stops_before_clone(self):
+        for failing_kind, failing_port in (("api", 8018), ("yjs", 1246)):
+            with self.subTest(failing_kind=failing_kind):
+                self.operation.state = {"phase": "PREPARED"}
+                self.operation.inspect = Mock(return_value={"State": {"Running": True}})
+                self.operation.run = Mock(return_value="")
+                self.operation.check_resources = Mock()
+                self.operation.assert_writer_set = Mock()
+                self.operation.remove_new_containers = Mock()
+                backup = self.operation.target / ("backup-" + failing_kind)
+                backup.mkdir()
+                (backup / "database.dump").write_bytes(b"retained snapshot")
+                self.operation.backup = Mock(return_value=backup)
+                self.operation.clone = Mock()
+                self.operation.migrate = Mock()
+                clock = [0.0]
+                observed = []
+
+                def wait(seconds):
+                    clock[0] += seconds
+
+                def request(url, *, timeout):
+                    observed.append((url, timeout))
+                    if f":{failing_port}/" in url:
+                        # Account for a full network timeout; no real waiting/network.
+                        clock[0] += timeout
+                        raise OSError("service unavailable")
+                    return nullcontext(SimpleNamespace(status=200))
+
+                with patch.object(release, "urlopen", side_effect=request), \
+                        patch.object(release.time, "monotonic", side_effect=lambda: clock[0]), \
+                        patch.object(release.time, "sleep", side_effect=wait), \
+                        patch("sys.stdout", new_callable=io.StringIO), \
+                        self.assertRaisesRegex(release.UpgradeError, f"Previous service recovery: {failing_kind}.*backups retained"):
+                    self.operation.rehearse()
+                self.assertEqual(clock[0], 40)
+                self.assertTrue(all(0 < timeout <= 3 for _, timeout in observed))
+                self.assertFalse(any(":8028/" in url or ":1256/" in url for url, _ in observed))
+                self.assertEqual((backup / "database.dump").read_bytes(), b"retained snapshot")
+                self.assertEqual(json.loads(self.operation.state_path.read_text())["rehearsal_backup"], str(backup))
+                self.assertEqual(self.operation.state["phase"], "SNAPSHOTTING_REHEARSAL")
+                self.operation.clone.assert_not_called()
+                self.operation.migrate.assert_not_called()
+
+    def test_old_health_retries_transient_failure_using_old_ports_only(self):
+        responses = [OSError("starting"), nullcontext(SimpleNamespace(status=503)),
+                     nullcontext(SimpleNamespace(status=200)), nullcontext(SimpleNamespace(status=200))]
+        with patch.object(release, "urlopen", side_effect=responses) as request, patch.object(release.time, "sleep"):
+            self.operation.health(ports={"api": 8018, "yjs": 1246}, context="Previous service recovery")
+        self.assertEqual([call.args[0] for call in request.call_args_list],
+                         ["http://127.0.0.1:8018/health"] * 3 + ["http://127.0.0.1:1246/health"])
+
+    def test_backup_failure_still_checks_old_recovery_without_claiming_a_copy(self):
+        self.operation.state = {"phase": "PREPARED"}
+        self.operation.inspect = Mock(return_value={"State": {"Running": True}})
+        for name in ("run", "check_resources", "assert_writer_set", "remove_new_containers", "health", "clone", "migrate"):
+            setattr(self.operation, name, Mock())
+        partial = self.operation.target / "backup-partial.dump"
+        partial.write_bytes(b"partial backup retained for diagnosis")
+        self.operation.backup = Mock(side_effect=release.UpgradeError("backup failed; private log retained"))
+        with patch("sys.stdout", new_callable=io.StringIO) as output, \
+                self.assertRaisesRegex(release.UpgradeError, "backup failed"):
+            self.operation.rehearse()
+        self.operation.health.assert_called_once_with(ports={"api": 8018, "yjs": 1246}, context="Previous service recovery")
+        self.operation.clone.assert_not_called()
+        self.operation.migrate.assert_not_called()
+        self.assertTrue(partial.is_file())
+        self.assertNotIn("COPY_RESTORED", output.getvalue())
+        self.assertEqual(self.operation.state["phase"], "SNAPSHOTTING_REHEARSAL")
 
     def test_preview_build_routes_api_and_yjs_to_the_copy(self):
         self.operation.state = {"phase": "COPY_RESTORED"}
@@ -352,11 +425,13 @@ class UpgradeTests(unittest.TestCase):
         self.operation.assert_writer_set = Mock()
         self.operation.run = lambda *args, **kw: events.append(args) or ""
         self.operation.remove_new_containers = lambda **kw: events.append(("remove-new",))
+        self.operation.health = lambda **kw: events.append(("old-healthy",))
         with self.assertRaisesRegex(RuntimeError, "startup failed"):
             with self.operation.stopped_previous_writers():
                 events.append(("new-started-partially",))
                 raise RuntimeError("startup failed")
         self.assertLess(events.index(("remove-new",)), events.index(("docker", "start", "breeze-first-api")))
+        self.assertLess(events.index(("docker", "start", "breeze-first-yjs")), events.index(("old-healthy",)))
 
     def test_lost_cutover_ack_never_resumes_old_database_writers(self):
         events = []
@@ -364,12 +439,14 @@ class UpgradeTests(unittest.TestCase):
         self.operation.assert_writer_set = Mock()
         self.operation.run = lambda *args, **kw: events.append(args) or ""
         self.operation.remove_new_containers = Mock()
+        self.operation.health = Mock()
         with self.assertRaisesRegex(RuntimeError, "connection lost"):
             with self.operation.stopped_previous_writers():
                 self.operation.state["traffic_may_have_switched"] = True
                 raise RuntimeError("connection lost")
         self.assertFalse(any(args[:2] == ("docker", "start") for args in events))
         self.operation.remove_new_containers.assert_not_called()
+        self.operation.health.assert_not_called()
 
     def test_existing_clone_database_is_never_overwritten_or_dropped(self):
         self.operation.query = Mock(return_value="1")
