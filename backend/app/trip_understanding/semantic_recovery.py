@@ -101,7 +101,7 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
     # A valid place span does not certify the original row's rejected time.
     # Only an independently source-validated answer may improve those fields;
     # the merged answer is still fully validated by the caller afterward.
-    from app.trip_understanding.experience_inference import _proposal_from_live_draft
+    from app.trip_understanding.experience_inference import SourceAnchorIndex, _proposal_from_live_draft
 
     try:
         _proposal_from_live_draft(source, repaired)
@@ -109,13 +109,32 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
         repair_valid = False
     else:
         repair_valid = True
-    invalid_time_spans = {
-        _identity(source, original.activities[int(match[1])])
-        for issue in getattr(validated, "diagnostics", [])
-        if issue.category in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE"}
-        and (match := re.fullmatch(r"activities\[(\d+)\]\.time_evidence", issue.field or ""))
-        and int(match[1]) < len(original.activities)
-    }
+    # Partial name recovery can remove earlier rows, so diagnostic field
+    # indices need not index the original draft. Its exact source occurrence
+    # alone authorizes replacing failed timing or a failed city/evidence pair.
+    invalid_time_quotes = {(issue.span_start, issue.span_end)
+                           for issue in getattr(validated, "diagnostics", [])
+                           if issue.category in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE"}
+                           and issue.span_start is not None and issue.span_end is not None}
+    invalid_time_spans = set()
+    if invalid_time_quotes:
+        anchors = SourceAnchorIndex(source)
+        quoted_identities: dict[tuple[int, int], set[tuple[int, int]]] = {}
+        for original_item in original.activities:
+            identity = _identity(source, original_item)
+            if identity is None:
+                continue
+            quote = anchors.locate(original_item.source_quote, original_item.occurrence)
+            quoted_identities.setdefault(quote, set()).add(identity)
+        # Timing diagnostics refer to the whole source_quote, which may include
+        # prose around a name. Shared quotes containing several names do not
+        # authorize changing either activity by a broad containment guess.
+        invalid_time_spans = {next(iter(identities)) for quote, identities in quoted_identities.items()
+                              if quote in invalid_time_quotes and len(identities) == 1}
+    invalid_city_spans = {(issue.span_start, issue.span_end)
+                          for issue in getattr(validated, "diagnostics", [])
+                          if issue.category == "UNSUPPORTED_CITY_REMOVED"
+                          and issue.span_start is not None and issue.span_end is not None}
     improved = []
     for identity, item in preserved:
         candidates = repaired_by_identity.get(identity, [])
@@ -131,6 +150,8 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
                         "locked", "fixed_commitment", "time_evidence")})
                 if item.category == "地点":
                     updates["category"] = candidate.category
+                if identity in invalid_city_spans:
+                    updates.update(city=candidate.city, city_evidence=candidate.city_evidence)
                 item = item.model_copy(update=updates)
         improved.append((identity, item))
     preserved = improved

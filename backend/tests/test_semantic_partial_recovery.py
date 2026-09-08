@@ -43,7 +43,9 @@ def test_meal_name_or_wrong_model_claim_does_not_manufacture_lunch():
 async def test_redundant_city_metadata_is_not_a_missing_place_but_conflicting_city_stays_pending(city, unprocessed, complete):
     source = "北京 Day1：故宫博物院。"
     draft = {"destination": "北京", "activities": [activity("故宫博物院", category="景点", city=city)]}
-    output = await TripUnderstandingPipeline(provider(Client(json.dumps(draft))), ControlledSnapshotPlaceResolver()).run(source)
+    client = Client(json.dumps(draft), json.dumps(draft))
+    output = await TripUnderstandingPipeline(provider(client), ControlledSnapshotPlaceResolver()).run(source)
+    assert len(client.calls) == (1 if complete else 2)
     assert output.proposal.mentions[0].city_hint is None
     assert output.proposal.unprocessed_count == unprocessed
     assert output.public_result.coverage.complete is complete

@@ -2274,7 +2274,15 @@ def _proposal_from_live_draft(source: str, draft: SemanticDraft, *, allow_partia
     missing = [(index, item) for index, item in enumerate(draft.activities)
                if "place_name" not in item.model_fields_set]
     if not missing:
-        return proposal_from_draft(source, draft, allow_partial=allow_partial)
+        proposal = proposal_from_draft(source, draft, allow_partial=allow_partial)
+        city_issues = [{"field": issue.field, "category": issue.category}
+                       for issue in proposal.diagnostics if issue.category == "UNSUPPORTED_CITY_REMOVED"]
+        if city_issues and not allow_partial:
+            # A source-valid name is useful, but an invalid city prevents its
+            # identity check. Give these fields the existing bounded repair;
+            # partial mode retains the safe name and original city warning.
+            raise SourceAnchorValidationError(city_issues, repair_draft=draft)
+        return proposal
     issues = [{"field": f"activities[{index}].place_name", "category": "MISSING_PLACE_NAME_FIELD"}
               for index, _item in missing]
     if not allow_partial:
