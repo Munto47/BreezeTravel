@@ -26,6 +26,13 @@ def explicit_reference_context(source: str, start: int, end: int) -> str | None:
     after = source[end:right].replace("**", "").strip()
     sentence = before + source[start:end] + after
     # Local grammar must describe the noun, not introduce the next visit.
+    if (re.search(r"(?:俯瞰|眺望|远眺|遥望)\s*$", before)
+            and re.match(r"(?:的)?全景(?:[，,]|$)", after)
+            and not re.search(r"前往|抵达|游览|参观|进入|入内|再去|再到|走到", after)):
+        return "VIEWED_OBJECT"
+    if (re.match(r"过马路即到(?:[，,]|$)", after)
+            and (not before or before.endswith(("，", ",", "：", ":")))):
+        return "DIRECTION_ORIGIN"
     if re.match(r"(?:面积|占地|始建于|建于|建成于|位于|地处)", after):
         return "DESCRIPTION"
     if re.match(r"住宿(?:推荐|建议)", sentence) and re.search(r"(?:附近|片区|区域)", after):
