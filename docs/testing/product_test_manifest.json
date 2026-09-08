@@ -26,6 +26,8 @@
         "tests/test_source_meal_words.py",
         "tests/test_semantic_supplement_budget.py",
         "tests/test_source_visit_supplement.py",
+        "tests/test_source_supplement_literal_binding.py",
+        "tests/test_source_warning_day_sections.py",
         "tests/test_summary_anchor_recovery.py",
         "tests/test_source_details_readback.py",
         "tests/test_source_supplement_readback.py",

@@ -2308,15 +2308,16 @@ def _coverage_day_scopes(source: str) -> list[tuple[int, int, int]]:
     """Narrow source scopes for warning counts, never semantic day assignment.
 
     Only a complete sequence of unique line headings is usable. The warning
-    scope is the heading's own line, or its immediately following body line
-    when the title stands alone. Later undated paragraphs do not inherit the
-    last travel day; they keep the existing global warning.
+    scope follows an explicit Markdown section's hierarchy. Without that
+    hierarchy it is the heading's own line, or its immediately following body
+    line. Later unscoped sections keep the existing global warning.
     """
     from app.trip_understanding.semantic_sections import _at_day_heading_boundary
 
-    labels = list(re.finditer(
+    candidates = list(re.finditer(
         r"第\s*(?:\d{1,2}|[一二两三四五六七八九十]{1,3})\s*天|"
         r"(?<![A-Za-z0-9])(?:Day|D)\s*\d{1,2}(?![A-Za-z0-9])", source, re.I))
+    labels = [label for label in candidates if _at_day_heading_boundary(source, label.start(), label.end())]
     days = [_explicit_day_count(label[0]) for label in labels]
     if (not labels or len(days) > 14 or days != list(range(1, _explicit_day_count(source) + 1))
             or not all(_at_day_heading_boundary(source, label.start(), label.end()) for label in labels)):
@@ -2324,12 +2325,38 @@ def _coverage_day_scopes(source: str) -> list[tuple[int, int, int]]:
     if any(re.match(r"[ \t*_]*[-–—~～/至到][ \t*_]*(?:\d|[一二两三四五六七八九十])",
                     source[label.end():]) for label in labels):
         return []  # A multi-day range does not bind one day to a source span.
+    if any(re.match(r"[.．]\d", source[label.end():]) for label in labels):
+        return []  # Day1.5 is not an explicit Day1 heading.
     # A source location cannot establish the final day after a schedule move.
-    if re.search(r"更正|调整|变更|挪|对调|交换|顺延|改期|(?:移到|移至|改到|推迟|提前).{0,12}(?:天|日|周|星期)", source):
+    if re.search(r"更正|调整|变更|挪|对调|交换|顺延|改期|(?:移到|移至|改到|推迟).{0,12}(?:天|日|周|星期)", source):
         return []
+    for advance in re.finditer(r"提前[ \t]*(?:到|至)?[ \t]*(?:第[一二两三四五六七八九十\d]+天|"
+                               r"Day[ \t]*\d+|[一二两三四五六七八九十\d]+[天日周])", source, re.I):
+        left = max(source.rfind(mark, 0, advance.start()) for mark in "\n。；;，,") + 1
+        right = min((pos for mark in "\n。；;，," if (pos := source.find(mark, advance.end())) >= 0), default=len(source))
+        clause = source[left:right]
+        booking = re.search(r"预约|抢票|订票|购票|买票|订房|预订|查询|查看|核对", clause)
+        moving = re.search(r"把|将|行程|安排|出发|改|移", clause)
+        if not booking or moving:
+            return []  # Advance visits remain ambiguous; ticket lead time does not move a day.
     scopes = []
     for index, (day, label) in enumerate(zip(days, labels, strict=True)):
         limit = labels[index + 1].start() if index + 1 < len(labels) else len(source)
+        line_start = source.rfind("\n", 0, label.start()) + 1
+        markdown = re.match(r"[ \t]*(#{1,6})[ \t]+[ *_]*$", source[line_start:label.start()])
+        if markdown:
+            level = len(markdown[1])
+            next_section = re.search(r"^[ \t]*#{1," + str(level) + r"}[ \t]+\S",
+                                     source[label.end():limit], re.M)
+            end = label.end() + next_section.start() if next_section else limit
+            unscoped = re.search(
+                r"^[ \t>#*_\-]*(?:(?:全程|全篇|通用)(?:备选|建议|提醒|说明|注意事项|补充)?|"
+                r"其他(?:建议|提醒|事项|备选)|补充(?:建议|提醒)|注意事项)[ \t*_]*(?:[：:]|$)",
+                source[label.end():end], re.M)
+            if unscoped:
+                end = label.end() + unscoped.start()
+            scopes.append((day, label.start(), end))
+            continue
         end = source.find("\n", label.end(), limit)
         if end < 0:
             end = limit

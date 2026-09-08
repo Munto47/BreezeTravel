@@ -24,27 +24,46 @@ class SourceVisitSupplement(StrictModel):
     evidence: str = Field(min_length=1, max_length=500)
 
 
-def _literal_spans(source: str, quote: str) -> list[tuple[int, int]]:
-    spans = []
+def _literal_matches(source: str, quote: str) -> list[tuple[tuple[int, int], list[int]]]:
+    from app.trip_understanding.experience_inference import _markdown_visible
+
+    # Only paired presentation delimiters may differ. Retain the full-source
+    # character map, including when a quote begins inside a bold parent name.
+    visible, indices = _markdown_visible(source)
+    quoted, _ = _markdown_visible(quote)
+    matches = []
     offset = 0
-    while quote and (left := source.find(quote, offset)) >= 0:
-        spans.append((left, left + len(quote)))
-        offset = left + len(quote)
-    return spans
+    while quoted and (left := visible.find(quoted, offset)) >= 0:
+        matched = indices[left:left + len(quoted)]
+        matches.append(((matched[0], matched[-1] + 1), matched))
+        offset = left + len(quoted)
+    return matches
+
+
+def _literal_spans(source: str, quote: str) -> list[tuple[int, int]]:
+    return [span for span, _ in _literal_matches(source, quote)]
+
+
+def _visible_slice(source: str, start: int, end: int) -> str:
+    from app.trip_understanding.experience_inference import _markdown_visible
+
+    visible, indices = _markdown_visible(source)
+    return "".join(char for char, index in zip(visible, indices, strict=True) if start <= index < end)
 
 
 def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, optional: bool) -> bool:
     left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
     right = min((p for mark in "\n。；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
-    before = source[left:start].replace("**", "")
-    after = source[end:right].replace("**", "")
+    before = _visible_slice(source, left, start)
+    after = _visible_slice(source, end, right)
     cancelled = re.search(r"(?:取消|不去|不看|不参观|不进入|不进|不再去|跳过)[^。；;，,\n]{0,10}$", before)
     if cancelled and not re.search(r"(?:没有|并未|未|不)\s*$", before[:cancelled.start()]):
         return True
     if re.match(r"\s*(?:已取消|取消|本次不去|不去了|不参观)", after):
         return True
     # A proposed condition cannot disappear while its literal evidence stays.
-    return bool(not optional and re.search(r"若|如果|假如|时间(?:充裕|足够|允许)|有(?:时间|余力)|有兴趣", evidence))
+    return bool(not optional and re.search(r"若|如果|假如|时间(?:充裕|足够|允许)|有(?:时间|余力)|有兴趣",
+        _visible_slice(evidence, 0, len(evidence))))
 
 
 def _shared_purpose_roots(source: str, parent: ProposedMention, roots: list[ProposedMention]):
@@ -73,11 +92,30 @@ def _scope_parent(source, anchors, row, parent, roots, start, end, *, explicit_k
         roots, parent.mention_id if explicit_kind else None) == parent.mention_id
 
 
+def _gate_anchor(row, quote_indices):
+    from app.trip_understanding.experience_inference import _markdown_visible
+
+    name, _ = _markdown_visible(row.source_quote)
+    # A short typed quote may include its adjacent direction verb. Its source
+    # span/occurrence still covers the original whole quote, not another 门.
+    action = re.fullmatch(r"(?P<name>[\w·]{1,38}门)(?P<verb>进入|入园|入馆|入内|出去|离开|进|出)", name)
+    if action:
+        expected = {"进入", "入园", "入馆", "入内", "进"} if row.kind == "ENTRY" else {"出去", "离开", "出"}
+        if (action["verb"] not in expected or
+            re.match(r"(?:不(?:从|由|经)?|不要|不再|并非|从|由|经|去|到)", action["name"])):
+            return None
+        return action["name"], quote_indices[len(action["name"]) - 1] + 1
+    return name, quote_indices[-1] + 1
+
+
 def _gate_direction(row, source, start, end, evidence_span):
     left, right = evidence_span
-    before = source[left:start].rstrip(" *_\t")
-    after = source[end:right].lstrip(" *_\t")
-    if re.search(r"(?:不|不要|不再|并非)(?:从|由|经)?\s*$", before):
+    before = _visible_slice(source, left, start).rstrip()
+    after = _visible_slice(source, end, right).lstrip()
+    # A short literal quote must not cut a preceding negation out of the source.
+    clause_start = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
+    source_before = _visible_slice(source, clause_start, start).rstrip()
+    if re.search(r"(?:不|不要|不再|并非)(?:从|由|经)?\s*$", source_before):
         return False
     if row.kind == "ENTRY":
         return bool(re.match(r"(?:进入|进|入园|入馆|入内)", after)
@@ -87,7 +125,9 @@ def _gate_direction(row, source, start, end, evidence_span):
 
 
 def _purpose_supported(row):
-    text = row.evidence
+    from app.trip_understanding.experience_inference import _markdown_visible
+
+    text, _ = _markdown_visible(row.evidence)
     if re.search(r"俯瞰|眺望|远眺|遥望|望向|远望", text):
         return None  # Do not transfer a viewing object's restriction to its viewpoint.
     if row.kind == "EXTERIOR_ONLY":
@@ -152,9 +192,10 @@ def apply_source_visit_supplement(
             spans = _literal_spans(source, raw.get("evidence", "")) if isinstance(raw, dict) and isinstance(raw.get("evidence"), str) else []
             reject(index, spans[0] if len(spans) == 1 else None)
             continue
-        evidence_spans = _literal_spans(source, row.evidence)
-        quotes = _literal_spans(source, row.source_quote)
-        span = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else None
+        evidence_matches = _literal_matches(source, row.evidence)
+        evidence_spans = [span for span, _ in evidence_matches]
+        quotes = _literal_matches(source, row.source_quote)
+        span, quote_indices = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else (None, [])
         parent = by_id.get(parent_ids[row.parent_index]) if row.parent_index < len(parent_ids) else None
         diagnostic_span = evidence_spans[0] if len(evidence_spans) == 1 else span
         if (not parent or parent.role != ActivityRole.PLANNED or parent.parent_mention_id
@@ -164,7 +205,9 @@ def apply_source_visit_supplement(
             reject(index, diagnostic_span)
             continue
         selected = None
+        name = row.source_quote
         if row.kind in {"VISIT", "ENTRY", "EXIT"}:
+            gate = _gate_anchor(row, quote_indices) if row.kind != "VISIT" else None
             for evidence_span in evidence_spans:
                 if not evidence_span[0] <= span[0] < span[1] <= evidence_span[1]:
                     continue
@@ -174,20 +217,22 @@ def apply_source_visit_supplement(
                 local_before = source[max(parent.span_end, local_left):span[0]].replace("**", "")
                 if row.kind == "VISIT" and re.search(r"(?:(?:园|馆)内(?:有|设有|包括|收藏)|(?:介绍|说明)[^。；;，,]{0,15}(?:有|包括))\s*$", local_before):
                     continue
-                if row.kind != "VISIT" and not _gate_direction(row, source, *span, evidence_span):
-                    continue
+                if row.kind != "VISIT":
+                    if gate is None or not _gate_direction(row, source, span[0], gate[1], evidence_span):
+                        continue
+                    name = gate[0]
                 if _scope_parent(source, anchors, row, parent, roots, *span, explicit_kind=row.kind != "VISIT"):
                     selected = evidence_span
                     break
         elif (action_span := _purpose_supported(row)) is not None:
             purpose_roots = _shared_purpose_roots(source, parent, roots)
-            for evidence_span in evidence_spans:
+            for evidence_span, evidence_indices in evidence_matches:
                 # The explicit revised wire accepts a parent-name anchor only
                 # for its exact supplied visit, never another same-name day.
                 if not (span == (parent.span_start, parent.span_end)
                     or evidence_span[0] <= span[0] < span[1] <= evidence_span[1]):
                     continue
-                action = (evidence_span[0] + action_span[0], evidence_span[0] + action_span[1])
+                action = (evidence_indices[action_span[0]], evidence_indices[action_span[1] - 1] + 1)
                 if _cancelled_or_conditional(source, *action, row.evidence, row.optional):
                     continue
                 if _scope_parent(source, anchors, row, parent, purpose_roots, *action, explicit_kind=True):
@@ -210,9 +255,9 @@ def apply_source_visit_supplement(
         child = ProposedMention(mention_id=f"source-visit-{parent.mention_id}-{row.kind}-{span[0]}-{span[1]}",
             raw_text=source[span[0]:span[1]], span_start=span[0], span_end=span[1],
             role=ActivityRole.OPTIONAL if row.optional else ActivityRole.REFERENCE,
-            day_index=parent.day_index, sequence_index=len(proposal.mentions) + index, atomic_place_name=row.source_quote,
+            day_index=parent.day_index, sequence_index=len(proposal.mentions) + index, atomic_place_name=name,
             category_hint=parent.category_hint, parent_mention_id=parent.mention_id,
-            relation_type="INTERNAL_DETAIL", detail_kind=row.kind, role_evidence=row.evidence,
+            relation_type="INTERNAL_DETAIL", detail_kind=row.kind, role_evidence=source[selected[0]:selected[1]],
             role_evidence_start=selected[0], role_evidence_end=selected[1])
         additions.append(child)
         addition_origins[child.mention_id] = (index, diagnostic_span)
