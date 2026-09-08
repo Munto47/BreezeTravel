@@ -1,4 +1,8 @@
-"""Original synthetic cases for conservative omitted-option recovery."""
+"""Original synthetic cases for conservative omitted-option recovery.
+
+The 2026-09-08 owner rule treats weak route advice as planned. These recovery
+fixtures therefore state a real condition, preserving their safety/capacity aims.
+"""
 
 from __future__ import annotations
 
@@ -24,7 +28,7 @@ def _draft(rows):
 
 @pytest.mark.parametrize("heading,day", [("Day1", 1), ("Day2", 2), ("第2天", 2)])
 def test_omitted_literal_option_keeps_source_order_without_copying_time_or_city(heading, day):
-    source = f"北京一日游。\n{heading}\n09:00 星河公园，停留30分钟。\nIris咖啡可以打卡。\n青溪博物馆。"
+    source = f"北京一日游。\n{heading}\n09:00 星河公园，停留30分钟。\n如果有空，Iris咖啡可以打卡。\n青溪博物馆。"
     draft = _draft([
         _activity(day=day, start_time="09:00", visit_duration_minutes=30,
                   timing_source="TEXT", time_evidence="09:00 星河公园，停留30分钟",
@@ -48,7 +52,7 @@ def test_omitted_literal_option_keeps_source_order_without_copying_time_or_city(
 
 @pytest.mark.asyncio
 async def test_recovered_option_is_visible_with_literal_evidence_and_zero_place_queries():
-    source = "Day1\n星河公园。\nIris咖啡可以打卡。"
+    source = "Day1\n星河公园。\n如果有空，Iris咖啡可以打卡。"
     draft = _draft([_activity(role="OPTIONAL")])
 
     class Inference:
@@ -71,20 +75,20 @@ async def test_recovered_option_is_visible_with_literal_evidence_and_zero_place_
 
 
 @pytest.mark.parametrize("tail", [
-    "资料：云岭公园可以打卡。",
-    "“云岭公园可以打卡。”",
-    "> 可以去云岭公园。",
-    "原文：\n可以去云岭公园。",
-    "```text\n可以去云岭公园。\n```",
-    "参考：\n云岭公园可以打卡。",
-    "美式咖啡可以打卡。",
-    "冷萃咖啡可以打卡。",
+    "资料：如果有空，云岭公园可以打卡。",
+    "“如果有空，云岭公园可以打卡。”",
+    "> 如果有空，可以去云岭公园。",
+    "原文：\n如果有空，可以去云岭公园。",
+    "```text\n如果有空，可以去云岭公园。\n```",
+    "参考：\n如果有空，云岭公园可以打卡。",
+    "如果有空，美式咖啡可以打卡。",
+    "如果有空，冷萃咖啡可以打卡。",
     "不要去云岭公园。",
-    "云岭公园可以打卡，但这次不去。",
-    "取消安排。\n云岭公园可以打卡。",
-    "已选方案A。\n云岭公园可以打卡。",
-    "最终决定只去星河公园。\n云岭公园可以打卡。",
-    "更正：移到第三天。\n云岭公园可以打卡。",
+    "如果有空，云岭公园可以打卡，但这次不去。",
+    "取消安排。\n如果有空，云岭公园可以打卡。",
+    "已选方案A。\n如果有空，云岭公园可以打卡。",
+    "最终决定只去星河公园。\n如果有空，云岭公园可以打卡。",
+    "更正：移到第三天。\n如果有空，云岭公园可以打卡。",
 ])
 def test_descriptions_drinks_negations_references_and_settled_plans_do_not_add_options(tail):
     source = "Day1\n星河公园。\n" + tail
@@ -100,26 +104,26 @@ def test_descriptions_drinks_negations_references_and_settled_plans_do_not_add_o
 
 @pytest.mark.parametrize("role", ["PLANNED", "OPTIONAL", "REFERENCE", "EXCLUDED", "PASS_THROUGH"])
 def test_an_existing_identical_name_in_any_role_is_not_duplicated(role):
-    source = "Day1\n星河公园。\nIris咖啡可以打卡。"
+    source = "Day1\n星河公园。\n如果有空，Iris咖啡可以打卡。"
     draft = _draft([_activity(), _activity("Iris咖啡", role=role)])
     assert _retain_explicit_optional_labels(source, draft) == draft
 
 
-@pytest.mark.parametrize("claim", ["Iris咖啡可以打卡", "Iris咖啡", "Iris"])
+@pytest.mark.parametrize("claim", ["如果有空，Iris咖啡可以打卡", "Iris咖啡", "Iris"])
 def test_an_existing_full_or_partial_source_claim_prevents_recovery(claim):
-    source = "Day1\n星河公园。\nIris咖啡可以打卡。"
+    source = "Day1\n星河公园。\n如果有空，Iris咖啡可以打卡。"
     draft = _draft([_activity(), _activity(None, quote=claim, role="REFERENCE")])
     assert _retain_explicit_optional_labels(source, draft) == draft
 
 
 @pytest.mark.parametrize("source,rows", [
-    ("星河公园。Iris咖啡可以打卡。", [_activity()]),
-    ("Day1\n星河公园。\nDay2\nIris咖啡可以打卡。", [_activity()]),
-    ("Day1\nIris咖啡可以打卡。", []),
-    ("Day1\n星河公园。明天可以去Iris咖啡。", [_activity()]),
-    ("Day1\n星河公园。Iris咖啡可以打卡。\nDay2\nIris咖啡。", [_activity()]),
-    ("Day1\n星河公园。Iris咖啡可以打卡。青溪博物馆。", [_activity("青溪博物馆"), _activity()]),
-    ("Day1\n星河公园。Iris咖啡可以打卡。", [_activity(quote="未出现在原文的引用")]),
+    ("星河公园。如果有空，Iris咖啡可以打卡。", [_activity()]),
+    ("Day1\n星河公园。\nDay2\n如果有空，Iris咖啡可以打卡。", [_activity()]),
+    ("Day1\n如果有空，Iris咖啡可以打卡。", []),
+    ("Day1\n星河公园。明天如果有空可以去Iris咖啡。", [_activity()]),
+    ("Day1\n星河公园。如果有空，Iris咖啡可以打卡。\nDay2\nIris咖啡。", [_activity()]),
+    ("Day1\n星河公园。如果有空，Iris咖啡可以打卡。青溪博物馆。", [_activity("青溪博物馆"), _activity()]),
+    ("Day1\n星河公园。如果有空，Iris咖啡可以打卡。", [_activity(quote="未出现在原文的引用")]),
 ])
 def test_unknown_cross_day_unclaimed_or_disordered_days_cannot_supply_an_option(source, rows):
     draft = _draft(rows)
@@ -129,7 +133,7 @@ def test_unknown_cross_day_unclaimed_or_disordered_days_cannot_supply_an_option(
 @pytest.mark.parametrize("count", [159, 160])
 def test_recovery_respects_the_activity_limit_without_mutating_the_original(count):
     names = [f"星河{i}公园" for i in range(count)]
-    source = "Day1\n" + "。".join(names) + "。\nIris咖啡可以打卡。"
+    source = "Day1\n" + "。".join(names) + "。\n如果有空，Iris咖啡可以打卡。"
     draft = _draft([_activity(name) for name in names])
     if count == 160:
         with pytest.raises(SourceAnchorValidationError) as error:

@@ -143,3 +143,16 @@ async def test_explicit_anonymous_meals_leave_second_answer_available_for_visit_
     assert [detail.name for detail in output.public_result.days[0].activities[0].source_details] == ["望江楼"]
     assert not any(issue.category in {"MISSING_PLACE_NAME_FIELD", "SOURCE_VISITS_UNPROCESSED"}
                    for issue in output.proposal.diagnostics)
+
+
+@pytest.mark.asyncio
+async def test_repair_context_preserves_explicit_null_names_from_actual_first_answer():
+    sample = json.loads((Path(__file__).parent / "fixtures/live_shenzhen_name_repair.json").read_text(encoding="utf-8"))
+    client = Client(*sample["responses"])
+    result = await provider(client).propose(sample["source"])
+    prior_answer = next(message["content"] for message in client.calls[1]["messages"] if message["role"] == "assistant")
+    activities = json.loads(prior_answer)["activities"]
+    anonymous = [activity for activity in activities if activity.get("meal_role") == "LUNCH"]
+    assert len(anonymous) == 2
+    assert all("place_name" in activity and activity["place_name"] is None for activity in anonymous)
+    assert result.unprocessed_count > 0  # Fixed actual wrong days and omissions are not repaired by this check.

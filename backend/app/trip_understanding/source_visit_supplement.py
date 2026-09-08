@@ -102,9 +102,13 @@ def _gate_anchor(row, quote_indices):
     if action:
         expected = {"进入", "入园", "入馆", "入内", "进"} if row.kind == "ENTRY" else {"出去", "离开", "出"}
         if (action["verb"] not in expected or
-            re.match(r"(?:不(?:从|由|经)?|不要|不再|并非|从|由|经|去|到)", action["name"])):
+            re.match(r"(?:不(?:从|由|经)?|不要|不再|并非|去|到|(?:从|由|经)不)", action["name"])):
             return None
-        return action["name"], quote_indices[len(action["name"]) - 1] + 1
+        # A leading 从/由/经 may be grammar or part of the literal gate name
+        # (从化门). Keep the whole instruction for display; never guess a
+        # stripped name. Direction still uses the original verb coordinate.
+        display = name if name.startswith(("从", "由", "经")) else action["name"]
+        return display, quote_indices[action.start("verb") - 1] + 1
     return name, quote_indices[-1] + 1
 
 

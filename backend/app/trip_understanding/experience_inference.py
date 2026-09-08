@@ -51,7 +51,7 @@ class SemanticActivity(ActivityTiming):
     place_name: str | None = Field(default=None, max_length=40)
     role: ActivityRole
     role_evidence: str | None = Field(default=None, max_length=500,
-        description="逐字复制包含此地点、实际动作和所有适用条件的短原文。不要只有地点名；条件性到访不能省略如果/可以/若有余力。")
+        description="逐字复制包含此地点、实际动作和所有适用条件的短原文。不要只有地点名；条件性到访不能省略如果/若有余力等限制。")
     parent_source_quote: str | None = Field(default=None, max_length=100,
         description="仅原文明示此活动在已提取的父景点内部时，逐字填父景点名称；独立后续站点留空。")
     day_index: int | None = Field(default=None, ge=1, le=14)
@@ -477,11 +477,12 @@ def _retain_literal_subvenue_labels(source: str, draft: SemanticDraft) -> Semant
 
 
 def _align_named_day_occurrences(source: str, draft: SemanticDraft) -> tuple[SemanticDraft, list[dict[str, object]], list[str]]:
-    """Disambiguate a repeated quote using an already supplied explicit day.
+    """Validate an execution day and bind repeated quotes to that same day.
 
     This changes an occurrence only, never the proposed day or order. It is
     limited to unique, ordered Day headings and one matching quote in that day;
     changed schedules and ambiguous repeat visits stay with semantic repair.
+    Explicit anonymous actions use the same source-occurrence boundary.
     """
     if re.search(r"更正|改到|改为|改成|对调|交换|顺延|取消|原计划|最初计划|推迟|移至|移到|挪|调整|延后|延至|后移|前移|调至|换到|变更|重新排|改期", source):
         return draft, [], []
@@ -494,11 +495,12 @@ def _align_named_day_occurrences(source: str, draft: SemanticDraft) -> tuple[Sem
         ):
             return draft, [], []
     headings = list(re.finditer(
-        r"^[ \t#\"“”'‘’]*(?:Day|D)\s*(?P<day>\d{1,2})(?![\dA-Za-z]|\s*[-–—~～至到]\s*\d)[^\r\n]*",
+        r"^[ \t#\"“”'‘’]*(?:Day|D)\s*(?P<day>\d{1,2})(?![\dA-Za-z]|\.\d|\s*[-–—~～至到]\s*\d)[^\r\n]*",
         source, re.M | re.I,
     ))
     days = [int(match["day"]) for match in headings]
-    if len(days) < 2 or days != list(range(1, len(days) + 1)):
+    if (len(days) < 2 or days != list(range(1, len(days) + 1))
+        or _explicit_day_count(source) != len(days)):
         return draft, [], []
     anchors = SourceAnchorIndex(source)
     activities = []
@@ -506,7 +508,16 @@ def _align_named_day_occurrences(source: str, draft: SemanticDraft) -> tuple[Sem
     hints: list[str] = []
     for index, item in enumerate(draft.activities):
         day = item.day_index
-        if item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or not item.place_name or day not in days:
+        if item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or day is None:
+            activities.append(item)
+            continue
+        if day not in days:
+            # A clear two-day source cannot authorize a third execution day.
+            # Keep this row for the bounded repair/partial diagnostic; do not
+            # guess another day from its name or discard the source failure.
+            issues.append({"field": f"activities[{index}].day_index", "category": "SOURCE_DAY_QUOTE_MISMATCH"})
+            hints.append(json.dumps({"field": f"activities[{index}].day_index",
+                "source_quote": item.source_quote, "proposed_day": day, "explicit_source_days": days}, ensure_ascii=False))
             activities.append(item)
             continue
         try:
@@ -2752,7 +2763,10 @@ class ExperienceQwenProvider:
                                 validated_partial = (candidate, len(affected))
                         if attempt == 0:
                             repair_draft = getattr(exc, "repair_draft", None)
-                            repair_content = repair_draft.model_dump_json(exclude_defaults=True) if repair_draft is not None else content
+                            # Preserve explicit null name decisions: omitting
+                            # defaults here contradicted the live wire schema
+                            # and made the repair example discard valid meals.
+                            repair_content = repair_draft.model_dump_json(exclude_unset=True) if repair_draft is not None else content
                             messages.extend([
                                 {"role": "assistant", "content": repair_content},
                                 {"role": "user", "content": _repair_prompt(source_text, repair_content, exc)},
