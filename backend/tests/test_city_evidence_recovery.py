@@ -38,10 +38,11 @@ async def run(source, first, second, places=None):
 async def test_saved_owner_city_failure_repairs_without_rewriting_original_itinerary(corrected):
     fixture = json.loads((Path(__file__).parent / "fixtures/live_owner_invalid_city_evidence.json").read_text(encoding="utf-8"))
     first = fixture["model_response"]
-    second = copy.deepcopy(first)
-    if corrected:
-        for item in second["activities"]:
-            item.pop("city_evidence", None)  # Controlled second answer, not an inferred city.
+    # Explicit city-only patch protocol; a whole itinerary is not a valid patch.
+    # The saved 22 raw rows expand two literal place lists into 24 current
+    # draft slots. Patch indices address that current draft, not the raw list.
+    second = {"activities": [{"index": index, "city": None if corrected else "北京",
+        "city_evidence": None if corrected else "皇城核心"} for index in range(24)]}
     output, places = await run(fixture["source"], first, second)
     assert [[card.name for card in day.activities] for day in output.public_result.days] == [
         ["天安门广场", "故宫博物院", "景山公园", "什刹海", "后海"],
@@ -62,8 +63,7 @@ async def test_saved_owner_city_failure_repairs_without_rewriting_original_itine
 @pytest.mark.asyncio
 async def test_independent_invalid_city_quote_gets_one_bounded_repair():
     first = {"destination": "北京", "activities": [row("故宫博物院")]}
-    second = copy.deepcopy(first)
-    second["activities"][0]["city_evidence"] = "北京一日游"
+    second = {"activities": [{"index": 0, "city": "北京", "city_evidence": "北京一日游"}]}
     output, places = await run("北京一日游。\nDay1｜城市核心：故宫博物院。", first, second)
     assert places.calls == [("北京", "故宫博物院")]
     assert output.public_result.coverage.complete is True
@@ -83,8 +83,7 @@ async def test_repair_timeout_keeps_original_safe_names_and_city_warning():
 @pytest.mark.asyncio
 async def test_clearing_city_evidence_cannot_promote_a_city_inside_a_place_name():
     first = {"destination": "北京", "activities": [row("北京路步行街", evidence="北京路步行街")]}
-    second = copy.deepcopy(first)
-    second["activities"][0].update(city=None, city_evidence=None)
+    second = {"activities": [{"index": 0, "city": None, "city_evidence": None}]}
     output, places = await run("Day1：北京路步行街。", first, second)
     assert places.calls == []
     assert output.public_result.coverage.unresolved_place_count == 1
@@ -96,9 +95,8 @@ async def test_clearing_city_evidence_cannot_promote_a_city_inside_a_place_name(
 async def test_city_repair_cannot_absorb_an_unassigned_stop_into_document_city(repair_kind):
     source = "Day1 北京：星河公园。\nDay2 上海：月光桥。"
     first = {"destination": "北京", "activities": [row("星河公园"), row("月光桥", 2, "上海", "Day2 上海")]}
-    second = copy.deepcopy(first)
     replacement = {"clear": (None, None), "wrong_day": ("上海", "Day2 上海"), "wrong_city": ("杭州", "Day1 北京")}[repair_kind]
-    second["activities"][0].update(city=replacement[0], city_evidence=replacement[1])
+    second = {"activities": [{"index": 0, "city": replacement[0], "city_evidence": replacement[1]}]}
     output, places = await run(source, first, second)
     assert places.calls == [("上海", "月光桥")]
     assert [(item.atomic_place_name, item.day_index, item.role.value) for item in output.proposal.mentions] == [
@@ -111,9 +109,10 @@ async def test_city_repair_cannot_absorb_an_unassigned_stop_into_document_city(r
 async def test_valid_city_evidence_and_source_district_survive_another_stop_repair():
     source = "Day1 北京：海淀区星河公园。\nDay2 上海：月光桥。"
     first = {"destination": "北京", "activities": [row("星河公园", evidence="Day1 北京"), row("月光桥", 2, "上海")]}
-    second = copy.deepcopy(first)
-    second["activities"][0]["city_evidence"] = "北京"
-    second["activities"][1]["city_evidence"] = "Day2 上海"
+    second = {"activities": [
+        {"index": 0, "city": "北京", "city_evidence": "北京"},
+        {"index": 1, "city": "上海", "city_evidence": "Day2 上海"},
+    ]}
     output, _places = await run(source, first, second, FixedCities(districts={"北京": "110101", "上海": "310101"}))
     assert output.proposal.mentions[0].city_evidence == "Day1 北京"
     assert output.proposal.mentions[1].city_evidence == "Day2 上海"

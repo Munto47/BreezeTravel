@@ -336,9 +336,26 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
     # data before a city-limited POI query, including soft model destinations.
     if destination == "目的地待确认" or not re.fullmatch(r"[\u4e00-\u9fff]{2,20}", destination):
         return ("目的地待确认",)
+    from app.trip_understanding.experience_inference import SourceAnchorIndex
+
+    source_index = SourceAnchorIndex(source_text)
+    atomic_spans = []
+    for item in proposal.mentions:
+        if (not item.atomic_place_name or atomic_place_rejection_reason(item.atomic_place_name) is not None
+            or source_text[item.span_start:item.span_end] != item.raw_text):
+            continue
+        relative = source_index.place_span(item.span_start, item.span_end, item.atomic_place_name)
+        if relative is not None:
+            atomic_spans.append((item.span_start + relative[0], item.span_start + relative[1]))
+
+    def inside_atomic_name(match) -> bool:
+        # A quoted title or paragraph is not a place name. The complete city
+        # word must lie within this source-bound name, not merely its quote.
+        return any(left <= match.start() and match.end() <= right for left, right in atomic_spans)
+
     destination_mentions = list(re.finditer(re.escape(destination), source_text))
     if destination_mentions and all(
-        any(item.span_start <= match.start() < item.span_end for item in proposal.mentions)
+        inside_atomic_name(match)
         for match in destination_mentions
     ):
         if not _reviewed_places_support_soft_city(source_text, proposal, destination):
@@ -362,7 +379,7 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
                 r"湖(?:游船)?(?=$|[\s，,。；;：:、/／→+（）()*！？!?])",
                 source_text[match.end():],
             )
-            if not (road_suffix or lake_suffix) and not any(item.span_start <= match.start() < item.span_end for item in proposal.mentions):
+            if not (road_suffix or lake_suffix) and not inside_atomic_name(match):
                 return ("目的地待确认",)
     return (destination,)
 

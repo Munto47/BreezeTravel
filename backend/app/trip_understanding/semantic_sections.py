@@ -108,6 +108,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
     from app.trip_understanding.experience_inference import SemanticDraft, _known_source_places, _with_coverage_diagnostics
 
     started = time.perf_counter()
+    deadline_at = started + provider.deadline_seconds
     plan_call = {"phase": "GLOBAL_STRUCTURE", "attempt": 1, "input_tokens": None, "output_tokens": None, "outcome": "UNKNOWN"}
     bindings = [{"calls": [plan_call]}]
     sections = []
@@ -131,12 +132,10 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
         plan_call["latency_ms"] = round((time.perf_counter() - started) * 1000, 2)
 
     async def whole_document():
-        remaining = provider.deadline_seconds - (time.perf_counter() - started)
         receipt = {"calls": []}
         bindings.append(receipt)
         try:
-            async with asyncio.timeout(max(0.001, remaining)):
-                result = await provider._propose(source, call_sink=receipt["calls"])
+            result = await provider._propose(source, call_sink=receipt["calls"], deadline_at=deadline_at)
         except (InferenceProviderUnavailableError, TimeoutError) as error:
             failure_binding = getattr(error, "provider_binding", {})
             receipt.update(failure_binding)
@@ -167,7 +166,8 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
                 output = await provider._propose(prefix + source[left:right],
                     task_instruction=f"本次只整理原文第{day}天的详细段落。开头导语仅供城市上下文，不是新到访。保留原day_index={day}；"
                     "逐句核对本段所有明确到访和条件备选。描述‘先参观、然后沿着、依次游览’的园内实际游览点仍逐个保留；"
-                    "只是列举馆藏或介绍有哪些馆不增加到访。按原文整名输出，不简写地名。", call_sink=receipt["calls"])
+                    "只是列举馆藏或介绍有哪些馆不增加到访。按原文整名输出，不简写地名。", call_sink=receipt["calls"],
+                    deadline_at=deadline_at)
                 results[day] = (left, right, output)
                 receipt.update(output.binding)
             except InferenceProviderUnavailableError as error:
@@ -178,15 +178,10 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
             except asyncio.CancelledError:
                 raise
     tasks = [asyncio.create_task(one_day(*section)) for section in sections]
-    remaining = provider.deadline_seconds - (time.perf_counter() - started)
-    try:
-        async with asyncio.timeout(max(0.001, remaining)):
-            await asyncio.gather(*tasks)
-    except TimeoutError:
-        for day, left, right in sections:
-            if day not in results and not any(issue.field == f"days[{day}]" for issue in diagnostics):
-                diagnostics.append(SemanticDiagnostic(category="DAY_SECTION_UNPROCESSED", field=f"days[{day}]",
-                    span_start=left, span_end=right))
+    # Each worker owns the same deadline and can recover its validated first
+    # answer before returning. An outer timeout would cancel that recovery.
+    # Cancelling the caller still cancels gather and every pending request.
+    await asyncio.gather(*tasks)
     if capacity_exceeded:
         binding = aggregate_binding(provider, bindings, started, outcome=INPUT_CAPACITY_EXCEEDED)
         raise InferenceProviderUnavailableError(INPUT_CAPACITY_EXCEEDED, provider_binding=binding,

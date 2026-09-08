@@ -1533,6 +1533,94 @@ def _is_parent_visit_detail(source: str, place: str | None, start: int, end: int
     )
 
 
+def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: SemanticActivity,
+                               start: int, end: int, day: int | None,
+                               preceding: list[ProposedMention], inferred_parent: str | None) -> str | None:
+    """Accept a source-local internal relation, never merely a matching name.
+
+    Another main visit or day heading ends the parent's scope. A quoted view
+    of a place is not an internal visit, even if the model supplies a parent.
+    Uncertain relations stay unprocessed rather than becoming separate stops.
+    """
+    label_pattern = (r"第\s*(?:\d{1,2}|[一二两三四五六七八九十]{1,3})\s*天|"
+                     r"(?<![A-Za-z0-9])(?:Day|D)\s*\d{1,2}(?![A-Za-z0-9])")
+    roots = [mention for mention in preceding if mention.role == ActivityRole.PLANNED
+        and not mention.parent_mention_id and mention.span_end <= start]
+    if not roots:
+        return None
+    parent = max(roots, key=lambda mention: mention.span_end)
+    # An existing main card may quote the day's overview title. Its unique
+    # numbered body heading can ground details without moving or duplicating it.
+    named = [mention for mention in roots if mention.day_index == day
+        and mention.atomic_place_name == normalized_place_label(item.parent_source_quote or "")]
+    if len(named) == 1:
+        candidate = named[0]
+        title_left = source.rfind("\n", 0, candidate.span_start) + 1
+        title = source[title_left:candidate.span_start]
+        heading = re.search(label_pattern, title, re.I)
+        if (heading and not title[:heading.start()].strip(" \t#>*_~+-")
+            and _explicit_day_count(title) == day):
+            body_left = source.rfind("\n", 0, start) + 1
+            body_spans = []
+            for occurrence in range(1, 161):
+                try:
+                    left, right = anchors.locate(item.parent_source_quote, occurrence)
+                except ValueError:
+                    break
+                if (candidate.span_end < left and parent.span_end <= right and body_left <= left < right <= start
+                    and re.fullmatch(r"[ \t]*(?:\d+[.)、][ \t]*)?[*#> \t]*", source[body_left:left])):
+                    body_spans.append((left, right))
+            if len(body_spans) == 1:
+                parent = candidate.model_copy(update={"span_start": body_spans[0][0], "span_end": body_spans[0][1]})
+    if (parent.day_index != day or
+        (item.parent_source_quote and parent.atomic_place_name != normalized_place_label(item.parent_source_quote)) or
+        (not item.parent_source_quote and parent.mention_id != inferred_parent)):
+        return None
+    if item.parent_source_quote and _bound_role_evidence(anchors, item.role_evidence, start, end) is None:
+        return None
+    def literal_day(position):
+        labels = list(re.finditer(label_pattern, source[:position], re.I))
+        if not labels:
+            return 0
+        label = labels[-1]
+        if re.match(r"[ \t*_]*[-–—~～/至到][ \t*_]*(?:\d|[一二两三四五六七八九十])", source[label.end():]):
+            return None
+        left = max(source.rfind(mark, 0, label.start()) for mark in "\n。；;") + 1
+        if source[left:label.start()].strip(" \t#>*_~+-"):
+            return None  # A day reference within prose does not establish scope.
+        return _explicit_day_count(label[0])
+
+    parent_day, child_day = literal_day(parent.span_start), literal_day(start)
+    if parent_day is None or parent_day != child_day or parent_day not in {0, day}:
+        return None
+    gap = source[parent.span_end:start]
+    if (len(gap) > 500 or re.search(label_pattern, gap, re.I) or re.search(r"\n[ \t]*\n", gap)
+        or gap.count("\n") > 1
+        or re.search(r"前往|走到|步行到|离开|出园|出馆|(?:之后|随后|然后|接着)去", gap)
+        or re.search(r"(?:乘车|乘坐|搭乘|坐车|驾车|打车|骑行|地铁|公交)[^，,。；;\n]{0,20}(?:去|到|抵达)", gap)
+        or re.search(r"附近|周边|隔壁|对面", gap)):
+        return None
+    if "\n" in gap:
+        body = gap.rsplit("\n", 1)[1]
+        if re.match(r"[ \t]*(?:#{1,6}\s+|(?:其他|全程|全篇|参考|说明|总结|补充)[^\n:：]{0,12}[:：])", body):
+            return None
+        parent_line = source.rfind("\n", 0, parent.span_start) + 1
+        if sum(parent_line <= mention.span_start for mention in roots) > 1:
+            return None  # A multi-place title cannot give an unnamed body one parent.
+    left = max(source.rfind(mark, 0, start) for mark in "\n，,。；;") + 1
+    before = source[left:start].replace("**", "")
+    view = re.search(r"俯瞰|眺望|远眺|遥望|望向|看向|远望|俯视", before)
+    if view and not re.search(r"参观|游览|进入|前往|走到|登上", before[view.end():]):
+        return None
+    relation_text = source[max(parent.span_start, parent.span_end - 1):start]
+    internal_scope = re.search(r"(?:园|馆|寺|院|区)(?:内|里|中)|内部|(?:重点|必看|必逛)(?:参观|游览|看)?\s*[:：]", relation_text)
+    local_visit = re.search(r"(?:参观|游览|游玩|打卡|登上|登|上|逛|看)[^。；;\n]{0,35}$", before)
+    if not internal_scope and not local_visit and not inferred_parent and not _is_parent_visit_detail(
+            source, item.place_name, start, end, day, preceding):
+        return None
+    return parent.mention_id
+
+
 def _is_explicit_dish_description(source: str, place: str | None, start: int, end: int) -> bool:
     """An explicitly described dish cannot establish a same-named shop visit."""
     if not place or re.search(r"(?:店|馆|铺|餐厅|酒楼|饭庄|食堂)$", place):
@@ -1967,11 +2055,12 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                 unprocessed += 1
         if item.role != ActivityRole.REFERENCE:
             parent_mention_id = None
-        if item.parent_source_quote and item.role_evidence:
-            parent_mention_id = next((mention.mention_id for mention in reversed(mentions)
-                if mention.atomic_place_name == normalized_place_label(item.parent_source_quote)
-                and mention.role == ActivityRole.PLANNED and mention.day_index == day and mention.span_end <= start), None)
+        if item.parent_source_quote or parent_mention_id:
+            parent_mention_id = _validated_internal_parent(source, anchors, item, start, end, day,
+                mentions, parent_mention_id)
             if not parent_mention_id:
+                if item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
+                    item = item.model_copy(update={"role": ActivityRole.REFERENCE})
                 diagnostics.append(SemanticDiagnostic(category="PARENT_RELATION_UNRESOLVED",
                     field=f"activities[{index}].parent_source_quote", span_start=start, span_end=end))
                 unprocessed += 1
@@ -2408,8 +2497,11 @@ class ExperienceQwenProvider:
                 return await propose_by_day(self, source_text)
             return await self._propose(source_text)
 
-    async def _propose(self, source_text: str, task_instruction: str = "", call_sink: list | None = None) -> SourceSemanticPlan:
+    async def _propose(self, source_text: str, task_instruction: str = "", call_sink: list | None = None,
+                       *, deadline_at: float | None = None) -> SourceSemanticPlan:
         started = time.perf_counter()
+        available_seconds = self.deadline_seconds if deadline_at is None else min(
+            self.deadline_seconds, deadline_at - started)
         calls: list[dict[str, object]] = [] if call_sink is None else call_sink
         source_places = _known_source_places(source_text)
         place_context = ("\n原文已知地点名词提示（仅供核对遗漏，不表示实际到访；说明、否定、备选均须按原文处理；"
@@ -2431,8 +2523,14 @@ class ExperienceQwenProvider:
         final_draft: SemanticDraft | None = None
         semantic_partial_used = False
         try:
-            async with asyncio.timeout(self.deadline_seconds):
+            if deadline_at is not None:
+                available_seconds = min(available_seconds, deadline_at - time.perf_counter())
+            if available_seconds <= 0:
+                raise TimeoutError  # A queued day cannot start another paid request.
+            async with asyncio.timeout(available_seconds):
                 for attempt in range(2):
+                    if deadline_at is not None and time.perf_counter() >= deadline_at:
+                        raise TimeoutError
                     call: dict[str, object] = {"attempt": attempt + 1, "input_tokens": None, "output_tokens": None, "outcome": "UNKNOWN"}
                     calls.append(call)
                     call_started = time.perf_counter()
@@ -2499,6 +2597,20 @@ class ExperienceQwenProvider:
                                     len(recovered.mentions) > len(recovery_partial.mentions) or
                                     improves_only_lodging_evidence(recovery_partial, recovered)):
                                 recovery_draft, recovery_partial = checked_recovery, recovered
+                        if (attempt == 0 and isinstance(exc, SourceAnchorValidationError) and exc.issues
+                            and checked_recovery is not None and recovery_partial is not None
+                            and all(issue["category"] == "UNSUPPORTED_CITY_REMOVED" for issue in exc.issues)):
+                            from app.trip_understanding.city_metadata import repair_city_metadata
+
+                            # Names and visit positions already validated. City
+                            # repair must not re-extract them or turn a summary
+                            # heading into another visit. Preserve this partial
+                            # even if the one field-only request times out.
+                            final_draft, proposal = checked_recovery, recovery_partial
+                            final_draft, proposal = await repair_city_metadata(
+                                self, source_text, final_draft, proposal, calls)
+                            semantic_partial_used = bool(proposal.unprocessed_count)
+                            break
                         if (attempt == 0 and isinstance(exc, SourceAnchorValidationError) and exc.issues
                             and checked_recovery is not None
                             and all(issue["category"] == "MISSING_EXPLICIT_DAY" for issue in exc.issues)):
@@ -2612,7 +2724,7 @@ class ExperienceQwenProvider:
             cost = round((input_tokens * self.rates[0] + output_tokens * self.rates[1]) / 1_000_000, 8)
         binding = {
             "provider": "QWEN", "model": self.model, "semantic_policy": SEMANTIC_POLICY,
-            "deadline_ms": round(self.deadline_seconds * 1000), "max_output_tokens": self.max_output_tokens,
+            "deadline_ms": round(max(0, available_seconds) * 1000), "max_output_tokens": self.max_output_tokens,
             "temperature": SEMANTIC_TEMPERATURE,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),
             "fallback_used": bool(degraded_timing or grounded_days or semantic_partial_used), "degraded_timing_activities": degraded_timing,

@@ -61,6 +61,77 @@ async function exportObservedPng(page, info, filename) {
   return rendered.map(item => item.text)
 }
 
+test.describe('parent scope provider to page', () => {
+  let invalidParentResult
+  test.beforeAll(() => {
+    // Reuse the known wrong-parent raw fixture, not a hand-written public result.
+    // Both the actual provider adapter and the complete pipeline execute here;
+    // Client and FixedReplayPlaces cannot call a model or a place service.
+    invalidParentResult = JSON.parse(execFileSync(process.env.EXPERIENCE_PYTHON || 'python', ['-c', `
+import asyncio, json
+from tests.test_internal_parent_scope import invalid_cases
+from tests.test_experience_inference import Client
+from tests.test_semantic_day_sections import provider
+from tests.semantic_page_replays import FixedReplayPlaces
+from app.trip_understanding.pipeline import TripUnderstandingPipeline
+
+async def replay():
+    source, rows, rejected_name = next(invalid_cases())
+    assert rejected_name == '万春亭'
+    client = Client(json.dumps(dict(destination='北京', activities=rows), ensure_ascii=False))
+    output = await TripUnderstandingPipeline(provider(client), FixedReplayPlaces()).run(source)
+    assert len(client.calls) == 1
+    assert output.resolution_receipt['attempted_count'] == 2
+    assert output.resolution_receipt['semantic_diagnostic_counts']['PARENT_RELATION_UNRESOLVED'] == 1
+    return output.public_result.model_dump(mode='json')
+
+print(json.dumps(asyncio.run(replay()), ensure_ascii=False))
+`], {cwd: path.resolve(__dirname, '../../backend'), encoding: 'utf8',
+      env: {...process.env, RUNTIME_PROFILE: 'test', PYTHONPATH: '.', PYTHONIOENCODING: 'utf-8'},
+    }))
+  })
+
+  for (const width of [1440, 390]) {
+    test(`wrong parent stays unfinished without attaching an unrelated inner visit at ${width}px`, async ({page}, info) => {
+      await page.setViewportSize({width, height: 900})
+      expect(invalidParentResult.status).toBe('PARTIAL_RESULT')
+      expect(invalidParentResult.coverage.complete).toBe(false)
+      expect(invalidParentResult.coverage.unprocessed_count).toBeGreaterThan(0)
+      expect(invalidParentResult.days[0].activities.map(card => card.name)).toEqual(['故宫博物院', '景山公园'])
+      expect(invalidParentResult.days[0].activities.map(card => card.source_details)).toEqual([
+        [{name: '太和殿', optional: false}], [],
+      ])
+      expect(invalidParentResult.days[0].alternatives).toEqual([])
+      await show(page, 'invalid_parent', invalidParentResult)
+      await expect(page.getByTestId('activity-card')).toHaveCount(2)
+      await expect(page.getByText('部分待补全', {exact: true})).toBeVisible()
+      await expect(page.getByTestId('unmatched-places-note')).toContainText('尚未完整整理')
+      await expect(page.getByTestId('day-unprocessed-1')).toContainText('1 处原文内容尚未整理完成')
+      const parent = page.getByTestId('activity-card').filter({has: page.getByRole('heading', {name: '故宫博物院', exact: true})})
+      await expect(parent).toContainText('原文安排 · 1 项')
+      await parent.getByRole('button', {name: /故宫博物院.*查看详情/}).click()
+      const details = page.getByTestId('source-internal-details')
+      await expect(details.getByRole('listitem')).toHaveText(['太和殿'])
+      await expect(details).toContainText('地点身份与开放情况未单独核验')
+      await expect(page.getByTestId('itinerary-workspace')).not.toContainText('万春亭')
+      await expect(page.locator('body')).not.toContainText('PARENT_RELATION_UNRESOLVED')
+      await details.scrollIntoViewIfNeeded()
+      await page.screenshot({path: info.outputPath(`parent-scope-details-${width}.png`)})
+      await page.getByRole('button', {name: '收起地点确认', exact: true}).click()
+      await page.reload()
+      await expect(page.getByTestId('activity-card')).toHaveCount(2)
+      await expect(page.getByTestId('day-unprocessed-1')).toContainText('1 处原文内容尚未整理完成')
+      await expect(parent).toContainText('原文安排 · 1 项')
+      await page.getByTestId('day-unprocessed-1').scrollIntoViewIfNeeded()
+      await page.screenshot({path: info.outputPath(`parent-scope-unfinished-${width}.png`)})
+      await info.attach('parent-scope-public-result', {body: JSON.stringify({
+        evidence: 'synthetic raw through current provider and pipeline; fixed simulated place identities',
+        result: invalidParentResult,
+      }), contentType: 'application/json'})
+    })
+  }
+})
+
 for (const width of [1440, 390]) {
   test(`source internal arrangements: parent details survive page, refresh and PNG at ${width}px`, async ({page}, info) => {
     await page.setViewportSize({width, height: 900})
