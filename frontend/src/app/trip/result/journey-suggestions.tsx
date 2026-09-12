@@ -10,6 +10,7 @@ import {boundedTripRequest} from './use-trip-experience'
 import {findingLabel, needsRecheck} from './presentation'
 import StayCandidates from './stay-candidates'
 import ItineraryChoices from './itinerary-choices'
+import {relativeDayLabel} from './result-presentation'
 
 type Props = {
   resource: string; etag: string; result: UserFacingTripResult; disabled: boolean
@@ -145,13 +146,13 @@ export default function JourneySuggestions(props: Props) {
           {!items.length && <p className="text-sm text-slate-500">{props.checking ? '正在检查…' : props.checksError || props.checks?.message || '检查结果暂未就绪。'}</p>}
           <button className={action} disabled={busy || props.checking} onClick={props.onRetry}>重新检查</button>
           {!!items.length && <p className="text-xs leading-5 text-slate-500">{props.checks?.message}</p>}
-          <p className="text-xs leading-5 text-slate-500">按已有地点、路线和明确时间检查；营业、预约与天气尚未核验。</p>
+          <p className="text-xs leading-5 text-slate-500">按已有地点和路线检查；营业与天气尚未核验。</p>
         </div>
       </details>
-      <label className="my-3 flex items-center gap-3 text-sm">日期<select aria-label="建议所属日期" className="min-h-11 min-w-0 flex-1 rounded-xl bg-slate-50 px-3" value={currentDayIndex} onChange={event => {setDayIndex(Number(event.target.value)); setAnchorIndex(0); setDining(null); setError('')}}>{result.days.map((item, index) => <option key={index} value={index}>{item.label}</option>)}</select></label>
+      <label className="my-3 flex items-center gap-3 text-sm">哪一天<select aria-label="建议所属日期" className="min-h-11 min-w-0 flex-1 rounded-xl bg-slate-50 px-3" value={currentDayIndex} onChange={event => {setDayIndex(Number(event.target.value)); setAnchorIndex(0); setDining(null); setError('')}}>{result.days.map((item, index) => <option key={index} value={index}>{relativeDayLabel(index)}</option>)}</select></label>
       {!!unassigned.length && <details className="border-b border-slate-100 py-2" data-testid="unassigned-alternatives">
         <summary className="cursor-pointer py-2 text-sm font-semibold">未指定日期 · 备选地点 · {unassigned.length}</summary>
-        <p className="py-2 text-sm text-slate-500">这些地点尚未排入时间表。可在想去的日期新增地点，确认后再更新路线。</p>
+        <p className="py-2 text-sm text-slate-500">这些地点尚未排入行程。可在想去的那一天新增地点，确认后再更新路线。</p>
         <ul>{unassigned.map((item, index) => <li key={index} className="py-2 text-sm">{item.name}</li>)}</ul>
       </details>}
       <details className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">附近餐饮</summary>
@@ -162,7 +163,7 @@ export default function JourneySuggestions(props: Props) {
       {!!alternatives.length && <details ref={alternativesSection} className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">备选地点 · {alternatives.length}</summary>
         <ItineraryChoices key={`${etag}:${currentDayIndex}`} day={day} dayIndex={currentDayIndex} disabled={busy} onApply={apply}/>
       </details>}
-      <details className="py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">住宿</summary><p className="py-2 text-sm text-slate-500">{stay.message}</p><button className={action} disabled={busy || stay.status === 'PREPARING'} onClick={props.onRefreshStay}>{stay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button><StayCandidates stay={stay} disabled={busy} onSelect={props.onStay}/></details>
+      <details className="py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">住宿</summary><p className="py-2 text-sm text-slate-500">{stay.message}</p><button className={action} disabled={busy || stay.status === 'PREPARING'} onClick={props.onRefreshStay}>{stay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button><StayCandidates stay={stay} days={result.days} disabled={busy} onSelect={props.onStay}/></details>
       {error && <p role="status" className="mt-2 text-sm text-slate-600">{error}</p>}
     </aside>}
   </div>

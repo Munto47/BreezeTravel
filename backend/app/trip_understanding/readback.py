@@ -27,6 +27,9 @@ class AccountTripItem(StrictModel):
     updated_at: datetime
     expires_at: datetime
     is_demo: bool
+    state: Literal["PROCESSING", "READY", "PARTIAL", "FAILED", "CANCELLED"] = "READY"
+    has_result: bool = True
+    source_status: Literal["AVAILABLE", "DELETED", "UNAVAILABLE"] = "UNAVAILABLE"
 
 
 class AccountTripListView(StrictModel):
@@ -108,11 +111,17 @@ def _list_view(items, user_id, limit, now):
     return AccountTripListView(items=items[:limit], next_cursor=cursor)
 
 
-def _trip_item(row, result, is_demo):
-    city = next((item.value for item in result.assumptions if item.key == "destination"), "目的地待确认")
+def _trip_item(row, result, is_demo, source_status="UNAVAILABLE"):
+    state = row["state"]
+    has_result = result is not None and state in {"READY", "PARTIAL"}
+    city = next((item.value for item in result.assumptions if item.key == "destination"), "目的地待确认") if result else "目的地待确认"
+    title = f"{city} · {len(result.days)}日行程" if result else {
+        "PROCESSING": "正在整理的行程", "FAILED": "未整理完成的行程", "CANCELLED": "已停止的行程",
+    }.get(state, "待查看的行程")
     return AccountTripItem(public_resource_id=row["public_resource_id"],
-        title=f"{city} · {len(result.days)}日行程", city=city, day_count=len(result.days),
-        updated_at=row["updated_at"], expires_at=row["expires_at"], is_demo=is_demo)
+        title=title, city=city, day_count=len(result.days) if result else 0,
+        updated_at=row["updated_at"], expires_at=row["expires_at"], is_demo=is_demo,
+        state=state, has_result=has_result, source_status=source_status)
 
 
 @dataclass
@@ -205,16 +214,25 @@ class PostgresReadbackMixin(_ReadbackProjection):
         seek = _decode_cursor(cursor, user_id, now)
         pool = await self._get_pool()
         rows = await pool.fetch("""SELECT u.public_resource_id,u.updated_at,u.source_expires_at AS expires_at,
-                r.public_json,
+                u.state,r.public_json,
                 EXISTS(SELECT 1 FROM trip_understanding_sources s WHERE s.understanding_id=u.understanding_id
-                    AND s.source_type='FIXED_DEMO') AS is_demo
-            FROM trip_understandings u JOIN trip_understanding_results r ON r.result_id=u.current_result_id
+                    AND s.source_type='FIXED_DEMO') AS is_demo,
+                CASE WHEN s.deleted_at IS NOT NULL THEN 'DELETED'
+                     WHEN s.retention_until>$2 AND (
+                        (s.source_type='TEXT' AND s.encrypted_content IS NOT NULL AND s.encryption_key_ref=$6)
+                        OR (s.source_type='FIXED_DEMO' AND trim(s.content_hash)=$7)) THEN 'AVAILABLE'
+                     ELSE 'UNAVAILABLE' END AS source_status
+            FROM trip_understandings u LEFT JOIN trip_understanding_results r ON r.result_id=u.current_result_id
+            LEFT JOIN trip_understanding_revisions v ON v.understanding_id=u.understanding_id AND v.revision=u.current_revision
+            LEFT JOIN trip_understanding_sources s ON s.source_id=v.source_id
             WHERE u.owner_user_id=$1 AND u.deleted_at IS NULL AND u.source_expires_at>$2
-                AND u.state IN ('READY','PARTIAL')
+                AND u.state IN ('PROCESSING','READY','PARTIAL','FAILED','CANCELLED')
                 AND ($3::timestamptz IS NULL OR (u.updated_at,u.public_resource_id)<($3,$4::text))
             ORDER BY u.updated_at DESC,u.public_resource_id DESC LIMIT $5""",
-            user_id, now, seek[0] if seek else None, seek[1] if seek else None, limit + 1)
-        items = [_trip_item(row, UserFacingTripResult.model_validate(_json(row["public_json"])), row["is_demo"]) for row in rows]
+            user_id, now, seek[0] if seek else None, seek[1] if seek else None, limit + 1,
+            self._get_source_cipher().key_ref, DEMO_SOURCE_SHA256)
+        items = [_trip_item(row, UserFacingTripResult.model_validate(_json(row["public_json"])) if row["public_json"] else None,
+            row["is_demo"], row["source_status"]) for row in rows]
         return _list_view(items, user_id, limit, now)
 
     async def _read_import(self, resource, *, now):
@@ -275,10 +293,23 @@ class InMemoryReadbackMixin(_ReadbackProjection):
     async def list_account_trips(self, *, user_id, limit=20, cursor=None, now):
         seek = _decode_cursor(cursor, user_id, now)
         rows = [row for row in self.resources.values() if row["owner_user_id"] == user_id
-            and row["state"] in {"READY", "PARTIAL"} and row["expires_at"] > now and row["current_result_id"]
+            and row["state"] in {"PROCESSING", "READY", "PARTIAL", "FAILED", "CANCELLED"} and row["expires_at"] > now
             and (seek is None or (row["updated_at"], row["public_resource_id"]) < seek)]
         rows.sort(key=lambda row: (row["updated_at"], row["public_resource_id"]), reverse=True)
-        return _list_view([_trip_item(row, self.results[row["current_result_id"]].result, row.get("is_demo", False)) for row in rows[:limit + 1]], user_id, limit, now)
+        items = []
+        for row in rows[:limit + 1]:
+            jobs = [(key, job) for key, job in self.jobs.items() if job["understanding_id"] == row["understanding_id"]]
+            job_id, job = max(jobs, key=lambda pair: pair[1]["revision"]) if jobs else (None, None)
+            source = self.sources.get(job_id)
+            source_status = "UNAVAILABLE"
+            if job_id and source is None:
+                source_status = "DELETED"
+            elif source and self.source_expiries[job_id] > now and source.source_type in {"TEXT", "FIXED_DEMO"}:
+                if hashlib.sha256(source.text.encode()).hexdigest() == job["input_hash"]:
+                    source_status = "AVAILABLE"
+            stored = self.results.get(row["current_result_id"])
+            items.append(_trip_item(row, stored.result if stored else None, row.get("is_demo", False), source_status))
+        return _list_view(items, user_id, limit, now)
 
     async def _read_import(self, resource, *, now):
         row = self.resources.get(resource.public_resource_id)

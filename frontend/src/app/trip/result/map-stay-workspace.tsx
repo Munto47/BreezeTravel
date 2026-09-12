@@ -12,7 +12,7 @@ import RouteMap from './route-map'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
 import RoutePlayback from './route-playback'
-import { DAY_COLORS } from './result-presentation'
+import { DAY_COLORS, relativeDayLabel } from './result-presentation'
 import StayCandidates from './stay-candidates'
 
 type GeometryPoint = { longitude: number; latitude: number }
@@ -138,7 +138,7 @@ export default function MapStayWorkspace({
             onClick={() => { setMapScope('all'); setSimulationPosition(null) }}>全部行程</button>
           {result.days.map((day,index) => <button key={day.label} type="button" className="e-button e-button-quiet"
             aria-pressed={mapScope === 'day' && index === dayIndex}
-            onClick={() => { setMapScope('day'); setSimulationPosition(null); onDayChange(index) }}><span className="fluid-day-dot" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{day.label}</button>)}
+            onClick={() => { setMapScope('day'); setSimulationPosition(null); onDayChange(index) }}><span className="fluid-day-dot" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{relativeDayLabel(index)}</button>)}
         </div>
         <div className="fluid-map-tools">
           <details className="fluid-map-popover" name={`map-tools-${resource}`}><summary>路线</summary><div className="fluid-map-popover-content" data-testid="map-route-tools">
@@ -198,7 +198,7 @@ export default function MapStayWorkspace({
             <button data-testid="retry-stay" type="button" className="e-button" disabled={disabled || currentStay.status === 'PREPARING'} onClick={onRefreshStay}>{currentStay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button>
                       <p className="mt-2 text-sm leading-6 text-slate-600">{currentStay.message}</p>
           {currentStay.area_summary && <p className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-slate-700">{currentStay.area_summary}</p>}
-          <StayCandidates stay={currentStay} disabled={disabled} onSelect={onSelectStay}/>
+          <StayCandidates stay={currentStay} days={result.days} disabled={disabled} onSelect={onSelectStay}/>
 
           </div></details>
         </div>

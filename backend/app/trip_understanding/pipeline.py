@@ -1443,6 +1443,7 @@ class TripUnderstandingPipeline:
         projector: PublicResultProjector | None = None,
         max_executable_activities: int = MAX_TRIP_ACTIVITIES,
         max_place_concurrency: int = 4,
+        relative_only: bool = False,
     ) -> None:
         if max_place_concurrency < 1 or max_place_concurrency > 8:
             raise ValueError("place concurrency must be between 1 and 8")
@@ -1452,6 +1453,7 @@ class TripUnderstandingPipeline:
         self.projector = projector or PublicResultProjector()
         self.max_executable_activities = max_executable_activities
         self.max_place_concurrency = max_place_concurrency
+        self.relative_only = relative_only
 
     async def aclose(self) -> None:
         await _close_async_resources(self.inference_provider, self.place_resolver)
@@ -1645,6 +1647,19 @@ class TripUnderstandingPipeline:
                 raise ValueError("prepared plan does not match its retained source")
         else:
             proposal = await self.inference_provider.propose(source_text)
+        if self.relative_only:
+            # Prepared source plans can come from historical saved imports.
+            # Build a new relative projection without mutating that stored plan.
+            proposal = proposal.model_copy(update={
+                "mentions": [mention.model_copy(update={
+                    "start_time": None, "end_time": None, "visit_duration_minutes": None,
+                    "time_hint": None, "timing_source": "UNSPECIFIED", "locked": False, "fixed_commitment": False,
+                }) for mention in proposal.mentions],
+                "day_labels": {},
+                "day_count": min(14, max(proposal.day_count,
+                    max(proposal.day_labels, default=0), max(proposal.unprocessed_by_day, default=0),
+                    max((mention.day_index or 0 for mention in proposal.mentions), default=0))),
+            })
         model_meaning = isinstance(proposal, SourceSemanticPlan)
         cancellation_pending_spans: set[tuple[int, int]] = set()
         if not model_meaning:

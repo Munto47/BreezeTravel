@@ -140,7 +140,7 @@ async def test_source_expiry_hides_text_and_optional_arrangements_before_cleanup
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
 @pytest.mark.asyncio
-async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_expired_deleted_unfinished(kind):
+async def test_account_trip_seek_pagination_is_private_reopenable_and_includes_unfinished_without_expired_deleted(kind):
     async with repository_for(kind) as repository:
         if kind == "postgres":
             await repository._pool.execute("INSERT INTO users(user_id,nickname) VALUES ('other-owner','Other')")
@@ -181,6 +181,7 @@ async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_ex
             assert (await owner.delete(deleted, headers={"Idempotency-Key": "delete-listed"})).status_code == 204
             pending = await owner.post("/api/v3/trip-understandings", json={"mode": "FULL", "source": {"type": "TEXT", "text": DEMO_SOURCE_TEXT}}, headers={"Idempotency-Key": "pending-list"})
             assert pending.status_code == 202
+            pending_id = pending.json()["public_resource_id"]
             # Equal timestamps exercise the deterministic second ordering key.
             same_time = datetime.now(timezone.utc) - timedelta(minutes=1)
             if kind == "postgres":
@@ -194,13 +195,16 @@ async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_ex
             first = response.json()
             assert len(first["items"]) == 2 and first["next_cursor"]
             second = (await owner.get("/api/v3/me/trips", params={"limit": 2, "cursor": first["next_cursor"]})).json()
-            assert len(second["items"]) == 1 and second["next_cursor"] is None
+            assert len(second["items"]) == 2 and second["next_cursor"] is None
             items = first["items"] + second["items"]
-            assert [item["public_resource_id"] for item in items] == sorted([base.rsplit("/", 1)[1] for base in bases], reverse=True)
+            assert [item["public_resource_id"] for item in items] == sorted([base.rsplit("/", 1)[1] for base in bases] + [pending_id], reverse=True)
             assert next(item for item in items if item["public_resource_id"] == claimed_id)["is_demo"]
             for item in items:
-                assert set(item) == {"public_resource_id", "title", "city", "day_count", "updated_at", "expires_at", "is_demo"}
-                assert item["city"] == "北京" and item["day_count"] == 3
+                assert set(item) == {"public_resource_id", "title", "city", "day_count", "updated_at", "expires_at", "is_demo", "state", "has_result", "source_status"}
+                if item["public_resource_id"] == pending_id:
+                    assert item["state"] == "PROCESSING" and item["has_result"] is False and item["day_count"] == 0
+                else:
+                    assert item["city"] == "北京" and item["day_count"] == 3
             assert (await other.get("/api/v3/me/trips", params={"cursor": first["next_cursor"]})).status_code == 400
             assert (await owner.get("/api/v3/me/trips", params={"cursor": first["next_cursor"][:-4] + "bad!"})).status_code == 400
             for limit in (0, 51):
@@ -210,6 +214,6 @@ async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_ex
             async with AsyncClient(transport=transport, base_url="http://test", headers={"x-test-user": "experience-owner"}) as returning:
                 for item in items:
                     base = "/api/v3/trip-understandings/" + item["public_resource_id"]
-                    assert (await returning.get(base + "/result")).status_code == 200
+                    assert (await returning.get(base + "/result")).status_code == (202 if item["public_resource_id"] == pending_id else 200)
                     assert (await returning.get(base + "/source")).json()["status"] == "AVAILABLE"
                     assert (await other.get(base + "/source")).status_code == 404

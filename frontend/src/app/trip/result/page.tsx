@@ -29,6 +29,9 @@ import PlaceEditor from './place-editor'
 import ContextPanel, { type ContextMode } from './context-panel'
 import ChangePreviewPanel from './change-preview-panel'
 import GenerationStages from './generation-stages'
+import GenerationWorkspace from './generation-workspace'
+import ExperienceHeader from '@/components/experience/experience-header'
+import { forgetBrowserTripReference } from '@/lib/browser-resource-ref'
 import ItineraryPngExport from './itinerary-png-export'
 import ItineraryWorkspace from './itinerary-workspace'
 import MapStayWorkspace from './map-stay-workspace'
@@ -37,7 +40,7 @@ import {DailyMealCard, useDailyDining} from './daily-dining'
 import UnresolvedPlaces from './unresolved-places'
 import SourceLodging from './source-lodging'
 import ResultNavigation from './result-navigation'
-import { type ResultViewId } from './result-presentation'
+import { relativeDayLabel, type ResultViewId } from './result-presentation'
 import {
   findingLabel,
   formatExpiry,
@@ -382,6 +385,7 @@ export default function TripResultPage() {
         await boundedTripRequest((signal) =>
           deleteTripUnderstanding(trip.resource, signal),
         )
+        forgetBrowserTripReference(trip.resource)
         clearTripUnderstandingSession()
         sessionStorage.removeItem('bt_pending_operation')
         router.replace('/')
@@ -535,76 +539,12 @@ export default function TripResultPage() {
         setDiscard(true)
       }}
     >
-      <header className="e-header">
-        <Link href="/" className="e-brand">
-          行程查<span>TRIPCHECK</span>
-        </Link>
-        <nav className="e-actions" aria-label="全局导航">
-          <Link href="/" className="e-button e-button-quiet" aria-current="page">
-            行程查
-          </Link>
-          <Link href="/collaborate" className="e-button e-button-quiet">
-            协同规划
-          </Link>
-          {user && (
-            <Link href="/my-trips" className="e-button e-button-quiet">
-              我的行程
-            </Link>
-          )}
-          <Link
-            className="e-button e-button-quiet"
-            href={user ? '/profile' : '/'}
-          >
-            {user ? '账号' : '首页'}
-          </Link>
-        </nav>
-      </header>
+      <ExperienceHeader />
       {!result ? (
-        trip.progressSnapshot ? (
-          <section className="e-progress-workspace" aria-busy={trip.loading}>
-            <div className="e-progress-heading">
-              <div>
-                <h1 className="sr-only">{progressTitle}</h1>
-              </div>
-              <div className="e-progress-actions">
-                <button
-                  type="button"
-                  className="e-button"
-                  disabled={trip.cancelling}
-                  onClick={() => void trip.stopUnderstanding()}
-                >
-                  {trip.cancelling ? '正在停止…' : '停止整理'}
-                </button>
-              </div>
-            </div>
-<GenerationStages phase={trip.phase} progress={trip.progress} />
-            <div className="e-progress-days">
-              {trip.progressSnapshot.days.map((day) => (
-                <section className="e-progress-day" key={day.label}>
-                  <header>
-                    <strong>{day.label}</strong>
-                    <span>{day.activities.length} 个地点</span>
-                  </header>
-                  <div className="e-progress-chain" role="list">
-                    {day.activities.map((card, index) => (
-                      <div className="e-progress-card-wrap" key={card.activity_token}>
-                        {index > 0 && (
-                          <span className="e-progress-connector" aria-hidden="true">
-
-                          </span>
-                        )}
-                        <article className="e-progress-card" role="listitem">
-                          <span>第 {index + 1} 站</span>
-                          <strong>{card.name}</strong>
-                          <small>已确认</small>
-                        </article>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </section>
+        trip.loading ? (
+          <GenerationWorkspace phase={trip.phase} progress={trip.progress}
+            snapshot={trip.progressSnapshot} pendingDays={trip.progressPendingDays} notice={trip.notice} cancelling={trip.cancelling}
+            onStop={() => void trip.stopUnderstanding()} />
         ) : (
           <section className="e-loading">
             <h1 className={trip.loading ? 'sr-only' : undefined}>
@@ -770,7 +710,7 @@ export default function TripResultPage() {
 
                       {discard && <div role="alert" className="e-inline-confirm"><p>放弃未保存的修改？</p><button type="button" className="e-button" onClick={() => setDiscard(false)}>继续编辑</button><button type="button" className="e-button" onClick={() => closeContext(true)}>放弃修改</button></div>}
                     </div> : <>
-                    {result.assumptions.map((item) => (
+                    {result.assumptions.filter((item) => item.key !== 'calendar').map((item) => (
                       <button
                         type="button"
                         key={item.key}
@@ -1018,7 +958,7 @@ export default function TripResultPage() {
                     aria-pressed={index === safeDayIndex}
                     onClick={() => changeDay(index)}
                   >
-                    {day.label}
+                    {relativeDayLabel(index)}
                   </button>
                 ))}
               </nav>
@@ -1041,7 +981,7 @@ export default function TripResultPage() {
               {String(context.kind) === 'timeline' ? (
                 <>
                   <div className="e-section-heading">
-                    <h2>{currentDay?.label}</h2>
+                    <h2>{relativeDayLabel(safeDayIndex)}</h2>
                     <span className="e-muted">
                       {currentDay?.activities.length || 0} 个地点
                     </span>
@@ -1355,7 +1295,7 @@ export default function TripResultPage() {
               ) : (
                 <ContextPanel
                   title={contextTitle}
-                  dayLabel={currentDay?.label || '行程'}
+                  dayLabel={currentDay ? relativeDayLabel(safeDayIndex) : '行程'}
                   busy={trip.busy || privacyBusy}
                   modal={
                     context.kind === 'place' ||
@@ -1452,7 +1392,7 @@ export default function TripResultPage() {
                           <div key={item.check_token}>
                             {context.allDays && (
                               <p className="e-small e-muted">
-                                {item.affected_days.join('、')}
+                                {item.affected_days.map(label => result.days.findIndex(day => day.label === label)).filter(index => index >= 0).map(relativeDayLabel).join('、') || '所属日待确认'}
                               </p>
                             )}
                             {issue(item)}
@@ -1549,7 +1489,7 @@ export default function TripResultPage() {
                 >
                   {result.days.map((day, index) => (
                     <option key={index} value={index}>
-                      {day.label}
+                      {relativeDayLabel(index)}
                     </option>
                   ))}
                 </select>

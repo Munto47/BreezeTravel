@@ -3,6 +3,8 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import SourceDetails from './source-details'
+import {relativeKnowledgeSuggestions} from '@/lib/confirmed-trip-view'
+import {relativeDayLabel} from './result-presentation'
 import {
   queryTripPlaceCandidates,
   readTripUnderstandingResult,
@@ -164,7 +166,7 @@ export default function PlaceEditor({
         }}
       >
         <p className="e-muted">
-          加入{days[dayIndex]?.label}
+          加入{relativeDayLabel(dayIndex)}
           。搜索并选择真实地点后，才会展示新卡片。
         </p>
         <label className="e-field">
@@ -202,7 +204,7 @@ export default function PlaceEditor({
   return (
     <div className="e-editor">
       <p className="e-muted">
-        {stagedCard ? `准备加入 ${days[dayIndex]?.label}` : `${days[dayIndex]?.label} · 第 ${originalPosition + 1} 站`}
+        {stagedCard ? `准备加入 ${relativeDayLabel(dayIndex)}` : `${relativeDayLabel(dayIndex)} · 第 ${originalPosition + 1} 站`}
       </p>
       {!stagedCard && <p className="e-place-address">
         {card.area_or_address || '地址尚未确认'}
@@ -322,10 +324,10 @@ export default function PlaceEditor({
           </div>
         )}
       </section>
-      {!!card.knowledge_suggestions?.length && (
+      {!!relativeKnowledgeSuggestions(card).length && (
         <details className="e-disclosure">
           <summary>有来源的出发前建议</summary>
-          {card.knowledge_suggestions.map((item, index) => (
+          {relativeKnowledgeSuggestions(card).map((item, index) => (
             <div className="e-reference" key={index}>
               <p>{item.text}</p>
               {/^https?:\/\//.test(item.source_url) && (
@@ -350,7 +352,7 @@ export default function PlaceEditor({
         )}
         <div className="e-fields">
           <label className="e-field">
-            移至日期
+            移至哪一天
             <select
               value={targetDay}
               disabled={busy || Boolean(candidate)}
@@ -361,7 +363,7 @@ export default function PlaceEditor({
             >
               {days.map((day, index) => (
                 <option value={index} key={index}>
-                  {day.label}
+                  {relativeDayLabel(index)}
                 </option>
               ))}
             </select>

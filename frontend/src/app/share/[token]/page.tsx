@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { Loader2, LockKeyhole, ShieldAlert } from 'lucide-react'
 
 import type { ShareProjectionView } from '@/lib/trip-understanding-v3'
+import {relativeDayLabel} from '@/app/trip/result/result-presentation'
 
 const UNAVAILABLE_MESSAGE = '此链接不存在、已过期或已被撤销。'
 
@@ -121,7 +122,7 @@ export default function SharedItineraryPage() {
         </div>
         <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
           <p>目的地：{shared.destination}</p>
-          <p>时间：{shared.schedule}</p>
+          <p>行程：共 {shared.days.length} 天</p>
           <p>出行：{shared.party_size}</p>
         </div>
         {shared.accommodation ? (
@@ -131,7 +132,7 @@ export default function SharedItineraryPage() {
         ) : null}
       </section>
       <section className="mt-4 space-y-3" aria-label="只读行程">
-        {shared.days.map((storedDay) => {
+        {shared.days.map((storedDay, dayIndex) => {
           // Older immutable shares may still contain unresolved entries.
           const day = { ...storedDay, activities: storedDay.activities.filter(activity => activity.note === '可直接查看') }
           return (
@@ -139,7 +140,7 @@ export default function SharedItineraryPage() {
             key={day.label}
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <h2 className="font-semibold text-slate-900">{day.label}</h2>
+            <h2 className="font-semibold text-slate-900">{relativeDayLabel(dayIndex)}</h2>
             {day.activities.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">当天暂无地点</p>
             ) : (
@@ -151,7 +152,7 @@ export default function SharedItineraryPage() {
                   >
                     <p className="text-sm font-medium text-slate-900">{activity.name}</p>
                     <p className="mt-1 text-xs text-slate-600">
-                      {activity.time_hint ?? '时间待定'} · {activity.area_or_address}
+                      第 {index + 1} 站 · {activity.area_or_address}
                     </p>
                     <p className="mt-1 text-[11px] text-slate-500">{activity.note}</p>
                   </li>

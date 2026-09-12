@@ -33,10 +33,10 @@ class Client:
         )
 
 
-def provider(client):
+def provider(client, *, relative_only=True):
     return ExperienceQwenProvider(
         api_key="unit-test", base_url="https://example.test/v1", model="configured-model",
-        input_cny_per_million=1, output_cny_per_million=2, client=client,
+        input_cny_per_million=1, output_cny_per_million=2, client=client, relative_only=relative_only,
     )
 
 
@@ -50,8 +50,8 @@ def draft(city, activities, **kwargs):
     ("上海", ["外滩", "豫园"]),
     ("杭州", ["西湖", "灵隐寺"]),
 ])
-async def test_live_adapter_contract_preserves_dates_order_and_duration(city, places):
-    # Injected model output checks integration, not model accuracy/live evidence.
+async def test_legacy_adapter_contract_preserves_dates_order_and_duration(city, places):
+    # Historical timing replay; the new default runtime is tested separately.
     source = f"{city} 9月12日，10点到{places[0]}游览两小时，11点到{places[1]}。"
     payload = draft(city, [
         dict(source_quote=f"10点到{places[0]}游览两小时", place_name=places[0], role="PLANNED", day_index=1,
@@ -60,7 +60,7 @@ async def test_live_adapter_contract_preserves_dates_order_and_duration(city, pl
              start_time="11:00", time_evidence=f"11点到{places[1]}"),
     ], day_labels=["9月12日"])
     client = Client(json.dumps(payload, ensure_ascii=False))
-    output = await TripUnderstandingPipeline(provider(client), ControlledSnapshotPlaceResolver()).run(source)
+    output = await TripUnderstandingPipeline(provider(client, relative_only=False), ControlledSnapshotPlaceResolver()).run(source)
     assert [m.compiled.mention.atomic_place_name for m in output.activities] == places
     assert output.public_result.days[0].label == "9月12日"
     assert output.activities[0].compiled.mention.visit_duration_minutes == 120

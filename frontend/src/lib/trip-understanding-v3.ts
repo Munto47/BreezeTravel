@@ -356,6 +356,9 @@ export interface MyTripListItem {
   updated_at: string
   expires_at: string
   is_demo: boolean
+  state?: 'PROCESSING' | 'READY' | 'PARTIAL' | 'FAILED' | 'CANCELLED'
+  has_result?: boolean
+  source_status?: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
 }
 
 export interface MyTripListView {

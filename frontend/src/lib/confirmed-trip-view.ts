@@ -16,11 +16,23 @@ function isConfirmedVisit(card: ActivityCardView) {
   return card.status === 'READY' && !isWholeTripLodging(card)
 }
 
+// Only system suggestions are filtered. Original text, source details and
+// stored timing fields remain intact, including on historical readback.
+export function relativeKnowledgeSuggestions(card: Pick<ActivityCardView, 'knowledge_suggestions'>) {
+  return (card.knowledge_suggestions || []).filter(item => {
+    if (item.type === 'TYPICAL_DURATION' || item.type === 'SUITABLE_TIME') return false
+    if (item.type !== 'RESERVATION_ADVICE') return true
+    return !/(?:\d{1,2}[:：]\d{2}|[零〇一二三四五六七八九十两\d]+\s*(?:点|时|小时|分钟|天|月|号)|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})/.test(item.text)
+  })
+}
+
 // Presentation only. Keep the authoritative result, source, unresolved records
 // and status intact for editing, undo, diagnostics and honest route coverage.
 export function confirmedDays(days: UserFacingTripResult['days']) {
   return days.map(day => ({ ...day,
-    activities: day.activities.filter(isConfirmedVisit),
+    activities: day.activities.filter(isConfirmedVisit).map(card => ({...card,
+      knowledge_suggestions: relativeKnowledgeSuggestions(card),
+    })),
     // Source alternatives stay in their separate, explicitly unconfirmed panel.
     alternatives: day.alternatives || [],
   }))

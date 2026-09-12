@@ -85,7 +85,14 @@
   align-items: center;
   flex-shrink: 0;
   gap: 8px;
+  flex-wrap: wrap;
 }
+.e-trip-state { font-size: 13px; color: var(--e-accent, #2f6558); }
+.e-trip-state[data-state='FAILED'], .e-trip-state[data-state='CANCELLED'] { color: #8a5b28; }
+.e-browser-trips { margin-bottom: 40px; }
+.e-browser-trips h2 { font-size: 20px; }
+.e-browser-trips h3 { font-size: 18px; margin: 0; overflow-wrap: anywhere; }
+.e-library-refresh { margin-bottom: 16px; }
 .e-library-more {
   padding-top: 24px;
   text-align: center;

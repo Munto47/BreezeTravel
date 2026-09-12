@@ -29,7 +29,7 @@ def draft(**bad_fields):
 async def test_two_bad_timing_answers_preserve_every_place_and_all_other_verified_timing(bad_fields):
     payload = json.dumps(draft(**bad_fields), ensure_ascii=False)
     client = Client(payload, payload)
-    result = await TripUnderstandingPipeline(provider(client), ControlledSnapshotPlaceResolver()).run(SOURCE)
+    result = await TripUnderstandingPipeline(provider(client, relative_only=False), ControlledSnapshotPlaceResolver()).run(SOURCE)
     mentions = result.proposal.mentions
     assert [item.atomic_place_name for item in mentions] == ["全聚德（前门店）", "景山公园"]
     first, second = mentions
@@ -51,7 +51,7 @@ async def test_unverified_timing_cannot_rescue_an_invented_place():
     bad["activities"][0]["place_name"] = "原文不存在的分店"
     payload = json.dumps(bad, ensure_ascii=False)
     client = Client(payload, payload)
-    result = await TripUnderstandingPipeline(provider(client), ControlledSnapshotPlaceResolver()).run(SOURCE)
+    result = await TripUnderstandingPipeline(provider(client, relative_only=False), ControlledSnapshotPlaceResolver()).run(SOURCE)
     assert [mention.atomic_place_name for mention in result.proposal.mentions] == ["景山公园"]
     assert result.public_result.status == "PARTIAL_RESULT"
     assert result.resolution_receipt["attempted_count"] == 1

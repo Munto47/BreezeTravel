@@ -519,16 +519,21 @@ test('saving and reopening an edited account trip in another browser', async ({
     await memory.click()
     await expect(memory).toHaveAttribute('aria-pressed', 'true')
     await otherPage.getByTestId('walking-tolerance').fill('30')
-    await otherPage.getByTestId('preferred-start-time').fill('08:30')
+    // Relative-order scope keeps preferences, but no longer edits a clock.
+    await expect(otherPage.getByTestId('preferred-start-time')).toHaveCount(0)
+    await otherPage.getByTestId('trip-intensity').selectOption('RELAXED')
+    await otherPage.getByRole('button', { name: '当地风味', exact: true }).click()
+    await otherPage.getByRole('button', { name: '连锁酒店', exact: true }).click()
     await otherPage.getByTestId('save-preferences').click()
     await expect(
       otherPage.getByText('旅行偏好已更新。', { exact: true }),
     ).toBeVisible()
     await otherPage.reload()
     await expect(otherPage.getByTestId('walking-tolerance')).toHaveValue('30')
-    await expect(otherPage.getByTestId('preferred-start-time')).toHaveValue(
-      '08:30',
-    )
+    await expect(otherPage.getByTestId('preferred-start-time')).toHaveCount(0)
+    await expect(otherPage.getByTestId('trip-intensity')).toHaveValue('RELAXED')
+    await expect(otherPage.getByRole('button', { name: '当地风味', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(otherPage.getByRole('button', { name: '连锁酒店', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await otherPage.getByTestId('clear-preferences').click()
     await expect(otherPage.getByTestId('walking-tolerance')).toHaveValue('')
     await memory.click()

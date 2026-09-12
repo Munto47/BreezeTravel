@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight } from 'lucide-react'
-import { BEIJING_DEMO_TEXT } from '@/lib/trip-demo'
+import { ArrowRight, ClipboardPaste, FileText, Sparkles, Map, Landmark, Building2, UsersRound, Utensils, CornerDownLeft } from 'lucide-react'
+import ExperienceHeader from '@/components/experience/experience-header'
+import HomeDecor from '@/components/experience/home-decor'
+import HomePreview from '@/components/experience/home-preview'
+import { HOME_EXAMPLES, type HomeExample } from '@/components/experience/home-examples'
+import { rememberBrowserTripReference } from '@/lib/browser-resource-ref'
+import AccessibleDialog from './trip/result/accessible-dialog'
 import {
   clearTripUnderstandingSession,
-  createDemoTripUnderstanding,
   createFullTripUnderstanding,
   createTripRequestKey,
   readTripUnderstandingResult,
@@ -21,23 +25,23 @@ import {
 import './experience.css'
 
 type Resume = { reference: string; title: string; updated?: string | null }
+type Replacement = {text: string; label: string; kind: 'example' | 'clipboard'}
+const EXAMPLE_ICONS = [Landmark, Building2, UsersRound, Utensils]
 
 export default function HomePage() {
   const router = useRouter()
   const { user, hydrate, isHydrated } = useAuthStore()
   const [source, setSource] = useState('')
-  const [demo, setDemo] = useState(false)
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [replaceSample, setReplaceSample] = useState(false)
+  const [replacement, setReplacement] = useState<Replacement | null>(null)
+  const [pasteBusy, setPasteBusy] = useState(false)
+  const [inputNotice, setInputNotice] = useState('')
+  const editSequence = useRef(0)
   const [resume, setResume] = useState<Resume | null>(null)
   const submitted = useRef(false)
   const attempt = useRef<InputDraft | null>(null)
-
-  useEffect(() => {
-    if (replaceSample) document.getElementById('keep-input')?.focus()
-  }, [replaceSample])
 
   useEffect(() => {
     hydrate()
@@ -52,7 +56,6 @@ export default function HomePage() {
       ) {
         attempt.current = draft
         setSource(draft.text)
-        setDemo(draft.demo && draft.text === BEIJING_DEMO_TEXT)
         if (draft.failedResource && !draft.resource)
           setError(
             '上次没有整理完成，原文已保留，可以直接重试，也可以先修改文字。',
@@ -102,7 +105,6 @@ export default function HomePage() {
           if (attempt.current?.resource === reference) {
             attempt.current = null
             setSource('')
-            setDemo(false)
           }
           try {
             const pending = JSON.parse(
@@ -133,29 +135,61 @@ export default function HomePage() {
     if (
       !attempt.current ||
       attempt.current.text !== source ||
-      attempt.current.demo !== demo
+      attempt.current.demo !== false
     ) {
       attempt.current = {
         text: source,
-        demo,
+        demo: false,
         key: createTripRequestKey(),
         expires: Date.now() + 24 * 60 * 60 * 1000,
       }
     }
     sessionStorage.setItem(INPUT_KEY, JSON.stringify(attempt.current))
-  }, [source, demo, ready, busy])
+  }, [source, ready, busy])
 
-  function fillDemo() {
-    setSource(BEIJING_DEMO_TEXT)
-    setDemo(true)
-    setReplaceSample(false)
+  function fillText(next: Replacement) {
+    editSequence.current += 1
+    setSource(next.text)
+    setReplacement(null)
     setError('')
+    setInputNotice(next.kind === 'example' ? `已填入${next.label}，可以先修改，再开始整理。` : '已粘贴文字，可以开始整理。')
     document.getElementById('trip-source')?.focus()
+  }
+
+  function chooseExample(example: HomeExample) {
+    const next: Replacement = {text: example.text, label: example.label, kind: 'example'}
+    if (source.trim() && source !== example.text) setReplacement(next)
+    else fillText(next)
+  }
+
+  async function pasteText() {
+    if (busy || pasteBusy || !ready) return
+    const sequence = editSequence.current
+    setPasteBusy(true)
+    setInputNotice('')
+    try {
+      const text = await navigator.clipboard.readText()
+      // A delayed permission response must not overwrite newly typed text.
+      if (sequence !== editSequence.current) {
+        setInputNotice('文字已经改动，没有覆盖。需要时可再次粘贴。')
+      } else if (!text.trim()) {
+        setInputNotice('剪贴板中没有文字。可以直接在输入框中粘贴。')
+      } else if (text.length > 50000) {
+        setInputNotice('这段文字超过 50,000 字，请分成几份后粘贴。现有文字已保留。')
+      } else {
+        const next: Replacement = {text, label: '剪贴板文字', kind: 'clipboard'}
+        if (source.trim() && source !== text) setReplacement(next)
+        else fillText(next)
+      }
+    } catch {
+      setInputNotice('未能读取剪贴板。请在输入框中按 Ctrl / ⌘ + V，或长按后选择粘贴。')
+      document.getElementById('trip-source')?.focus()
+    } finally {setPasteBusy(false)}
   }
 
   async function start(event: React.FormEvent) {
     event.preventDefault()
-    if (submitted.current) return
+    if (submitted.current || pasteBusy || !ready) return
     if (sessionStorage.getItem('bt_pending_operation')) {
       setError(
         '上一份行程还有一次修改等待确认。请先从“继续上次行程”确认结果，再整理新行程。',
@@ -172,15 +206,14 @@ export default function HomePage() {
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 15000)
     try {
-      const fixed = demo && source === BEIJING_DEMO_TEXT
       if (
         !attempt.current ||
         attempt.current.text !== source ||
-        attempt.current.demo !== fixed
+        attempt.current.demo !== false
       ) {
         attempt.current = {
           text: source,
-          demo: fixed,
+          demo: false,
           key: createTripRequestKey(),
           expires: Date.now() + 24 * 60 * 60 * 1000,
         }
@@ -188,16 +221,11 @@ export default function HomePage() {
       attempt.current.failedResource = undefined
       const submittedAttempt = attempt.current
       sessionStorage.setItem(INPUT_KEY, JSON.stringify(submittedAttempt))
-      const accepted = fixed
-        ? await createDemoTripUnderstanding(
-            controller.signal,
-            submittedAttempt.key,
-          )
-        : await createFullTripUnderstanding(
-            source.trim(),
-            submittedAttempt.key,
-            controller.signal,
-          )
+      const accepted = await createFullTripUnderstanding(
+        source.trim(),
+        submittedAttempt.key,
+        controller.signal,
+      )
       if (attempt.current.key !== submittedAttempt.key) {
         // A concurrent result read acknowledged that this old attempt failed.
         // Do not bind its late acceptance to the fresh retry key.
@@ -211,10 +239,11 @@ export default function HomePage() {
       attempt.current.resource = accepted.public_resource_id
       sessionStorage.setItem(INPUT_KEY, JSON.stringify(attempt.current))
       sessionStorage.setItem('bt_active_trip_ref', accepted.public_resource_id)
-      sessionStorage.setItem('bt_active_trip_is_demo', String(fixed))
+      if (!user) rememberBrowserTripReference(accepted.public_resource_id)
+      sessionStorage.setItem('bt_active_trip_is_demo', 'false')
       sessionStorage.setItem(
         'bt_active_trip_mode',
-        fixed ? 'DEMO' : user ? 'CLAIMED' : 'FULL',
+        user ? 'CLAIMED' : 'FULL',
       )
       router.push(
         `/trip/result#trip=${encodeURIComponent(accepted.public_resource_id)}`,
@@ -236,140 +265,47 @@ export default function HomePage() {
   }
 
   return (
-    <main className="experience">
-      <header className="e-header">
-        <Link href="/" className="e-brand">
-          行程查<span>TRIPCHECK</span>
-        </Link>
-        <nav className="e-actions" aria-label="全局导航">
-          <Link href="/collaborate" className="e-button e-button-primary">
-            协同规划
-          </Link>
-          <Link href="/my-trips" className="e-button e-button-quiet">
-            我的行程
-          </Link>
-          <Link
-            href={user ? '/profile' : '/login'}
-            className="e-button e-button-quiet"
-            onClick={() => {
-              if (!user) sessionStorage.removeItem('bt_login_return')
-            }}
-          >
-            {user ? '账号' : '登录'}
-          </Link>
-        </nav>
-      </header>
-      <section className="e-home e-home-direct">
-        <form onSubmit={start} className="e-input-panel">
-          <label className="sr-only" htmlFor="trip-source">
-            你的攻略或行程
-          </label>
-          <textarea
-            id="trip-source"
-            data-testid="trip-source-text"
-            className="e-source"
-            value={source}
-            maxLength={50000}
-            disabled={!ready || busy}
-            onChange={(event) => {
-              setSource(event.target.value)
-              setDemo(false)
-              setError('')
-            }}
-            placeholder="粘贴行程，帮你整理地点、核对路线，生成清晰的行程卡片。"
-            aria-invalid={Boolean(error)}
-          />
-          <div className="e-input-footer">
-            <span className="e-small e-muted">
-              {source.length
-                ? `${source.length.toLocaleString()} / 50,000`
-                : ''}
-            </span>
-            <button
-              type="submit"
-              className="e-button e-button-primary"
-              data-testid="create-full-trip"
-              disabled={!isHydrated || !ready || busy}
-            >
-              {busy ? '正在接收…' : '整理行程'}
-              <ArrowRight aria-hidden="true" />
-            </button>
-          </div>
-          {error && (
-            <p className="e-message" role="alert">
-              {error}
-            </p>
-          )}
-        </form>
-        <div className="e-entry-secondary">
-          <button
-            type="button"
-            className="e-text-button"
-            data-testid="start-demo"
-            disabled={!ready || busy}
-            onClick={() =>
-              source.trim() && source !== BEIJING_DEMO_TEXT
-                ? setReplaceSample(true)
-                : fillDemo()
-            }
-          >
-            北京示例
-          </button>
-          {demo && <span className="e-small e-muted">示例回放</span>}
+    <main className="four-home">
+      <ExperienceHeader />
+      <HomeDecor />
+      <section className="four-home-main" aria-labelledby="home-title">
+        <div className="four-hero-copy">
+          <h1 id="home-title"><span>把旅行想法，</span><span>变成清晰的行程</span></h1>
+          <p>粘贴行程、攻略或聊天文字，<wbr />整理地点与先后，生成每天的卡片和地图。</p>
         </div>
-        {replaceSample && (
-          <div
-            className="e-message"
-            role="alertdialog"
-            aria-label="替换输入确认"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                setReplaceSample(false)
-                document.getElementById('trip-source')?.focus()
-              }
-            }}
-          >
-            <p>示例会替换当前输入，是否继续？</p>
-            <div className="e-actions">
-              <button
-                className="e-button"
-                id="keep-input"
-                type="button"
-                onClick={() => {
-                  setReplaceSample(false)
-                  document.getElementById('trip-source')?.focus()
-                }}
-              >
-                保留我的文字
-              </button>
-              <button
-                className="e-button e-button-primary"
-                type="button"
-                onClick={fillDemo}
-              >
-                填入示例
-              </button>
+        <form onSubmit={start} className="four-input-panel">
+          <label className="sr-only" htmlFor="trip-source">你的攻略或行程</label>
+          <textarea id="trip-source" data-testid="trip-source-text" value={source}
+            maxLength={50000} disabled={!ready || busy}
+            onChange={event => {editSequence.current += 1; setSource(event.target.value); setError(''); setInputNotice('')}}
+            placeholder={'例如：北京三日游。第1天先去故宫，再到景山公园……\n把想去的地点和大致顺序贴在这里，剩下的慢慢完善。'}
+            aria-invalid={Boolean(error)} aria-describedby={error ? 'home-input-error' : 'home-input-notice'} />
+          <div className="four-input-footer">
+            <span className="four-character-count" data-testid="source-character-count">{source.length.toLocaleString()} / 50,000</span>
+            <div className="four-input-actions">
+              <button type="button" className="four-paste-button" disabled={!ready || busy || pasteBusy} onClick={() => void pasteText()}><ClipboardPaste size={17} aria-hidden="true"/>{pasteBusy ? '正在读取…' : '粘贴内容'}</button>
+              <button type="submit" className="four-primary" data-testid="create-full-trip" disabled={!isHydrated || !ready || busy || pasteBusy}>{busy ? '正在接收…' : '开始整理行程'}<ArrowRight size={19} aria-hidden="true"/></button>
             </div>
           </div>
-        )}
-        {resume && (
-          <div className="e-resume-entry">
-            <div>
-              <strong>{resume.title}</strong>
-            </div>
-            <Link
-              className="e-button"
-              href={`/trip/result#trip=${encodeURIComponent(resume.reference)}`}
-            >
-              继续上次行程
-              <ArrowRight aria-hidden="true" />
-            </Link>
-          </div>
-        )}
+          {error && <p id="home-input-error" className="four-input-message is-error" role="alert">{error}</p>}
+          <p id="home-input-notice" className="four-input-message" role="status">{inputNotice}</p>
+        </form>
+        <div className="four-example-choices" aria-label="填入文字示例">
+          <span>试试这些示例：</span>
+          {HOME_EXAMPLES.map((example,index) => {const Icon = EXAMPLE_ICONS[index]; return <button key={example.id} type="button" data-testid={index === 0 ? 'start-demo' : `home-example-${example.id}`} disabled={!ready || busy || pasteBusy} onClick={() => chooseExample(example)}><Icon size={18} aria-hidden="true"/>{example.label}</button>})}
+        </div>
+        {resume && <div className="four-resume-entry"><span><CornerDownLeft size={15} aria-hidden="true"/>{resume.title}</span><Link href={`/trip/result#trip=${encodeURIComponent(resume.reference)}`}>继续上次行程<ArrowRight size={15} aria-hidden="true"/></Link></div>}
+        <ol className="four-how-it-works" aria-label="整理行程的三个步骤">
+          {[{Icon:FileText,title:'粘贴攻略',detail:'已有攻略，或刚冒出的旅行想法'}, {Icon:Sparkles,title:'整理每天安排',detail:'理清地点、先后与原文备选'}, {Icon:Map,title:'生成卡片与地图',detail:'继续调整，保存你的旅行版本'}].map(({Icon,title,detail},index) => <li key={title}><span className="four-step-icon"><Icon aria-hidden="true"/></span><div><h2>{index+1}. {title}</h2><p>{detail}</p></div>{index < 2 && <ArrowRight className="four-step-arrow" aria-hidden="true"/>}</li>)}
+        </ol>
       </section>
-      <footer className="e-home-footer">
-        <Link href="/about#privacy">隐私与数据</Link>
-      </footer>
+      <HomePreview />
+      <footer className="four-home-footer"><span>让每一次旅行，都更简单、更从容。</span><Link href="/about#privacy">隐私与数据</Link></footer>
+      {replacement && <AccessibleDialog titleId="replace-input-title" onClose={() => setReplacement(null)}>
+        <h2 id="replace-input-title" className="text-xl font-semibold">替换当前文字？</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-600">{replacement.kind === 'example' ? '示例' : '剪贴板文字'}会替换当前输入。已有文字尚未提交，请确认后再替换。</p>
+        <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" className="four-secondary" data-dialog-initial-focus onClick={() => setReplacement(null)}>保留我的文字</button><button type="button" className="four-primary" onClick={() => fillText(replacement)}>{replacement.kind === 'example' ? '填入示例' : '替换为粘贴文字'}</button></div>
+      </AccessibleDialog>}
     </main>
   )
 }

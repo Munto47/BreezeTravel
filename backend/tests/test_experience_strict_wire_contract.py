@@ -89,8 +89,7 @@ async def test_actual_schema_keeps_all_business_fields_bounds_and_requires_name_
     assert set(activity["properties"]) == {
         "source_quote", "occurrence", "place_name", "role", "day_index", "category", "meal_role",
         "lodging_event", "lodging_scope", "lodging_evidence", "lodging_excluded_nights", "lodging_exclusion_evidence",
-        "city", "city_evidence", "start_time", "end_time", "visit_duration_minutes", "timing_source",
-        "locked", "fixed_commitment", "time_evidence",
+        "city", "city_evidence",
     }
     assert schema["additionalProperties"] is False and activity["additionalProperties"] is False
     assert schema["properties"]["activities"]["maxItems"] == 160

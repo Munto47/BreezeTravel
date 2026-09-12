@@ -8,6 +8,11 @@ import {
 
 export type ResultViewId = 'ITINERARY' | 'MAP_STAY'
 
+// Display only. Stored day labels still bind routes and other versioned data.
+export function relativeDayLabel(zeroBasedIndex: number) {
+  return `Day ${zeroBasedIndex + 1}`
+}
+
 export const DAY_COLORS = ['#047857', '#2563eb', '#7c3aed', '#d97706', '#0f766e', '#be185d'] as const
 
 export const DAY_ACCENTS = [

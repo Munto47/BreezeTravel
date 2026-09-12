@@ -83,12 +83,17 @@ def _route_stop_pairs(plan, itinerary: ItineraryRevision) -> dict:
     return pairs
 
 
+def _relative_materialized_view(view: MaterializedTripView) -> MaterializedTripView:
+    # This includes old idempotency replies; normalization is read-only.
+    return view.model_copy(update={"calendar": "按 Day 编号安排"})
+
+
 def _materialized_view(profile: CalendarProfile) -> MaterializedTripView:
-    return MaterializedTripView(
+    return _relative_materialized_view(MaterializedTripView(
         message="行程已准备好，可以查看最值得处理的三项",
         calendar=profile.public_calendar,
         party_size=profile.party_size,
-    )
+    ))
 
 
 class G03Repository(Protocol):
@@ -796,9 +801,9 @@ class PostgresG03RepositoryMixin:
             if existing is not None:
                 headers = _json(existing["response_headers_json"])
                 return MaterializationOutcome(
-                    view=MaterializedTripView.model_validate(
+                    view=_relative_materialized_view(MaterializedTripView.model_validate(
                         _json(existing["response_json"])
-                    ),
+                    )),
                     opaque_etag=str(headers["ETag"]).strip('"'),
                     replayed=True,
                 )
@@ -2070,7 +2075,7 @@ class InMemoryG03RepositoryMixin:
             request_hash=request_hash,
         )
         if replay is not None:
-            return replay.model_copy(update={"replayed": True})
+            return replay.model_copy(update={"replayed": True, "view": _relative_materialized_view(replay.view)})
         aggregate, stored = self._memory_g03_current(resource)
         if not hmac.compare_digest(stored.opaque_etag, expected_etag):
             raise RevisionConflictError(

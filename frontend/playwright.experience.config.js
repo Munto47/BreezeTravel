@@ -2,7 +2,7 @@ const { defineConfig } = require('@playwright/test')
 
 module.exports = defineConfig({
   testDir: './e2e',
-  testMatch: ['experience.spec.js', 'account-save-recovery.spec.js', 'semantic-plan-contract.spec.js', 'meal-export.spec.js', 'meal-preferences.spec.js', 'anonymous-meal-context.spec.js', 'alternative-export.spec.js', 'choice-selection.spec.js', 'experience-refinement.spec.js', 'confirmed-place-cards.spec.js', 'source-lodging.spec.js', 'pending-lodging-recovery.spec.js', 'map-day-focus.spec.js', 'stay-refresh-readback.spec.js', 'trip-capacity.spec.js', 'collaboration-backup.spec.js', 'g03r-result-ui.spec.js'],
+  testMatch: ['four-pages-home.spec.js', 'four-pages-progress.spec.js', 'task-library-recovery.spec.js', 'relative-only-presentation.spec.js', 'confirm-source-details.spec.js', 'experience.spec.js', 'account-save-recovery.spec.js', 'semantic-plan-contract.spec.js', 'meal-export.spec.js', 'meal-preferences.spec.js', 'anonymous-meal-context.spec.js', 'alternative-export.spec.js', 'choice-selection.spec.js', 'experience-refinement.spec.js', 'confirmed-place-cards.spec.js', 'source-lodging.spec.js', 'pending-lodging-recovery.spec.js', 'map-day-focus.spec.js', 'stay-refresh-readback.spec.js', 'trip-capacity.spec.js', 'collaboration-backup.spec.js', 'g03r-result-ui.spec.js'],
   timeout: 90000,
   fullyParallel: false,
   workers: 1,

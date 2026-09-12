@@ -243,8 +243,13 @@ def apply_public_command(
             day_index, _, card = _find_card(result.days, command.activity_token)
             changed.add(result.days[day_index].label)
         if card.source_details:
+            # An initial identity choice fills a missing city; it is not a
+            # replacement of the source-bound visit. Known identities/cities
+            # and changed names still require the existing strict match.
+            city_matches = card.city == confirmed_place.city or (
+                card.city is None and card.status == "NEEDS_CONFIRMATION")
             same_parent = (current_place_id == confirmed_place.canonical_place_id if current_place_id
-                else card.name == confirmed_place.name and card.city == confirmed_place.city)
+                else card.name == confirmed_place.name and city_matches)
             if not same_parent:
                 card.source_details = []
         card.name = confirmed_place.name

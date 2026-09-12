@@ -36,7 +36,7 @@ import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import PlacePhoto, { PlacePhotoProvider } from './place-photo'
 import AccessibleDialog from './accessible-dialog'
-import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, distanceLabel } from './result-presentation'
+import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, distanceLabel, relativeDayLabel } from './result-presentation'
 
 
 type DayView = UserFacingTripResult['days'][number]
@@ -320,7 +320,7 @@ export default function ItineraryWorkspace({
       })
       if (outcome.status === 'APPLIED') {
         if (outcome.days) setLocalDays(outcome.days)
-        finishOperation(`${item.card.name} 已删除，${localDays[item.dayIndex - 1]?.label || '当天'}仍然保留。`, item.dayIndex)
+        finishOperation(`${item.card.name} 已删除，${relativeDayLabel(item.dayIndex - 1)}仍然保留。`, item.dayIndex)
       } else if (outcome.status === 'SYNCED') {
         setLocalDays(outcome.days || before)
         restoreOperationFocus(
@@ -381,7 +381,7 @@ export default function ItineraryWorkspace({
       position=Math.max(0,Math.min(localDays[dayIndex-1].activities.length-(dayIndex===item.dayIndex?1:0),position))
       setKeyboardMove({item,dayIndex,position})
       setDropTarget({dayIndex,position:position+(dayIndex===item.dayIndex&&position>item.position?1:0)})
-      setAnnouncement(`${localDays[dayIndex-1].label}，第 ${position+1} 站。Enter 放下。`)
+      setAnnouncement(`${relativeDayLabel(dayIndex-1)}，第 ${position+1} 站。Enter 放下。`)
     }
     document.addEventListener('keydown',key,true)
     return ()=>document.removeEventListener('keydown',key,true)
@@ -445,7 +445,7 @@ export default function ItineraryWorkspace({
                           tabIndex={-1}
                           className={`mt-1 text-2xl font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${accent[2]}`}
                         >
-                          {day.label}
+                          {relativeDayLabel(dayOffset)}
                         </h2>
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-2 md:mt-4 md:justify-start">
@@ -455,7 +455,7 @@ export default function ItineraryWorkspace({
                       {onAlternatives && !!day.alternatives?.length && <button
                         type="button" className="min-h-11 whitespace-nowrap rounded-full bg-white/80 px-3 text-xs font-semibold text-sky-800 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
                         data-testid={`day-alternatives-${dayIndex}`}
-                        aria-label={`${day.label}的备选地点`}
+                        aria-label={`${relativeDayLabel(dayOffset)}的备选地点`}
                         aria-controls="journey-suggestions"
                         onClick={event => onAlternatives(dayIndex, event.currentTarget)}
                       >备选 · {day.alternatives.length}</button>}
@@ -465,7 +465,7 @@ export default function ItineraryWorkspace({
                   </div>
 
                   <div className="min-w-0 px-4 py-4 sm:px-5">
-                    {!!day.meal_slots?.length && <section className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950" data-testid={`source-meals-${dayIndex}`} aria-label={`${day.label}原文用餐安排`}>
+                    {!!day.meal_slots?.length && <section className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950" data-testid={`source-meals-${dayIndex}`} aria-label={`${relativeDayLabel(dayOffset)}原文用餐安排`}>
                       <h3 className="font-semibold">原文用餐安排</h3>
                       <ul className="mt-1 space-y-1">
                         {(sourceMealDescriptions?.[dayIndex - 1] ?? sourceMeals(day)).map((text, index) => <li key={index} className="break-words">{text}</li>)}
@@ -476,7 +476,7 @@ export default function ItineraryWorkspace({
                     {!day.activities.length && !day.unprocessed_count && <p className="py-4 text-sm text-slate-500">{day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
 
                     {layoutMode === 'LIST' ? (
-                      <ol className="mt-3 grid gap-3" aria-label={`${day.label} 地点列表`}>
+                      <ol className="mt-3 grid gap-3" aria-label={`${relativeDayLabel(dayOffset)} 地点列表`}>
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
@@ -689,7 +689,7 @@ export default function ItineraryWorkspace({
                           type="button"
                           data-testid={`day-${dayIndex}-add`}
                           data-day-add={dayIndex}
-                          aria-label={`新增地点到 ${day.label}`}
+                          aria-label={`新增地点到 ${relativeDayLabel(dayOffset)}`}
                           disabled={locked}
                           onClick={() => onAdd(dayIndex, day.activities.length)}
                           style={{right:8,bottom:4,position:"absolute"}}
@@ -741,7 +741,7 @@ export default function ItineraryWorkspace({
               </div>
               <DialogCloseButton onClick={() => closeDialog()} label="关闭删除确认" />
             </div>
-            <p id="delete-activity-description" className="mt-4 text-sm leading-6 text-slate-600">只会删除这张地点卡片。即使它是当天最后一个地点，{localDays[dialog.item.dayIndex - 1]?.label || '当天'}也会保留。</p>
+            <p id="delete-activity-description" className="mt-4 text-sm leading-6 text-slate-600">只会删除这张地点卡片。即使它是当天最后一个地点，{relativeDayLabel(dialog.item.dayIndex - 1)}也会保留。</p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button data-dialog-initial-focus type="button" onClick={() => closeDialog()} className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">取消</button>
               <button data-testid="confirm-delete" type="button" disabled={locked} onClick={() => void applyDelete(dialog.item)} className="min-h-12 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50">{locked ? '正在删除…' : '确认删除'}</button>

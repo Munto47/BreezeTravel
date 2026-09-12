@@ -6,7 +6,7 @@ import { Download, Image as ImageIcon, X } from 'lucide-react'
 import type { MapRenderView, UserFacingTripResult } from '@/lib/trip-understanding-v3'
 import AccessibleDialog from './accessible-dialog'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
-import { DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
+import { DAY_COLORS, transportConnectorFor, distanceLabel, relativeDayLabel } from './result-presentation'
 import {sourceMeals} from './source-meals'
 
 function exportStatus(result: UserFacingTripResult, unresolvedDays: UserFacingTripResult['days'] = []) {
@@ -195,7 +195,7 @@ async function renderItinerary(
     context.fill()
     context.fillStyle = '#ffffff'
     context.font = '700 15px "Microsoft YaHei", sans-serif'
-    context.fillText(fitText(context, day.label, leftWidth - 58), padding + 30, y + 43)
+    context.fillText(relativeDayLabel(dayIndex), padding + 30, y + 43)
     context.fillStyle = '#607984'
     context.font = '400 12px "Microsoft YaHei", sans-serif'
     context.fillText(`${day.activities.length} 个地点`, padding + 28, y + 78)

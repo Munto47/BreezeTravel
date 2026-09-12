@@ -103,7 +103,11 @@
         "tests/test_anonymous_meal_context.py",
         "tests/test_source_visit_condition_scope.py",
         "tests/test_alternative_insert.py",
-        "tests/test_source_choice_position.py"
+        "tests/test_source_choice_position.py",
+        "tests/test_relative_only_runtime.py",
+        "tests/test_relative_only_commands_api.py",
+        "tests/test_account_task_recovery.py",
+        "tests/test_confirm_source_details.py"
       ]
     },
     "postgres": {
@@ -141,7 +145,9 @@
         "tests/test_choice_group_selection.py",
         "tests/test_meal_preferences.py",
         "tests/test_anonymous_meal_context.py",
-        "tests/test_alternative_insert.py"
+        "tests/test_alternative_insert.py",
+        "tests/test_account_task_recovery.py",
+        "tests/test_confirm_source_details.py"
       ]
     },
     "browser-core": {
@@ -187,6 +193,17 @@
       "args": [
         "--grep-invert",
         "@live"
+      ]
+    },
+    "browser-four-pages": {
+      "runner": "playwright",
+      "directory": "frontend",
+      "files": [
+        "e2e/four-pages-home.spec.js",
+        "e2e/four-pages-progress.spec.js",
+        "e2e/task-library-recovery.spec.js",
+        "e2e/relative-only-presentation.spec.js",
+        "e2e/confirm-source-details.spec.js"
       ]
     }
   }

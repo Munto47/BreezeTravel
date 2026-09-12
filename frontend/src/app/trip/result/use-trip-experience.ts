@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { confirmedDays, confirmedSourceLodgings, confirmedTripView, storedPositionCommand } from '@/lib/confirmed-trip-view'
 import * as api from '@/lib/trip-understanding-v3'
 import { recoverExpiredLogin } from '@/lib/request-safety'
+import { forgetBrowserTripReference, rememberBrowserTripReference } from '@/lib/browser-resource-ref'
 import { useAuthStore } from '@/stores/authStore'
 import {sourceMeals} from './source-meals'
 import {
@@ -338,9 +339,11 @@ export function useTripExperience() {
           }
           if (response.etag) setTag(response.etag)
           if (body.ownership === 'ACCOUNT') {
+            forgetBrowserTripReference(reference)
             setMode('CLAIMED')
             sessionStorage.setItem('bt_active_trip_mode', 'CLAIMED')
           } else if (body.ownership === 'ANONYMOUS') {
+            rememberBrowserTripReference(reference)
             setMode(body.is_demo ? 'DEMO' : 'FULL')
             sessionStorage.setItem(
               'bt_active_trip_mode',
@@ -908,6 +911,7 @@ export function useTripExperience() {
               recovered.body.public_resource_id,
             )
             sessionStorage.setItem('bt_active_trip_mode', 'CLAIMED')
+            forgetBrowserTripReference(storedPendingForRecovery!.resource)
             current.current.resource = recovered.body.public_resource_id
             setResource(recovered.body.public_resource_id)
             setMode('CLAIMED')
@@ -1376,6 +1380,7 @@ export function useTripExperience() {
             ),
           )
           writeAcknowledged = true
+          forgetBrowserTripReference(operation.resource)
           current.current.resource = claimed.body.public_resource_id
           setResource(claimed.body.public_resource_id)
           sessionStorage.setItem(
@@ -1639,6 +1644,7 @@ export function useTripExperience() {
           api.claimTripUnderstanding(value.resource, value.key, signal),
         )
         const claimedResource = response.body.public_resource_id
+        forgetBrowserTripReference(value.resource)
         current.current.resource = claimedResource
         setResource(claimedResource)
         sessionStorage.setItem('bt_active_trip_ref', claimedResource)
@@ -2053,6 +2059,7 @@ export function useTripExperience() {
     loadPendingLodgings,
     clearPendingLodgings,
     progressSnapshot: displayedProgress,
+    progressPendingDays: progressSnapshot?.days.map(day => ({...day, activities: day.activities.filter(card => card.status !== 'READY')})) || [],
     omittedPlaceCount: result?.days.reduce((total, day) => total + day.activities.filter(card => card.status !== 'READY').length, 0) || 0,
     unresolvedDays: result?.days.map(day => ({...day, activities:day.activities.filter(card => card.status !== 'READY')})) || [],
     phase,

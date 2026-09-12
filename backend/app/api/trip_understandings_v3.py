@@ -1024,6 +1024,17 @@ async def apply_trip_understanding_command(
         user_id=current_user,
         repository=repository,
     )
+    # Retain historical DTOs and stored records, but do not accept new calendar
+    # or clock edits through the current relative-order product entry point.
+    values = body.model_dump(exclude_unset=True)
+    timing_edit = body.command_type in {
+        "ACTIVITY_TIME_SET", "ACTIVITY_TIMES_SHIFT", "ACTIVITY_TIMES_APPLY",
+    } or (body.command_type == "ASSUMPTION_SET" and values.get("key") == "calendar")
+    timing_edit = timing_edit or any(values.get(field) not in (None, "", False, "UNSPECIFIED")
+        for field in ("start_time", "end_time", "visit_duration_minutes", "time_hint", "locked", "fixed_commitment"))
+    if timing_edit:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "TIMING_EDIT_UNSUPPORTED", "message": "当前行程只安排第几天和地点先后，不设置日期、时刻或游玩时长。"})
     try:
         outcome = await TripUnderstandingApplicationService(repository).apply_command(
             resource,

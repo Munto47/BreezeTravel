@@ -54,6 +54,7 @@ def build_configured_full_pipeline(settings: Settings):
         deadline_seconds=settings.trip_understanding_qwen_deadline_seconds,
         max_output_tokens=settings.trip_understanding_qwen_max_output_tokens,
         enable_source_visits=True,
+        relative_only=True,
         input_cny_per_million=(
             settings.trip_understanding_qwen_input_cny_per_million
         ),
@@ -68,6 +69,7 @@ def build_configured_full_pipeline(settings: Settings):
     return TripUnderstandingPipeline(
         qwen,
         amap,
+        relative_only=True,
         max_place_concurrency=(
             settings.trip_understanding_amap_place_max_concurrency
         ),

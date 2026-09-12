@@ -220,6 +220,12 @@ jobs:
               else:
                   raise SystemExit('Application did not become ready')
           PY
+      - name: Verify four-page entry, recovery and relative-order presentation
+        working-directory: frontend
+        run: python ../backend/scripts/run_product_checks.py browser-four-pages
+      - name: Preserve four-page browser result
+        if: always()
+        run: cp frontend/test-results/experience-report.json frontend/experience-four-pages-report.json
       - name: Verify local browser journeys without external credentials
         working-directory: frontend
         run: python ../backend/scripts/run_product_checks.py browser-core
@@ -252,6 +258,7 @@ jobs:
           path: |
             frontend/test-results
             frontend/experience-core-report.json
+            frontend/experience-four-pages-report.json
             frontend/experience-refinement-report.json
           if-no-files-found: ignore
 

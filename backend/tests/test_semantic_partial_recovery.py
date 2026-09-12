@@ -114,7 +114,7 @@ async def test_mixed_timing_and_source_failure_only_removes_the_invalid_source_i
     source = "Day1：星河公园、月光桥。Day2：晨光湖。"
     first = {"activities": [activity("星河公园", start_time="09:00", time_evidence="没有的时间"),
         activity("月光桥", source_quote="没有的引用"), activity("晨光湖", 2)]}
-    result = await provider(Client(json.dumps(first), "{broken")).propose(source)
+    result = await provider(Client(json.dumps(first), "{broken"), relative_only=False).propose(source)
     assert [(m.atomic_place_name, m.day_index) for m in result.mentions] == [("星河公园", 1), ("晨光湖", 2)]
     assert result.mentions[0].start_time is None
     assert {issue.category for issue in result.diagnostics} >= {"TIME_EVIDENCE_NOT_IN_SOURCE", "SOURCE_QUOTE_NOT_FOUND"}
