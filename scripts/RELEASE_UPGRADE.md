@@ -4,10 +4,15 @@
 
 ## 当前限制
 
+- **2026-09-13四页面实施状态**：本次必须正式公网交付，尚未达到切换条件。9月12日再次只读确认仍为`first-public-20260906`、数据库迁移035；API/Web/Yjs重启策略已是`unless-stopped`。约3.5GB主机内存、当时1.7GB可用，磁盘8.3GB可用/78%使用。执行前须再次检查实际资源，历史观测不能代替当天检查。
+- 新版只接收文字并使用相对Day；保留真实交通耗时，不再验收时刻编辑。当前新增任务找回、源餐位、内部安排与`can_redo`等字段，旧首发及7897cab不能直接充当新版恢复构建。恢复必须保留当前PG/Yjs和新写入，先证明兼容构建能够读取及编辑新结果；不能为回退切旧数据库。
+- 16f3d09的本地生产构建已完整通过编译、类型及生成；这不是Linux构建。最新四页面源码的受限Linux构建、生产一致副本恢复、预发完整用户流程和正式域名复验均仍为NOT_RUN。下文9月8日目录和参数是历史已核实示例，**不是本次可直接执行的发布命令**；正式执行时须指定未占用的新目录、数据库、端口和Redis空间。
+
+
 - 2026-09-08只读现网：现有发布 `first-public-20260906`、生产库 `breeze_live_20260906`，迁移至035；已有上线后用户数据。
 - 2026-09-08只读主机：2 CPU、总内存3499 MiB、当时可用约1658 MiB，无swap。现网API/Web/Yjs主进程RSS约279/61/23 MiB，自9月6日启动后的RSS峰值约346/94/59 MiB；cgroup峰值约342/79/17 MiB，OOM计数均0。RSS与cgroup的共享内存/文件计费不同，各服务峰值不代表同时峰值，也不是负载容量保证。
 - 首发保留的 `breeze-first-builder-final` 在1400 MiB、1 CPU限额下完整构建退出0，14页生成齐、OOMKilled=false。前一次构建失败是npm缓存缺TypeScript（ENOTCACHED），不是内存不足；已退出容器没有可读的历史内存峰值，不能编造。
-- Windows同一冻结源码的两个独立副本实测：单静态worker、原webpack方式峰值1317.4 MiB/23.08秒；启用独立webpack worker后783.0 MiB/25.09秒，均完整构建且生成standalone，没有跳过类型检查。改善是内存占用，不是构建速度。更早两轮测得1373.6/768.2 MiB，但其间结果页有修改，不用那两轮推算改动效果。现有自定义webpack配置会关闭Next默认构建worker，这是可定位的降耗来源。当前配置显式启用 `experimental: { cpus: 1, webpackBuildWorker: true }`。
+- Windows同一源码的两个独立副本历史实测：单静态worker、原webpack方式峰值1317.4 MiB/23.08秒；启用独立webpack worker后783.0 MiB/25.09秒，均完整构建且生成standalone，没有跳过类型检查。改善是内存占用，不是构建速度。更早两轮测得1373.6/768.2 MiB，但其间结果页有修改，不用那两轮推算改动效果。现有自定义webpack配置会关闭Next默认构建worker，这是可定位的降耗来源。当前配置显式启用 `experimental: { cpus: 1, webpackBuildWorker: true }`。
 - CLI采用**Linux试跑限额**：构建1024 MiB；API640/Web192/Yjs128 MiB，均禁用额外swap，另保留384 MiB主机可用内存。限额高于已观察值，仍须实际受限构建和真实预发流程验证。开始检查用限额加余量保护旧服务，不把其总和说成应用实际内存需求；现有数据不支持必须扩服务器的结论。
 - 本机无Docker、WSL未安装；服务器a7c047c已在独立目录完成1024 MiB限额前端构建，峰值648,237,056字节、OOM事件均0，旧服务健康且未重启。其后本地改动尚未进入该目录，最新源码Linux构建与新应用启动仍为 **NOT_RUN**。后续仍按明确检查点构建；试跑失败须区分依赖/构建缺陷/OOM，不能直接降低检查或宣告需要扩容。
 - 现网前端和Yjs的package/lock与当前内容一致；旧发布目录保留完整Linux前端node_modules及npm/Linux缓存，web运行镜像本身没有TypeScript。CLI只在两个manifest相同时复制旧node_modules到新目录，执行 `npm ls --depth=0 --include=dev --offline` 后构建；只读旧依赖，不在旧发布目录安装。依赖有变化才在新目录执行有网络的 `npm ci`。现有API镜像所有requirements-base固定版本已核对一致，仍须新代码实际导入/启动验证。
@@ -27,7 +32,7 @@ $releaseTargets = '--expected-host iZbp12kpho9obrs2n1564gZ --current-release /op
 Get-Content -Raw scripts/release_upgrade.py | ssh @releaseSsh "python3 - prepare $releaseTargets"
 ```
 
-这些是本次明确目标。后续发布必须重新指定当前版本、当前库、容器及未使用的新目录/数据库/端口/Redis库。Redis仅缓存但也不清空未知内容。实际模型参数固定60秒/4096输出，不能沿用现网30秒假定等价。
+以上是9月8日曾核实的目标示例。本次四页面发布必须重新指定当前版本、当前库、容器及未使用的新目录/数据库/端口/Redis库。Redis仅缓存但也不清空未知内容。实际模型参数固定60秒/4096输出，不能沿用现网30秒假定等价。
 
 ## 当前可执行的Linux构建试跑（由主任务串行触发）
 
@@ -49,9 +54,9 @@ ssh @releaseSsh 'cat /opt/breezetravel-releases/core-20260908/src/frontend/.rele
 ssh @releaseSsh 'docker ps --filter name=breeze-first --format "{{.Names}} {{.Status}}"'
 ```
 
-构建成功依据：编译、类型检查、14页生成及standalone均完成，退出0，cgroup `oom_kill 0`，旧三服务仍运行。CLI验证Next真实加载的两个worker设置，安装和构建都限制1024 MiB/1 CPU；编译容器 `--network none` 且只挂载新源码/浏览器公开配置，无法触发旧业务。`PREPARED`仅代表前端Linux构建成功，不等于新API、数据恢复或用户任务已通过。Windows测量位于本次忽略目录 `.local-artifacts/resource-check`，不是Linux通过证据。
+构建成功依据：编译、类型检查、当前版本应有页面生成及standalone均完成，退出0，cgroup `oom_kill 0`，旧三服务仍运行。CLI验证Next真实加载的两个worker设置，安装和构建都限制1024 MiB/1 CPU；编译容器 `--network none` 且只挂载新源码/浏览器公开配置，无法触发旧业务。`PREPARED`仅代表前端Linux构建成功，不等于新API、数据恢复或用户任务已通过。Windows测量位于本次忽略目录 `.local-artifacts/resource-check`，不是Linux通过证据。
 
-后续在独立PG副本、Yjs副本、Redis10及私有端口下运行API640/Web192/Yjs128的完整预发流程；同时读各容器memory.peak、memory.events、RestartCount，确认新旧账号/保存编辑撤销/协同/真实模型与地点服务，并以14天160项固定外部输入检查应用上界。固定输入与真实模型分别报告。任何OOM、重启或用户结果丢失都不允许进入activate；先定位并重新测量，不能只看健康接口。预发所需的一致性备份涉及旧writer短暂停止，必须作为后续单独串行步骤执行，不包含在上述构建授权中。
+后续在独立PG副本、Yjs副本、Redis10及私有端口下运行API640/Web192/Yjs128的完整预发流程；同时读各容器memory.peak、memory.events、RestartCount，确认新旧账号/保存编辑撤销重做/协同/真实模型与地点服务，并以14天160项固定外部输入检查应用上界。固定输入与真实模型分别报告。任何OOM、重启或用户结果丢失都不允许进入activate；先定位并重新测量，不能只看健康接口。预发所需的一致性备份涉及旧writer短暂停止，必须作为后续单独串行步骤执行，不包含在上述构建授权中。
 
 ## 执行顺序与每步实际含义
 
