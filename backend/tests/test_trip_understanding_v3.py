@@ -312,7 +312,7 @@ async def test_fixed_demo_runs_the_real_compiler_resolver_projector_chain() -> N
     result = output.public_result.model_dump(mode="json")
     # The frontend now reads persisted demo identity and last-edit time; source text
     # and internal evidence still remain outside the ordinary result projection.
-    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "ownership", "expires_at", "is_demo", "updated_at", "coverage", "pending_lodgings", "lodging_constraints"}
+    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "can_redo", "ownership", "expires_at", "is_demo", "updated_at", "coverage", "pending_lodgings", "lodging_constraints"}
     assert result["pending_lodgings"] == result["lodging_constraints"] == []
     assert result["coverage"]["confirmed_place_count"] == 6
     assert result["coverage"]["unresolved_place_count"] == 0

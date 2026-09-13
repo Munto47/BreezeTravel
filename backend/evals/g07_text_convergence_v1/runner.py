@@ -123,6 +123,7 @@ PUBLIC_RESULT_ALLOWED_KEYS = {
     "available_actions",
     "brand",
     "can_undo",
+    "can_redo",
     "candidate_token",
     "candidates",
     "category",

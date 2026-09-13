@@ -16,6 +16,7 @@ from app.trip_understanding.dining import verify_command_candidate
 from app.trip_understanding.dining_jobs import DailyDiningJob, RecommendationTripView
 from app.trip_understanding.anonymous import AnonymousDailyLimitError, anonymous_day_start
 from app.trip_understanding.commands import apply_public_command
+from app.trip_understanding.edit_history import advance_edit_history
 from app.trip_understanding.lodging_recovery import result_cards
 from app.trip_understanding.demo import DEMO_SOURCE_SHA256, DEMO_SOURCE_TEXT
 from app.trip_understanding.errors import (
@@ -63,6 +64,7 @@ from app.trip_understanding.models import (
     DiningInsertCommand,
     LodgingRecoverCommand,
     UndoCommand,
+    RedoCommand,
     ClaimOutcome,
     ClaimedTripView,
     CommandAppliedView,
@@ -2780,7 +2782,7 @@ class PostgresTripUnderstandingRepository(
 
             current = await conn.fetchrow(
                 """
-                SELECT r.source_id, r.destination_json, r.assumptions_json,
+                SELECT r.source_id, r.destination_json, r.assumptions_json, r.proposal_json,
                        result.public_json, result.opaque_etag
                 FROM trip_understanding_revisions r
                 JOIN trip_understanding_results result
@@ -2797,19 +2799,18 @@ class PostgresTripUnderstandingRepository(
                 raise RevisionConflictError("command precondition does not match current result")
 
             current_result = UserFacingTripResult.model_validate(_json_value(current["public_json"]))
-            source_revision = int(aggregate["current_revision"])
-            undo_result = None
-            if isinstance(command, UndoCommand):
-                if not current_result.can_undo:
-                    raise CommandTargetChangedError("no edit is available to undo")
-                source_revision -= 1
+            source_revision, history = advance_edit_history(
+                int(aggregate["current_revision"]), _json_value(current["proposal_json"]),
+                can_undo=current_result.can_undo, command_type=command.command_type)
+            restore_result = None
+            if isinstance(command, (UndoCommand, RedoCommand)):
                 previous = await conn.fetchrow("""SELECT r.source_id, r.destination_json, r.assumptions_json, result.public_json
                     FROM trip_understanding_revisions r JOIN trip_understanding_results result
                     ON result.understanding_id=r.understanding_id AND result.revision=r.revision
                     WHERE r.understanding_id=$1 AND r.revision=$2""", resource.understanding_id, source_revision)
                 if previous is None:
                     raise CommandTargetChangedError("previous cards are unavailable")
-                undo_result = UserFacingTripResult.model_validate(_json_value(previous["public_json"]))
+                restore_result = UserFacingTripResult.model_validate(_json_value(previous["public_json"]))
                 current = previous
             source_available = await conn.fetchval("""SELECT 1 FROM trip_understanding_sources
                 WHERE source_id=$1 AND deleted_at IS NULL AND retention_until>GREATEST($2::timestamptz,clock_timestamp())""",
@@ -2825,8 +2826,12 @@ class PostgresTripUnderstandingRepository(
             current_place_id = (await conn.fetchval("""SELECT canonical_place_id FROM trip_understanding_activities
                 WHERE understanding_id=$1 AND revision=$2 AND public_activity_token=$3""",
                 resource.understanding_id, source_revision, command.activity_token) if isinstance(command, PlaceConfirmCommand) else None)
-            mutation = apply_public_command(current_result, command, undo_result=undo_result, confirmed_place=confirmed_place,
+            mutation = apply_public_command(current_result, command,
+                undo_result=restore_result if isinstance(command, UndoCommand) else None,
+                redo_result=restore_result if isinstance(command, RedoCommand) else None, confirmed_place=confirmed_place,
                 current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
+            mutation.result.can_undo = bool(history["undo"])
+            mutation.result.can_redo = bool(history["redo"])
             public_payload = mutation.result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
             parent_revision = int(aggregate["current_revision"])
@@ -2870,6 +2875,7 @@ class PostgresTripUnderstandingRepository(
                         "kind": "USER_EDIT",
                         "command_type": command.command_type,
                         "source_quotes": "PARENT_REVISION_ONLY",
+                        "edit_history": history,
                     },
                     ensure_ascii=False,
                 ),
@@ -5980,11 +5986,13 @@ class InMemoryTripUnderstandingRepository(
             raise ResourceNotReadyError("trip cards are not ready for editing")
         if not hmac.compare_digest(stored.opaque_etag, expected_etag):
             raise RevisionConflictError("command precondition does not match current result")
-        source_revision = int(aggregate["current_revision"])
-        undo_result = None
-        if isinstance(command, UndoCommand):
-            source_revision -= 1
-            undo_result = next((value.result for key, value in self.results.items()
+        source_revision, history = advance_edit_history(
+            int(aggregate["current_revision"]),
+            self.g03_pipeline_inputs.get((resource.understanding_id, int(aggregate["current_revision"])), {}),
+            can_undo=stored.result.can_undo, command_type=command.command_type)
+        restore_result = None
+        if isinstance(command, (UndoCommand, RedoCommand)):
+            restore_result = next((value.result for key, value in self.results.items()
                 if self.result_owners.get(key) == resource.understanding_id and self.result_revisions.get(key) == source_revision), None)
         effective_now = max(now, datetime.now(timezone.utc))
         source_available = any(job["understanding_id"] == resource.understanding_id and job_id in self.sources
@@ -5995,11 +6003,15 @@ class InMemoryTripUnderstandingRepository(
             expected_etag=expected_etag, now=effective_now if isinstance(command, (LodgingRecoverCommand, DiningInsertCommand)) else now)
         meal_trip = await self.load_recommendation_trip_view(resource.understanding_id, source_revision)
         previous_input = self.g03_pipeline_inputs.get((resource.understanding_id, source_revision), {})
-        previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(undo_result or stored.result)
+        previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(restore_result or stored.result)
         current_place_id = (previous_bindings.get(command.activity_token, {}).get("canonical_place_id")
             if isinstance(command, PlaceConfirmCommand) else None)
-        mutation = apply_public_command(stored.result, command, undo_result=undo_result, confirmed_place=confirmed_place,
+        mutation = apply_public_command(stored.result, command,
+            undo_result=restore_result if isinstance(command, UndoCommand) else None,
+            redo_result=restore_result if isinstance(command, RedoCommand) else None, confirmed_place=confirmed_place,
             current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
+        mutation.result.can_undo = bool(history["undo"])
+        mutation.result.can_redo = bool(history["redo"])
         result_id = str(uuid4())
         opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
         self.results[result_id] = StoredResult(
@@ -6040,6 +6052,7 @@ class InMemoryTripUnderstandingRepository(
         self.g03_pipeline_inputs[
             (resource.understanding_id, int(aggregate["current_revision"]))
         ] = {
+            "edit_history": history,
             "destination": ({"name": command.value, "status": "USER_EDITED"} if command.command_type == "ASSUMPTION_SET" and command.key == "destination" else dict(previous_input.get("destination") or {})),
             "bindings": bindings,
             "pending_lodgings": {new: {**old_row, "public_activity_token": new}

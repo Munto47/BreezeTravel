@@ -27,6 +27,7 @@ from app.trip_understanding.models import (
     PlaceReplaceCommand,
     PlaceConfirmCommand,
     UndoCommand,
+    RedoCommand,
     TripDayView,
     TripUnderstandingCommand,
     UserFacingTripResult,
@@ -163,6 +164,7 @@ def apply_public_command(
     *,
     token_factory: Callable[[], str] = _default_token,
     undo_result: UserFacingTripResult | None = None,
+    redo_result: UserFacingTripResult | None = None,
     confirmed_place=None,
     current_place_id: str | None = None,
     source_lunch_gaps: dict[str, str] | None = None,
@@ -173,10 +175,12 @@ def apply_public_command(
     inserted_card: ActivityCardView | None = None
     filled_gap_token: str | None = None
 
-    if isinstance(command, UndoCommand):
-        if not current.can_undo or undo_result is None:
-            raise CommandTargetChangedError("no edit is available to undo")
-        result = undo_result.model_copy(deep=True)
+    if isinstance(command, (UndoCommand, RedoCommand)):
+        target = undo_result if isinstance(command, UndoCommand) else redo_result
+        available = current.can_undo if isinstance(command, UndoCommand) else current.can_redo
+        if not available or target is None:
+            raise CommandTargetChangedError("no edit is available to restore")
+        result = target.model_copy(deep=True)
         changed.update(day.label for day in current.days)
         changed.update(day.label for day in result.days)
     elif isinstance(command, ActivityTimeSetCommand):
@@ -527,6 +531,7 @@ def apply_public_command(
     result.status = _result_status(result.days, result.lodging_constraints)
     refresh_result_coverage(result)
     result.can_undo = not isinstance(command, UndoCommand)
+    result.can_redo = isinstance(command, UndoCommand)
     result.map = MapReadinessView(
         status="NEEDS_UPDATE",
         message="卡片已调整，路线地图需要手动更新",

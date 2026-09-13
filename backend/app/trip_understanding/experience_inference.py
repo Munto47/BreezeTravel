@@ -417,8 +417,10 @@ def _retain_named_meal_locations(source: str, draft: SemanticDraft) -> SemanticD
                 if not already_claimed:
                     occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(name) + r")", anchors.visible)
                                          if anchors.indices[match.start()] < left)
+                    # Keep the meal intent until the normal source validation
+                    # separates the area's category from its dining purpose.
                     item = item.model_copy(update={"place_name": name, "source_quote": name,
-                                                   "occurrence": occurrence, "category": "地点"})
+                                                   "occurrence": occurrence})
         activities.append(item)
     return draft.model_copy(update={"activities": activities})
 
@@ -1701,8 +1703,38 @@ def _is_explicit_dish_description(source: str, place: str | None, start: int, en
         or re.match(r"(?:[^，,。；;]{0,8})?(?:本地|当地|地方)特色(?:小吃|菜|嗦粉|面食|美食)", after))
 
 
-def _source_meal_role(source: str, start: int, end: int) -> str | None:
-    """An explicit local meal word can classify a meal; a venue name cannot."""
+def _model_dinner_has_local_support(source: str, start: int, end: int, *,
+                                    left: int, right: int, dining_action: str) -> bool:
+    """Validate an evening meal interpretation, never derive it from a clock.
+
+    A shortened brand preference can refer to the immediately preceding meal
+    clause in the same item. A different sentence, visit or background cannot.
+    """
+    sentence_left = max(source.rfind(mark, 0, start) for mark in "\n。！？；;!?") + 1
+    prefix = source[sentence_left:end].replace("**", "")
+    if not re.search(r"(?:^|[：:,，\s])(?:晚上|晚间)(?=[：:\s]|在|到|去|吃|用餐|就餐|进餐|品尝|享用)", prefix):
+        return False
+    clause = source[left:right].replace("**", "")
+    before = source[left:start].replace("**", "").rstrip(" 【「『*_`")
+    after = source[end:right].replace("**", "").lstrip(" 】」』*_`")
+    if (re.search(r"(?:参观|游览|经过|路过|打卡|拍摄|登上)$", before)
+        or re.match(r"(?:参观|游览|拍摄|打卡|(?:之?后|随后|接着|再)(?:去|到|前往|在))", after)
+        or (re.search(dining_action, before) and re.search(r"(?:之?后|随后|接着|再)(?:去|到|前往)$", before))
+        or re.search(r"仅供参考|背景介绍|不在此用餐|不在这里用餐", clause)):
+        return False
+    if re.search(dining_action, clause):
+        return True
+    if not re.match(r"\s*(?:推荐|例如|比如|可选|可以选)[：:\s]*", clause):
+        return False
+    previous = re.split(r"[，,]", source[sentence_left:left].rstrip("，, \t\r"))[-1]
+    if re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|不可|不要|别|取消|不|未|没)(?:建议|打算|计划|想|准备)?"
+                 r"(?:(?:在|去|到)[^，,。；;\n]{0,45})?" + dining_action, previous):
+        return False
+    return bool(re.search(dining_action, previous))
+
+
+def _source_meal_role(source: str, start: int, end: int, *, model_meal_role: str | None = None) -> str | None:
+    """Keep supported model meaning or an explicit meal word, never a venue name."""
     from app.trip_understanding.source_meal_context import source_meal_block
 
     left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
@@ -1710,7 +1742,7 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
     clause = source[left:right]
     dining_action = (r"(?:用餐|就餐|进餐|吃饭|品尝|享用|尝(?:尝|一尝)?|吃(?:午饭|午餐|中饭)"
                      r"|(?<!小)吃(?=[^，,。；;\s]))")
-    if re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|不可|不要|别|取消|不|未|没)(?:建议|打算|计划)?"
+    if re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|不可|不要|别|取消|不|未|没)(?:建议|打算|计划|想|准备)?"
                  r"(?:(?:在|去|到)[^，,。；;\n]{0,45})?" + dining_action, clause):
         return None
     roles = {role for pattern, role in ((r"早餐|早饭|早点", "BREAKFAST"),
@@ -1731,7 +1763,8 @@ def _source_meal_role(source: str, start: int, end: int) -> str | None:
         ("下午茶", "SNACK"), ("夜宵", "SNACK"), ("宵夜", "SNACK"))
         if block and re.match(word + r"\s*[：:]", block)), None)
     if not snack and (not (noon or headed_role) or not re.search(dining_action, clause)):
-        return None
+        return "DINNER" if model_meal_role == "DINNER" and _model_dinner_has_local_support(
+            source, start, end, left=left, right=right, dining_action=dining_action) else None
     before = source[left:start].rstrip(" 【「『*_`")
     after = source[end:right].lstrip(" 】」』*_`")
     if (re.search(r"(?:参观|游览|经过|路过|打卡|拍摄|登上)$", before)
@@ -2103,6 +2136,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                 # description/URL as a real place or sending it to POI search.
                 place = None
                 unprocessed += 1
+        source_meal_activity = item.category == "餐饮"
         if place and item.category == "餐饮" and re.search(r"(?:步行街|胡同|路|街|巷|街区|滨江|商圈|周边)$", place):
             item = item.model_copy(update={"category": "地点"})
         if item.category == "餐饮" and draft.destination.strip().removesuffix("市") == "北京" and place in {"大栅栏", "前门大栅栏"}:
@@ -2242,7 +2276,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
             raw_text=source[start:end], span_start=start, span_end=end,
             role=item.role, day_index=day, sequence_index=sequence,
             atomic_place_name=place, category_hint=item.category,
-            meal_role=_source_meal_role(source, start, end) if item.category == "餐饮" else None,
+            meal_role=_source_meal_role(source, start, end, model_meal_role=item.meal_role) if source_meal_activity else None,
             lodging_event=lodging_event, lodging_scope=lodging_scope,
             lodging_role_uncertain=lodging_role_uncertain,
             pending_lodging_scope=index in pending_lodgings,

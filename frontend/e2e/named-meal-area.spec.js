@@ -6,19 +6,19 @@ let result
 test.beforeAll(() => {
   result = JSON.parse(execFileSync(process.env.EXPERIENCE_PYTHON || 'python', ['-c', `
 import asyncio
-from tests.test_anonymous_meal_context import build_shanghai_meal_context_result
-print(asyncio.run(build_shanghai_meal_context_result()).public_result.model_dump_json())
+from tests.test_named_meal_area_intent import build_named_meal_area_result
+print(asyncio.run(build_named_meal_area_result()).public_result.model_dump_json())
 `], {cwd: path.resolve(__dirname, '../../backend'), encoding: 'utf8',
     env: {...process.env, RUNTIME_PROFILE: 'test', PYTHONPATH: '.', PYTHONIOENCODING: 'utf-8'}}))
 })
 
-for (const width of [1440, 390]) test(`saved Shanghai anonymous meal content stays separate from places at ${width}px`, async ({page}, info) => {
+for (const width of [1440, 390]) test(`saved Shanghai named meal area preserves unselected dinner at ${width}px`, async ({page}, info) => {
   await page.setViewportSize({width, height: 1000})
   await page.route('**/*', route => {
     const url = new URL(route.request().url())
     if (!['127.0.0.1', 'localhost'].includes(url.hostname)) return route.abort()
     if (!url.pathname.startsWith('/api/')) return route.fallback()
-    const reply = json => route.fulfill({json, headers: {ETag: '"fixed-anonymous-meal-context"'}})
+    const reply = json => route.fulfill({json, headers: {ETag: '"fixed-named-meal-area"'}})
     if (url.pathname === '/api/user/me') return route.fulfill({status: 401, json: {}})
     if (url.pathname.endsWith('/result')) return reply(result)
     if (url.pathname.endsWith('/map-renders/latest')) return reply({...result.map, points: [], days: []})
@@ -39,7 +39,7 @@ for (const width of [1440, 390]) test(`saved Shanghai anonymous meal content sta
       return original.call(this, text, x, y, ...rest)
     }
   })
-  await page.goto('/trip/result#trip=fixed-shanghai-anonymous-meals-0001')
+  await page.goto('/trip/result#trip=fixed-shanghai-named-meal-area-0001')
   const meal1 = '大壶春生煎、沈大成条头糕、鲜得来排骨年糕'
   const meal2 = '乌鲁木齐中路 / 安福路吃本帮面、咖啡简餐'
   const meal3 = '人和馆、老正兴，尝红烧肉、响油鳝糊、油爆虾'
@@ -60,7 +60,7 @@ for (const width of [1440, 390]) test(`saved Shanghai anonymous meal content sta
   await page.reload()
   await checkPage()
   await page.getByTestId('source-meals-2').scrollIntoViewIfNeeded()
-  await page.screenshot({path: info.outputPath('anonymous-meal-context-page.png')})
+  await page.screenshot({path: info.outputPath('named-meal-area-page.png')})
   await page.getByTestId('export-itinerary-png').click()
   await expect(page.getByAltText('行程横链导出预览', {exact: true})).toBeVisible()
   const drawn = await page.evaluate(() => window.exportText)
@@ -77,9 +77,9 @@ for (const width of [1440, 390]) test(`saved Shanghai anonymous meal content sta
   await page.getByTestId('download-itinerary-png').click()
   const download = await downloading
   expect(await download.failure()).toBeNull()
-  await download.saveAs(info.outputPath('anonymous-meal-context.png'))
+  await download.saveAs(info.outputPath('named-meal-area.png'))
   await info.attach('saved-actual-answer-and-poi-replay-public', {
-    body: JSON.stringify({scope: 'SAVED_REAL_FIRST_ANSWER_AND_TWENTY_PLACE_REPLIES_ZERO_EXTERNAL_CALLS', result, drawn}),
+    body: JSON.stringify({scope: 'SAVED_REAL_TWO_ANSWERS_AND_NINETEEN_PLACE_REPLIES_ZERO_EXTERNAL_CALLS', result, drawn}),
     contentType: 'application/json',
   })
 })

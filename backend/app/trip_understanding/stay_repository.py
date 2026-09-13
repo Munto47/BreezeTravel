@@ -20,6 +20,7 @@ from app.trip_understanding.errors import (
 )
 from app.trip_understanding.map_render import MapRenderPlan
 from app.trip_understanding.commands import refresh_meal_slot_tokens, refresh_choice_selection_tokens
+from app.trip_understanding.edit_history import advance_edit_history
 from app.trip_understanding.map_repository import plan_with_stay_anchor
 from app.trip_understanding.lodging_recovery import result_cards
 from app.trip_understanding.models import (
@@ -894,12 +895,15 @@ class PostgresStayRecommendationRepositoryMixin:
             existing_selections = _current_selections(
                 [row for row in existing_selections if row["segment_key"] != candidate["segment_key"]], source_plan)
             current_result = UserFacingTripResult.model_validate(_json(current["public_json"]))
+            _, history = advance_edit_history(parent_revision, _json(current["proposal_json"]),
+                can_undo=current_result.can_undo, command_type="STAY_SELECTION")
             selected_view = _candidate_view(candidate, selected=True, assessment=await load_stay_commute_assessment(
                 conn, candidate["candidate_id"], now=now, expected_missing=int(candidate["missing_leg_count"])))
             next_result = current_result.model_copy(
                 deep=True,
                 update={
                     "can_undo": True,
+                    "can_redo": False,
                     "map": MapReadinessView(status="NEEDS_UPDATE", message="住宿已选择，请更新路线", available_actions=["RENDER_MAP"]),
                     "stay": StaySuggestionView(
                         status="AVAILABLE",
@@ -942,7 +946,7 @@ class PostgresStayRecommendationRepositoryMixin:
                 canonical_sha256({"parent_revision": parent_revision, "selection": request_hash, "public": public_hash}),
                 json.dumps(_json(current["destination_json"]), ensure_ascii=False),
                 json.dumps(_json(current["assumptions_json"]), ensure_ascii=False),
-                json.dumps({"kind": "STAY_SELECTION", "source_quotes": "PARENT_REVISION_ONLY"}, ensure_ascii=False),
+                json.dumps({"kind": "STAY_SELECTION", "source_quotes": "PARENT_REVISION_ONLY", "edit_history": history}, ensure_ascii=False),
                 json.dumps({"provider_calls": 0, "route_provider_calls": 0}, ensure_ascii=False),
                 json.dumps({"kind": "STAY_SELECTION", "source_claims_copied": 0}, ensure_ascii=False),
                 now,
@@ -1436,19 +1440,21 @@ class InMemoryStayRecommendationRepositoryMixin:
                    and not s.uncertain and not excludes_hotel(s, scored.candidate.canonical_place_id) for s in overnight_segments(map_plan)):
             raise ResourceNotReadyError("stay segment is no longer available")
         selected_view = self._memory_stay_candidate_view(job, scored, selected=True)
-        next_result = stored.result.model_copy(update={"map": MapReadinessView(status="NEEDS_UPDATE", message="住宿已选择，请更新路线", available_actions=["RENDER_MAP"]), "can_undo": True})
+        previous_input = self.g03_pipeline_inputs.get((resource.understanding_id, revision), {})
+        _, history = advance_edit_history(revision, previous_input,
+            can_undo=stored.result.can_undo, command_type="STAY_SELECTION")
+        next_result = stored.result.model_copy(update={"map": MapReadinessView(status="NEEDS_UPDATE", message="住宿已选择，请更新路线", available_actions=["RENDER_MAP"]), "can_undo": True, "can_redo": False})
         result_id, opaque_etag, target_revision = str(uuid4()), f"tu3_{secrets.token_urlsafe(32)}", revision + 1
         self.results[result_id] = StoredResult(result=next_result, opaque_etag=opaque_etag)
         self.result_owners[result_id] = resource.understanding_id
         self.result_revisions[result_id] = target_revision
-        if (resource.understanding_id, revision) in getattr(self, "g03_pipeline_inputs", {}):
-            copied_input = dict(self.g03_pipeline_inputs[(resource.understanding_id, revision)])
-            effective_now = max(now, datetime.now(timezone.utc))
-            source_available = any(item["understanding_id"] == resource.understanding_id and job_id in self.sources
-                and self.source_expiries.get(job_id, now) > effective_now for job_id, item in self.jobs.items())
-            if not source_available:
-                copied_input.pop("pending_lodgings", None)
-            self.g03_pipeline_inputs[(resource.understanding_id, target_revision)] = copied_input
+        copied_input = {**previous_input, "edit_history": history}
+        effective_now = max(now, datetime.now(timezone.utc))
+        source_available = any(item["understanding_id"] == resource.understanding_id and job_id in self.sources
+            and self.source_expiries.get(job_id, now) > effective_now for job_id, item in self.jobs.items())
+        if not source_available:
+            copied_input.pop("pending_lodgings", None)
+        self.g03_pipeline_inputs[(resource.understanding_id, target_revision)] = copied_input
         old = self.stay_selections.get((resource.understanding_id, revision))
         retained = _current_selections([x for x in [old, *old.get("additional_selections", [])]
             if x["segment_key"] != binding.get("segment_key", "legacy")], map_plan) if old else []

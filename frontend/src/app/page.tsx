@@ -284,7 +284,7 @@ export default function HomePage() {
             <span className="four-character-count" data-testid="source-character-count">{source.length.toLocaleString()} / 50,000</span>
             <div className="four-input-actions">
               <button type="button" className="four-paste-button" disabled={!ready || busy || pasteBusy} onClick={() => void pasteText()}><ClipboardPaste size={17} aria-hidden="true"/>{pasteBusy ? '正在读取…' : '粘贴内容'}</button>
-              <button type="submit" className="four-primary" data-testid="create-full-trip" disabled={!isHydrated || !ready || busy || pasteBusy}>{busy ? '正在接收…' : '开始整理行程'}<ArrowRight size={19} aria-hidden="true"/></button>
+              <button type="submit" className="four-primary" data-testid="create-full-trip" disabled={!isHydrated || !ready || busy || pasteBusy || !source.trim()}>{busy ? '正在接收…' : '开始整理行程'}<ArrowRight size={19} aria-hidden="true"/></button>
             </div>
           </div>
           {error && <p id="home-input-error" className="four-input-message is-error" role="alert">{error}</p>}

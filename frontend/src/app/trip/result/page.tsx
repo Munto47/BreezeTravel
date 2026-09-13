@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Undo2,
+  Redo2,
 } from 'lucide-react'
 import {
   createTripShare,
@@ -756,6 +757,11 @@ export default function TripResultPage() {
                   <Undo2 aria-hidden="true" />
                   撤销
                 </button>
+                <button type="button" className="e-button e-button-quiet" data-testid="redo-trip-command"
+                  disabled={disabled || !result.can_redo || dirty}
+                  onClick={() => void trip.command({command_type:'REDO'})}>
+                  <Redo2 aria-hidden="true"/>重做
+                </button>
                 <button
                   type="button"
                   className="e-button e-button-primary"
@@ -782,6 +788,9 @@ export default function TripResultPage() {
                   onStay={token => void trip.selectStay(token)}
                   onRefreshStay={() => void trip.refreshStay()}
                   alternativesRequest={alternativesRequest}
+                  mapDock={activeView === 'MAP_STAY' && !contextOpen}
+                  selectedToken={selected}
+                  selectedDayIndex={safeDayIndex}
                 />
                 <details className="e-more">
                   <summary aria-label="更多行程操作">
@@ -892,8 +901,11 @@ export default function TripResultPage() {
                     onRender={() => void trip.renderMap()}
                     toolbar={<ItineraryPngExport result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
+                    pendingCounts={trip.unresolvedDays.map(day => day.activities.length)}
                     sourceMealDescriptions={trip.sourceMealDescriptions}
                     renderDaySuggestion={dayIndex => <DailyMealCard
+                      dayIndex={dayIndex}
+                      activities={result.days[dayIndex-1]?.activities}
                       resource={trip.resource}
                       day={dailyDining.value?.days.find(day => day.day_index===dayIndex)}
                       existingActivity={trip.unresolvedDays[dayIndex-1]?.activities.find(card => card.activity_token===dailyDining.value?.days.find(day => day.day_index===dayIndex)?.existing_activity_token)}
@@ -924,6 +936,7 @@ export default function TripResultPage() {
                 <MapStayWorkspace
                   active={activeView === 'MAP_STAY'}
                   result={result}
+                  pendingDays={trip.unresolvedDays}
                   mapView={displayMap}
                   stay={displayStay}
                   dayIndex={safeDayIndex}

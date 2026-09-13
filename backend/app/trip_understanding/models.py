@@ -450,6 +450,7 @@ class UserFacingTripResult(StrictModel):
     stay: StaySuggestionView
     available_actions: list[Literal["EDIT_ASSUMPTIONS", "EDIT_CARDS"]]
     can_undo: bool = False
+    can_redo: bool = False
     ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
     expires_at: datetime | None = None
     is_demo: bool = False
@@ -889,6 +890,10 @@ class UndoCommand(StrictModel):
     command_type: Literal["UNDO"]
 
 
+class RedoCommand(StrictModel):
+    command_type: Literal["REDO"]
+
+
 class DiningInsertCommand(StrictModel):
     command_type: Literal["DINING_INSERT"]
     after_activity_token: str = Field(min_length=20, max_length=80)
@@ -913,6 +918,7 @@ TripUnderstandingCommand = Annotated[
     | ActivityTimesShiftCommand
     | ActivityTimesApplyCommand
     | UndoCommand
+    | RedoCommand
     | AssumptionSetCommand,
     Field(discriminator="command_type"),
 ]

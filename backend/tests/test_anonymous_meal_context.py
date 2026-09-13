@@ -15,15 +15,29 @@ def fixture():
     return json.loads((Path(__file__).parent / 'fixtures/live_owner_shanghai_meal_context.json').read_text(encoding='utf-8'))
 
 
+def replay_saved_shanghai_poi_response(request, calls, *, saved=None):
+    """Replay exact old requests, with one explicit official-site query reuse.
+
+    The old shorthand response contains the formal site. Reusing that fixed
+    response for the new canonical query is not a newly observed map response.
+    """
+    saved = fixture() if saved is None else saved
+    params = {k: v for k, v in request.url.params.multi_items() if k != 'key'}
+    recorded_params = dict(params)
+    if params.get('keywords') == '中国共产党第一次全国代表大会会址':
+        recorded_params['keywords'] = '中共一大会址'
+    recorded = next(c for c in saved['place_calls'] if c['path'] == request.url.path and c['query'] == recorded_params)
+    calls.append({'path': request.url.path, 'request_query': params, 'recorded_query': recorded_params,
+                  'response_policy': 'FIXED_RESPONSE_REUSE' if params != recorded_params else 'FIXED_EXACT_REQUEST'})
+    return httpx.Response(200, json=recorded['response'])
+
+
 async def build_shanghai_meal_context_result():
     saved = fixture()
     calls = []
 
     def reply(request):
-        params = {k: v for k, v in request.url.params.multi_items() if k != 'key'}
-        recorded = next(c for c in saved['place_calls'] if c['path'] == request.url.path and c['query'] == params)
-        calls.append(params)
-        return httpx.Response(200, json=recorded['response'])
+        return replay_saved_shanghai_poi_response(request, calls, saved=saved)
 
     client = Client(saved['response'])
     # The captured run had only one answer. Replay this first-answer meal
@@ -32,7 +46,7 @@ async def build_shanghai_meal_context_result():
         client=client, deadline_seconds=10, enable_source_visits=False)
     async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as transport:
         output = await TripUnderstandingPipeline(provider, AmapPlaceResolver(api_key='fixed', client=transport)).run(saved['source'])
-    assert len(client.calls) == 1 and len(calls) == 20
+    assert len(client.calls) == 1 and len(calls) == 19
     return output
 
 
@@ -40,18 +54,20 @@ async def build_shanghai_meal_context_result():
 async def test_saved_three_anonymous_meals_become_positioned_slots_not_unresolved_places():
     output = await build_shanghai_meal_context_result()
     public = output.public_result
-    assert [[s.meal_role for s in d.meal_slots] for d in public.days] == [['LUNCH'], ['LUNCH', 'UNSPECIFIED'], []]
+    assert [[s.meal_role for s in d.meal_slots] for d in public.days] == [['LUNCH'], ['LUNCH', 'DINNER'], []]
     assert sum(len(d.activities) for d in public.days) == 17
-    assert sum(c.status == 'READY' for d in public.days for c in d.activities) == 13
+    assert sum(c.status == 'READY' for d in public.days for c in d.activities) == 14
     assert not any(c.category == '餐饮' for d in public.days for c in d.activities)
     actual_identities = {a.compiled.mention.atomic_place_name: a.place.canonical_place_id if a.place else None
         for a in output.activities if a.compiled.mention.role == 'PLANNED' and a.compiled.mention.atomic_place_name}
     assert [actual_identities[x['source_name']] for x in fixture()['expected_main_identities']] == [
-        x['poi_id'] for x in fixture()['expected_main_identities']]
+        'B0MGOCVPM6' if x['source_name'] == '中共一大会址' else x['poi_id']
+        for x in fixture()['expected_main_identities']]
     expected = fixture()['expected_public']
     for day, original in zip(public.days, expected['days'], strict=True):
         assert [(c.name, c.status, c.city) for c in day.activities] == [
-            (c['name'], c['status'], c['city']) for c in original['activities'] if c['category'] != '餐饮']
+            ('中国共产党第一次全国代表大会会址', 'READY', '上海') if c['name'] == '中共一大会址'
+            else (c['name'], c['status'], c['city']) for c in original['activities'] if c['category'] != '餐饮']
         assert [(c.name, c.branch_label, c.choice_group_selectable) for c in day.alternatives] == [
             (c['name'], c['branch_label'], c['choice_group_selectable']) for c in original['alternatives']]
     lunch1 = public.days[0].meal_slots[0]
@@ -96,19 +112,20 @@ def test_bounded_meal_list_context_does_not_borrow_another_visit_or_invent_dinne
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('role', ['PLANNED', 'OPTIONAL', 'REFERENCE', 'EXCLUDED'])
-async def test_unspecified_anonymous_meal_keeps_role_without_inventing_meal_type_or_place(role):
+@pytest.mark.parametrize('model_meal_role', [None, 'DINNER'])
+async def test_anonymous_meal_keeps_role_and_only_supported_model_meal_type_without_inventing_place(role, model_meal_role):
     from tests.semantic_page_replays import FixedReplayPlaces
     source = '广州\nDay1：先到沙面。晚上吃饭，门店待选。随后去越秀公园。'
     raw = dict(destination='广州', activities=[
         dict(source_quote='沙面', place_name='沙面', role='PLANNED', day_index=1),
-        dict(source_quote='晚上吃饭', place_name=None, role=role, day_index=1, category='餐饮', meal_role='DINNER'),
+        dict(source_quote='晚上吃饭', place_name=None, role=role, day_index=1, category='餐饮', meal_role=model_meal_role),
         dict(source_quote='越秀公园', place_name='越秀公园', role='PLANNED', day_index=1),
     ])
     from app.trip_understanding.experience_inference import SemanticDraft, proposal_from_draft
     plan = proposal_from_draft(source, SemanticDraft.model_validate(raw), allow_partial=True)
     public = (await TripUnderstandingPipeline(None, FixedReplayPlaces()).run(source, prepared_plan=plan)).public_result
     assert [c.name for c in public.days[0].activities] == ['沙面', '越秀公园']
-    assert [s.meal_role for s in public.days[0].meal_slots] == (['UNSPECIFIED'] if role == 'PLANNED' else [])
+    assert [s.meal_role for s in public.days[0].meal_slots] == ([model_meal_role or 'UNSPECIFIED'] if role == 'PLANNED' else [])
     if role == 'PLANNED':
         slot = public.days[0].meal_slots[0]
         assert slot.preference_text == '晚上吃饭'
@@ -131,7 +148,7 @@ def test_meal_context_stops_at_next_list_or_explicit_time_section_and_keeps_exis
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('kind', ['memory', 'postgres'])
-async def test_unspecified_meal_round_trip_delete_source_and_undo_preserve_generated_content(kind):
+async def test_supported_meal_round_trip_delete_source_and_undo_preserve_generated_content(kind):
     from datetime import datetime, timezone
     from app.trip_understanding.commands import apply_public_command
     from app.trip_understanding.models import ActivityMoveCommand, CreateFullRequest, UndoCommand
@@ -150,7 +167,7 @@ async def test_unspecified_meal_round_trip_delete_source_and_undo_preserve_gener
             user_id='experience-owner', now=now)
         stored = await repo.get_result(resource)
         expected = [[(s.meal_role, s.preference_text) for s in d.meal_slots] for d in stored.result.days]
-        assert expected[1][1][0] == 'UNSPECIFIED'
+        assert expected[1][1][0] == 'DINNER'
         await repo.delete_source(resource, user_id='experience-owner', idempotency_key='meal-context-source-delete',
             request_hash='b' * 64, now=now)
         resource = await repo.authorize(created.accepted.public_resource_id, capability_hash=None,

@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState} from 'react'
 import type {UserFacingTripResult, TripSupplementaryView, TripUnderstandingCommand} from '@/lib/trip-understanding-v3'
 import type {WorkspaceCommandResult} from './itinerary-workspace'
+import {relativeDayLabel} from './result-presentation'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import PendingLodgingRecovery from './pending-lodging-recovery'
 
@@ -54,7 +55,7 @@ export default function UnresolvedPlaces({days, coverage, resource, disabled, on
           disabled={disabled} onCommand={onCommand} onClose={closeHotel} onInvalidated={()=>{closeHotel();onRefresh?.()}}/>}
       </div>)}
     </section>}
-    {open && days.map(day => day.activities.length > 0 && <section key={day.label} className="mb-3"><h3 className="text-xs font-semibold text-slate-500">{day.label}</h3>{day.activities.map(card => <div key={card.activity_token} className="relative mt-1">
+    {open && days.map((day, dayIndex) => day.activities.length > 0 && <section key={day.label} className="mb-3"><h3 className="text-xs font-semibold text-slate-500">{relativeDayLabel(dayIndex)}</h3>{day.activities.map(card => <div key={card.activity_token} className="relative mt-1">
       <button type="button" id={`recover-${card.activity_token}`} disabled={disabled} aria-expanded={selected === card.activity_token} onClick={() => setSelected(selected === card.activity_token ? null : card.activity_token)} className="min-h-11 rounded-xl px-3 text-left text-sm text-sky-800 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-600">{card.name}{card.city ? ` · ${card.city}` : ''} · 确认地点</button>
       {selected === card.activity_token && <PendingPlaceDropdown card={card} resource={resource} disabled={disabled} onCommand={onCommand} onClose={() => close(card.activity_token)}/>}
     </div>)}</section>)}

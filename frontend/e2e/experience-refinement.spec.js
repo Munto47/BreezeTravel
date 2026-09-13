@@ -164,53 +164,54 @@ test('refinement: failed preference reads do not pretend consent is off and can 
   await expect(page.getByTestId('walking-tolerance')).toHaveValue('45')
 })
 
-test('refinement: a concurrent edit rejects the old preview and can prepare a new one', async ({
+test('refinement: a concurrent relative edit rejects the old ETag and cancellation preserves the latest result', async ({
   page,
 }) => {
   await openDemo(page)
-  await openSuggestions(page)
-  await page
-    .getByTestId('suggestion-check')
-    .getByRole('button', { name: '预览调整' })
-    .first()
-    .click()
-  await expect(page.getByText('预览中 · 当前行程尚未改变')).toBeVisible()
+  const writes = observeUserWrites(page)
   const reference = await page.evaluate(() =>
     sessionStorage.getItem('bt_active_trip_ref'),
   )
   const base = `/api/v3/trip-understandings/${reference}`
   const beforeResponse = await page.request.get(base + '/result')
   const before = await beforeResponse.json()
-  // A second authorized client changes a stop while the first preview is open.
+  // Preview the relative move locally. A second authorized client changes the
+  // real version before it is dropped; no clock command or fake conflict.
+  await page.getByTestId('drag-handle-1-0').press('Enter')
+  await page.keyboard.press('ArrowRight')
+  expect(writes).toEqual([])
   const edited = await page.request.post(base + '/commands', {
     headers: {
       'Idempotency-Key': require('node:crypto').randomUUID(),
       'If-Match': beforeResponse.headers().etag,
     },
     data: {
-      command_type: 'ACTIVITY_TIME_SET',
+      command_type: 'ACTIVITY_MOVE',
       activity_token: before.days[0].activities[1].activity_token,
-      start_time: '14:10',
+      target_day_index: 2,
+      target_position: 0,
     },
   })
   expect(edited.status()).toBe(200)
-  const after = (await (await page.request.get(base + '/result')).json()).days
-  await page.getByRole('button', { name: '确认采纳' }).click()
-  await expect(
-    page.getByText('预览已失效 · 行程或路线依据已有变化'),
-  ).toBeVisible()
-  expect(
-    (await (await page.request.get(base + '/result')).json()).days,
-  ).toEqual(after)
-  await page.getByRole('button', { name: '重新预览', exact: true }).click()
-  await expect(page.getByText('预览中 · 当前行程尚未改变')).toBeVisible({
-    timeout: 15000,
-  })
-  expect(
-    (await (await page.request.get(base + '/result')).json()).days,
-  ).toEqual(after)
-  await page.getByRole('button', { name: '取消', exact: true }).click()
-  expect((await readResult(page)).body.days).toEqual(after)
+  const afterResponse = await page.request.get(base + '/result')
+  const after = await afterResponse.json()
+  expect(afterResponse.headers().etag).not.toBe(beforeResponse.headers().etag)
+  const rejected = page.waitForResponse(response => new URL(response.url()).pathname === `${base}/commands` && response.status() === 409)
+  await page.keyboard.press('Enter')
+  const conflict = await rejected
+  expect((await conflict.json()).detail.code).toBe('REVISION_CONFLICT')
+  expect(conflict.request().headers()['if-match']).toBe(beforeResponse.headers().etag)
+  await expect(page.getByTestId('day-lane-1').getByTestId('activity-card')).toHaveCount(1)
+  await expectFirst(page, '故宫博物院')
+  expect((await readResult(page)).body.days).toEqual(after.days)
+  expect((await readResult(page)).etag).toBe(afterResponse.headers().etag)
+  expect(writes).toEqual(['commands'])
+  // The new authoritative day/token is usable, but cancel still sends no write.
+  await page.getByTestId('drag-handle-2-0').press('Enter')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('Escape')
+  expect((await readResult(page)).body.days).toEqual(after.days)
+  expect(writes).toEqual(['commands'])
   await expect(page.getByTestId('itinerary-workspace')).toBeVisible()
 })
 
@@ -239,19 +240,15 @@ test('refinement: sample prefill and replacement confirmation never submit a tri
   await expect(text).toBeEnabled()
   await text.fill('这是我还没有整理的攻略，请保留。')
   await page.getByTestId('start-demo').click()
-  const confirm = page.getByRole('alertdialog', { name: '替换输入确认' })
+  const confirm = page.getByRole('dialog', { name: '替换当前文字？' })
   await expect(confirm).toBeVisible()
   await confirm.getByRole('button', { name: '保留我的文字' }).click()
   await expect(text).toHaveValue('这是我还没有整理的攻略，请保留。')
   await page.getByTestId('start-demo').click()
   await confirm.getByRole('button', { name: '填入示例', exact: true }).click()
-  await expect(text).toHaveValue(/北京三日慢游/)
+  await expect(text).toHaveValue(/北京三日游，按下面的先后顺序安排/)
   await expect(text).toBeFocused()
-  await expect(
-    page.getByText(
-      '示例回放',
-    ),
-  ).toBeVisible()
+  await expect(page.getByText('示例回放', {exact: false})).toHaveCount(0)
   await expect(page).toHaveURL(/\/$/)
   expect(submissions).toBe(0)
 })
@@ -660,7 +657,7 @@ for (const outcome of ['PROCESSING', 'NETWORK_INTERRUPTED']) {
       await expect(page.getByTestId('generation-stages')).toBeVisible()
       await expect(page.getByTestId('itinerary-workspace')).toHaveCount(0)
     }
-    await page.getByRole('link', { name: '首页', exact: true }).click()
+    await page.getByRole('link', { name: '返回首页', exact: true }).click()
     await expect(page.getByTestId('trip-source-text')).toHaveValue(text)
     await expect(page.getByTestId('create-full-trip')).toBeEnabled()
     expect(

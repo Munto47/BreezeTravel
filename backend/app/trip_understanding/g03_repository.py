@@ -21,6 +21,7 @@ from app.audit.repositories import PostgresAuditRepository
 from app.itineraries.models import ItineraryRevision, RevisionSource
 from app.itineraries.repositories import _revision_from_row
 from app.trip_understanding.commands import apply_public_command
+from app.trip_understanding.edit_history import advance_edit_history
 from app.trip_understanding.errors import (
     IdempotencyConflictError,
     IdempotencyInProgressError,
@@ -227,7 +228,7 @@ class PostgresG03RepositoryMixin:
         details = await conn.fetchrow(
             """
             SELECT r.public_json, r.opaque_etag, r.public_sha256,
-                   ur.source_id, ur.destination_json, ur.assumptions_json
+                   ur.source_id, ur.destination_json, ur.assumptions_json, ur.proposal_json
             FROM trip_understanding_results r
             JOIN trip_understanding_revisions ur
               ON ur.understanding_id = r.understanding_id
@@ -1231,6 +1232,10 @@ class PostgresG03RepositoryMixin:
     ) -> tuple[UserFacingTripResult, str, int, list[str]]:
         current_result = UserFacingTripResult.model_validate(_json(current["public_json"]))
         mutation = apply_public_command(current_result, command)
+        _, history = advance_edit_history(int(current["current_revision"]), _json(current["proposal_json"]),
+            can_undo=current_result.can_undo, command_type=command.command_type)
+        mutation.result.can_undo = bool(history["undo"])
+        mutation.result.can_redo = bool(history["redo"])
         public_payload = mutation.result.model_dump(mode="json")
         public_hash = canonical_sha256(public_payload)
         parent_revision = int(current["current_revision"])
@@ -1270,6 +1275,7 @@ class PostgresG03RepositoryMixin:
                     "kind": "USER_ADOPTED_CHANGE",
                     "command_type": command.command_type,
                     "source_quotes": "PARENT_REVISION_ONLY",
+                    "edit_history": history,
                 },
                 ensure_ascii=False,
             ),

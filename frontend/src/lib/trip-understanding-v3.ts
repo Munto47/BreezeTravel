@@ -170,6 +170,7 @@ export interface UserFacingTripResult {
   lodging_constraints?: LodgingConstraintView[]
   coverage?: {recognized_place_count: number; confirmed_place_count: number; unresolved_place_count: number; unclassified_mention_count: number; unprocessed_count: number; complete: boolean} | null
   can_undo?: boolean
+  can_redo?: boolean
   ownership?: 'ANONYMOUS' | 'ACCOUNT'
   expires_at?: string | null
   updated_at?: string | null
@@ -219,6 +220,7 @@ export type TripUnderstandingCommand =
       }>
     }
   | { command_type: 'UNDO' }
+  | { command_type: 'REDO' }
   | {
       command_type: 'PLACE_CONFIRM'
       activity_token: string

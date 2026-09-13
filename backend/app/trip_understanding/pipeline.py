@@ -1240,20 +1240,46 @@ class PublicResultProjector:
                     # Unnamed lodging gaps and transport actions retain their
                     # source semantics without inventing a place to confirm.
                     continue
-                if (mention.meal_role or mention.category_hint == "餐饮") and not mention.atomic_place_name:
+                anonymous_meal = (mention.meal_role or mention.category_hint == "餐饮") and not mention.atomic_place_name
+                area_meal = bool(mention.meal_role and mention.atomic_place_name and mention.category_hint == "地点")
+                if anonymous_meal or area_meal:
                     from app.trip_understanding.source_meal_context import source_meal_block
 
-                    preceding = [row for row in daily if row.compiled.mention.sequence_index < mention.sequence_index
+                    preceding = [row for row in daily if row.compiled.mention.sequence_index <= mention.sequence_index
                                  and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
                     following = [row for row in daily if row.compiled.mention.sequence_index > mention.sequence_index
                                  and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
                     preference = (source_meal_block(source_text, mention.span_start, mention.span_end)
                         if source_text and source_text[mention.span_start:mention.span_end] == mention.raw_text else None) or mention.raw_text
-                    meal_slots.append(MealSlotView(meal_role=mention.meal_role or "UNSPECIFIED", selection_status="UNSELECTED",
-                        preference_text=" ".join(preference.split()) if len(preference) <= 1000 else None,
-                        after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
-                        before_activity_token=following[0].compiled.public_activity_token if following else None))
-                    continue
+                    # A separately emitted anonymous preference may already
+                    # describe this very meal. Match its validated source item,
+                    # never deduplicate by a shared day, name or meal label.
+                    def same_meal_source(other):
+                        if not source_text or other.atomic_place_name or other.meal_role != mention.meal_role:
+                            return False
+                        if source_text[other.span_start:other.span_end] != other.raw_text:
+                            return False
+                        if other.span_start <= mention.span_start < mention.span_end <= other.span_end:
+                            return sum(bool(row.compiled.mention.atomic_place_name and row.compiled.mention.meal_role
+                                and other.span_start <= row.compiled.mention.span_start < row.compiled.mention.span_end <= other.span_end)
+                                for row in daily) == 1
+                        block = source_meal_block(source_text, mention.span_start, mention.span_end)
+                        line_start = source_text.rfind("\n", 0, mention.span_start)
+                        named_in_block = [row.compiled.mention for row in daily
+                            if row.compiled.mention.atomic_place_name and row.compiled.mention.meal_role
+                            and source_text.rfind("\n", 0, row.compiled.mention.span_start) == line_start]
+                        return bool(block and len(named_in_block) == 1
+                            and source_text.rfind("\n", 0, other.span_start) == line_start
+                            and source_meal_block(source_text, other.span_start, other.span_end) == block)
+
+                    anonymous_covers_area = area_meal and any(same_meal_source(row.compiled.mention) for row in daily)
+                    if not anonymous_covers_area:
+                        meal_slots.append(MealSlotView(meal_role=mention.meal_role or "UNSPECIFIED", selection_status="UNSELECTED",
+                            preference_text=" ".join(preference.split()) if len(preference) <= 1000 else None,
+                            after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
+                            before_activity_token=following[0].compiled.public_activity_token if following else None))
+                    if anonymous_meal:
+                        continue
                 place = item.place
                 source_confirmation_required = item.resolver_receipt.get("status") in {
                     "SOURCE_CONFIRMATION_REQUIRED",

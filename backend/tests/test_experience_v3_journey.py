@@ -136,7 +136,8 @@ async def test_candidate_bound_confirmation_timing_undo_and_map_points(kind):
         resource, undone = await refresh(repo, resource, now)
         assert undone.opaque_etag != edited.opaque_etag
         assert undone.result.days[0].activities[0].start_time == confirmed.result.days[0].activities[0].start_time
-        assert not undone.result.can_undo
+        # The earlier confirmation remains undoable after undoing a later edit.
+        assert undone.result.can_undo and undone.result.can_redo
         assert (await repo.get_map_view(resource, now=now)).points[0].position.longitude == 116.397
         await service.apply_command(resource, AssumptionSetCommand(command_type="ASSUMPTION_SET", key="destination", value="上海"),
             expected_etag=undone.opaque_etag, idempotency_key="change-city", now=now)

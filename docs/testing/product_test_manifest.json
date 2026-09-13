@@ -107,7 +107,11 @@
         "tests/test_relative_only_runtime.py",
         "tests/test_relative_only_commands_api.py",
         "tests/test_account_task_recovery.py",
-        "tests/test_confirm_source_details.py"
+        "tests/test_confirm_source_details.py",
+        "tests/test_source_model_meal_role.py",
+        "tests/test_amap_cpc_first_congress_site_identity.py",
+        "tests/test_edit_history.py",
+        "tests/test_named_meal_area_intent.py"
       ]
     },
     "postgres": {
@@ -147,7 +151,9 @@
         "tests/test_anonymous_meal_context.py",
         "tests/test_alternative_insert.py",
         "tests/test_account_task_recovery.py",
-        "tests/test_confirm_source_details.py"
+        "tests/test_confirm_source_details.py",
+        "tests/test_edit_history.py",
+        "tests/test_named_meal_area_intent.py"
       ]
     },
     "browser-core": {
@@ -203,7 +209,11 @@
         "e2e/four-pages-progress.spec.js",
         "e2e/task-library-recovery.spec.js",
         "e2e/relative-only-presentation.spec.js",
-        "e2e/confirm-source-details.spec.js"
+        "e2e/confirm-source-details.spec.js",
+        "e2e/four-pages-cards.spec.js",
+        "e2e/daily-dining-expansion.spec.js",
+        "e2e/edit-history.spec.js",
+        "e2e/named-meal-area.spec.js"
       ]
     }
   }

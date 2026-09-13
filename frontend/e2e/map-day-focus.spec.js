@@ -16,14 +16,14 @@ function mapView(){return {status:'AVAILABLE',message:'受控路线已准备',av
     from_name:day.activities[0].name,to_name:day.activities[1].name,selected_mode:'walking',message:'合成步行',
     walking:{status:'AVAILABLE',duration_minutes:10,distance_meters:900,transfer_count:0,geometry:coordinates.slice(i*2,i*2+2).map(([longitude,latitude])=>({longitude,latitude}))},
     transit:{status:'UNAVAILABLE',duration_minutes:null,distance_meters:null,transfer_count:null,geometry:[]}}]}))}}
-async function fixture(page){
+async function fixture(page, {pending=false}={}){
   const writes=[]
   await page.addInitScript(()=>{
     window.__mapFocus={fits:[],lines:[]}
     window.AMap={Map:class{
       constructor(container){this.container=container}
       on(name,callback){if(name==='complete')setTimeout(callback,0)}
-      add(items){items.forEach(x=>{if(x.content)this.container.append(x.content)});window.__mapFocus.lines=items.filter(x=>x.path).map(x=>({path:x.path,color:x.strokeColor}))}
+      add(items){items.filter(x=>x.content).forEach((x,index)=>{Object.assign(x.content.style,{position:'absolute',left:(20+(index%3)*25)+'%',top:(28+Math.floor(index/3)*28)+'%'});this.container.append(x.content)});window.__mapFocus.lines=items.filter(x=>x.path).map(x=>({path:x.path,color:x.strokeColor}))}
       remove(items){items.forEach(x=>x.content?.remove())}
       setFitView(items){window.__mapFocus.fits.push(items.filter(x=>x.position).map(x=>x.position))}
       setCenter(){} resize(){} destroy(){} zoomIn(){} zoomOut(){}
@@ -36,7 +36,7 @@ async function fixture(page){
     const req=route.request(),action=new URL(req.url()).pathname.slice(P.length)
     if(req.method()!=='GET')writes.push({action,method:req.method()})
     const reply=(json,status=200)=>route.fulfill({status,json,headers:{ETag:'"synthetic-map-v1"'}})
-    if(action==='/result')return reply({status:'READY',ownership:'ANONYMOUS',is_demo:false,assumptions:[{key:'destination',label:'目的地',value:'北京、上海',editable:true}],days,
+    if(action==='/result')return reply({status:'READY',ownership:'ANONYMOUS',is_demo:false,assumptions:[{key:'destination',label:'目的地',value:'北京、上海',editable:true}],days: days.map((day, index) => ({...day, activities:[...day.activities, ...(pending && index === 1 ? [{...card('synthetic-pending-0000000000','尚未确认的上海分馆','上海'),status:'NEEDS_CONFIRMATION',category:'场馆'}] : [])]})),
       map:{status:'AVAILABLE',message:'受控路线',available_actions:[]},stay:{status:'UNAVAILABLE',message:'未配置合成建议',candidates:[],searched_scopes:[],area_summary:null,available_actions:[]},available_actions:['EDIT_ASSUMPTIONS','EDIT_CARDS']})
     if(action==='/map-renders/latest')return reply(mapView())
     if(action==='/stay-suggestions')return reply({status:'UNAVAILABLE',message:'未配置合成建议',candidates:[],searched_scopes:[],area_summary:null,available_actions:[]})
@@ -90,4 +90,50 @@ for(const width of [1440,390])test(`cross-city map focuses one day and restores 
   await expect(page.getByTestId('map-route-summary')).toHaveCount(2)
   expect(writes.slice(before)).toEqual([])
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
+})
+
+// Fixed SDK/API only: filtering changes the directory, never invents map coordinates.
+for (const width of [1440,390]) test(`map directory and selected suggestions stay in sync at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:950})
+  const writes=await fixture(page,{pending:true})
+  if(width<1024)await page.getByTestId('map-directory-toggle').click()
+  const directory=page.getByTestId('map-place-directory')
+  await expect(directory.getByTestId('map-directory-place')).toHaveCount(5)
+  await directory.getByLabel('搜索本行程地点').fill('上海')
+  await expect(directory.getByTestId('map-directory-place')).toHaveCount(3)
+  await directory.getByLabel('地点确认状态').selectOption('NEEDS_CONFIRMATION')
+  await expect(directory.getByTestId('map-directory-place')).toHaveCount(1)
+  await expect(directory.getByTestId('map-directory-place')).toContainText('尚未确认的上海分馆')
+  await expect(page.locator('.e-map-marker')).toHaveCount(6)
+  await expect(page.locator('.e-map-marker[aria-label*=尚未确认]')).toHaveCount(0)
+  await directory.getByLabel('地点确认状态').selectOption('all')
+  await directory.getByLabel('地点类别').selectOption('场馆')
+  await expect(directory.getByTestId('map-directory-place')).toHaveCount(1)
+  await directory.getByLabel('地点类别').selectOption('all')
+  await directory.getByLabel('搜索本行程地点').fill('无此地名')
+  await expect(directory).toContainText('没有符合筛选条件的地点')
+  await directory.getByLabel('搜索本行程地点').fill('')
+  const selected=directory.getByTestId('map-directory-place').filter({hasText:'上海合成古街'})
+  await selected.click()
+  await expect(selected).toHaveAttribute('aria-pressed','true')
+  if(width<1024){await directory.getByRole('button',{name:'收起',exact:true}).click();await page.getByTestId('journey-suggestions-toggle').click()}
+  const suggestions=page.getByRole('complementary',{name:'检查与建议',exact:true})
+  await expect(suggestions.getByLabel('当前选中地点')).toContainText('上海合成古街')
+  await expect(suggestions.getByLabel('当前选中地点')).toContainText('Day 2')
+  await suggestions.getByRole('button',{name:'顺路优化',exact:true}).click()
+  await expect(suggestions).toContainText('暂无已核验的顺路调整方案')
+  await suggestions.getByRole('button',{name:'住宿',exact:true}).click()
+  await expect(suggestions.getByRole('button',{name:'更新住宿建议',exact:true})).toBeVisible()
+  await page.screenshot({path:test.info().outputPath(`three-pane-${width}.png`),fullPage:true})
+  await suggestions.getByRole('button',{name:'关闭建议',exact:true}).click()
+  await page.locator('.e-map-marker[aria-label="查看北京合成公园"]').click()
+  if(width<1024)await page.getByTestId('map-directory-toggle').click()
+  await expect(directory.getByTestId('map-directory-place').filter({hasText:'北京合成公园'})).toHaveAttribute('aria-pressed','true')
+  const cardTab=width<1024 ? 'mobile-nav-itinerary':'desktop-nav-itinerary'
+  await page.getByTestId(cardTab).click()
+  await page.getByTestId(width<1024 ? 'mobile-nav-map_stay':'desktop-nav-map_stay').click()
+  if(width<1024)await page.getByTestId('journey-suggestions-toggle').click()
+  await expect(suggestions.getByLabel('当前选中地点')).toContainText('北京合成公园')
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
+  expect(writes.filter(write=>write.action!=='/materialize')).toEqual([])
 })

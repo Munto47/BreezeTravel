@@ -23,6 +23,7 @@ type MapInstance = {
     maxZoom?: number,
   ): void
   setCenter(center: [number, number]): void
+  addControl?(control: unknown): void
   resize?(): void
   zoomIn?(): void
   zoomOut?(): void
@@ -31,6 +32,8 @@ type MapSDK = {
   Map: new (container: HTMLElement, options: object) => MapInstance
   Marker: new (options: object) => unknown
   Polyline: new (options: object) => unknown
+  Scale?: new (options?: object) => unknown
+  plugin?(names: string[], callback: () => void): void
 }
 let sdkPromise: Promise<MapSDK> | null = null
 
@@ -55,7 +58,7 @@ function loadMap(): Promise<MapSDK> {
       }
     }
     const timer = window.setTimeout(() => done(false), 12000)
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Scale`
     script.async = true
     script.onload = () => done(true)
     script.onerror = () => done(false)
@@ -164,6 +167,12 @@ export default function RouteMap({
           resizeEnable: true,
           mapStyle: 'amap://styles/whitesmoke',
         })
+        // Native scale follows the SDK viewport; no fabricated fixed distance.
+        // https://lbs.amap.com/api/javascript-api-v2/tutorails/add-plugin
+        const instance = map.current
+        const addScale = () => {if (!cancelled && map.current === instance && api.Scale) instance.addControl?.(new api.Scale({position:'LB', offset:[14,16]}))}
+        if (api.Scale) addScale()
+        else api.plugin?.(['AMap.Scale'], addScale)
         fittedDay.current = null
         map.current.on('complete', () => {
           if (!cancelled) {

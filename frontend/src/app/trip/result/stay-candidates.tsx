@@ -31,7 +31,7 @@ export default function StayCandidates({stay, days, disabled, onSelect}: {
       <p className="mt-1 text-xs leading-5 text-slate-500">{item.reason}</p>
       {item.brand_note && <p className="mt-1 text-xs leading-5 text-slate-500">{item.brand_note}</p>}
       <button type="button" data-testid="choose-stay" disabled={disabled || item.selected || stay.status === 'NEEDS_UPDATE' || segment.status === 'NEEDS_UPDATE'} onClick={() => onSelect(item.candidate_token)}
-        className="mt-2 min-h-11 rounded-xl px-3 text-sm font-medium text-sky-800 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 disabled:opacity-40">{item.selected ? '已选择' : '选择这家住宿'}</button>
+        className="mt-2 min-h-12 rounded-xl px-3 text-sm font-medium text-sky-800 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 disabled:opacity-40">{item.selected ? '已选择' : '选择这家住宿'}</button>
     </article>)}
   </section>)}</div>
 }

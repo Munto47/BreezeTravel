@@ -30,5 +30,6 @@ export default function PlacePhoto({ card }: { card: ActivityCardView }) {
       data-image-type={typed ? fallback!.type : 'poi'} loading="lazy" referrerPolicy="no-referrer"
       onError={() => typed ? setFailedFallback(src) : setFailedSource(src)}
       className="absolute inset-0 h-full w-full object-cover" />
+    {typed && <span title="按地点类型展示的配图，并非该地点实拍" className="pointer-events-none absolute bottom-1 right-1 rounded bg-slate-950/65 px-1 py-0.5 text-[10px] leading-none text-white">配图</span>}
   </>
 }

@@ -30,7 +30,13 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
   const close=useRef(onClose); close.current=onClose
   const locked=disabled||saving
   useEffect(()=>{
-    if (!recovery) root.current?.querySelector('input')?.focus({preventScroll:true})
+    if (!recovery) {
+      root.current?.querySelector('input')?.focus({preventScroll:true})
+      // Keep the focused search above the mobile result navigation and keyboard.
+      const element = root.current
+      if (element && element.getBoundingClientRect().bottom > (window.visualViewport?.height || window.innerHeight) - 96)
+        element.scrollIntoView({block:'center', behavior:'instant'})
+    }
     return ()=>request.current?.abort()
   },[])
   useEffect(()=>{

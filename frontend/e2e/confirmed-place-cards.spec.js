@@ -217,16 +217,19 @@ for (const width of [1440, 1280, 390, 360]) test(`confirmed-only cards and nine 
     await title.scrollIntoViewIfNeeded(); await expect(title).toBeVisible()
     const photo = page.locator(`img[data-image-type="${type}"]`).first()
     await expect(photo).toHaveAttribute('src', new RegExp(`^/place-types/${type}(?:-\\d{2})?\\.jpg$`))
+    await expect(photo.locator('..').getByText('配图', {exact: true})).toBeVisible()
     await expect.poll(() => photo.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true)
   }
-  await expect(page.getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
+  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
+  await expect(page.getByText(/未匹配的地点[一二三]/).filter({ visible: true })).toHaveCount(0)
   await expect(page.getByTestId('day-alternatives-1')).toHaveCount(1)
   await expect(page.getByRole('heading',{name:'尚未查询的备选',exact:true})).toHaveCount(0)
   await expect(page.getByTestId('unmatched-places-note')).toContainText('3 项')
   await expect(page.getByText('类型配图', { exact: true })).toHaveCount(0)
   await page.reload()
   await expect(page.getByRole('heading', { name: types[0][0], exact: true })).toBeVisible()
-  await expect(page.getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
+  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
+  await expect(page.getByText(/未匹配的地点[一二三]/).filter({ visible: true })).toHaveCount(0)
 })
 
 test('every photo subtype has at least ten distinct, traceable local assets', () => {
@@ -288,7 +291,8 @@ test('generation snapshots also show only confirmed cards', async ({ page }) => 
   const cards = page.locator('.e-progress-card')
   await expect(cards).toHaveCount(9)
   await expect(cards.getByText('已确认', { exact: true })).toHaveCount(9)
-  await expect(page.getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
+  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
+  await expect(page.getByText(/未匹配的地点[一二三]/).filter({ visible: true })).toHaveCount(0)
   await expect(cards.getByText('待确认', { exact: true })).toHaveCount(0)
 })
 

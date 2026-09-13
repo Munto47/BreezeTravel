@@ -675,9 +675,9 @@ async def test_saved_selection_confirmation_refresh_undo_authorization_and_idemp
         )
         resource, confirmed = await read()
         assert confirmed.result.days[0].choice_selections[0].status == "SELECTED"
-        # A command after confirming can explicitly clear the choice even when
-        # the ordinary one-step undo is no longer available.
-        assert not confirmed.result.can_undo
+        # Restoring this choice keeps earlier edits available and also permits
+        # redoing the clear; a new clear creates a new branch instead.
+        assert confirmed.result.can_undo and confirmed.result.can_redo
         await service.apply_command(
             resource,
             ChoiceClearCommand(

@@ -61,7 +61,7 @@ test.afterEach(async ({ page }, testInfo) => {
   })
 })
 
-const { openDemo, view, moveFirst, expectFirst, setTime, openSuggestions } = require('./support/current-experience')
+const { openDemo, view, moveFirst, expectFirst, openSuggestions } = require('./support/current-experience')
 
 async function currentResult(page) {
   return page.evaluate(async () => {
@@ -92,8 +92,11 @@ for (const width of [1440, 1280, 390, 360]) {
     await expect(
       page.getByRole('textbox', { name: '你的攻略或行程' }),
     ).toBeVisible()
-    await expect(page.getByRole('button', { name: '整理行程' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '整理行程' })).toBeEnabled({timeout:15000})
+    await expect(page.getByTestId('create-full-trip')).toBeVisible()
+    await expect(page.getByTestId('trip-source-text')).toBeEnabled({timeout:15000})
+    await expect(page.getByTestId('create-full-trip')).toBeDisabled()
+    await page.getByTestId('trip-source-text').fill('北京先去故宫，再去景山。')
+    await expect(page.getByTestId('create-full-trip')).toBeEnabled()
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -175,7 +178,7 @@ test('custom text uses anonymous FULL instead of the demo or login', async ({
   await page
     .getByRole('textbox', { name: '你的攻略或行程' })
     .fill('第一天去上海博物馆和外滩，豫园是备选。')
-  await page.getByRole('button', { name: '整理行程' }).click()
+  await page.getByTestId('create-full-trip').click()
   await expect(page.locator('main').getByRole('alert')).toContainText(
     '当前体验次数已用完',
   )
@@ -295,36 +298,40 @@ test('@live a real candidate can replace a place without recalculating routes', 
   ).toBeVisible({ timeout: 30000 })
 })
 
-test('a time conflict has a read-only preview and can be adopted', async ({
-  page,
-}) => {
+test('relative checks and a cancelled move are read-only, and committing changes only order', async ({page}) => {
   await openDemo(page)
-  const edit = (index, start, end) => setTime(page, index, start, end)
-  await edit(0, '09:00', '11:00')
-  await edit(1, '10:00', '11:00')
-  await page.reload()
-  await expectFirst(page, '故宫博物院')
-  await page.getByRole('button', { name: '更新路线', exact: true }).click()
-  await openSuggestions(page)
-  const fixConflict = page
-    .getByTestId('suggestion-check').filter({hasText: '必须调整'})
-    .getByRole('button', { name: '预览调整' })
-    .first()
-  await expect(fixConflict).toBeVisible({ timeout: 60000 })
-  const before = await currentResult(page)
-  await fixConflict.click()
-  await expect(page.locator('.e-context-panel')).toBeVisible()
-  expect(await currentResult(page)).toEqual(before)
-  await expect(page.getByText('预览中 · 当前行程尚未改变')).toBeVisible()
-  await page.getByRole('button', { name: '确认采纳' }).click()
-  await expect(page.locator('.e-context-panel')).toHaveCount(0, {
-    timeout: 30000,
+  const writes = []
+  page.on('request', request => {
+    if (request.method() === 'POST' && /\/(commands|adopt|map-renders)$/.test(new URL(request.url()).pathname)) writes.push(request)
   })
-  await expect.poll(async () => (await currentResult(page)).days).not.toEqual(before.days)
+  const before = await currentResult(page)
+  await openSuggestions(page)
+  const panel = page.getByRole('complementary', {name: '检查与建议', exact: true})
+  const checked = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/checks') && response.status() === 200)
+  await panel.getByRole('button', {name: '重新检查', exact: true}).click()
+  await checked
+  expect(await currentResult(page)).toEqual(before)
+  await expect(panel).not.toContainText(/时间重叠|起止时间|停留时长/)
+  await panel.getByRole('button', {name: '关闭建议'}).click()
+  const handle = page.getByTestId('drag-handle-1-0')
+  await handle.press('Enter')
+  await page.keyboard.press('ArrowRight')
+  expect(await currentResult(page)).toEqual(before)
+  await page.keyboard.press('Escape')
+  await expectFirst(page, '故宫博物院')
+  expect(await currentResult(page)).toEqual(before)
+  expect(writes).toEqual([])
+  await moveFirst(page)
+  await expectFirst(page, '景山公园')
   const after = await currentResult(page)
-  expect(after.days[0].activities.map(card => card.name)).toEqual(before.days[0].activities.map(card => card.name))
-  expect(after.days[0].activities[1].start_time).not.toBe('10:00')
-  expect(after.days[0].activities[1].start_time >= after.days[0].activities[0].end_time).toBe(true)
+  expect(after.etag).not.toBe(before.etag)
+  const expected = before.days.map(day => day.activities.map(card => card.name))
+  expected[0].splice(0, 2, expected[0][1], expected[0][0])
+  expect(after.days.map(day => day.activities.map(card => card.name))).toEqual(expected)
+  const content = days => days.flatMap(day => day.activities.map(({activity_token, ...card}) => card)).sort((a, b) => a.name.localeCompare(b.name))
+  expect(content(after.days)).toEqual(content(before.days))
+  expect(writes).toHaveLength(1)
+  expect(writes[0].postDataJSON().command_type).toBe('ACTIVITY_MOVE')
 })
 
 test('deleting imported text retains the itinerary and route view after reload', async ({
@@ -476,7 +483,7 @@ test('saving and reopening an edited account trip in another browser', async ({
     await expect(otherPage.locator('.e-trip-list-row')).toContainText(
       '固定示例',
     )
-    await expect(otherPage.locator('.e-trip-list-row')).toContainText('保留至')
+    await expect(otherPage.locator('.e-trip-list-row')).toContainText(/约 \d+ 天后到期|保留期限待确认/)
     await otherPage.getByRole('button', { name: /^继续编辑/ }).click()
     await expectFirst(otherPage, '景山公园')
     await moveFirst(otherPage)
