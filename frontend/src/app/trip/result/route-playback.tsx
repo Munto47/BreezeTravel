@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
 
 import type { MapRenderView, UserFacingTripResult } from '@/lib/trip-understanding-v3'
+import {routeModeSummary, routeGeometryParts} from './result-presentation'
 
 type GeometryPoint = { longitude: number; latitude: number }
 type PlaybackSegment = {
@@ -14,16 +15,8 @@ type PlaybackSegment = {
   to: string
   mode: 'walking' | 'transit'
   duration: number | null
-  points: GeometryPoint[]
-}
-
-function validGeometry(points: GeometryPoint[]) {
-  return points.length >= 2 && points.every(
-    (point) => Number.isFinite(point.longitude)
-      && Number.isFinite(point.latitude)
-      && Math.abs(point.longitude) <= 180
-      && Math.abs(point.latitude) <= 90,
-  )
+  summary: string
+  parts: GeometryPoint[][]
 }
 
 function validPoint(point: GeometryPoint | null | undefined): point is GeometryPoint {
@@ -56,16 +49,17 @@ export default function RoutePlayback({
       const selectedMode = mode === 'recommended' ? route.selected_mode : mode
       if (!selectedMode) return []
       const selected = route[selectedMode]
-      if (selected.status !== 'AVAILABLE' || !validGeometry(selected.geometry)) return []
+      if (selected.status !== 'AVAILABLE') return []
       return [{
-        key: `${route.from_activity_token || route.from_name}-${route.to_activity_token || route.to_name}-${index}`,
+        key: `${route.from_activity_token || route.from_name}-${route.to_activity_token || route.to_name}-${index}:${selected.geometry_break_indices?.join(',') ?? 'unknown'}`,
         fromToken: route.from_activity_token,
         toToken: route.to_activity_token,
         from: route.from_name,
         to: route.to_name,
         mode: selectedMode,
         duration: selected.duration_minutes,
-        points: selected.geometry,
+        summary: routeModeSummary(selectedMode, selected),
+        parts: (routeGeometryParts(selected) || []).filter(part => part.length > 0),
       }]
     })
   }, [day, mode, view])
@@ -90,11 +84,14 @@ export default function RoutePlayback({
   const playbackKey = `${view?.status || 'EMPTY'}:${stationSegments.map((item) => item?.key || '-').join('|')}`
   const [stationIndex, setStationIndex] = useState(0)
   const [pointIndex, setPointIndex] = useState(0)
+  const [partIndex, setPartIndex] = useState(0)
+  const [nextPartPending, setNextPartPending] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [started, setStarted] = useState(false)
   const currentStation = stations[Math.min(stationIndex, Math.max(stations.length - 1, 0))]
   const nextStation = stations[stationIndex + 1]
   const segment = stationSegments[stationIndex] || null
+  const currentPart = segment?.parts[partIndex] || []
 
   const stationPosition = (index: number): GeometryPoint | null => {
     const station = stations[index]
@@ -102,9 +99,10 @@ export default function RoutePlayback({
     const point = view?.points?.find((item) => item.activity_token === station.activity_token)?.position
     if (validPoint(point)) return point
     const outgoing = stationSegments[index]
-    if (outgoing?.points.length) return outgoing.points[0]
+    if (outgoing?.parts[0]?.length) return outgoing.parts[0][0]
     const incoming = stationSegments[index - 1]
-    if (incoming?.points.length) return incoming.points[incoming.points.length - 1]
+    const finalPart = incoming?.parts[incoming.parts.length - 1]
+    if (finalPart?.length) return finalPart[finalPart.length - 1]
     return null
   }
 
@@ -113,6 +111,8 @@ export default function RoutePlayback({
     setStarted(false)
     setStationIndex(0)
     setPointIndex(0)
+    setPartIndex(0)
+    setNextPartPending(false)
     onPosition(null)
   }, [active, day?.label, mode, onPosition, playbackKey])
 
@@ -121,33 +121,41 @@ export default function RoutePlayback({
       onPosition(null)
       return
     }
-    if (playing && segment) {
-      onPosition(segment.points[Math.min(pointIndex, segment.points.length - 1)] || null)
+    if ((playing || nextPartPending) && currentPart.length) {
+      onPosition(currentPart[Math.min(pointIndex, currentPart.length - 1)] || null)
       return
     }
     onPosition(stationPosition(stationIndex))
-  }, [active, onPosition, playing, pointIndex, segment, started, stationIndex])
+  }, [active, onPosition, playing, pointIndex, currentPart, nextPartPending, started, stationIndex])
 
   useEffect(() => {
-    if (!active || !playing || !segment) return
+    if (!active || !playing || !segment || !currentPart.length) return
     const timer = window.setTimeout(() => {
-      if (pointIndex < segment.points.length - 1) {
+      if (pointIndex < currentPart.length - 1) {
         setPointIndex(pointIndex + 1)
+        return
+      }
+      if (partIndex < segment.parts.length - 1) {
+        setPlaying(false)
+        setNextPartPending(true)
         return
       }
       const followingStation = Math.min(stationIndex + 1, stations.length - 1)
       setStationIndex(followingStation)
       setPointIndex(0)
-      if (followingStation >= stations.length - 1 || !stationSegments[followingStation]) setPlaying(false)
+      setPartIndex(0)
+      if (followingStation >= stations.length - 1 || !stationSegments[followingStation]?.parts.length) setPlaying(false)
     }, 650)
     return () => window.clearTimeout(timer)
-  }, [active, playing, pointIndex, segment, stationIndex, stationSegments, stations.length])
+  }, [active, playing, pointIndex, partIndex, currentPart, segment, stationIndex, stationSegments, stations.length])
 
   const chooseStation = (next: number) => {
     setPlaying(false)
     setStarted(true)
     setStationIndex(Math.max(0, Math.min(next, stations.length - 1)))
     setPointIndex(0)
+    setPartIndex(0)
+    setNextPartPending(false)
   }
 
   const togglePlayback = () => {
@@ -155,11 +163,19 @@ export default function RoutePlayback({
       setPlaying(false)
       return
     }
+    if (nextPartPending) {
+      setPartIndex(partIndex + 1)
+      setPointIndex(0)
+      setNextPartPending(false)
+      setPlaying(true)
+      return
+    }
     let startIndex = stationIndex
     if (stationIndex >= stations.length - 1) startIndex = 0
-    if (!stationSegments[startIndex]) return
+    if (!stationSegments[startIndex]?.parts.length) return
     setStationIndex(startIndex)
     setPointIndex(0)
+    setPartIndex(0)
     setStarted(true)
     setPlaying(true)
   }
@@ -183,7 +199,7 @@ export default function RoutePlayback({
           </p>
           <p className="text-xs text-slate-500">
             第 {stationIndex + 1}/{stations.length} 站
-            {segment ? ` · ${segment.mode === 'walking' ? '步行' : '公交'}${segment.duration == null ? '' : `约 ${segment.duration} 分钟`}` : ''}
+            {segment ? ` · ${segment.summary}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -199,12 +215,12 @@ export default function RoutePlayback({
           <button
             type="button"
             aria-pressed={playing}
-            disabled={!segment}
+            disabled={!segment?.parts.length}
             onClick={togglePlayback}
             className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
           >
             {playing ? <Pause className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
-            {playing ? '暂停' : '播放'}
+            {playing ? '暂停' : nextPartPending ? '播放下一片段' : '播放'}
           </button>
           <button
             type="button"
@@ -217,7 +233,8 @@ export default function RoutePlayback({
           </button>
         </div>
       </div>
-      {!segment && stationIndex < stations.length - 1 && (
+      {nextPartPending && <p className="mt-3 rounded-xl bg-sky-50 p-3 text-sm text-slate-600">本片段已结束，下一片段与此处尚未衔接。选择播放下一片段后继续。</p>}
+      {!segment?.parts.length && stationIndex < stations.length - 1 && (
         <p className="mt-3 rounded-xl bg-sky-50 p-3 text-sm text-slate-600">
           地图动画不可用
         </p>

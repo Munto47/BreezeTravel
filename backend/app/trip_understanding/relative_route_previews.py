@@ -15,11 +15,12 @@ from datetime import datetime, timedelta
 from typing import Literal, Sequence
 
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.config import get_settings
 from app.trip_understanding.errors import CommandTargetChangedError
 from app.trip_understanding.map_render import ROUTE_CONFIG_SHA256
+from app.trip_understanding.route_connection import compared_path_scope
 from app.trip_understanding.models import ActivityMoveCommand, StrictModel, UserFacingTripResult
 from app.trip_understanding.relative_route_options import (
     ComparedRouteEdge, RelativeRouteOption, RelativeRouteVisit,
@@ -53,6 +54,7 @@ class PublicRelativeRoutePreview(StrictModel):
     distance_meters_before: int = Field(ge=0)
     distance_meters_after: int = Field(ge=0)
     comparison_scope: Literal["CHANGED_EDGES_ONLY"] = "CHANGED_EDGES_ONLY"
+    route_coverage_scope: Literal["REQUESTED_POINTS", "RETURNED_SEGMENTS"] | None = None
 
 
 class PublicRelativeRouteOptions(StrictModel):
@@ -61,6 +63,15 @@ class PublicRelativeRouteOptions(StrictModel):
     message: str
     day_index: int = Field(ge=1, le=14)
     options: list[PublicRelativeRoutePreview] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode="after")
+    def omit_unscoped_legacy_comparisons(self):
+        if any(option.route_coverage_scope is None for option in self.options):
+            self.options = [option for option in self.options if option.route_coverage_scope is not None]
+            if not self.options:
+                self.status = "UNAVAILABLE"
+                self.message = "旧比较的起终点衔接尚未核实，请重新比较。"
+        return self
 
 
 @dataclass(frozen=True)
@@ -87,6 +98,11 @@ def issue_route_preview(
     option: RelativeRouteOption, visits: Sequence[RelativeRouteVisit], *,
     public_resource_id: str, expected_etag: str, now: datetime,
 ) -> PublicRelativeRoutePreview:
+    coverage_scope = compared_path_scope(
+        [getattr(edge.facts, edge.selected_mode) for edge in option.changed_edges_before],
+        [getattr(edge.facts, edge.selected_mode) for edge in option.changed_edges_after])
+    if coverage_scope is None:
+        raise CommandTargetChangedError("route comparison endpoints are not connected")
     by_id = {visit.visit_id: visit for visit in visits}
     before = [by_id[value] for value in option.before_visit_order]
     after = [by_id[value] for value in option.after_visit_order]
@@ -111,6 +127,8 @@ def issue_route_preview(
         "day": option.day_index, "before": tokens, "activity": moved_token,
         "position": option.target_position, "config": ROUTE_CONFIG_SHA256,
         "expires": min(now + timedelta(minutes=10), option.expires_at).timestamp(),
+        "route_coverage_scope": coverage_scope,
+        "geometry_boundaries_checked": True,
     }
     token = ROUTE_PREVIEW_PREFIX + _cipher().encrypt(json.dumps(payload).encode()).decode()
     if len(token) > MAX_ROUTE_PREVIEW_TOKEN_LENGTH:
@@ -126,6 +144,7 @@ def issue_route_preview(
         duration_minutes_after=option.duration_minutes_after, minutes_saved=option.minutes_saved,
         distance_meters_before=option.distance_meters_before,
         distance_meters_after=option.distance_meters_after,
+        route_coverage_scope=coverage_scope,
     )
 
 
@@ -140,6 +159,8 @@ def verify_route_preview(
         data = json.loads(_cipher().decrypt(token[len(ROUTE_PREVIEW_PREFIX):].encode()))
         if (
             data["kind"] != "RELATIVE_ORDER" or data["resource"] != public_resource_id
+            or data.get("route_coverage_scope") not in {"REQUESTED_POINTS", "RETURNED_SEGMENTS"}
+            or data.get("geometry_boundaries_checked") is not True
             or data["etag"] != expected_etag or now.utcoffset() is None
             or check_freshness and (data["config"] != ROUTE_CONFIG_SHA256 or data["expires"] <= now.timestamp())
         ):

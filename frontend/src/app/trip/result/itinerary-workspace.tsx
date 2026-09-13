@@ -40,7 +40,7 @@ import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import PlacePhoto, { PlacePhotoProvider } from './place-photo'
 import AccessibleDialog from './accessible-dialog'
-import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, distanceLabel, relativeDayLabel } from './result-presentation'
+import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, connectorPresentation, dayRouteSummary, relativeDayLabel } from './result-presentation'
 import './itinerary-workspace.css'
 import SourceMealSlots from './source-meal-slots'
 
@@ -127,12 +127,14 @@ export default function ItineraryWorkspace({
   const laneScrollers = useRef(new Map<number, HTMLDivElement>())
   const [laneWidths, setLaneWidths] = useState<Record<number, number>>({})
   const [cardHeights, setCardHeights] = useState<Record<number, number>>({})
+  const [rowGaps, setRowGaps] = useState<Record<number, number>>({})
   const dragGeometry = useRef(new Map<number, ReturnType<typeof serpentineLayout>>())
   const pointerDropTarget = useRef<DropTarget | null>(null)
   useLayoutEffect(() => {
     const measure = () => {
       const widths: Record<number, number> = {}
       const heights: Record<number, number> = {}
+      const gaps: Record<number, number> = {}
       laneScrollers.current.forEach((lane, day) => {
         if (!lane.clientWidth) return
         widths[day] = lane.clientWidth
@@ -141,25 +143,30 @@ export default function ItineraryWorkspace({
         heights[day] = Math.ceil(Math.max(0, ...Array.from(lane.querySelectorAll<HTMLElement>('[data-testid="activity-card"]')).map(card =>
           (card.querySelector<HTMLElement>('.four-card-photo')?.offsetHeight || 0) +
           (card.querySelector<HTMLElement>('.four-card-copy')?.scrollHeight || 0) + 2)))
+        const labels = Array.from(lane.querySelectorAll<HTMLElement>('.serpentine-route-label'))
+        // During drag the connectors are hidden; keep the measured gap so
+        // the drop geometry cannot collapse while the pointer is moving.
+        if (labels.length && lane.clientWidth >= 600) gaps[day] = Math.ceil(Math.max(...labels.map(label => label.offsetHeight))) + 8
       })
       const merge = (previous: Record<number, number>, next: Record<number, number>) =>
         Object.entries(next).some(([day, value]) => previous[Number(day)] !== value) ? {...previous, ...next} : previous
       setLaneWidths(previous => merge(previous, widths))
       setCardHeights(previous => merge(previous, heights))
+      setRowGaps(previous => merge(previous, gaps))
     }
     measure()
     const observer = new ResizeObserver(measure)
     laneScrollers.current.forEach(lane => {
       observer.observe(lane)
-      lane.querySelectorAll('.four-card-copy,.four-card-photo').forEach(element => observer.observe(element))
+      lane.querySelectorAll('.four-card-copy,.four-card-photo,.serpentine-route-label').forEach(element => observer.observe(element))
     })
     return () => observer.disconnect()
-  }, [localDays, layoutMode, collapsedDays])
+  }, [localDays, layoutMode, collapsedDays, mapView, routesPending, operationPending])
   const captureDropGeometry = () => {
     pointerDropTarget.current = null
     dragGeometry.current.clear()
     laneScrollers.current.forEach((lane, dayIndex) => {
-      if (lane.clientWidth) dragGeometry.current.set(dayIndex, serpentineLayout(lane.clientWidth, localDays[dayIndex-1].activities.length, cardHeights[dayIndex] || 0))
+      if (lane.clientWidth) dragGeometry.current.set(dayIndex, serpentineLayout(lane.clientWidth, localDays[dayIndex-1].activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0))
     })
   }
   const targetAt = (x: number, y: number): DropTarget | null => {
@@ -480,8 +487,8 @@ export default function ItineraryWorkspace({
             const sourceIndex = dragged && dropTarget ? day.activities.findIndex(card => card.activity_token === dragged.card.activity_token) : -1
             const rawInsertion = dragged && dropTarget?.dayIndex === dayIndex ? dropTarget.position : null
             const insertion = rawInsertion === null ? null : rawInsertion - (sourceIndex >= 0 && sourceIndex < rawInsertion ? 1 : 0)
-            const originalLayout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length, cardHeights[dayIndex] || 0)
-            const layout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length - (sourceIndex >= 0 ? 1 : 0) + (insertion !== null ? 1 : 0), cardHeights[dayIndex] || 0)
+            const originalLayout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0)
+            const layout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length - (sourceIndex >= 0 ? 1 : 0) + (insertion !== null ? 1 : 0), cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0)
             // A dragged card vacates its slot; retain the day height so later dates do not jump.
             if (dragged) layout.height = Math.max(layout.height, originalLayout.height)
             const previewPosition = (position: number) => {
@@ -877,21 +884,6 @@ function removeCard(days: DayView[], activityToken: string): DayView[] {
 }
 
 
-function dayRouteSummary(day: DayView, mapView: MapRenderView, pending: boolean): string {
-  if (day.activities.length < 2) return ''
-  const routes = day.activities.slice(0, -1).map((card, index) => transportConnectorFor(day, card, day.activities[index + 1], mapView, pending))
-  if (routes.some(route => route.status === 'NEEDS_UPDATE')) return '路线需要更新'
-  const ready = routes.filter(route => route.status === 'AVAILABLE')
-  if (ready.length !== routes.length) return `路线已核验 ${ready.length}/${routes.length} 段`
-  return (['walking', 'transit'] as const).flatMap(mode => {
-    const matching = ready.filter(route => route.mode === mode)
-    if (!matching.length) return []
-    const distance = matching.every(route => route.distanceMeters !== null)
-      ? `${distanceLabel(matching.reduce((total, route) => total + route.distanceMeters!, 0))} · ` : ''
-    return `${mode === 'walking' ? '步行' : '公交'} ${distance}${matching.reduce((total, route) => total + route.durationMinutes, 0)} 分钟`
-  }).join(' / ')
-}
-
 function SerpentineConnectors({day,layout,mapView,pending}: {day:DayView;layout:ReturnType<typeof serpentineLayout>;mapView:MapRenderView;pending:boolean}) {
   return <div className="serpentine-connections">
     {day.activities.slice(0,-1).map((card,index)=>{
@@ -899,13 +891,13 @@ function SerpentineConnectors({day,layout,mapView,pending}: {day:DayView;layout:
       const connector=transportConnectorFor(day,card,day.activities[index+1],mapView,pending)
       const available=connector.status==='AVAILABLE'
       const Icon=available ? connector.mode==='walking' ? Footprints : BusFront : ArrowRight
-      const label=available ? `${connector.mode==='walking'?'步行':'公交'} · ${connector.durationMinutes} 分钟${connector.distanceMeters===null?'':` · ${distanceLabel(connector.distanceMeters)}`}` : connector.status==='NEEDS_UPDATE' ? '路线需要更新' : connector.status==='UNAVAILABLE' ? '路线暂不可用' : '路线准备中'
-      return <div key={index} data-testid="transport-connector" data-connector-status={connector.status} data-turn={edge.turn} aria-label={label}>
+      const {label,warning}=connectorPresentation(connector)
+      return <div key={index} data-testid="transport-connector" data-connector-status={connector.status} data-connection-status={available?connector.connectionStatus:undefined} data-turn={edge.turn} aria-label={`${label}${warning?` · ${warning}`:''}`}>
         <svg className="serpentine-edge" width={layout.width} height={layout.height} aria-hidden="true">
           <path data-testid="order-arc" d={edge.path} fill="none" stroke="currentColor" strokeWidth="1.4"/>
           <path d={`M ${edge.arrowX-3} ${edge.arrowY-edge.arrowDirection*7} l 3 ${edge.arrowDirection*5} l 3 ${-edge.arrowDirection*5}`} fill="none" stroke="currentColor" strokeWidth="1.4"/>
         </svg>
-        <span className={`serpentine-route-label ${available?'is-available':''}`} style={{left:edge.x,top:edge.y}}><Icon aria-hidden="true"/>{label}</span>
+        <span className={`serpentine-route-label ${available?'is-available':''} ${warning?'is-unverified':''}`} style={{left:edge.x,top:edge.y}}><Icon aria-hidden="true"/><span>{label}</span>{warning&&<small className="route-connection-warning">{warning}</small>}</span>
       </div>
     })}
   </div>

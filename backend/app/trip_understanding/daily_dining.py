@@ -13,6 +13,7 @@ from app.trip_understanding.candidates import CandidatePlace, issue_candidate
 from app.trip_understanding.dining import dining_binding, search_dining, valid_anchor
 from app.trip_understanding.dining_areas import nearby_dining_area
 from app.trip_understanding.map_render import MapStop
+from app.trip_understanding.route_connection import compared_path_scope, route_segment
 from app.trip_understanding.models import StrictModel
 
 
@@ -23,6 +24,7 @@ class DailyMealCandidate(StrictModel):
     business_area: str | None = None
     reason: str
     extra_minutes: int | None = None
+    route_coverage_scope: Literal["REQUESTED_POINTS", "RETURNED_SEGMENTS"] | None = None
     recommended: bool = False
 
 
@@ -166,7 +168,7 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None, 
                             source_gaps: dict[str, str] | None = None) -> list[dict]:
     """Stores verified places, not expiring selection tokens or private source text."""
     output = []
-    route_cache: dict[tuple, int | None] = {}
+    route_cache: dict[tuple, object | None] = {}
     route_count = 0
     stats = stats if stats is not None else {}
     stats.update(poi_http_attempts=0, district_http_attempts=0, area_http_attempts=0, route_dispatches=0,
@@ -174,9 +176,9 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None, 
     deadline = time.monotonic() + deadline_seconds
     now = datetime.now(timezone.utc)
 
-    async def duration(a: MapStop, b: MapStop) -> int | None:
+    async def duration(a: MapStop, b: MapStop):
         nonlocal route_count
-        key = (a.canonical_place_id, b.canonical_place_id)
+        key = (a.canonical_place_id, a.longitude, a.latitude, b.canonical_place_id, b.longitude, b.latitude)
         if key in route_cache:
             return route_cache[key]
         answer = None
@@ -197,7 +199,9 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None, 
                         stats["route_http_calls"] += calls
                     minutes = fact.duration_minutes if fact.status == "AVAILABLE" else None
                     if minutes is not None and (mode == "transit" or minutes <= 30):
-                        answer = minutes
+                        # Preserve the selected-mode policy. Unknown connection
+                        # does not trigger a replacement route or extra calls.
+                        answer = fact if route_segment(fact, a, b) else None
                         break
                 except asyncio.CancelledError:
                     raise
@@ -248,12 +252,16 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None, 
                     resolution_status="AUTO_MATCHED", city=place.city,
                     longitude=place.position.longitude, latitude=place.position.latitude)
                 extra = None
+                coverage_scope = None
                 if baseline is not None and next_stop:
                     first, second = await duration(anchor, meal), await duration(meal, next_stop)
-                    if first is not None and second is not None:
-                        extra = max(0, first + second - baseline)
+                    coverage_scope = compared_path_scope([baseline], [first, second])
+                    if coverage_scope is not None:
+                        extra = max(0, first.duration_minutes + second.duration_minutes - baseline.duration_minutes)
                 ranked.append({"place": place.model_dump(mode="json"), "extra_minutes": extra,
-                    "reason": f"经此店前往下一站约多{extra}分钟；营业情况请到店前确认。" if extra is not None
+                    "route_coverage_scope": coverage_scope,
+                    "reason": (f"已返回路段比较，经此店约多{extra}分钟；未含未核实衔接，营业情况请到店前确认。" if coverage_scope == "RETURNED_SEGMENTS"
+                    else f"经此店前往下一站约多{extra}分钟；营业情况请到店前确认。") if extra is not None
                     else f"在{anchor.name}附近；绕路时间及营业情况尚未确认。"})
             ranked.sort(key=lambda r: (r["extra_minutes"] is None, r["extra_minutes"] or 0, r["place"]["name"]))
             view.update(status="AVAILABLE", message="中途用餐建议，选择后才加入行程。",
@@ -298,8 +306,12 @@ def project_daily_meals(rows: list[dict], *, public_resource_id: str, etag: str,
             issued = issue_candidate(place, public_resource_id=public_resource_id,
                 activity_token=dining_binding(row["after_activity_token"], before=row.get("insert_before",False)), expected_etag=etag,
                 now=issued_at, expires_at=expires_at)
+            scope = item.get("route_coverage_scope")
+            scoped = scope in ("REQUESTED_POINTS", "RETURNED_SEGMENTS")
             candidates.append(DailyMealCandidate(candidate_token=issued.candidate_token, name=place.name,
                 area_or_address=place.area_or_address, business_area=place.business_area,
-                reason=item["reason"], extra_minutes=item["extra_minutes"], recommended=index == 0))
+                reason=item["reason"] if scoped else "该店位置已保存；绕路时间及营业情况尚未确认。",
+                extra_minutes=item.get("extra_minutes") if scoped else None,
+                route_coverage_scope=scope if scoped else None, recommended=index == 0 and scoped))
         output.append(DailyMealView(**row, candidates=candidates))
     return output

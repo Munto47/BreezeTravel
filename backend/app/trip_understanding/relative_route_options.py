@@ -15,6 +15,7 @@ from time import monotonic
 from typing import Literal, Sequence
 
 from app.trip_understanding.errors import RouteProviderUnavailableError
+from app.trip_understanding.route_connection import compared_path_scope, route_segment
 from app.trip_understanding.map_render import (
     ROUTE_CONFIG_SHA256,
     InternalRouteModeFact,
@@ -83,6 +84,8 @@ class DirectedRouteFacts:
             return None
         fact = self.walking if mode == "walking" else self.transit
         if (
+            not route_segment(fact, self.origin, self.destination)
+            or
             fact.observed_at.utcoffset() is None
             or fact.expires_at.utcoffset() is None
             or not fact.observed_at <= now < fact.expires_at
@@ -125,6 +128,7 @@ class RelativeRouteOption:
     distance_meters_before: int
     distance_meters_after: int
     expires_at: datetime
+    route_coverage_scope: Literal["REQUESTED_POINTS", "RETURNED_SEGMENTS"] | None = None
 
 
 @dataclass(frozen=True)
@@ -359,6 +363,12 @@ async def build_relative_route_options(
         if any(e is None for e in before_edges + after_edges):
             issues.append(RouteOptionIssue(pair_ids, "COMPARISON_ROUTES_UNAVAILABLE"))
             continue
+        coverage_scope = compared_path_scope(
+            [getattr(e.facts, e.selected_mode) for e in before_edges],
+            [getattr(e.facts, e.selected_mode) for e in after_edges])
+        if coverage_scope is None:
+            issues.append(RouteOptionIssue(pair_ids, "ROUTE_CONNECTION_UNVERIFIED"))
+            continue
         compared += 1
         old_minutes = sum(e.duration_minutes for e in before_edges)
         new_minutes = sum(e.duration_minutes for e in after_edges)
@@ -371,6 +381,7 @@ async def build_relative_route_options(
             old_minutes - new_minutes, sum(e.distance_meters for e in before_edges),
             sum(e.distance_meters for e in after_edges),
             min(e.facts.expires_at for e in before_edges + after_edges),
+            coverage_scope,
         ))
     # An earlier option must still be fresh after later candidates have finished.
     now = datetime.now(UTC)

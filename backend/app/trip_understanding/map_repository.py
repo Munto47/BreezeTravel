@@ -45,6 +45,7 @@ from app.trip_understanding.models import (
 )
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
+from app.trip_understanding.route_connection import connection_status, geometry_break_indices
 
 
 _CONTROLLED_PLACE_PATH = Path(__file__).resolve().parents[1] / "data" / "amap_mock_places.json"
@@ -363,10 +364,31 @@ def _mode_view_from_row(
         distance_meters=row["distance_meters"],
         transfer_count=row["transfer_count"],
         geometry=geometry or [],
+        connection_status=_row_connection_status(row),
+        geometry_break_indices=geometry_break_indices(_row_route_binding(row)),
     )
 
 
+def _row_route_binding(row: Any) -> dict:
+    receipt = row.get("provider_receipt_json") or {}
+    if isinstance(receipt, str):
+        try:
+            receipt = json.loads(receipt)
+        except (ValueError, TypeError):
+            receipt = {}
+    return receipt
+
+
+def _row_connection_status(row: Any) -> str:
+    return connection_status(_row_route_binding(row))
+
+
 def _edge_message(selected_mode: str | None, walking: Any | None, transit: Any | None) -> str:
+    selected = walking if selected_mode == "walking" else transit if selected_mode == "transit" else None
+    if selected is not None and geometry_break_indices(_row_route_binding(selected)) is None:
+        return f"已返回路段约 {selected['duration_minutes']} 分钟；原路线分段尚未核实，请更新路线"
+    if selected is not None and _row_connection_status(selected) != "VERIFIED":
+        return f"已返回路段约 {selected['duration_minutes']} 分钟；起终点衔接未核实"
     if selected_mode == "walking" and walking is not None:
         return f"建议步行约 {walking['duration_minutes']} 分钟"
     if selected_mode == "transit" and transit is not None:
@@ -620,7 +642,7 @@ class PostgresMapRenderRepositoryMixin:
         edge_rows = await conn.fetch(
             """
             SELECT e.*, f.mode, f.status AS mode_status, f.duration_minutes,
-                   f.distance_meters, f.transfer_count, f.geometry_ref
+                   f.distance_meters, f.transfer_count, f.geometry_ref, f.provider_receipt_json
             FROM trip_map_route_edges e
             LEFT JOIN trip_map_route_mode_facts f ON f.edge_id = e.edge_id
             WHERE e.snapshot_id = $1
@@ -648,9 +670,11 @@ class PostgresMapRenderRepositoryMixin:
                     "distance_meters": row["distance_meters"],
                     "transfer_count": row["transfer_count"],
                     "geometry_ref": row["geometry_ref"],
+                    "provider_receipt_json": row["provider_receipt_json"],
                 }
         by_day: dict[int, list[PublicMapEdgeView]] = defaultdict(list)
         geometry_limited = False
+        connection_limited = False
         for item in sorted(
             grouped.values(), key=lambda value: (value["day_index"], value["sequence_index"])
         ):
@@ -659,6 +683,8 @@ class PostgresMapRenderRepositoryMixin:
             walking_view, walking_missing = await self._mode_view_with_geometry(walking)
             transit_view, transit_missing = await self._mode_view_with_geometry(transit)
             geometry_limited = geometry_limited or walking_missing or transit_missing
+            selected_view = walking_view if item["selected_mode"] == "walking" else transit_view if item["selected_mode"] == "transit" else None
+            connection_limited = connection_limited or bool(selected_view and selected_view.connection_status != "VERIFIED")
             by_day[item["day_index"]].append(
                 PublicMapEdgeView(
                     from_name=item["origin_name"],
@@ -673,6 +699,9 @@ class PostgresMapRenderRepositoryMixin:
             PublicMapDayView(day_index=day_index, label=f"Day {day_index}", routes=by_day[day_index])
             for day_index in sorted(by_day)
         ]
+        if connection_limited:
+            return MapRenderView(status="LIMITED", message="已返回部分路段，起终点衔接未核实；不能视为完整路程" + ("；地图线条需更新" if geometry_limited else ""), days=days,
+                available_actions=["VIEW_MAP", "RENDER_MAP"] if geometry_limited else ["VIEW_MAP"])
         if snapshot["status"] == "READY" and not geometry_limited:
             return MapRenderView(
                 status="AVAILABLE",
@@ -1358,18 +1387,22 @@ class InMemoryMapRenderRepositoryMixin:
 
     def _memory_snapshot_view(self, output: MapRenderOutput) -> MapRenderView:
         by_day: dict[int, list[PublicMapEdgeView]] = defaultdict(list)
+        connection_limited = False
         for edge in output.edges:
+            connection_limited = connection_limited or bool(edge.selected_mode and getattr(edge, edge.selected_mode).connection_status != "VERIFIED")
             walking = {
                 "status": edge.walking.status,
                 "duration_minutes": edge.walking.duration_minutes,
                 "distance_meters": edge.walking.distance_meters,
                 "transfer_count": edge.walking.transfer_count,
+                "provider_receipt_json": edge.walking.provider_binding,
             }
             transit = {
                 "status": edge.transit.status,
                 "duration_minutes": edge.transit.duration_minutes,
                 "distance_meters": edge.transit.distance_meters,
                 "transfer_count": edge.transit.transfer_count,
+                "provider_receipt_json": edge.transit.provider_binding,
             }
             by_day[edge.day_index].append(
                 PublicMapEdgeView(
@@ -1385,6 +1418,9 @@ class InMemoryMapRenderRepositoryMixin:
             PublicMapDayView(day_index=day_index, label=f"Day {day_index}", routes=by_day[day_index])
             for day_index in sorted(by_day)
         ]
+        if connection_limited:
+            return MapRenderView(status="LIMITED", message="已返回部分路段，起终点衔接未核实；不能视为完整路程", days=days,
+                available_actions=["VIEW_MAP"])
         if output.status == "READY":
             return MapRenderView(
                 status="AVAILABLE",

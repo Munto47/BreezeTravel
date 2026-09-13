@@ -315,7 +315,8 @@ def rank_stay_candidates(candidates: list[ScoredStayCandidate]) -> list[ScoredSt
         if candidate.missing_leg_count or not candidate.legs:
             return None
         facts = [getattr(leg, leg.selected_mode) for leg in candidate.legs if leg.selected_mode]
-        if len(facts) != len(candidate.legs) or any(f.duration_minutes is None for f in facts):
+        from app.trip_understanding.route_connection import verified_connection
+        if len(facts) != len(candidate.legs) or any(f.duration_minutes is None or not verified_connection(f) for f in facts):
             return None
         return sum(f.duration_minutes for f in facts) / len(facts)
 
@@ -353,6 +354,15 @@ def assess_stay_commute(legs: list, *, now: datetime, expected_missing: int = 0)
         fact = data.get(mode) if isinstance(mode, str) and mode in {"walking", "transit"} else None
         if not isinstance(fact, dict):
             continue
+        from app.trip_understanding.route_connection import connection_status
+        receipt = fact.get("provider_binding", fact.get("provider_receipt_json", {}))
+        if isinstance(receipt, str):
+            try:
+                receipt = json.loads(receipt)
+            except (ValueError, TypeError):
+                receipt = {}
+        if connection_status(receipt) != "VERIFIED":
+            continue
         duration = fact.get("duration_minutes")
         observed, expires = fact.get("observed_at"), fact.get("expires_at")
         if (
@@ -381,7 +391,7 @@ async def load_stay_commute_assessment(conn, candidate_id: str, *, now: datetime
     rows = await conn.fetch(
         """
         SELECT l.selected_mode, f.mode, f.status, f.duration_minutes,
-               f.transfer_count, f.observed_at, f.expires_at
+               f.transfer_count, f.observed_at, f.expires_at, f.provider_receipt_json
         FROM trip_stay_commute_legs l
         LEFT JOIN trip_stay_commute_mode_facts f
           ON f.leg_id = l.leg_id AND f.mode = l.selected_mode
@@ -723,6 +733,9 @@ class ControlledStayRouteProvider:
             "policy": STAY_POLICY_VERSION,
         }
         response = {"duration_minutes": duration, "distance_meters": distance, "transfers": transfers}
+        from app.trip_understanding.route_connection import connection_evidence
+        geometry = [RouteGeometryPoint(longitude=origin.longitude, latitude=origin.latitude),
+                    RouteGeometryPoint(longitude=destination.longitude, latitude=destination.latitude)]
         return InternalRouteModeFact(
             mode=mode,
             status="AVAILABLE",
@@ -738,6 +751,7 @@ class ControlledStayRouteProvider:
             provider_binding={
                 "provider": "controlled_stay_route",
                 "execution_mode": "controlled_fixture",
+                "route_connection": connection_evidence(origin, destination, geometry),
                 "external_calls": 0,
             },
             external_call_count=0,
@@ -858,7 +872,9 @@ class StayRecommendationEngine:
                 self._mode(origin, destination, "transit", observed_at, now_provider, budget, segment_key),
             )
             selected_mode = choose_route_mode(walking, transit)
-            if selected_mode is None:
+            from app.trip_understanding.route_connection import verified_connection
+            selected = walking if selected_mode == "walking" else transit if selected_mode == "transit" else None
+            if selected is None or not verified_connection(selected, origin, destination):
                 missing_legs += 1
                 ranking_minutes.append(120)
                 evidence_penalty += 90
@@ -880,10 +896,10 @@ class StayRecommendationEngine:
                     transit=transit,
                 )
             )
-        if not selected_minutes:
+        if not selected_minutes and not any(leg.walking.status == "AVAILABLE" or leg.transit.status == "AVAILABLE" for leg in legs):
             return None
         evidence_penalty = min(240, evidence_penalty)
-        maximum = max(selected_minutes)
+        maximum = max(selected_minutes) if selected_minutes else 0
         total_score = sum(ranking_minutes) + 0.5 * max(ranking_minutes) + 8 * transfer_count + evidence_penalty
         return ScoredStayCandidate(
             candidate=candidate,

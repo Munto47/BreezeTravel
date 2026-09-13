@@ -14,6 +14,8 @@ import pytest
 
 from app.trip_understanding.amap_route import AmapRouteProvider
 from app.trip_understanding.map_render import ROUTE_CONFIG_SHA256, InternalRouteModeFact, MapStop
+from app.trip_understanding.map_render import RouteGeometryPoint
+from app.trip_understanding.route_connection import connection_evidence
 from app.trip_understanding.relative_route_options import (
     DirectedRouteFacts,
     RelativeRouteVisit,
@@ -40,13 +42,16 @@ def known(items, *, hard=(), gaps=()):
     return SourceOrderConstraints(frozenset(v.visit_id for v in items), hard, gaps)
 
 
-def mode_fact(mode, minutes=25, distance=1000, *, expires=None, observed=None):
+def mode_fact(mode, minutes=25, distance=1000, *, expires=None, observed=None, origin=None, destination=None):
     now = datetime.now(UTC)
     return InternalRouteModeFact(
         mode=mode, status="AVAILABLE" if minutes else "UNAVAILABLE",
         duration_minutes=minutes, distance_meters=distance if minutes else None,
         response_hash="a" * 64, request_hash="b" * 64,
-        provider_binding={"execution_mode": "controlled_test"}, external_call_count=0,
+        # Synthetic comparisons explicitly bind their returned endpoints. Old
+        # unbound data is tested separately and cannot claim a complete route.
+        provider_binding={"execution_mode": "controlled_test", **({"route_connection": connection_evidence(origin, destination,
+            [RouteGeometryPoint(longitude=s.longitude, latitude=s.latitude) for s in (origin,destination)])} if origin and destination and all(s.longitude is not None and s.latitude is not None for s in (origin,destination)) else {})}, external_call_count=0,
         observed_at=observed or now - timedelta(minutes=1),
         expires_at=expires or now + timedelta(minutes=10),
     )
@@ -55,7 +60,7 @@ def mode_fact(mode, minutes=25, distance=1000, *, expires=None, observed=None):
 def current_edges(items, *, walking=25, transit=40):
     return tuple(DirectedRouteFacts(
         RouteEndpoint.from_stop(a.stop), RouteEndpoint.from_stop(b.stop),
-        mode_fact("walking", walking), mode_fact("transit", transit), ROUTE_CONFIG_SHA256,
+        mode_fact("walking", walking, origin=a.stop, destination=b.stop), mode_fact("transit", transit, origin=a.stop, destination=b.stop), ROUTE_CONFIG_SHA256,
     ) for a, b in zip(items, items[1:]) if a.stop.day_index == b.stop.day_index)
 
 
@@ -86,13 +91,14 @@ class FixedAmap:
         minutes = self.minutes.get(key, 10 if mode == "walking" else 20)
         distance = self.distances.get(key, 800 if mode == "walking" else 1400)
         path = {"duration": str(minutes * 60), "distance": str(distance)}
+        polyline = request.url.params["origin"] + ";" + request.url.params["destination"]
         if mode == "walking":
             assert request.url.params["origin_id"] == f"poi-{origin}"
             assert request.url.params["destination_id"] == f"poi-{destination}"
-            payload = {"status": "1", "route": {"paths": [path]}}
+            payload = {"status": "1", "route": {"paths": [{**path, "steps": [{"polyline": polyline}]}]}}
         else:
             assert request.url.params["city"] == request.url.params["cityd"] == "北京"
-            payload = {"status": "1", "route": {"transits": [{**path, "segments": []}]}}
+            payload = {"status": "1", "route": {"transits": [{**path, "segments": [{"walking": {"steps": [{"polyline": polyline}]}}]}]}}
         return httpx.Response(200, json=payload)
 
 
@@ -306,7 +312,7 @@ async def test_overall_deadline_cancels_real_adapter_request_without_retry():
 async def test_old_facts_expiring_during_new_route_queries_produce_no_saving():
     items = visits()
     expires = datetime.now(UTC) + timedelta(milliseconds=35)
-    edges = [replace(e, walking=mode_fact("walking", expires=expires)) for e in current_edges(items)]
+    edges = [replace(e, walking=mode_fact("walking", expires=expires, origin=e.origin, destination=e.destination)) for e in current_edges(items)]
     output, _ = await compare(items, edges=edges, fixture=FixedAmap(delay=.015))
     assert output.options == ()
     assert output.no_options_reason == "COMPARISON_ROUTES_UNAVAILABLE"

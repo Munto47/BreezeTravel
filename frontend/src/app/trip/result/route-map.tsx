@@ -9,7 +9,7 @@ import type {
   UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
 
-import { DAY_COLORS } from './result-presentation'
+import { DAY_COLORS, routeGeometryParts } from './result-presentation'
 
 type MapInstance = {
   destroy(): void
@@ -259,21 +259,12 @@ export default function RouteMap({
       routes.forEach((route) => {
         const routeMode = mode === 'recommended' ? route.selected_mode : mode
         if (!routeMode) return
-        const segment = route[routeMode]
-        if (segment.status !== 'AVAILABLE' || segment.geometry.length < 2)
-          return
-        if (
-          !segment.geometry.every(
-            (point) =>
-              Number.isFinite(point.longitude) &&
-              Number.isFinite(point.latitude),
-          )
-        )
-          return
-        segment.geometry.forEach(point => extendFit(point.longitude, point.latitude))
+        const parts = routeGeometryParts(route[routeMode]) || []
+        parts.filter(part => part.length >= 2).forEach(part => {
+        part.forEach(point => extendFit(point.longitude, point.latitude))
         overlays.push(
           new api.Polyline({
-            path: segment.geometry.map((point) => [
+            path: part.map((point) => [
               point.longitude,
               point.latitude,
             ]),
@@ -286,6 +277,7 @@ export default function RouteMap({
             lineCap: 'round',
           }),
         )
+        })
       })
       })
     }

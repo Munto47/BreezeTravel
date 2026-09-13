@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState} from 'react'
 import {ArrowRight, Footprints, BusFront} from 'lucide-react'
 import {compareRelativeTripRoutes, createTripRequestKey, type PublicComparedRouteEdge, type PublicRelativeRouteOptions} from '@/lib/trip-understanding-v3'
+import {routeComparisonPresentation} from './result-presentation'
 import './relative-route-suggestions.css'
 
 type Props = {resource:string;etag:string;dayIndex:number;disabled:boolean;onAdopt:(token:string,basisEtag:string)=>Promise<boolean>}
@@ -46,7 +47,7 @@ export default function RelativeRouteSuggestions({resource,etag,dayIndex,disable
     } finally {clearTimeout(timeout);if(request.current===controller){request.current=null;setComparing(false)}}
   }
   async function adopt() {
-    if(busy||saveLock.current||!selected||!view||view.etag!==etag||view.body.status!=='AVAILABLE'||!view.body.options.some(option=>option.change_token===selected))return
+    if(busy||saveLock.current||!selected||!view||view.etag!==etag||view.body.status!=='AVAILABLE'||!view.body.options.some(option=>option.change_token===selected&&routeComparisonPresentation(option.route_coverage_scope,option.minutes_saved).comparable))return
     saveLock.current=true;setSaving(true);setNotice('')
     try {
       const applied=await onAdopt(selected,view.etag)
@@ -61,14 +62,14 @@ export default function RelativeRouteSuggestions({resource,etag,dayIndex,disable
     <p>按已有地点和已核验路线比较顺序。比较不会改动行程，确认后才保存。</p>
     <button type="button" className="relative-route-compare" disabled={busy||comparing||!etag} onClick={()=>void compare()}>{comparing?'正在比较路线…':'比较当天顺路方案'}</button>
     {view&&<p role="status">{view.body.message}</p>}
-    {options.map((option,index)=><article key={option.change_token} data-testid="relative-route-option">
+    {options.map((option,index)=>{const scope=routeComparisonPresentation(option.route_coverage_scope,option.minutes_saved);return <article key={option.change_token} data-testid="relative-route-option">
       <h4>方案 {index+1} · {option.title}</h4>
-      <p>{option.summary}</p>
-      <div className="relative-route-savings"><strong>变化路段可节省 {option.minutes_saved} 分钟</strong>
-        <span>{option.duration_minutes_before} → {option.duration_minutes_after} 分钟</span>
-        <span>{distance(option.distance_meters_before)} → {distance(option.distance_meters_after)}</span>
+      {scope.comparable&&<p>{option.summary}</p>}
+      <div className="relative-route-savings"><strong>{scope.heading}</strong>
+        {scope.comparable&&<><span>{option.duration_minutes_before} → {option.duration_minutes_after} 分钟</span>
+        <span>{distance(option.distance_meters_before)} → {distance(option.distance_meters_after)}</span></>}
       </div>
-      <p className="relative-route-scope">只合计发生变化的路段，不是全天交通总时长。</p>
+      <p className="relative-route-scope">{scope.note}</p>
       <div className="relative-route-order" aria-label="完整日序比较"><div><strong>当前顺序</strong><ol>{option.before.map((name,i)=><li key={i}>{name}</li>)}</ol></div>
         <div><strong>调整后</strong><ol>{option.after.map((name,i)=><li key={i}>{name}</li>)}</ol></div></div>
       <details><summary>查看变化路段</summary><Edges title="当前路段" edges={option.routes_before}/><Edges title="调整后路段" edges={option.routes_after}/></details>
@@ -76,8 +77,8 @@ export default function RelativeRouteSuggestions({resource,etag,dayIndex,disable
         <p>确认按上方顺序调整 Day {dayIndex}？保存后可撤销；地图需手动更新。</p>
         <div><button type="button" className="relative-route-adopt" disabled={busy} onClick={()=>void adopt()}>{saving?'正在保存…':'确认调整顺序'}</button>
           <button type="button" disabled={busy} onClick={()=>setSelected(null)}>取消</button></div>
-      </div>:<button type="button" className="relative-route-adopt" disabled={busy} onClick={()=>setSelected(option.change_token)}>选择这个方案</button>}
-    </article>)}
+      </div>:<button type="button" className="relative-route-adopt" disabled={busy||!scope.comparable} onClick={()=>setSelected(option.change_token)}>选择这个方案</button>}
+    </article>})}
     {notice&&<p role="status" className="relative-route-notice">{notice}</p>}
   </section>
 }

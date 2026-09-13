@@ -93,6 +93,8 @@ export interface PlaceCandidatesView {
 
 export interface PublicRouteModeView {
   status: 'AVAILABLE' | 'UNAVAILABLE'
+  connection_status?: 'VERIFIED' | 'UNVERIFIED'
+  geometry_break_indices?: number[] | null
   duration_minutes: number | null
   distance_meters: number | null
   transfer_count: number | null
@@ -474,6 +476,7 @@ export interface PublicRelativeRoutePreview {
   before:string[]; after:string[]; routes_before:PublicComparedRouteEdge[]; routes_after:PublicComparedRouteEdge[]
   duration_minutes_before:number; duration_minutes_after:number; minutes_saved:number
   distance_meters_before:number; distance_meters_after:number; comparison_scope:'CHANGED_EDGES_ONLY'
+  route_coverage_scope?: 'REQUESTED_POINTS' | 'RETURNED_SEGMENTS' | null
 }
 export interface PublicRelativeRouteOptions {
   kind:'RELATIVE_ORDER'; status:'AVAILABLE'|'NO_IMPROVEMENT'|'NEEDS_CONFIRMATION'|'NEEDS_UPDATE'|'UNAVAILABLE'
@@ -950,7 +953,7 @@ export interface DailyMealView {
   insert_before?: boolean; meal_role?: 'LUNCH' | null
   existing_activity_token?: string | null; area?: string | null
   area_relation?: 'PROVIDER_AREA' | 'NEARBY' | null; area_distance_m?: number | null
-  candidates: Array<{candidate_token: string; name: string; area_or_address: string; business_area?: string | null; reason: string; extra_minutes?: number | null; recommended: boolean}>
+  candidates: Array<{candidate_token: string; name: string; area_or_address: string; business_area?: string | null; reason: string; extra_minutes?: number | null; recommended: boolean; route_coverage_scope?: 'REQUESTED_POINTS' | 'RETURNED_SEGMENTS' | null}>
 }
 export interface DailyDiningView {
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'UNAVAILABLE'

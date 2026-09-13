@@ -41,7 +41,7 @@ import {DailyMealCard, useDailyDining} from './daily-dining'
 import UnresolvedPlaces from './unresolved-places'
 import SourceLodging from './source-lodging'
 import ResultNavigation from './result-navigation'
-import { relativeDayLabel, type ResultViewId } from './result-presentation'
+import { relativeDayLabel, routeModeSummary, type ResultViewId } from './result-presentation'
 import {
   findingLabel,
   formatExpiry,
@@ -1159,7 +1159,7 @@ export default function TripResultPage() {
                                       : '到下一站的交通待确认'
                                     : chosen?.status === 'AVAILABLE' &&
                                         chosen.duration_minutes != null
-                                      ? `${route?.selected_mode === 'transit' ? '公交' : '步行'} · 约 ${chosen.duration_minutes} 分钟`
+                                      ? routeModeSummary(route?.selected_mode === 'transit' ? 'transit' : 'walking', chosen)
                                       : '到下一站的交通待确认'}
                                 </span>
                                 <span className="e-transport-expand">比较</span>
@@ -1175,14 +1175,8 @@ export default function TripResultPage() {
                                         const data = route[mode]
                                         return (
                                           <p key={mode}>
-                                            <strong>
-                                              {mode === 'walking'
-                                                ? '步行'
-                                                : '公交'}
-                                            </strong>
-                                            {data.status === 'AVAILABLE'
-                                              ? ` · ${data.duration_minutes == null ? '时长未提供' : `约 ${data.duration_minutes} 分钟`}${data.distance_meters == null ? '' : ` · 总距离 ${(data.distance_meters / 1000).toFixed(1)} 公里`}${mode === 'transit' && data.transfer_count != null ? ` · 换乘 ${data.transfer_count} 次` : ''}`
-                                              : ' · 暂不可用'}
+                                            {routeModeSummary(mode, data)}
+                                            {data.status === 'AVAILABLE' && mode === 'transit' && data.transfer_count != null ? ` · 换乘 ${data.transfer_count} 次` : ''}
                                           </p>
                                         )
                                       },

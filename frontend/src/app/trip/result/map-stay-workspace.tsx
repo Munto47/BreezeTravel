@@ -14,7 +14,7 @@ import PendingPlaceDropdown from './pending-place-dropdown'
 import PlacePhoto, {PlacePhotoProvider} from './place-photo'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
 import RoutePlayback from './route-playback'
-import { DAY_COLORS, relativeDayLabel } from './result-presentation'
+import { DAY_COLORS, relativeDayLabel, routeModeSummary, routeGeometryParts } from './result-presentation'
 import StayCandidates from './stay-candidates'
 
 type GeometryPoint = { longitude: number; latitude: number }
@@ -179,7 +179,8 @@ export default function MapStayWorkspace({
             {currentRoutes.map((route, index) => {
               const selectedMode = routeMode === 'recommended' ? route.selected_mode : routeMode
               const selectedRoute = selectedMode ? route[selectedMode] : null
-              const geometryCount = selectedRoute?.status === 'AVAILABLE' ? selectedRoute.geometry.length : 0
+              const geometryParts = selectedRoute ? routeGeometryParts(selectedRoute) || [] : []
+              const geometryCount = geometryParts.filter(part => part.length >= 2).reduce((total, part) => total + part.length, 0)
               return (
                 <article
                   key={`${route.from_activity_token || route.from_name}-${route.to_activity_token || route.to_name}-${index}`}
@@ -190,14 +191,14 @@ export default function MapStayWorkspace({
                   <div className="flex items-center gap-3">
                     {geometryCount >= 2 && (
                       <svg width="38" height="14" viewBox="0 0 38 14" aria-hidden="true" className="shrink-0">
-                        <path data-testid="map-route-line" d="M2 11 Q19 1 36 11" fill="none" stroke={route.color} strokeWidth="3" strokeLinecap="round" />
+                        <path data-testid="map-route-line" d={geometryParts.length > 1 ? 'M2 11 Q8 5 15 4 M23 4 Q30 5 36 11' : 'M2 11 Q19 1 36 11'} fill="none" stroke={route.color} strokeWidth="3" strokeLinecap="round" />
                       </svg>
                     )}
                     <strong className="text-slate-900">{route.from_name} → {route.to_name}</strong>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
                     {selectedMode && selectedRoute?.status === 'AVAILABLE'
-                      ? `${selectedMode === 'walking' ? '步行' : '公交'}${selectedRoute.duration_minutes == null ? '' : ` ${selectedRoute.duration_minutes} 分钟`}`
+                      ? routeModeSummary(selectedMode, selectedRoute)
                       : '路线暂不可用'}
                   </p>
                 </article>

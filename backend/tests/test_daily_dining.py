@@ -173,7 +173,10 @@ async def test_real_detour_changes_rank_and_missing_route_cannot_claim_fastest()
             if "amap:meal-2" in pair:
                 return NS(status="UNAVAILABLE",duration_minutes=None)
             duration = 25 if "amap:meal-0" in pair else 8 if "amap:meal-1" in pair else 10
-            return NS(status="AVAILABLE",duration_minutes=duration)
+            from app.trip_understanding.route_connection import connection_evidence
+            # A comparison fixture must explicitly connect its known endpoints.
+            return NS(status="AVAILABLE",duration_minutes=duration,provider_binding={"route_connection": connection_evidence(a,b,
+                [NS(longitude=s.longitude,latitude=s.latitude) for s in (a,b)])})
     rows = await build_daily_meals(NS(days=[day]),NS(stops=stops),search=search,routes=Routes())
     assert [item["extra_minutes"] for item in rows[0]["candidates"]] == [6,40,None]
     assert [item["place"]["name"] for item in rows[0]["candidates"]] == ["合成餐厅1","合成餐厅0","合成餐厅2"]

@@ -1,5 +1,5 @@
 /** Chronological DOM order, paired rows with traffic outside each pair. */
-export function serpentineLayout(width: number, count: number, minimumCardHeight = 0) {
+export function serpentineLayout(width: number, count: number, minimumCardHeight = 0, minimumRowGap = 0) {
   const compact = width < 600
   const padding = compact ? 16 : 36
   const gap = compact ? 12 : 18
@@ -7,11 +7,14 @@ export function serpentineLayout(width: number, count: number, minimumCardHeight
   const columns = Math.max(1, Math.min(6, Math.floor((width-padding*2+gap)/(preferred+gap))))
   const cardWidth = Math.min(184,(width-padding*2-gap*(columns-1))/columns)
   const cardHeight = Math.max(compact ? 158 : 168, minimumCardHeight)
+  // Desktop route labels include the returned measurements and access warning.
+  // Keep them between rows; cards, paths and drag hit-testing share this spacing.
+  const rowGap = compact ? 32 : Math.max(32, minimumRowGap)
   const left = (width-columns*cardWidth-(columns-1)*gap)/2
   const point = (index: number) => {
     const row=Math.floor(index/columns), offset=index%columns
     const column=row%2 ? columns-1-offset : offset
-    return {x:left+column*(cardWidth+gap),y:48+row*(cardHeight+32)+Math.floor(row/2)*96,row,reverse:row%2===1}
+    return {x:left+column*(cardWidth+gap),y:48+row*(cardHeight+rowGap)+Math.floor(row/2)*96,row,reverse:row%2===1}
   }
   const rowAt = (y: number, itemCount: number) => {
     let closest=0, distance=Infinity

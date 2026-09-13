@@ -120,10 +120,14 @@ def _segmented_view(metadata: list[dict], candidates: list[tuple[StayCandidateVi
             choices = []
         status = ("LIMITED" if conflict else "NEEDS_UPDATE" if stale else "LIMITED" if info.get("missing_boundary_count", 0) else "AVAILABLE" if selected or preserved else
                   "AVAILABLE" if choices and info.get("status") == "READY" else "LIMITED" if choices or info.get("status") == "LIMITED" else "UNAVAILABLE")
+        unknown_connection = any(choice.max_single_leg_minutes is None for choice in choices)
+        if unknown_connection and status == "AVAILABLE":
+            status = "LIMITED"
         segments.append(StaySegmentView(segment_token=key, city=info.get("city"),
             overnight_days=[f"Day {day}" for day in info.get("overnight_days", [])],
             status=status, message=(info["message"] if conflict else "行程已修改，住宿通勤需重新核对" if stale else
                 info["message"] if info.get("pending_lodging_roles") or info.get("unconfirmed_exclusions") else
+                "住宿地点仍可保留，起终点衔接尚未核实" if unknown_connection else
                 "已保留这段行程的住宿选择" if selected else info.get("message", "按每晚返回和次日出发比较住宿")),
             candidates=choices, preserved_hotels=preserved,
             expected_boundary_count=info.get("expected_boundary_count", 0), missing_boundary_count=info.get("missing_boundary_count", 0)))

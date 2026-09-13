@@ -5,6 +5,7 @@ import {Check, ChevronDown, ChevronUp, MapPin, RefreshCw, UtensilsCrossed} from 
 import {readDailyDining, type ActivityCardView, type DailyDiningView, type DailyMealView, type TripUnderstandingCommand} from '@/lib/trip-understanding-v3'
 import type {WorkspaceCommandResult} from './itinerary-workspace'
 import PendingPlaceDropdown from './pending-place-dropdown'
+import {diningCandidateReason} from './result-presentation'
 import './daily-dining.css'
 
 export function useDailyDining(resource: string | null, etag: string) {
@@ -121,9 +122,9 @@ export function DailyMealCard({day, dayIndex, activities, state, disabled, onRef
     {!!candidates.length && position && <p className="daily-dining-position">{position}{anchor && !day?.insert_before && day?.next_name ? `，前往「${day.next_name}」之前用餐` : ''}</p>}
     {!!candidates.length && expanded && <div id={contentId} className="daily-dining-candidates">
       {candidates.map(item => <article key={item.candidate_token} className="daily-dining-candidate" data-testid="daily-dining-candidate">
-        <div className="daily-dining-candidate-heading"><span className="daily-dining-restaurant-icon"><UtensilsCrossed aria-hidden="true"/></span><div><h3>{item.name}</h3>{item.recommended && <span className="daily-dining-recommended">建议优先比较</span>}</div></div>
+        <div className="daily-dining-candidate-heading"><span className="daily-dining-restaurant-icon"><UtensilsCrossed aria-hidden="true"/></span><div><h3>{item.name}</h3>{item.recommended && item.route_coverage_scope && <span className="daily-dining-recommended">{item.route_coverage_scope==='RETURNED_SEGMENTS'?'局部路段优先比较':'建议优先比较'}</span>}</div></div>
         <p className="daily-dining-address">{item.area_or_address}</p>
-        <p className="daily-dining-reason">{item.reason}</p>
+        <p className="daily-dining-reason">{diningCandidateReason(item)}</p>
         <button type="button" className="daily-dining-adopt" disabled={disabled || writing || !canAdopt} onClick={() => void adopt(item.candidate_token)}>{writing ? '正在保存' : '加入行程'}</button>
       </article>)}
     </div>}

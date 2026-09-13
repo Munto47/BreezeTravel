@@ -107,7 +107,7 @@ for (const width of [1440, 390]) {
     expect(handle.height).toBeGreaterThanOrEqual(48)
     await expect(lane.locator('.four-day-statistics')).toContainText('待确认 1')
     await expect(lane.locator('.four-day-statistics')).toContainText('未整理 1')
-    await expect(lane.locator('.four-day-route-summary')).toHaveText('步行 7.8 公里 · 120 分钟')
+    await expect(lane.locator('.four-day-route-summary')).toHaveText('已核实衔接 0/12 段 · 起终点衔接未核实 · 暂无完整日合计')
     const long = lane.getByRole('heading', { name: longName, exact: true })
     await expect(long).toHaveCSS('white-space', 'normal')
     expect(await long.evaluate(element => element.clientHeight)).toBeGreaterThan(25)

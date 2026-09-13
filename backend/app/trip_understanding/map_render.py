@@ -108,6 +108,8 @@ class InternalRouteModeFact(StrictModel):
     response_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     geometry_ref: str | None = None
     geometry: list[RouteGeometryPoint] = Field(default_factory=list)
+    connection_status: Literal["VERIFIED", "UNVERIFIED"] = "UNVERIFIED"
+    geometry_break_indices: list[int] | None = None
     request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     provider_binding: dict[str, object]
     external_call_count: int = Field(ge=0)
@@ -119,6 +121,9 @@ class InternalRouteModeFact(StrictModel):
         has_values = self.duration_minutes is not None and self.distance_meters is not None
         if (self.status == "AVAILABLE") != has_values:
             raise ValueError("available route facts require duration and distance")
+        from app.trip_understanding.route_connection import connection_status, geometry_break_indices
+        self.connection_status = connection_status(self.provider_binding) if self.status == "AVAILABLE" else "UNVERIFIED"
+        self.geometry_break_indices = geometry_break_indices(self.provider_binding)
         return self
 
 
@@ -159,6 +164,8 @@ class PublicRouteModeView(StrictModel):
     distance_meters: int | None = None
     transfer_count: int | None = None
     geometry: list[RouteGeometryPoint] = Field(default_factory=list)
+    connection_status: Literal["VERIFIED", "UNVERIFIED"] = "UNVERIFIED"
+    geometry_break_indices: list[int] | None = None
 
 
 class PublicMapEdgeView(StrictModel):
@@ -368,6 +375,7 @@ class ControlledFixtureRouteProvider:
                 RouteGeometryPoint(longitude=origin.longitude, latitude=origin.latitude),
                 RouteGeometryPoint(longitude=destination.longitude, latitude=destination.latitude),
             ]
+        from app.trip_understanding.route_connection import connection_evidence
         return InternalRouteModeFact(
             mode=mode,
             status="AVAILABLE",
@@ -379,6 +387,7 @@ class ControlledFixtureRouteProvider:
             request_hash=canonical_sha256(request),
             provider_binding={
                 "execution_mode": _ROUTE_FIXTURE["execution_mode"],
+                "route_connection": connection_evidence(origin, destination, geometry),
                 "snapshot_id": _ROUTE_FIXTURE["snapshot_id"],
                 "fixture_sha256": ROUTE_FIXTURE_SHA256,
             },
@@ -473,10 +482,18 @@ class MapRenderer:
                     )
                 )
         available_count = sum(edge.available for edge in edges)
+        connection_unverified = sum(
+            edge.selected_mode is not None
+            and getattr(edge, edge.selected_mode).connection_status != "VERIFIED"
+            for edge in edges
+        )
         external_call_count = sum(
             edge.walking.external_call_count + edge.transit.external_call_count
             for edge in edges
         )
+        # Storage READY means every supplier route is available. The public
+        # view independently limits coverage using the selected mode evidence;
+        # PARTIAL's existing database contract means some route edges failed.
         if edges and available_count == len(edges):
             status: Literal["READY", "PARTIAL", "UNAVAILABLE"] = "READY"
         elif available_count:
@@ -513,7 +530,8 @@ class MapRenderer:
                 "external_calls": external_call_count,
                 "modes": ["walking", "transit"],
             },
-            failure={} if status == "READY" else {"unavailable_edge_count": len(edges) - available_count},
+            failure={} if status == "READY" and not connection_unverified else {"unavailable_edge_count": len(edges) - available_count,
+                "unverified_connection_count": connection_unverified},
             started_at=started_at,
             finished_at=finished_at,
             observed_at=started_at,
@@ -528,4 +546,6 @@ def mode_public_view(fact: InternalRouteModeFact) -> PublicRouteModeView:
         distance_meters=fact.distance_meters,
         transfer_count=fact.transfer_count,
         geometry=fact.geometry,
+        connection_status=fact.connection_status,
+        geometry_break_indices=fact.geometry_break_indices,
     )

@@ -7,7 +7,7 @@ import type { MapRenderView, TripSupplementaryView, UserFacingTripResult } from 
 import type {SourceLodgingCard} from '@/lib/confirmed-trip-view'
 import AccessibleDialog from './accessible-dialog'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
-import { DAY_COLORS, transportConnectorFor, distanceLabel, relativeDayLabel } from './result-presentation'
+import { DAY_COLORS, transportConnectorFor, connectorPresentation, relativeDayLabel } from './result-presentation'
 import {sourceMeals} from './source-meals'
 
 function exportStatus(result: UserFacingTripResult, unresolvedDays: UserFacingTripResult['days'] = []) {
@@ -43,9 +43,8 @@ function routeSummary(
 ) {
   if (!mapView) return '交通待确认'
   const connector=transportConnectorFor(day,day.activities[fromIndex],day.activities[fromIndex+1],mapView)
-  if(connector.status==='NEEDS_UPDATE')return '路线需要更新'
-  if(connector.status!=='AVAILABLE')return '交通待确认'
-  return `${connector.mode==='walking'?'步行':'公交'}约 ${connector.durationMinutes} 分钟${connector.distanceMeters===null?'':` · ${distanceLabel(connector.distanceMeters)}`}`
+  const {label,warning}=connectorPresentation(connector)
+  return `${label}${warning?`\n${warning}`:''}`
 
 }
 
@@ -105,7 +104,15 @@ async function renderItinerary(
     const lines = Math.max(1, ...dayNames[index].map(name => name.length))
     // Name starts at y=59; keep its status badge and bottom padding below
     // every line. The shared layout moves later rows and connectors with it.
-    return serpentineLayout(layoutWidth, day.activities.length, 119 + (lines - 1) * nameLineHeight)
+    const minimumCardHeight = 119 + (lines - 1) * nameLineHeight
+    const base = serpentineLayout(layoutWidth, day.activities.length, minimumCardHeight)
+    context.font = '400 11px "Microsoft YaHei", sans-serif'
+    const turnHeights = day.activities.slice(0, -1).flatMap((_, fromIndex) => {
+      if (!serpentineEdge(base, fromIndex).turn) return []
+      const routeLines = routeSummary(mapView, day, fromIndex).split('\n').flatMap(line => wrapText(context, line, 96))
+      return routeLines.length * 14 + 8
+    })
+    return serpentineLayout(layoutWidth, day.activities.length, minimumCardHeight, Math.max(0, ...turnHeights) + 8)
   })
   context.font = '600 14px "Microsoft YaHei", sans-serif'
   const sourceLines = result.days.map((day, dayIndex) => {
@@ -247,11 +254,13 @@ async function renderItinerary(
       context.beginPath(); context.moveTo(tx-3,edge.arrowY-edge.arrowDirection*7);context.lineTo(tx,edge.arrowY-edge.arrowDirection*2);context.lineTo(tx+3,edge.arrowY-edge.arrowDirection*7);context.stroke()
       context.font='400 11px "Microsoft YaHei", sans-serif'
       const label=routeSummary(mapView,day,index)
-      const labelWidth=context.measureText(label).width+14
-      context.fillStyle='#eef8f5'
-      context.beginPath(); context.roundRect(edge.x-labelWidth/2,edge.y-12,labelWidth,24,12);context.fill()
+      const lines=label.split('\n').flatMap(line=>wrapText(context,line,edge.turn?96:184))
+      const labelWidth=Math.max(...lines.map(line=>context.measureText(line).width))+14
+      const labelHeight=lines.length*14+8
+      context.fillStyle=lines.length>1?'#fff5df':'#eef8f5'
+      context.beginPath(); context.roundRect(edge.x-labelWidth/2,edge.y-labelHeight/2,labelWidth,labelHeight,10);context.fill()
       context.fillStyle='#427c77'; context.textAlign='center'
-      context.fillText(label,edge.x,edge.y+4)
+      lines.forEach((line,i)=>context.fillText(line,edge.x,edge.y-labelHeight/2+15+i*14))
       context.restore()
     })
     day.activities.forEach((card, cardIndex) => {

@@ -90,7 +90,7 @@ test('relative presentation retains source, identities, hidden positions and rou
   expect(command.position).toBe(2)
   expect(presentation.relativeDayLabel(0)).toBe('Day 1')
   expect(presentation.transportConnectorFor(visible.days[0], card, visible.days[0].activities[1], raw.map))
-    .toEqual({status: 'AVAILABLE', mode: 'walking', durationMinutes: 12, distanceMeters: 850})
+    .toEqual({status: 'AVAILABLE', mode: 'walking', durationMinutes: 12, distanceMeters: 850, connectionStatus: 'UNVERIFIED'})
 })
 
 test('old editor and preview remain readable without clock actions or loss of source details', () => {
