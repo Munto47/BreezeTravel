@@ -454,6 +454,21 @@ export interface PublicChangeAdopted {
   checks: PublicTripChecksView
 }
 
+export interface PublicComparedRouteEdge {
+  from_name:string; to_name:string; mode:'walking'|'transit'
+  duration_minutes:number; distance_meters:number
+}
+export interface PublicRelativeRoutePreview {
+  kind:'RELATIVE_ORDER'; change_token:string; title:string; summary:string; day_index:number
+  before:string[]; after:string[]; routes_before:PublicComparedRouteEdge[]; routes_after:PublicComparedRouteEdge[]
+  duration_minutes_before:number; duration_minutes_after:number; minutes_saved:number
+  distance_meters_before:number; distance_meters_after:number; comparison_scope:'CHANGED_EDGES_ONLY'
+}
+export interface PublicRelativeRouteOptions {
+  kind:'RELATIVE_ORDER'; status:'AVAILABLE'|'NO_IMPROVEMENT'|'NEEDS_CONFIRMATION'|'NEEDS_UPDATE'|'UNAVAILABLE'
+  message:string; day_index:number; options:PublicRelativeRoutePreview[]
+}
+
 function requestKey(): string {
   const values = new Uint32Array(4)
   crypto.getRandomValues(values)
@@ -1127,6 +1142,25 @@ export async function previewTripUnderstandingChange(
     throw new Error('CHANGE_PREVIEW_FAILED')
   }
   return response.json() as Promise<PublicChangePreview>
+}
+
+export async function compareRelativeTripRoutes(resource:string, etag:string, dayIndex:number, key:string, signal:AbortSignal):Promise<PublicRelativeRouteOptions> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/changes/preview`, {
+    method:'POST', credentials:'include', cache:'no-store', signal,
+    headers:{...authorizationHeaders(),'Content-Type':'application/json','If-Match':etag,'Idempotency-Key':key},
+    body:JSON.stringify({day_index:dayIndex}),
+  })
+  if(response.status===409) {
+    const error=await response.json().catch(()=>null) as {detail?:{code?:string}}|null
+    throw new Error(error?.detail?.code==='REQUEST_IN_PROGRESS'?'ROUTE_COMPARISON_PENDING':'ROUTE_COMPARISON_STALE')
+  }
+  if(response.status===401)throw new Error('LOGIN_REQUIRED')
+  if(response.status===404||response.status===410)throw new Error('TRIP_GONE')
+  if(!response.ok)throw new Error('ROUTE_COMPARISON_UNAVAILABLE')
+  const body=await response.json() as PublicRelativeRouteOptions
+  if(response.headers.get('ETag')!==etag||body.kind!=='RELATIVE_ORDER'||body.day_index!==dayIndex
+    ||!Array.isArray(body.options)||body.options.length>3||body.options.some(option=>option.kind!=='RELATIVE_ORDER'||option.day_index!==dayIndex||option.comparison_scope!=='CHANGED_EDGES_ONLY'))throw new Error('ROUTE_COMPARISON_STALE')
+  return body
 }
 
 export async function adoptTripUnderstandingChange(

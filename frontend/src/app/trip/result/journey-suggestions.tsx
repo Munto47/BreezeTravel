@@ -13,6 +13,7 @@ import {findingLabel, needsRecheck} from './presentation'
 import StayCandidates from './stay-candidates'
 import ItineraryChoices from './itinerary-choices'
 import {relativeDayLabel} from './result-presentation'
+import RelativeRouteSuggestions from './relative-route-suggestions'
 
 type Props = {
   resource: string; etag: string; result: UserFacingTripResult; disabled: boolean
@@ -20,6 +21,7 @@ type Props = {
   map: MapRenderView | null; stay: StaySuggestionView | null
   supplementary?: TripSupplementaryView | null
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
+  onAdoptRelativeRoute: (token:string, basisEtag:string) => Promise<boolean>
   onRetry: () => void; onPreview: (item: PublicTripCheckItem) => void
   onLocate: (item: PublicTripCheckItem) => void; onStay: (token: string) => void
   onRefreshStay: () => void
@@ -62,7 +64,7 @@ export default function JourneySuggestions(props: Props) {
       .flatMap(item => item.items.filter(choice => choice.role === 'OPTIONAL')) : []
   const stay = props.stay || result.stay
   const items = props.checks?.items || []
-  const shownItems = tab === 'route' ? items.filter(item => item.depends_on_routes) : items
+  const shownItems = items
   const selectedCard = result.days.flatMap(day => day.activities).find(card => card.activity_token === props.selectedToken)
 
   function closePanel() {
@@ -141,7 +143,7 @@ export default function JourneySuggestions(props: Props) {
       <div className="flex items-center justify-between"><strong>检查与建议</strong><button type="button" className={action} aria-label="关闭建议" onClick={closePanel}><X className="h-4 w-4"/></button></div>
       <div className="journey-suggestion-tabs" aria-label="建议分类">{([['all','总体检查'],['dining','用餐'],['route','顺路优化'],['stay','住宿']] as const).map(([key,label]) => <button type="button" key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</div>
       {selectedCard && props.mapDock && <section className="journey-selected-place" aria-label="当前选中地点"><p>当前选中 · {relativeDayLabel(props.selectedDayIndex || 0)}</p><strong>{selectedCard.name}</strong><p>{selectedCard.category} · 已确认</p><SourceDetails card={selectedCard}/></section>}
-      {(tab === 'all' || tab === 'route') && <details open className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">{tab === 'route' ? '顺路检查' : '行程检查'}</summary>
+      {tab === 'all' && <details open className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">行程检查</summary>
         <div className="grid gap-3" aria-live="polite">
           {shownItems.map(item => {
             const outdated = needsRecheck(item, props.map)
@@ -154,13 +156,15 @@ export default function JourneySuggestions(props: Props) {
               {!!item.affected_activity_tokens?.length && <button className={action} disabled={busy} onClick={() => {setOpen(false); props.onLocate(item)}}>查看涉及地点</button>}
             </article>
           })}
-          {!shownItems.length && <p className="text-sm text-slate-500">{props.checking ? '正在检查…' : props.checksError || (tab === 'route' ? '暂无已核验的顺路调整方案。' : props.checks?.message) || '检查结果暂未就绪。'}</p>}
+          {!shownItems.length && <p className="text-sm text-slate-500">{props.checking ? '正在检查…' : props.checksError || props.checks?.message || '检查结果暂未就绪。'}</p>}
           <button className={action} disabled={busy || props.checking} onClick={props.onRetry}>重新检查</button>
           {!!items.length && <p className="text-xs leading-5 text-slate-500">{props.checks?.message}</p>}
           <p className="text-xs leading-5 text-slate-500">按已有地点和路线检查；营业与天气尚未核验。</p>
         </div>
       </details>}
       <label className="my-3 flex items-center gap-3 text-sm">哪一天<select aria-label="建议所属日期" className="min-h-11 min-w-0 flex-1 rounded-xl bg-slate-50 px-3" value={currentDayIndex} onChange={event => {setDayIndex(Number(event.target.value)); setAnchorIndex(0); setDining(null); setError('')}}>{result.days.map((item, index) => <option key={index} value={index}>{relativeDayLabel(index)}</option>)}</select></label>
+      {tab === 'route' && <RelativeRouteSuggestions resource={resource} etag={etag} dayIndex={currentDayIndex+1} disabled={busy}
+        onAdopt={props.onAdoptRelativeRoute}/>}
       {tab === 'all' && !!unassigned.length && <details className="border-b border-slate-100 py-2" data-testid="unassigned-alternatives">
         <summary className="cursor-pointer py-2 text-sm font-semibold">未指定日期 · 备选地点 · {unassigned.length}</summary>
         <p className="py-2 text-sm text-slate-500">这些地点尚未排入行程。可在想去的那一天新增地点，确认后再更新路线。</p>

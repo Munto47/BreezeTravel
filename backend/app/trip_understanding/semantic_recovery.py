@@ -201,6 +201,7 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
     # A repair can change a quote from a daily summary to the single actual
     # visit (or vice versa). Keep the body anchor and retain the summary as a
     # reference; counting both as visits would preserve a known adapter error.
+    order_originals = (original, repaired)
     repaired_rows = list(repaired.activities)
     relocated: dict[tuple[int, int], tuple[int, int]] = {}
     references = []
@@ -372,7 +373,10 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
     merged = repaired.model_copy(update={"activities": rows, "unprocessed_quotes": unprocessed})
     # Recovery may insert a preserved row; reply indices must not move a group
     # onto a different visit. Rebind only by exact original source occurrence.
-    return remap_choice_groups(source, repaired if repaired.choice_groups else original, merged)
+    merged = remap_choice_groups(source, repaired if repaired.choice_groups else original, merged)
+    from app.trip_understanding.source_order import remap_semantic_order_groups
+
+    return remap_semantic_order_groups(source, order_originals, merged)
 
 
 def improves_only_lodging_evidence(before: InferenceProposal, after: InferenceProposal) -> bool:

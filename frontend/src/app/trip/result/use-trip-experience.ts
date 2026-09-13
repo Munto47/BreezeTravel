@@ -1915,6 +1915,10 @@ export function useTripExperience() {
           key: api.createTripRequestKey(),
         })
       : Promise.resolve(false)
+  const adoptRelativeRoute = (token: string, basisEtag: string) => {
+    if (writing.current || pending || basisEtag !== current.current.etag) return Promise.resolve(false)
+    return execute({type:'adopt',token,...current.current,key:api.createTripRequestKey()})
+  }
   const openPreview = async (token: string): Promise<boolean> => {
     if (writing.current || pending) return false
     previewController.current?.abort()
@@ -2093,6 +2097,7 @@ export function useTripExperience() {
     selectStay,
     refreshStay,
     adopt,
+    adoptRelativeRoute,
     openPreview,
     closePreview: () => {
       previewController.current?.abort()

@@ -782,6 +782,7 @@ export default function TripResultPage() {
                   stay={displayStay}
                   supplementary={trip.supplementary}
                   onCommand={trip.workspaceCommand}
+                  onAdoptRelativeRoute={trip.adoptRelativeRoute}
                   onRetry={() => void trip.retryChecks()}
                   onPreview={openPreview}
                   onLocate={locateFinding}

@@ -29,6 +29,7 @@ from app.trip_understanding.pipeline import BASIC_CITY_HEADER_RE, DOMESTIC_CITY_
 from app.trip_understanding.place_labels import normalized_place_label
 from app.trip_understanding.source_capacity import saturated_source_capacity
 from app.trip_understanding.choice_groups import SemanticChoiceGroup, bind_choice_groups
+from app.trip_understanding.source_order import SemanticOrderGroup, bind_semantic_order_groups
 from app.trip_understanding.timing_evidence import validated_timing
 from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, improves_only_lodging_evidence, merge_preserved_activities
 
@@ -84,6 +85,8 @@ class SemanticDraft(StrictModel):
     unprocessed_quotes: list[str] = Field(default_factory=list, max_length=80)
     choice_groups: list[SemanticChoiceGroup] = Field(default_factory=list, max_length=80,
         description="仅原文明示尚未选择的二选一。scope_quote逐字包含两分支与选择条件；branches按原顺序引用activities从0起的index，每分支可有多个连续地点。已选、取消、普通可前往路线不建组。")
+    order_groups: list[SemanticOrderGroup] = Field(default_factory=list, max_length=160,
+        description="审阅原文后的同日具名主线先后判断，activity_indices引用本答activities从0起的原访问；匿名餐位不作为成员。INITIAL_ORDER仅初始排列；REQUIRED_PRECEDENCE保留有逐字依据的必需先后；UNKNOWN或省略表示尚未判断，不等于自由改序。")
 
     @field_validator("destination", mode="before")
     @classmethod
@@ -2351,6 +2354,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
         day_labels=labels, day_count=min(supported_days, 14), unprocessed_count=unprocessed,
         unprocessed_by_day=unprocessed_by_day,
         mentions=mentions, diagnostics=diagnostics, binding={"semantic_policy": SEMANTIC_POLICY},
+        order_assessment=bind_semantic_order_groups(source, choice_draft, mentions),
     )
 
 

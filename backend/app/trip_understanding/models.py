@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.trip_understanding.timing import ActivityTiming
+from app.trip_understanding.source_order import SourceOrderAssessment
 
 
 MAX_TRIP_ACTIVITIES = 160
@@ -105,6 +106,7 @@ class InferenceProposal(StrictModel):
     # Unknown attribution remains in the global count, never guessed from an empty day.
     unprocessed_by_day: dict[Annotated[int, Field(ge=1, le=14)], Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
     diagnostics: list[SemanticDiagnostic] = Field(default_factory=list)
+    order_assessment: SourceOrderAssessment = Field(default_factory=SourceOrderAssessment)
 
 
 class SourceSemanticPlan(InferenceProposal):
@@ -489,7 +491,14 @@ class PublicTripChecksView(StrictModel):
 
 
 class ChangePreviewRequest(StrictModel):
-    check_token: str = Field(min_length=20, max_length=100)
+    check_token: str | None = Field(default=None, min_length=20, max_length=100)
+    day_index: int | None = Field(default=None, ge=1, le=14, strict=True)
+
+    @model_validator(mode="after")
+    def one_preview_target(self):
+        if (self.check_token is None) == (self.day_index is None):
+            raise ValueError("Choose a check or a relative day")
+        return self
 
 
 class PublicTimingChange(StrictModel):
@@ -514,7 +523,13 @@ class PublicChangePreview(StrictModel):
 
 
 class ChangeAdoptRequest(StrictModel):
-    change_token: str = Field(min_length=20, max_length=100)
+    change_token: str = Field(min_length=20, max_length=24000)
+
+    @model_validator(mode="after")
+    def bounded_legacy_token(self):
+        if len(self.change_token) > 100 and not self.change_token.startswith("rr1_"):
+            raise ValueError("Unsupported change credential")
+        return self
 
 
 class PublicChangeAdopted(StrictModel):
@@ -797,6 +812,9 @@ class ActivityMoveCommand(StrictModel):
     activity_token: str = Field(min_length=20, max_length=80)
     target_day_index: int = Field(ge=1, le=14)
     target_position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
+    # Only system route adoption supplies this; ordinary manual moves retain
+    # their existing behavior. Verified under the repository's current row lock.
+    route_preview_token: str | None = Field(default=None, min_length=40, max_length=24000)
 
 
 class ActivityTextEditCommand(StrictModel):

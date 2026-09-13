@@ -1697,6 +1697,12 @@ class TripUnderstandingPipeline:
                                "unassigned_alternative_ids": proposal.unassigned_alternative_ids,
                                "source_text": source_text}
                               if model_meaning else {})
+        from app.trip_understanding.source_order import retain_source_order_assessment
+
+        # Keep the private semantic assessment attached to the same root visits
+        # after preparation/legacy adaptation, without adding public fields.
+        proposal = proposal.model_copy(update={"order_assessment": retain_source_order_assessment(
+            proposal.order_assessment, proposal.mentions)})
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()
         cancellation_pending_activity_ids: set[str] = set()

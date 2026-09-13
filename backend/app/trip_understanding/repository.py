@@ -17,6 +17,9 @@ from app.trip_understanding.dining_jobs import DailyDiningJob, RecommendationTri
 from app.trip_understanding.anonymous import AnonymousDailyLimitError, anonymous_day_start
 from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.edit_history import advance_edit_history
+from app.trip_understanding.relative_route_repository import (
+    PostgresRelativeRouteRepositoryMixin, InMemoryRelativeRouteRepositoryMixin,
+)
 from app.trip_understanding.lodging_recovery import result_cards
 from app.trip_understanding.demo import DEMO_SOURCE_SHA256, DEMO_SOURCE_TEXT
 from app.trip_understanding.errors import (
@@ -426,7 +429,9 @@ def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
     def opaque_group(value: str | None) -> str | None:
         return canonical_sha256({"source_hash": output.source_hash, "group": value})[:32] if value else None
 
+    from app.trip_understanding.relative_route_context import seed_order_for_output
     return {
+        "source_order": seed_order_for_output(output),
         "schema_version": output.proposal.schema_version,
         "source_hash": output.proposal.source_hash,
         "destination_name": output.proposal.destination_name,
@@ -516,6 +521,9 @@ class TripUnderstandingRepository(
     Protocol,
 ):
     async def load_recommendation_trip_view(self, understanding_id: str, revision: int) -> RecommendationTripView: ...
+
+    async def preview_relative_routes(self, resource: PublicResourceRecord, *, expected_etag: str,
+                                      day_index: int, idempotency_key: str, request_hash: str, provider): ...
 
     async def read_daily_dining(self, resource: PublicResourceRecord, *, request_key: str | None = None,
                                expected_etag: str | None = None, replay_info: dict | None = None): ...
@@ -769,6 +777,7 @@ class TripUnderstandingRepository(
 
 
 class PostgresTripUnderstandingRepository(
+    PostgresRelativeRouteRepositoryMixin,
     PostgresReadbackMixin,
     PostgresG03RepositoryMixin,
     PostgresStayRecommendationRepositoryMixin,
@@ -2799,12 +2808,16 @@ class PostgresTripUnderstandingRepository(
                 raise RevisionConflictError("command precondition does not match current result")
 
             current_result = UserFacingTripResult.model_validate(_json_value(current["public_json"]))
+            from app.trip_understanding.relative_route_previews import verify_route_move
+            route_now = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
+            verify_route_move(command, current_result, public_resource_id=resource.public_resource_id,
+                expected_etag=expected_etag, now=route_now)
             source_revision, history = advance_edit_history(
                 int(aggregate["current_revision"]), _json_value(current["proposal_json"]),
                 can_undo=current_result.can_undo, command_type=command.command_type)
             restore_result = None
             if isinstance(command, (UndoCommand, RedoCommand)):
-                previous = await conn.fetchrow("""SELECT r.source_id, r.destination_json, r.assumptions_json, result.public_json
+                previous = await conn.fetchrow("""SELECT r.source_id, r.destination_json, r.assumptions_json, r.proposal_json, result.public_json
                     FROM trip_understanding_revisions r JOIN trip_understanding_results result
                     ON result.understanding_id=r.understanding_id AND result.revision=r.revision
                     WHERE r.understanding_id=$1 AND r.revision=$2""", resource.understanding_id, source_revision)
@@ -2832,6 +2845,10 @@ class PostgresTripUnderstandingRepository(
                 current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
             mutation.result.can_undo = bool(history["undo"])
             mutation.result.can_redo = bool(history["redo"])
+            from app.trip_understanding.relative_route_context import carry_source_order
+            source_order = carry_source_order(_json_value(current["proposal_json"]),
+                restore_result or current_result, mutation.result, mutation.token_map, command=command,
+                confirmed_place=confirmed_place, current_place_id=current_place_id)
             public_payload = mutation.result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
             parent_revision = int(aggregate["current_revision"])
@@ -2876,6 +2893,7 @@ class PostgresTripUnderstandingRepository(
                         "command_type": command.command_type,
                         "source_quotes": "PARENT_REVISION_ONLY",
                         "edit_history": history,
+                        "source_order": source_order,
                     },
                     ensure_ascii=False,
                 ),
@@ -4944,6 +4962,7 @@ class PostgresTripUnderstandingRepository(
 
 
 class InMemoryTripUnderstandingRepository(
+    InMemoryRelativeRouteRepositoryMixin,
     InMemoryReadbackMixin,
     InMemoryG03RepositoryMixin,
     InMemoryStayRecommendationRepositoryMixin,
@@ -5999,6 +6018,9 @@ class InMemoryTripUnderstandingRepository(
             and self.source_expiries.get(job_id, now) > effective_now for job_id, job in self.jobs.items())
         if isinstance(command, LodgingRecoverCommand) and not source_available:
             raise CommandTargetChangedError("source hotel is no longer recoverable")
+        from app.trip_understanding.relative_route_previews import verify_route_move
+        verify_route_move(command, stored.result, public_resource_id=resource.public_resource_id,
+            expected_etag=expected_etag, now=effective_now)
         confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
             expected_etag=expected_etag, now=effective_now if isinstance(command, (LodgingRecoverCommand, DiningInsertCommand)) else now)
         meal_trip = await self.load_recommendation_trip_view(resource.understanding_id, source_revision)
@@ -6012,6 +6034,10 @@ class InMemoryTripUnderstandingRepository(
             current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
         mutation.result.can_undo = bool(history["undo"])
         mutation.result.can_redo = bool(history["redo"])
+        from app.trip_understanding.relative_route_context import carry_source_order
+        source_order = carry_source_order(previous_input, restore_result or stored.result,
+            mutation.result, mutation.token_map, command=command,
+            confirmed_place=confirmed_place, current_place_id=current_place_id)
         result_id = str(uuid4())
         opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
         self.results[result_id] = StoredResult(
@@ -6053,6 +6079,7 @@ class InMemoryTripUnderstandingRepository(
             (resource.understanding_id, int(aggregate["current_revision"]))
         ] = {
             "edit_history": history,
+            "source_order": source_order,
             "destination": ({"name": command.value, "status": "USER_EDITED"} if command.command_type == "ASSUMPTION_SET" and command.key == "destination" else dict(previous_input.get("destination") or {})),
             "bindings": bindings,
             "pending_lodgings": {new: {**old_row, "public_activity_token": new}
@@ -6844,6 +6871,7 @@ class InMemoryTripUnderstandingRepository(
             for item in output.activities
         ]
         self.g03_pipeline_inputs[(job.understanding_id, 2)] = {
+            "source_order": _persisted_proposal(output)["source_order"],
             "destination": dict(output.destination),
             "assumptions": [dict(item) for item in output.assumptions],
             "pending_lodgings": {item.compiled.public_activity_token: {

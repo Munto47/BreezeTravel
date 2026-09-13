@@ -83,7 +83,7 @@ async def test_actual_schema_keeps_all_business_fields_bounds_and_requires_name_
         await provider.propose(SOURCE)
     schema = request_schema(requests[0])
     activity = schema["$defs"]["SemanticActivity"]
-    assert set(schema["properties"]) == {"destination", "day_labels", "activities", "unprocessed_quotes", "choice_groups"}
+    assert set(schema["properties"]) == {"destination", "day_labels", "activities", "unprocessed_quotes", "choice_groups", "order_groups"}
     assert set(schema["required"]) == {"activities", "day_labels", "unprocessed_quotes"}
     assert set(activity["required"]) == {"source_quote", "role", "place_name", "day_index"}
     assert set(activity["properties"]) == {

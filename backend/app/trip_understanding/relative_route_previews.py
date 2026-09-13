@@ -132,6 +132,7 @@ def issue_route_preview(
 def verify_route_preview(
     token: str, *, public_resource_id: str, expected_etag: str, now: datetime,
     current_result: UserFacingTripResult | None = None,
+    check_freshness: bool = True,
 ) -> VerifiedRouteMove:
     try:
         if not token.startswith(ROUTE_PREVIEW_PREFIX) or len(token) > MAX_ROUTE_PREVIEW_TOKEN_LENGTH:
@@ -139,8 +140,8 @@ def verify_route_preview(
         data = json.loads(_cipher().decrypt(token[len(ROUTE_PREVIEW_PREFIX):].encode()))
         if (
             data["kind"] != "RELATIVE_ORDER" or data["resource"] != public_resource_id
-            or data["etag"] != expected_etag or data["config"] != ROUTE_CONFIG_SHA256
-            or now.utcoffset() is None or data["expires"] <= now.timestamp()
+            or data["etag"] != expected_etag or now.utcoffset() is None
+            or check_freshness and (data["config"] != ROUTE_CONFIG_SHA256 or data["expires"] <= now.timestamp())
         ):
             raise ValueError("expired or changed preview")
         command = ActivityMoveCommand(command_type="ACTIVITY_MOVE", activity_token=data["activity"],
@@ -157,3 +158,12 @@ def verify_route_preview(
         return VerifiedRouteMove(command, tuple(before))
     except (InvalidToken, ValueError, KeyError, TypeError, IndexError) as exc:
         raise CommandTargetChangedError("route comparison expired or changed") from exc
+
+
+def verify_route_move(command, result, *, public_resource_id, expected_etag, now):
+    if not isinstance(command, ActivityMoveCommand) or command.route_preview_token is None:
+        return
+    verified = verify_route_preview(command.route_preview_token, public_resource_id=public_resource_id,
+        expected_etag=expected_etag, now=now, current_result=result)
+    if command.model_dump(exclude={"route_preview_token"}) != verified.command.model_dump(exclude={"route_preview_token"}):
+        raise CommandTargetChangedError("move differs from the compared route")

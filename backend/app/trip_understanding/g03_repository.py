@@ -1236,6 +1236,9 @@ class PostgresG03RepositoryMixin:
             can_undo=current_result.can_undo, command_type=command.command_type)
         mutation.result.can_undo = bool(history["undo"])
         mutation.result.can_redo = bool(history["redo"])
+        from app.trip_understanding.relative_route_context import carry_source_order
+        source_order = carry_source_order(_json(current["proposal_json"]), current_result,
+            mutation.result, mutation.token_map, command=command)
         public_payload = mutation.result.model_dump(mode="json")
         public_hash = canonical_sha256(public_payload)
         parent_revision = int(current["current_revision"])
@@ -1276,6 +1279,7 @@ class PostgresG03RepositoryMixin:
                     "command_type": command.command_type,
                     "source_quotes": "PARENT_REVISION_ONLY",
                     "edit_history": history,
+                    "source_order": source_order,
                 },
                 ensure_ascii=False,
             ),

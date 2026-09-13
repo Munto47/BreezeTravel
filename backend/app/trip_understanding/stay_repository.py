@@ -925,6 +925,9 @@ class PostgresStayRecommendationRepositoryMixin:
                 pending.pending_token = token
             refresh_meal_slot_tokens(next_result.days, token_map)
             refresh_choice_selection_tokens(next_result.days, token_map)
+            from app.trip_understanding.relative_route_context import carry_source_order
+            source_order = carry_source_order(_json(current["proposal_json"]),
+                UserFacingTripResult.model_validate(_json(current["public_json"])), next_result, token_map)
             public_payload = next_result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
             result_revision = parent_revision + 1
@@ -946,7 +949,8 @@ class PostgresStayRecommendationRepositoryMixin:
                 canonical_sha256({"parent_revision": parent_revision, "selection": request_hash, "public": public_hash}),
                 json.dumps(_json(current["destination_json"]), ensure_ascii=False),
                 json.dumps(_json(current["assumptions_json"]), ensure_ascii=False),
-                json.dumps({"kind": "STAY_SELECTION", "source_quotes": "PARENT_REVISION_ONLY", "edit_history": history}, ensure_ascii=False),
+                json.dumps({"kind": "STAY_SELECTION", "source_quotes": "PARENT_REVISION_ONLY", "edit_history": history,
+                    "source_order": source_order}, ensure_ascii=False),
                 json.dumps({"provider_calls": 0, "route_provider_calls": 0}, ensure_ascii=False),
                 json.dumps({"kind": "STAY_SELECTION", "source_claims_copied": 0}, ensure_ascii=False),
                 now,

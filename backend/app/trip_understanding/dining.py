@@ -12,17 +12,26 @@ from pydantic import Field, field_validator
 from app.config import get_settings
 from app.constraints.amap_types import classify_amap_type_signals
 from app.schemas.place import PlaceCategory
-from app.trip_understanding.amap_place import _admin_matches, _coordinates
+from app.trip_understanding.amap_place import _admin_matches, _coordinates, _PROVIDER_STATUS_SUFFIX_RE
 from app.trip_understanding.candidates import CandidatePlace, DiningPOIInfo, GCJ02Position, PublicPlaceCandidate, _CITY_BOUNDS, verify_candidate
 from app.trip_understanding.map_render import MapStop
 from app.trip_understanding.models import StrictModel, DiningInsertCommand, PlaceConfirmCommand, LodgingRecoverCommand, SourceMealRef
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
 from app.trip_understanding.stay import haversine_meters
 from app.trip_understanding.city_scope import CityScope, CityScopeLookup
-from app.trip_understanding.errors import PlaceProviderUnavailableError
+from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
 
 DINING_RADIUS_METERS = 1200
 _SCOPES = CityScopeLookup()
+_DINING_UNAVAILABLE_SUFFIX_RE = re.compile(
+    r"[（(](?:装修中|停业装修|装修停业|停业整顿|已关闭|已停业|永久关闭)[）)]$"
+)
+
+
+def _explicitly_unavailable_dining_name(name: str) -> bool:
+    # Only a complete supplier status annotation at the end is evidence.
+    # Brand words, negation and weekly opening-hour text are not status checks.
+    return bool(_PROVIDER_STATUS_SUFFIX_RE.search(name) or _DINING_UNAVAILABLE_SUFFIX_RE.search(name))
 
 
 class DiningSearchRequest(StrictModel):
@@ -150,8 +159,13 @@ def verify_command_candidate(command, *, public_resource_id: str, expected_etag:
     binding = (source_meal_binding(command.after_activity_token, before=command.insert_before, meal_slot=command.meal_slot, meal_role=command.meal_role)
         if isinstance(command, DiningInsertCommand) and command.meal_slot else
         dining_binding(command.after_activity_token, before=command.insert_before) if isinstance(command, DiningInsertCommand) else command.activity_token)
-    return verify_candidate(command.candidate_token, public_resource_id=public_resource_id,
+    place = verify_candidate(command.candidate_token, public_resource_id=public_resource_id,
         activity_token=binding, expected_etag=expected_etag, now=now)
+    if (isinstance(command, DiningInsertCommand) or place.category == "餐饮") and _explicitly_unavailable_dining_name(place.name):
+        # Also reject a previously issued, otherwise valid browser candidate.
+        # Already committed requests still replay before this transaction check.
+        raise CommandTargetChangedError("supplier marks the dining place unavailable")
+    return place
 
 
 def valid_anchor(anchor: MapStop | None) -> bool:
@@ -177,6 +191,8 @@ def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], s
         if not identifier or canonical in excluded_ids or identifier in excluded_ids:
             continue
         if atomic_place_rejection_reason(name) or not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", name):
+            continue
+        if _explicitly_unavailable_dining_name(name):
             continue
         if re.search(r"内部专用|内部食堂|不对外(?:开放|营业)|仅限(?:内部|员工|职工)", name):
             # Provider restaurant codes also include staff-only canteens.

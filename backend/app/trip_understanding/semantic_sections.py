@@ -190,7 +190,13 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
         binding = aggregate_binding(provider, bindings, started, outcome="DAY_SCOPES_UNAVAILABLE")
         raise InferenceProviderUnavailableError("DAY_SCOPES_UNAVAILABLE", provider_binding=binding,
             external_call_count=binding["external_calls"])
+    from app.trip_understanding.source_order import (
+        SourceOrderAssessment, remap_source_order_assessment, retain_source_order_assessment,
+    )
+
     mentions = []
+    order_groups = []
+    order_issues = []
     unprocessed = len(diagnostics)
     unprocessed_by_day = {day: 1 for day, _left, _right in sections if day not in results}
     day_labels = {}
@@ -209,6 +215,10 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
             # into this physical paragraph's day.
             return await whole_document()
         ids = {item.mention_id: f"day-{day}-{item.mention_id}" for item in scoped}
+        order = remap_source_order_assessment(output.order_assessment, ids,
+            offset=offset, source_start=len(prefix))
+        order_groups.extend(order.groups)
+        order_issues.extend(order.issues)
         for item in scoped:
             mentions.append(item.model_copy(update={"mention_id": ids[item.mention_id],
                 "span_start": item.span_start + offset, "span_end": item.span_end + offset,
@@ -242,6 +252,8 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
             external_call_count=binding["external_calls"])
     result = first.model_copy(update={"source_hash": hashlib.sha256(source.encode()).hexdigest(),
         "mentions": mentions, "diagnostics": diagnostics, "day_labels": day_labels, "day_count": len(sections),
+        "order_assessment": retain_source_order_assessment(SourceOrderAssessment(
+            groups=tuple(order_groups), issues=tuple(order_issues)), mentions),
         "unprocessed_count": unprocessed, "unprocessed_by_day": unprocessed_by_day})
     from app.trip_understanding.experience_inference import _capacity_checked_proposal, SourceAnchorValidationError
 

@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,6 +24,7 @@ from app.trip_understanding.dining import (
 )
 from app.trip_understanding.daily_dining import DailyDiningView
 from app.trip_understanding.dining_jobs import read_daily_dining
+from app.trip_understanding.relative_route_previews import PublicRelativeRouteOptions
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
@@ -116,6 +118,18 @@ def get_place_candidate_search():
 
 def get_dining_candidate_search():
     return search_dining
+
+
+async def get_relative_route_provider():
+    settings = get_settings()
+    if settings.trip_understanding_provider_mode != "live" or not settings.amap_api_key:
+        yield None
+        return
+    from app.trip_understanding.amap_route import AmapRouteProvider
+    # The adapter doesn't own a long-lived client or expose aclose. This request
+    # owns one client, shared across its bounded comparisons and always closed.
+    async with httpx.AsyncClient(timeout=6.0) as client:
+        yield AmapRouteProvider(api_key=settings.amap_api_key, client=client)
 
 
 OptionalUserDep = Annotated[str | None, Depends(get_optional_user)]
@@ -939,7 +953,7 @@ async def get_trip_understanding_checks(
 
 @router.post(
     "/{public_resource_id}/changes/preview",
-    response_model=PublicChangePreview,
+    response_model=PublicChangePreview | PublicRelativeRouteOptions,
 )
 async def preview_trip_understanding_change(
     public_resource_id: str,
@@ -949,6 +963,7 @@ async def preview_trip_understanding_change(
     repository: RepositoryDep,
     current_user: OptionalUserDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    route_provider=Depends(get_relative_route_provider),
 ):
     key = _require_idempotency_key(idempotency_key)
     resource = await _authorize(
@@ -958,14 +973,24 @@ async def preview_trip_understanding_change(
         repository=repository,
     )
     try:
-        outcome = await TripUnderstandingApplicationService(
-            repository
-        ).preview_trip_change(
+        if body.day_index is not None:
+            from app.trip_understanding.pipeline import canonical_sha256
+            expected = _require_if_match(request.headers.get("If-Match"))
+            view, replayed = await repository.preview_relative_routes(resource,
+                expected_etag=expected, day_index=body.day_index, idempotency_key=key,
+                request_hash=canonical_sha256({"kind":"RELATIVE_ORDER","day":body.day_index,"etag":expected}),
+                provider=route_provider)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["ETag"] = f'"{expected}"'
+            if replayed:
+                response.headers["Idempotency-Replayed"] = "true"
+            return view
+        outcome = await TripUnderstandingApplicationService(repository).preview_trip_change(
             resource,
             check_token=body.check_token,
             idempotency_key=key,
         )
-    except ResourceNotReadyError as exc:
+    except (ResourceNotReadyError, RevisionConflictError, CommandTargetChangedError) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "CHECK_CHANGED", "message": "这项检查已经变化，请刷新后再试"},
@@ -1022,7 +1047,7 @@ async def adopt_trip_understanding_change(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "TRIP_UPDATED", "message": "行程已经更新，请刷新后再试"},
         ) from exc
-    except ResourceNotReadyError as exc:
+    except (ResourceNotReadyError, CommandTargetChangedError) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "CHANGE_CHANGED", "message": "这次改动已经变化，请重新预览"},
