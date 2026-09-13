@@ -103,6 +103,8 @@ interface UseYjsRoomReturn {
   phase: RoomPhase
   isConnected: boolean
   isSynced: boolean
+  routeVersion: number
+  announceRouteVersion: (version: number) => void
   chatMessages: ChatMessage[]
 
   // 操作方法
@@ -129,6 +131,7 @@ export function useYjsRoom(
   const [phase, setPhaseState] = useState<RoomPhase>('exploring')
   const [isConnected, setIsConnected] = useState(false)
   const [isSynced, setIsSynced] = useState(false)
+  const [routeVersion, setRouteVersion] = useState(0)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
   useEffect(() => {
@@ -136,6 +139,7 @@ export function useYjsRoom(
 
     // 初始化 YDoc
     const doc = new Y.Doc()
+    setRouteVersion(0)
     docRef.current = doc
 
     // 初始化 Yjs 共享数据结构
@@ -259,6 +263,8 @@ export function useYjsRoom(
     const updatePhase = () => {
       const p = roomMeta.get('phase') as RoomPhase | undefined
       if (p && ROOM_PHASES.has(p)) setPhaseState(p)
+      const version = roomMeta.get('routeVersion')
+      if (typeof version === 'number' && Number.isSafeInteger(version) && version >= 0) setRouteVersion(version)
     }
     roomMeta.observe(updatePhase)
     updatePhase()
@@ -370,12 +376,20 @@ export function useYjsRoom(
     // Chat remains a local device session until server-authored message identity exists.
   }, [])
 
+  const announceRouteVersion = useCallback((version: number) => {
+    if (!Number.isSafeInteger(version) || version < 1) return
+    // Notification only; no itinerary or selected-route snapshot belongs in Yjs.
+    docRef.current?.getMap('room').set('routeVersion', version)
+  }, [])
+
   return {
     places,
     members,
     phase,
     isConnected,
     isSynced,
+    routeVersion,
+    announceRouteVersion,
     chatMessages,
     addPlace,
     removePlace,

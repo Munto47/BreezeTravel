@@ -15,6 +15,8 @@ from app.config import get_settings
 from app.db.connection import get_pool
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.models import MAX_TRIP_ACTIVITIES, ActivityRole, DestinationBasis, ProposedMention, SourceSemanticPlan
+from app.trip_understanding.models import TripUnderstandingAcceptedView
+from app.schemas.itinerary import Itinerary
 
 
 class CollaborationRouteUnavailableError(ValueError):
@@ -34,6 +36,12 @@ class CollaborationImportSource:
     internal_idempotency_key: str
     internal_binding: dict[str, object]
     initial_plan: SourceSemanticPlan | None = None
+
+
+@dataclass(frozen=True)
+class CollaborationImportReplay:
+    """Only an already completed member/request may recover an older acceptance."""
+    accepted: TripUnderstandingAcceptedView
 
 
 _CATEGORY_LABELS = {
@@ -154,6 +162,7 @@ def prepare_collaboration_import(
     city: Any,
     itinerary_data: Any,
     idempotency_key: str,
+    room_route_version: int | None = None,
 ) -> CollaborationImportSource:
     itinerary = _itinerary_json(itinerary_data)
     raw_days = itinerary.get("days")
@@ -270,6 +279,7 @@ def prepare_collaboration_import(
             "room_ref_hash": room_ref_hash,
             "saved_content_hash": saved_content_hash,
             "normalized_text_hash": normalized_text_hash,
+            **({"room_route_version": room_route_version} if room_route_version is not None else {}),
         }
     )
     return CollaborationImportSource(
@@ -290,7 +300,43 @@ async def load_collaboration_import(
     user_id: str,
     room_id: str,
     idempotency_key: str,
-) -> CollaborationImportSource:
+    room_route_version: int | None = None,
+) -> CollaborationImportSource | CollaborationImportReplay:
+    if room_route_version is not None:
+        from app.services.room_current_itinerary import get_current_itinerary, version_conflict
+        current = await get_current_itinerary(room_id, user_id)
+        if current.version == room_route_version and current.itinerary_data is not None:
+            return prepare_collaboration_import(user_id=user_id, room_id=room_id,
+                saved_itinerary_id=f"room-route:{current.version}", city=current.itinerary_data.city,
+                itinerary_data=current.itinerary_data.model_dump(mode="json"), idempotency_key=idempotency_key,
+                room_route_version=room_route_version)
+        # A lost response is recoverable after another member republishes. This
+        # does not grant permission to create a new import from arbitrary history.
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""SELECT old.itinerary_data FROM room_members m
+                LEFT JOIN room_itinerary_revisions old ON old.room_id=m.room_id AND old.version=$3
+                WHERE m.room_id=$1 AND m.user_id=$2""", room_id, user_id, room_route_version)
+            if row is None:
+                raise HTTPException(403, detail="不是该房间成员")
+            if row["itinerary_data"] is None:
+                raise version_conflict()
+            itinerary = Itinerary.model_validate(_itinerary_json(row["itinerary_data"]))
+            prepared = prepare_collaboration_import(user_id=user_id, room_id=room_id,
+                saved_itinerary_id=f"room-route:{room_route_version}", city=itinerary.city,
+                itinerary_data=itinerary.model_dump(mode="json"), idempotency_key=idempotency_key,
+                room_route_version=room_route_version)
+            accepted = await conn.fetchval("""SELECT i.response_json
+                FROM trip_understanding_idempotency_records i JOIN trip_understandings u
+                    ON u.public_resource_id=i.response_json->>'public_resource_id' AND u.owner_user_id=$2
+                WHERE i.scope=$1 AND i.key_hash=$3 AND i.request_hash=$4 AND i.state='COMPLETED'""",
+                f"user:{user_id}:create", user_id,
+                hashlib.sha256(prepared.internal_idempotency_key.encode("utf-8")).hexdigest(), prepared.request_hash)
+        if accepted is None:
+            raise version_conflict()
+        # Return the existing acceptance directly: calling create_full here could
+        # recreate deleted personal data if deletion raced with the historical read.
+        return CollaborationImportReplay(TripUnderstandingAcceptedView.model_validate(_itinerary_json(accepted)))
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(

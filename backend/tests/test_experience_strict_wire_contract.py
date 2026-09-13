@@ -16,7 +16,7 @@ from app.trip_understanding.models import SourceSemanticPlan
 MODEL = "qwen3.7-flash-2026-07-15"
 SOURCE = "北京。Day1：青溪公园。"
 VALID = dict(destination="北京", day_labels=[None], unprocessed_quotes=[], activities=[
-    dict(source_quote="青溪公园", place_name="青溪公园", role="PLANNED", day_index=1),
+    dict(source_quote="青溪公园", place_name="青溪公园", role="PLANNED", day_index=1, source_details=[]),
 ], order_groups=[dict(kind="INITIAL_ORDER", activity_indices=[0], scope_quote="Day1：青溪公园。")])
 
 
@@ -85,11 +85,11 @@ async def test_actual_schema_keeps_all_business_fields_bounds_and_requires_name_
     activity = schema["$defs"]["SemanticActivity"]
     assert set(schema["properties"]) == {"destination", "day_labels", "activities", "unprocessed_quotes", "choice_groups", "order_groups"}
     assert set(schema["required"]) == {"activities", "day_labels", "unprocessed_quotes", "order_groups"}
-    assert set(activity["required"]) == {"source_quote", "role", "place_name", "day_index"}
+    assert set(activity["required"]) == {"source_quote", "role", "place_name", "day_index", "source_details"}
     assert set(activity["properties"]) == {
         "source_quote", "occurrence", "place_name", "role", "day_index", "category", "meal_role",
         "lodging_event", "lodging_scope", "lodging_evidence", "lodging_excluded_nights", "lodging_exclusion_evidence",
-        "city", "city_evidence",
+        "city", "city_evidence", "source_details",
     }
     assert schema["additionalProperties"] is False and activity["additionalProperties"] is False
     assert schema["properties"]["activities"]["maxItems"] == 160
@@ -105,7 +105,7 @@ async def test_actual_schema_keeps_all_business_fields_bounds_and_requires_name_
     for field in ("day_labels", "unprocessed_quotes", "order_groups"):
         missing = {key: value for key, value in VALID.items() if key != field}
         assert any(error.validator == "required" and not error.path for error in validator.iter_errors(missing))
-    for field in ("place_name", "day_index"):
+    for field in ("place_name", "day_index", "source_details"):
         missing = copy.deepcopy(VALID)
         del missing["activities"][0][field]
         assert any(error.validator == "required" and list(error.path) == ["activities", 0]
@@ -122,9 +122,9 @@ async def test_explicit_null_meal_and_undated_whole_trip_hotel_are_valid_without
     source = "北京。全程住星河酒店。Day1：中午午餐待定。Day2：休息。"
     payload = dict(destination="北京", day_labels=[None, None], unprocessed_quotes=[], activities=[
         dict(source_quote="星河酒店", place_name="星河酒店", role="PLANNED", day_index=None,
-             category="住宿", lodging_event="OVERNIGHT", lodging_scope="WHOLE_TRIP", lodging_evidence="全程住星河酒店"),
-        dict(source_quote="午餐待定", place_name=None, role="PLANNED", day_index=1, category="餐饮", meal_role="LUNCH"),
-        dict(source_quote="休息", place_name=None, role="PLANNED", day_index=2),
+             category="住宿", lodging_event="OVERNIGHT", lodging_scope="WHOLE_TRIP", lodging_evidence="全程住星河酒店", source_details=[]),
+        dict(source_quote="午餐待定", place_name=None, role="PLANNED", day_index=1, category="餐饮", meal_role="LUNCH", source_details=[]),
+        dict(source_quote="休息", place_name=None, role="PLANNED", day_index=2, source_details=[]),
     ], order_groups=[])
     async with recorded_provider(payload) as (provider, requests):
         result = await provider.propose(source)
@@ -158,6 +158,8 @@ def test_strict_wire_does_not_change_legacy_draft_or_saved_plan_defaults():
     assert old.activities[0].place_name is None and old.activities[0].day_index is None
     assert old.day_labels == [] and old.unprocessed_quotes == []
     assert old.order_groups == []  # Required only on the active model wire; old records still read.
+    assert old.activities[0].source_details == []
+    assert "source_details" not in old.activities[0].model_fields_set
     restored = SemanticDraft.model_validate_json(old.model_dump_json(exclude_unset=True))
     assert restored == old
     plan = SourceSemanticPlan.model_validate(dict(source_hash="0" * 64, destination_name="北京", binding={},

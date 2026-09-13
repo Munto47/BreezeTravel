@@ -27,6 +27,8 @@ async function setup(page, routeData) {
     if (pathname === '/api/user/me') return reply({user_id: 'room-owner', nickname: '测试同行者'})
     if (pathname.endsWith('/state')) return reply({thread_id: 'backup-thread', trip_city: '北京', trip_days: 1})
     if (pathname.endsWith('/places')) return reply([])
+    if (pathname.endsWith('/current-itinerary')) return reply({room_id:'BACKUP42',version:0,
+      itinerary_data:null,selection_snapshot:null,published_at:null})
     if (pathname.endsWith('/itinerary')) {
       if (route.request().method() === 'POST') writes++
       return reply({itinerary_data: routeData})
@@ -38,7 +40,7 @@ async function setup(page, routeData) {
   return () => writes
 }
 
-for (const width of [1440, 390]) test(`saved unscheduled selection remains visible after refresh at ${width}px`, async ({page}, info) => {
+for (const width of [1440, 390]) test(`saved unscheduled selection remains visible after refresh at ${width}px`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}, info) => {
   await page.setViewportSize({width, height: 900})
   const writes = await setup(page, savedRoute())
   await page.goto('/room/BACKUP42')

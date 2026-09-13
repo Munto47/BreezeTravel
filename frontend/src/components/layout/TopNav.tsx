@@ -17,6 +17,7 @@ interface TopNavProps {
   onToggleChat: () => void
   selectedCount: number
   isOptimizing: boolean
+  optimizeDisabled?: boolean
   hasItinerary: boolean
   onOptimize: () => void
   onViewItinerary: () => void
@@ -37,6 +38,7 @@ export default function TopNav({
   onToggleChat,
   selectedCount,
   isOptimizing,
+  optimizeDisabled = false,
   hasItinerary,
   onOptimize,
   onViewItinerary,
@@ -90,7 +92,7 @@ export default function TopNav({
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="glass-panel overlay-interactive flex flex-col items-stretch gap-2 px-3 py-2.5 mx-3 mt-3 rounded-glass lg:mx-4 lg:flex-row lg:items-center lg:gap-3 lg:px-4"
+      className="glass-panel overlay-interactive flex flex-col items-stretch gap-2 px-3 py-2.5 mx-3 mt-3 rounded-glass lg:mx-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3 lg:px-4 min-[1380px]:flex-nowrap"
     >
       {/* ===== 左区：返回 + Logo + 聊天切换 + 房间信息 ===== */}
       <div className="flex w-full min-w-0 items-center gap-2 flex-shrink-0 lg:w-auto lg:gap-3">
@@ -158,14 +160,14 @@ export default function TopNav({
       {/* ===== 中区：房间号 + 复制 ===== */}
       <div className="hidden items-center gap-2 flex-1 justify-center lg:flex">
         <div className="flex items-center gap-1.5 bg-white/50 rounded-lg px-3 py-1 border border-gray-100/60">
-          <span className="text-[11px] text-gray-400">房间</span>
+          <span className="whitespace-nowrap text-[11px] text-gray-400">房间</span>
           <code className="text-sm font-mono font-bold text-gray-700 tracking-wider">
             {roomId}
           </code>
         </div>
         <button
           onClick={handleCopyLink}
-          className="flex items-center gap-1 text-[11px] text-gray-400 transition-colors hover:text-sky-700"
+          className="flex items-center gap-1 whitespace-nowrap text-[11px] text-gray-400 transition-colors hover:text-sky-700"
         >
           <AnimatePresence mode="wait">
             {copyTip ? (
@@ -196,7 +198,7 @@ export default function TopNav({
       </div>
 
       {/* ===== 右区：在线成员 + 操作按钮 ===== */}
-      <div className="grid w-full grid-cols-2 gap-2 flex-shrink-0 lg:flex lg:w-auto lg:items-center lg:gap-3">
+      <div className="grid w-full grid-cols-2 gap-2 flex-shrink-0 lg:ml-auto lg:flex lg:w-auto lg:items-center lg:gap-3">
         {/* Awareness 只证明连接状态，不用于宣称具体在线身份。 */}
         <div
           className="hidden items-center gap-1.5 text-[11px] text-gray-500 lg:flex"
@@ -219,18 +221,18 @@ export default function TopNav({
               <Route className="w-3.5 h-3.5 text-emerald-500" />
               查看行程
             </button>
-            {saveStatus === 'error' ? (
+            {saveStatus === 'error' || saveStatus === 'idle' ? (
               <button
                 type="button"
                 onClick={onRetrySave}
                 className="btn-glass text-xs px-3 py-1.5 flex items-center gap-1.5 min-h-11"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                重试保存
+                {saveStatus === 'error' ? '重试个人保存' : '保存到我的行程'}
               </button>
             ) : (
               <span className="hidden text-[11px] text-gray-500 lg:inline" aria-live="polite">
-                {saveStatus === 'saving' ? '正在保存…' : saveStatus === 'saved' ? '已保存' : '尚未保存'}
+                {saveStatus === 'saving' ? '正在保存个人副本…' : saveStatus === 'saved' ? '个人副本已保存' : '尚未保存个人副本'}
               </span>
             )}
           </div>
@@ -252,7 +254,7 @@ export default function TopNav({
         <div className="relative group flex w-full flex-col items-center lg:w-auto">
           <button
             onClick={onOptimize}
-            disabled={isOptimizing || selectedCount < 2}
+            disabled={isOptimizing || optimizeDisabled || selectedCount < 2}
             className="btn-coral flex min-h-11 w-full items-center justify-center gap-1.5 px-4 py-2 text-xs shadow-sm lg:w-auto"
           >
             {isOptimizing ? (

@@ -178,9 +178,11 @@ export function parseItineraryFromAPI(raw: Record<string, unknown>): Itinerary {
             // Legacy collaboration routes may contain straight-line estimates.
             // Only an explicitly verified server leg may become user-facing.
             if (t.status !== 'AVAILABLE') return undefined
-            const durationMins = Number(t.duration_mins)
-            const distanceKm = Number(t.distance_km)
-            if (!Number.isFinite(durationMins) || !Number.isFinite(distanceKm)) return undefined
+            const durationMins = t.duration_mins
+            const distanceKm = t.distance_km
+            if (typeof durationMins !== 'number' || typeof distanceKm !== 'number' ||
+                !Number.isFinite(durationMins) || !Number.isFinite(distanceKm) || durationMins <= 0 || distanceKm <= 0 ||
+                !['driving', 'walking', 'transit'].includes(String(t.mode))) return undefined
             return {
               mode: t.mode as TransportLeg['mode'],
               durationMins,

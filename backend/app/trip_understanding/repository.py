@@ -3813,6 +3813,13 @@ class PostgresTripUnderstandingRepository(
             await conn.execute("DELETE FROM memory_audit_log WHERE user_id = $1", user_id)
             await conn.execute("DELETE FROM user_preferences WHERE user_id = $1", user_id)
             await conn.execute("DELETE FROM user_memory_settings WHERE user_id = $1", user_id)
+            # A shared published route belongs to the room's remaining members.
+            # Clear personal request copies and authorship, without deleting their route.
+            await conn.execute("DELETE FROM room_itinerary_requests WHERE user_id = $1", user_id)
+            await conn.execute(
+                "UPDATE room_itinerary_revisions SET published_by_user_id = NULL WHERE published_by_user_id = $1",
+                user_id,
+            )
             owned_ids = await conn.fetch(
                 """
                 SELECT understanding_id

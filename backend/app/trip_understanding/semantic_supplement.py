@@ -89,11 +89,14 @@ async def supplement_source_visits(provider: ExperienceQwenProvider, source: str
                                     proposal: SourceSemanticPlan, calls: list) -> tuple[SemanticDraft, SourceSemanticPlan]:
     """Called with a pending marker inside the original provider deadline."""
     from app.trip_understanding.experience_inference import _validation_issues
+    from app.trip_understanding.inline_source_details import apply_inline_source_details
     from app.trip_understanding.source_visit_supplement import apply_source_visit_supplement
 
     if len(calls) != 1:
         return draft, proposal  # Never append a third answer after another repair.
-    parents = source_visit_parents(proposal)
+    # Inline validation can establish that an old OPTIONAL root is internal.
+    # Do not offer it again as an independent parent in the second request.
+    parents = source_visit_parents(apply_inline_source_details(source, draft, proposal))
     if not parents:
         return draft, proposal
     parent_ids = [item.mention_id for item in parents]
@@ -134,6 +137,9 @@ async def supplement_source_visits(provider: ExperienceQwenProvider, source: str
             set(SourceSupplementResponse.model_fields) | set(CityMetadataPatch.model_fields))
         return draft, proposal
     updated_draft, updated, accepted_city = apply_city_metadata(source, draft, _clear_pending(proposal), patch.city_fields)
+    # Preserve validated first-answer details before accepting the optional
+    # second list. The latter must respect the existing internal visit order.
+    updated = apply_inline_source_details(source, updated_draft, updated)
     updated = apply_source_visit_supplement(source, updated, patch.source_visits, parent_ids=parent_ids)
     if not patch.source_visits:
         # An empty syntactically valid answer does not account for the source

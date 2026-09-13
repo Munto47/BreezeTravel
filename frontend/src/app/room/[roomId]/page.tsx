@@ -7,7 +7,8 @@ import { AnimatePresence } from 'framer-motion'
 
 import { useYjsRoom } from '@/hooks/useYjsRoom'
 import { useAIChat } from '@/hooks/useAIChat'
-import { useOptimize } from '@/hooks/useOptimize'
+import { useCurrentRoomRoute } from '@/hooks/useCurrentRoomRoute'
+import { roomRouteSelectionChanged } from '@/lib/current-room-route'
 import { useRoomStore } from '@/stores/roomStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -73,8 +74,9 @@ function stableFingerprint(value: unknown): string {
 export default function RoomPage() {
   const params = useParams()
   const roomId = params.roomId as string
+  const accountId = useAuthStore(state => state.user?.userId || '')
 
-  return <RoomWorkspace key={roomId} roomId={roomId} />
+  return <RoomWorkspace key={`${roomId}:${accountId}`} roomId={roomId} />
 }
 
 function RoomWorkspace({ roomId }: { roomId: string }) {
@@ -92,6 +94,13 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
 
   const userId = user?.userId ?? ''
   const nickname = user?.nickname ?? '旅行者'
+  const scope = `${roomId}:${userId}:${token || ''}`
+  const scopeRef = useRef<string | null>(scope)
+  scopeRef.current = scope
+  useEffect(() => {
+    scopeRef.current = scope
+    return () => { scopeRef.current = null }
+  }, [scope])
 
   // ── 房间元数据 ─────────────────────────────────────────────────────────
   const [roomData, setRoomData] = useState({
@@ -106,6 +115,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   useEffect(() => {
     if (!isHydrated || !user || !token) return
     let cancelled = false
+    const valid = () => !cancelled && scopeRef.current === scope && localStorage.getItem('authToken') === token
     setRoomLoadError('')
     setRoomData((current) => ({ ...current, loaded: false }))
     ;(async () => {
@@ -115,9 +125,10 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           trip_city?: string
           trip_days?: number
         }>(`/api/room/${encodeURIComponent(roomId)}/state`)
-        if (cancelled) return
+        if (!valid()) return
         setRoomData({ threadId: data.thread_id || roomId, tripCity: data.trip_city || '', tripDays: data.trip_days || 3, loaded: true })
       } catch (failure) {
+        if (!valid()) return
         if (failure instanceof ApiRequestError && failure.status === 403) {
           router.replace(`/collaborate?join=${encodeURIComponent(roomId)}`)
           return
@@ -126,14 +137,14 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
       }
     })()
     return () => { cancelled = true }
-  }, [roomId, isHydrated, roomLoadAttempt, token, user, router])
+  }, [roomId, isHydrated, roomLoadAttempt, scope, token, user, router])
 
   const threadId = roomData.threadId || roomId
   const tripCity = roomData.tripCity || ''
   const tripDays = roomData.tripDays || 3
 
   // ── Yjs 协同 ───────────────────────────────────────────────────────────
-  const { places, members, isConnected, isSynced, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(
+  const { places, members, isConnected, isSynced, routeVersion, announceRouteVersion, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(
     roomId,
     userId,
     nickname,
@@ -168,7 +179,16 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   }, [places, messages])
 
   // ── 路线优化 ───────────────────────────────────────────────────────────
-  const { itinerary, isOptimizing, backupPool, optimize, restoreItinerary } = useOptimize(threadId, roomId)
+  const sharedRoute = useCurrentRoomRoute(roomId, userId, token, roomData.loaded, routeVersion, announceRouteVersion)
+  const [personalItinerary, setPersonalItinerary] = useState<Itinerary | null>(null)
+  const itinerary = sharedRoute.route?.itinerary || personalItinerary
+  const isOptimizing = sharedRoute.publishing
+  const backupPool = itinerary?.backupPool || []
+  const restoreItinerary = useCallback((data: unknown) => {
+    const restored = parseSavedItinerary(data)
+    if (restored) setPersonalItinerary(restored)
+    return restored
+  }, [])
   const [isBackupOpen, setIsBackupOpen] = useState(false)
   useEffect(() => {
     if (backupPool.length) setIsBackupOpen(true)
@@ -263,23 +283,32 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
     return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current) }
   }, [places, roomData.loaded, dbReady]) // eslint-disable-line
 
-  // ── 持久化：排线完成后自动保存路线 ────────────────────────────────────
+  // Shared reads never write a personal archive; saving requires an explicit click.
   const savedItineraryRef = useRef<string | null>(null)
   const savingItineraryRef = useRef<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [savedFingerprint, setSavedFingerprint] = useState<string | null>(null)
   const [saveRetry, setSaveRetry] = useState(0)
+  const [requestedSave, setRequestedSave] = useState<string | null>(null)
+  useEffect(() => {
+    if (requestedSave && (!itinerary || requestedSave !== stableFingerprint(itinerary))) {
+      setRequestedSave(null)
+      setSaveStatus('idle')
+    }
+  }, [itinerary, requestedSave])
   useEffect(() => {
     if (!itinerary || !user || !roomData.loaded) return
     const key = stableFingerprint(itinerary)
+    if (requestedSave !== key) return
     if (savedItineraryRef.current === key || savingItineraryRef.current === key) return
     let cancelled = false
+    const valid = () => !cancelled && scopeRef.current === scope && localStorage.getItem('authToken') === token
     let writeAttempted = false
     savingItineraryRef.current = key
     setSaveStatus('saving')
     setSavedFingerprint(null)
     const markSaved = () => {
-      if (cancelled) return
+      if (!valid()) return
       savedItineraryRef.current = key
       setSavedFingerprint(key)
       setSaveStatus('saved')
@@ -299,7 +328,9 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
     }
     ;(async () => {
       try {
-        if (await latestMatches()) {
+        const matches = await latestMatches()
+        if (!valid()) return
+        if (matches) {
           markSaved()
           return
         }
@@ -316,7 +347,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           throw new Error('INVALID_SAVE_RESPONSE')
         markSaved()
       } catch {
-        if (cancelled) return
+        if (!valid()) return
         if (writeAttempted) {
           try {
             if (await latestMatches()) {
@@ -327,18 +358,18 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
             /* The explicit retry will always read before another write. */
           }
         }
-        if (!cancelled) setSaveStatus('error')
+        if (valid()) setSaveStatus('error')
       } finally {
         if (savingItineraryRef.current === key)
           savingItineraryRef.current = null
       }
     })()
     return () => { cancelled = true }
-  }, [itinerary, roomData.loaded, roomId, saveRetry, storeDays, tripCity, tripDays, user])
+  }, [itinerary, requestedSave, roomData.loaded, roomId, saveRetry, scope, storeDays, token, tripCity, tripDays, user])
 
   const restoredRoomRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!roomData.loaded || !user || restoredRoomRef.current === roomId || itinerary) return
+    if (!roomData.loaded || !user || sharedRoute.route?.version !== 0 || restoredRoomRef.current === roomId || itinerary) return
     restoredRoomRef.current = roomId
     let cancelled = false
     api.get<{ itinerary_data: unknown }>(`/api/room/${roomId}/itinerary`)
@@ -358,27 +389,39 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         }
       })
     return () => { cancelled = true }
-  }, [itinerary, restoreItinerary, roomData.loaded, roomId, toast, user])
+  }, [itinerary, restoreItinerary, roomData.loaded, roomId, sharedRoute.route?.version, toast, user])
 
   const [isTransferring, setIsTransferring] = useState(false)
   const transferAttemptRef = useRef<{ fingerprint: string; key: string } | null>(null)
   const handleTransfer = useCallback(async () => {
-    if (!savedFingerprint || isTransferring) return
+    const commonVersion = sharedRoute.route?.version || 0
+    const transferIdentity = commonVersion ? `room-route:${roomId}:${commonVersion}` : savedFingerprint
+    if (!transferIdentity || isTransferring) return
+    const valid = () => scopeRef.current === scope && localStorage.getItem('authToken') === token
     setIsTransferring(true)
     const previous = transferAttemptRef.current
-    const idempotencyKey = previous?.fingerprint === savedFingerprint
+    const idempotencyKey = previous?.fingerprint === transferIdentity
       ? previous.key
       : crypto.randomUUID()
-    transferAttemptRef.current = { fingerprint: savedFingerprint, key: idempotencyKey }
+    transferAttemptRef.current = { fingerprint: transferIdentity, key: idempotencyKey }
     try {
       const accepted = await api.postWithHeaders<TripUnderstandingAcceptedView>(
         '/api/v3/trip-understandings/from-collaboration',
-        { room_id: roomId },
+        { room_id: roomId, ...(commonVersion ? { room_route_version: commonVersion } : {}) },
         { 'Idempotency-Key': idempotencyKey },
       )
+      if (!valid()) return
       sessionStorage.setItem('bt_active_trip_mode', 'CLAIMED')
       router.push(`/trip/result#trip=${encodeURIComponent(accepted.public_resource_id)}`)
     } catch (failure) {
+      if (!valid()) return
+      if (failure instanceof ApiRequestError && failure.code === 'ROOM_ROUTE_VERSION_CONFLICT') {
+        transferAttemptRef.current = null
+        await sharedRoute.refresh()
+        if (!valid()) return
+        toast('共同路线已更新，请核对当前方案后再次转入。', 'warning')
+        return
+      }
       if (
         failure instanceof ApiRequestError &&
         failure.code === 'IDEMPOTENCY_KEY_REUSED'
@@ -388,6 +431,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           const latest = await api.get<{ itinerary_data: unknown }>(
             `/api/room/${encodeURIComponent(roomId)}/itinerary`,
           )
+          if (!valid()) return
           const restored = restoreItinerary(latest.itinerary_data)
           if (!restored) throw new Error('INVALID_SAVED_ITINERARY')
           const fingerprint = stableFingerprint(restored)
@@ -412,9 +456,9 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         toast('暂时没有转入成功。再次尝试会安全地续用同一次请求。', 'error')
       }
     } finally {
-      setIsTransferring(false)
+      if (valid()) setIsTransferring(false)
     }
-  }, [isTransferring, restoreItinerary, roomId, router, savedFingerprint, toast])
+  }, [isTransferring, restoreItinerary, roomId, router, savedFingerprint, scope, sharedRoute, toast, token])
 
   // ── 初始化 ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -488,10 +532,9 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
     setIsPlanning(true)
     try {
       setPhase('optimizing')
-      const optimized = await optimize(selectedPlaces, storeDays || tripDays)
+      const optimized = await sharedRoute.publish(selectedPlaces, storeDays || tripDays, threadId)
       if (!optimized) {
         setPhase('selecting')
-        toast('路线暂不可用，候选地点仍已保留，可以稍后重试', 'error')
         return
       }
       setPhase('planned')
@@ -501,6 +544,10 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   }
 
   const selectedCount = places.filter((p) => p.votedBy.length > 0).length
+  const selectionChanged = isSynced && dbReady && roomRouteSelectionChanged(sharedRoute.route,
+    places.filter(p => p.votedBy.length > 0).map(p => p.placeId), storeDays || tripDays)
+  const isSharedRoute = Boolean(sharedRoute.route?.version)
+  const currentSaved = Boolean(itinerary) && savedFingerprint === stableFingerprint(itinerary)
 
   if (!isHydrated || !user) return null
 
@@ -549,15 +596,25 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           onToggleChat={toggleChat}
           selectedCount={selectedCount}
           isOptimizing={isPlanning || isOptimizing}
+          optimizeDisabled={!sharedRoute.route || sharedRoute.loading || sharedRoute.needsReadback}
           hasItinerary={!!itinerary}
           onOptimize={handleOptimize}
-          onViewItinerary={() => router.push(`/room/${roomId}/itinerary`)}
-          saveStatus={saveStatus}
-          canTransfer={saveStatus === 'saved' && Boolean(itinerary) && savedFingerprint === stableFingerprint(itinerary)}
+          onViewItinerary={() => router.push(`/room/${roomId}/itinerary${isSharedRoute ? '?shared=1' : ''}`)}
+          saveStatus={currentSaved ? 'saved' : saveStatus === 'saved' ? 'idle' : saveStatus}
+          canTransfer={Boolean(itinerary) && !sharedRoute.loading && !sharedRoute.needsReadback && !selectionChanged && (isSharedRoute || currentSaved)}
           isTransferring={isTransferring}
           onTransfer={() => void handleTransfer()}
-          onRetrySave={() => setSaveRetry((value) => value + 1)}
+          onRetrySave={() => { if (itinerary) setRequestedSave(stableFingerprint(itinerary)); setSaveRetry((value) => value + 1) }}
         />
+        <section data-testid="shared-route-status" aria-live="polite"
+          className="overlay-interactive mx-4 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-sky-100 bg-white/95 px-4 py-2 text-sm text-slate-700">
+          <span>{isSharedRoute ? '共同路线 · 已同步' : personalItinerary
+            ? '个人上次保存的路线 · 房间尚未发布共同路线' : sharedRoute.loading ? '正在读取共同路线…' : '房间尚未发布共同路线'}</span>
+          {selectionChanged && <strong className="text-amber-800">选点或天数已变化，原共同路线需要更新。</strong>}
+          {sharedRoute.message && <span role="status">{sharedRoute.message}</span>}
+          <button type="button" onClick={() => void sharedRoute.refresh()} disabled={sharedRoute.loading || isOptimizing}
+            className="min-h-11 rounded-lg border border-slate-200 px-3 text-xs disabled:opacity-50">重新读取共同路线</button>
+        </section>
         {backupPool.length > 0 && <button type="button" data-testid="collaboration-unassigned"
           className="overlay-interactive mx-4 mt-2 self-start rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
           onClick={() => setIsBackupOpen(true)}>

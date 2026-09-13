@@ -49,6 +49,7 @@ from app.trip_understanding.models import (
     ChangeAdoptRequest,
     ChangePreviewRequest,
     ClaimedTripView,
+    CreateOutcome,
     CommandAppliedView,
     CreateTripUnderstandingRequest,
     MaterializedTripView,
@@ -72,6 +73,7 @@ from app.trip_understanding.repository import (
 )
 from app.trip_understanding.service import TripUnderstandingApplicationService
 from app.trip_understanding.collaboration_import import (
+    CollaborationImportReplay,
     CollaborationRouteUnavailableError,
     load_collaboration_import,
 )
@@ -328,6 +330,7 @@ class FromCollaborationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     room_id: str = Field(min_length=1, max_length=128)
+    room_route_version: int | None = Field(default=None, ge=1, strict=True)
 
 
 @router.post(
@@ -353,12 +356,16 @@ async def create_trip_understanding_from_collaboration(
             user_id=current_user,
             room_id=body.room_id,
             idempotency_key=key,
+            **({"room_route_version": body.room_route_version} if body.room_route_version is not None else {}),
         )
-        outcome = await TripUnderstandingApplicationService(
-            repository,
-            ttl_hours=settings.trip_understanding_demo_ttl_hours,
-            full_retention_days=settings.trip_understanding_full_retention_days,
-        ).create_from_collaboration(source, owner_user_id=current_user)
+        if isinstance(source, CollaborationImportReplay):
+            outcome = CreateOutcome(accepted=source.accepted, replayed=True)
+        else:
+            outcome = await TripUnderstandingApplicationService(
+                repository,
+                ttl_hours=settings.trip_understanding_demo_ttl_hours,
+                full_retention_days=settings.trip_understanding_full_retention_days,
+            ).create_from_collaboration(source, owner_user_id=current_user)
     except CollaborationRouteUnavailableError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

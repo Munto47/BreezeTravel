@@ -302,6 +302,13 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
         if len(candidates) == 1:
             candidate = candidates[0]
             item = _fill_missing_lodging_evidence(source, item, candidate)
+            if all(getattr(item, key) == getattr(candidate, key) for key in ("place_name", "day_index", "role")):
+                from app.trip_understanding.inline_source_details import merge_inline_details
+
+                # This exact parent occurrence may gain separately validated
+                # details even when an unrelated repaired row remains invalid.
+                item = item.model_copy(update={"source_details": merge_inline_details(
+                    item.source_details, candidate.source_details)})
             if repair_valid and all(getattr(item, key) == getattr(candidate, key)
                                     for key in ("place_name", "day_index", "role")):
                 updates = {}

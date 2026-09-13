@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeft, MapPin, Calendar, Route, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
 
 import type { Itinerary, DayPlan, TimeSlot } from '@/types/itinerary'
 import { parseSavedItinerary } from '@/types/itinerary'
+import { parseCurrentRoomRoute } from '@/lib/current-room-route'
 import ConstraintPanel from '@/components/itinerary/ConstraintPanel'
 import { useAuthStore } from '@/stores/authStore'
 import { api, ApiRequestError } from '@/lib/api'
@@ -135,9 +136,9 @@ function SlotCard({ slot, position, isLast, dayColor }: { slot: TimeSlot; positi
 
           {/* 交通段 */}
           {!isLast && (
-            <div data-testid="collaboration-route-unavailable" className="flex items-center gap-1.5 mt-2 ml-2 text-xs text-slate-500">
+            <div data-testid={slot.transport ? 'collaboration-route-available' : 'collaboration-route-unavailable'} className="flex items-center gap-1.5 mt-2 ml-2 text-xs text-slate-500">
               <Car className="w-3.5 h-3.5" />
-              <span>路线暂不可用</span>
+              <span>{slot.transport ? `驾车 · ${slot.transport.durationMins} 分钟 · ${slot.transport.distanceKm} km` : '路线暂不可用'}</span>
             </div>
           )}
         </div>
@@ -202,6 +203,7 @@ export default function ItineraryPage() {
   const params = useParams()
   const router = useRouter()
   const roomId = params.roomId as string
+  const shared = useSearchParams().get('shared') === '1'
   const { user, token, isHydrated, hydrate } = useAuthStore()
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -220,13 +222,15 @@ export default function ItineraryPage() {
     let cancelled = false
     setLoading(true)
     setLoadError('')
+    setItinerary(null)
 
     api.get<{ itinerary_data: unknown }>(
-      `/api/room/${encodeURIComponent(roomId)}/itinerary`,
+      `/api/room/${encodeURIComponent(roomId)}/${shared ? 'current-itinerary' : 'itinerary'}`,
     )
       .then(data => {
         if (cancelled) return
-        const itin = parseSavedItinerary(data.itinerary_data)
+        const common = shared ? parseCurrentRoomRoute(data, roomId) : null
+        const itin = common ? common.itinerary : parseSavedItinerary(data.itinerary_data)
         if (!itin) throw new Error('INVALID_SAVED_ITINERARY')
         setItinerary(itin)
       })
@@ -241,7 +245,7 @@ export default function ItineraryPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [isHydrated, roomId, token, user])
+  }, [isHydrated, roomId, shared, token, user])
 
   const totalPlaces = itinerary?.days.reduce((s, d) => s + d.slots.length, 0) ?? 0
   const totalDays = itinerary?.days.length ?? 0
@@ -329,7 +333,7 @@ export default function ItineraryPage() {
             >
               <div className="px-6 py-5 text-white">
                 <p className="text-xs opacity-70 mb-1 flex items-center gap-1">
-                  <Route className="w-3 h-3" /> 已保存的协同行程
+                  <Route className="w-3 h-3" /> {shared ? '共同路线 · 已同步' : '个人已保存的协同行程'}
                 </p>
                 <h2 className="text-2xl font-bold mb-4">
                   {itinerary.city} {totalDays} 日游

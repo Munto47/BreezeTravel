@@ -28,6 +28,7 @@ from app.trip_understanding.models import (
 from app.trip_understanding.pipeline import BASIC_CITY_HEADER_RE, DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
 from app.trip_understanding.place_labels import normalized_place_label
 from app.trip_understanding.source_capacity import saturated_source_capacity
+from app.trip_understanding.inline_source_details import inline_details_schema
 from app.trip_understanding.choice_groups import SemanticChoiceGroup, bind_choice_groups
 from app.trip_understanding.source_order import SemanticOrderGroup, bind_semantic_order_groups
 from app.trip_understanding.timing_evidence import validated_timing
@@ -57,6 +58,12 @@ class SemanticActivity(ActivityTiming):
         description="逐字复制包含此地点、实际动作和所有适用条件的短原文。不要只有地点名；条件性到访不能省略如果/若有余力等限制。")
     parent_source_quote: str | None = Field(default=None, max_length=100,
         description="仅原文明示此活动在已提取的父景点内部时，逐字填父景点名称；独立后续站点留空。")
+    # Typed live wire, but local row validation must preserve valid siblings.
+    source_details: list[Any] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES,
+        json_schema_extra={"items": inline_details_schema()},
+        description="只属于本次父地点访问的原文内部参观/游乐体验、入口、出口及只看外观/取物用途，按执行顺序列出。"
+        "每项evidence逐字引用包含该父访问及动作的唯一原文，location的source_quote在evidence内唯一；"
+        "不填父索引，不把内部项目另列独立主站。optional只表示该内部项目自身可选，不继承父备选；无详情填[]。")
     day_index: int | None = Field(default=None, ge=1, le=14)
     category: Literal["景点", "餐饮", "住宿", "交通节点", "地点"] = "地点"
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
@@ -614,6 +621,7 @@ def _expand_source_bound_lists(source: str, draft: SemanticDraft) -> SemanticDra
     anchors = SourceAnchorIndex(source)
     for item in draft.activities:
         parts = _top_level_place_parts(item.place_name or "")
+        inline_parent_name = item.place_name if len(parts) == 1 else None
         inherited_part_index = 0
         # If the model kept only one member of an explicit bold list,
         # recover its literal siblings before validation. A plain narrative,
@@ -681,7 +689,8 @@ def _expand_source_bound_lists(source: str, draft: SemanticDraft) -> SemanticDra
             street_meal = item.category == "餐饮" and bool(re.search(r"[路街巷]$", part))
             update = {"place_name": part, "source_quote": part, "occurrence": occurrence,
                 "start_time": None, "end_time": None, "visit_duration_minutes": None,
-                "timing_source": "UNSPECIFIED", "locked": False, "fixed_commitment": False, "time_evidence": None}
+                "timing_source": "UNSPECIFIED", "locked": False, "fixed_commitment": False, "time_evidence": None,
+                "source_details": item.source_details if part == inline_parent_name else []}
             if part_index == inherited_part_index:
                 # Keep timing on the original member when filling a list;
                 # an originally bundled list assigns its prefix to the first.
@@ -695,6 +704,9 @@ def _expand_source_bound_lists(source: str, draft: SemanticDraft) -> SemanticDra
             activities.append(item.model_copy(update=update))
             cursor = start + len(part)
         if item.time_evidence and item.source_quote not in unprocessed:
+            unprocessed.append(item.source_quote)
+        if item.source_details and inline_parent_name is None and item.source_quote not in unprocessed and len(unprocessed) < 80:
+            # A bundled parent cannot lend the same details to every stop.
             unprocessed.append(item.source_quote)
     if len(activities) > 160:
         raise SourceAnchorValidationError([{"field": "activities", "category": "TOO_MANY_ACTIVITIES"}])
@@ -2673,7 +2685,7 @@ class ExperienceQwenProvider:
         # Null still represents an unnamed activity or an unassigned hotel;
         # class defaults remain permissive for historical stored drafts.
         activity_schema = self.schema["$defs"]["SemanticActivity"]
-        activity_schema["required"] = [*activity_schema["required"], "place_name", "day_index"]
+        activity_schema["required"] = [*activity_schema["required"], "place_name", "day_index", "source_details"]
         self.schema["required"] = [*self.schema["required"], "day_labels", "unprocessed_quotes", "order_groups"]
         activity_schema["properties"]["place_name"].pop("default", None)
         if relative_only:
@@ -2820,9 +2832,13 @@ class ExperienceQwenProvider:
                         if checked_recovery is not None:
                             recovered = _recover_partial_proposal(source_text, checked_recovery,
                                 "OUTPUT_TRUNCATED" if str(exc) == "OUTPUT_TRUNCATED" else None)
+                            from app.trip_understanding.inline_source_details import improves_only_inline_details
+
                             if recovered is not None and (recovery_partial is None or
                                     len(recovered.mentions) > len(recovery_partial.mentions) or
-                                    improves_only_lodging_evidence(recovery_partial, recovered)):
+                                    improves_only_lodging_evidence(recovery_partial, recovered) or
+                                    (recovery_draft is not None and improves_only_inline_details(
+                                        source_text, recovery_draft, recovery_partial, checked_recovery, recovered))):
                                 recovery_draft, recovery_partial = checked_recovery, recovered
                         if (attempt == 0 and isinstance(exc, SourceAnchorValidationError) and exc.issues
                             and checked_recovery is not None and recovery_partial is not None
@@ -2971,15 +2987,30 @@ class ExperienceQwenProvider:
             final_draft = recovery_draft
             semantic_partial_used = True
             restored_draft_attempt = 1
-        if self.enable_source_visits and proposal is not None and not any(
-            call.get("stage") == "SOURCE_VISITS_SUPPLEMENT" for call in calls
-        ):
-            from app.trip_understanding.semantic_supplement import mark_source_visits_pending, needs_source_visit_supplement
+        if proposal is not None and final_draft is not None:
+            from app.trip_understanding.inline_source_details import apply_inline_source_details
+
+            try:
+                proposal = apply_inline_source_details(source_text, final_draft, proposal)
+            except InferenceProviderUnavailableError as exc:
+                if str(exc) != INPUT_CAPACITY_EXCEEDED:
+                    raise
+                proposal = None
+                failure = INPUT_CAPACITY_EXCEEDED
+                if calls:
+                    calls[-1]["outcome"] = failure
+        if self.enable_source_visits and proposal is not None:
+            from app.trip_understanding.semantic_supplement import _clear_pending, mark_source_visits_pending, needs_source_visit_supplement
+            from app.trip_understanding.inline_source_details import source_visit_fragments_covered
 
             # A hotel repair or recovered first answer can leave the loop
             # early. Its successful fields do not account for visit details.
             if needs_source_visit_supplement(source_text, proposal):
-                proposal = mark_source_visits_pending(source_text, proposal)
+                has_inline = final_draft is not None and any(item.source_details for item in final_draft.activities)
+                if has_inline and source_visit_fragments_covered(source_text, proposal):
+                    proposal = _clear_pending(proposal)
+                elif has_inline or not any(call.get("stage") == "SOURCE_VISITS_SUPPLEMENT" for call in calls):
+                    proposal = mark_source_visits_pending(source_text, proposal)
         if proposal is not None and final_draft is not None:
             proposal = _with_coverage_diagnostics(source_text, final_draft, proposal, source_places)
             if saturated_source_capacity(source_text, proposal.mentions) == "OVERFLOW":

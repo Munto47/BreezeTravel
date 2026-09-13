@@ -205,6 +205,14 @@ def create_app() -> FastAPI:
         try:
             result = await optimize.optimize(request, current_user)
         except HTTPException as exc:
+            room_route_messages = {
+                "ROOM_ROUTE_VERSION_CONFLICT": "房间路线已更新，请查看最新路线后再操作",
+                "ROOM_ROUTE_REQUEST_IN_PROGRESS": "正在排线，请查看房间当前路线",
+                "ROOM_ROUTE_REQUEST_FAILED": "上次排线未完成，请重新发起排线",
+            }
+            code = exc.detail.get("code") if isinstance(exc.detail, dict) else None
+            if code in room_route_messages:
+                raise HTTPException(409, detail={"code": code, "message": room_route_messages[code]}) from None
             public_messages = {
                 400: "请先选择要排线的地点",
                 401: "请先登录",
@@ -233,6 +241,7 @@ def create_app() -> FastAPI:
         return ExperienceOptimizeResponse(
             itinerary=public_itinerary,
             backup_pool=[place.model_dump(mode="json") for place in result.backup_pool],
+            room_route_version=result.room_route_version,
         )
 
     application.include_router(_subset(tasks.router, {( "POST", "/room/{room_id}/task/parse")}), prefix="/api")
@@ -242,6 +251,7 @@ def create_app() -> FastAPI:
         ("POST", "/room/{room_id}/places/sync"),
         ("GET", "/room/{room_id}/itinerary"),
         ("POST", "/room/{room_id}/itinerary"),
+        ("GET", "/room/{room_id}/current-itinerary"),
     }), prefix="/api")
 
     @application.exception_handler(RequestValidationError)
