@@ -2663,6 +2663,7 @@ class ExperienceQwenProvider:
         enable_role_evidence: bool = False,
         enable_source_visits: bool = False,
         enable_focused_repair: bool = False,
+        enable_compact_wire: bool = False,
         relative_only: bool = True,
     ) -> None:
         if not api_key or not model or not base_url.startswith("https://"):
@@ -2677,6 +2678,7 @@ class ExperienceQwenProvider:
         # Development comparison only: the observed targeted answer did not
         # match the existing whole-repair coverage. Workers keep the default.
         self.enable_focused_repair = enable_focused_repair
+        self.enable_compact_wire = enable_compact_wire
         # Production and direct measurement entry points use relative order.
         # Explicit False is reserved for replaying the historical time contract.
         self.relative_only = relative_only
@@ -2704,6 +2706,11 @@ class ExperienceQwenProvider:
             properties = self.schema["$defs"]["SemanticActivity"]["properties"]
             for field in ("role_evidence", "parent_source_quote"):
                 properties.pop(field, None)
+        if enable_compact_wire:
+            from app.trip_understanding.compact_semantic_wire import FORMAT_INSTRUCTION, compact_schema
+
+            self.schema = compact_schema(self.schema)
+            self.prompt += "\n" + FORMAT_INSTRUCTION
         self._owned = client is None
         self.client = client or AsyncOpenAI(
             api_key=api_key, base_url=base_url, timeout=deadline_seconds, max_retries=0,
@@ -2726,6 +2733,13 @@ class ExperienceQwenProvider:
             await self.client.close()
             self._owned = False
 
+    def _read_wire_draft(self, source: str, payload: object) -> SemanticDraft:
+        if self.enable_compact_wire:
+            from app.trip_understanding.compact_semantic_wire import expand_compact_payload
+
+            payload = expand_compact_payload(payload)
+        return self._read_draft(source, payload)
+
     async def propose(self, source_text: str) -> SourceSemanticPlan:
         # The deadline measures a Provider run, excluding queue backpressure.
         async with self._slots:
@@ -2736,9 +2750,11 @@ class ExperienceQwenProvider:
                     result = await propose_by_day(self, source_text)
                 except InferenceProviderUnavailableError as error:
                     error.provider_binding["focused_repair_enabled"] = self.enable_focused_repair
+                    error.provider_binding["compact_wire_enabled"] = self.enable_compact_wire
                     raise
                 return result.model_copy(update={"binding": {
-                    **result.binding, "focused_repair_enabled": self.enable_focused_repair}})
+                    **result.binding, "focused_repair_enabled": self.enable_focused_repair,
+                    "compact_wire_enabled": self.enable_compact_wire}})
             return await self._propose(source_text)
 
     async def _propose(self, source_text: str, task_instruction: str = "", call_sink: list | None = None,
@@ -2800,14 +2816,19 @@ class ExperienceQwenProvider:
                     draft: SemanticDraft | None = None
                     try:
                         if getattr(response.choices[0], "finish_reason", None) == "length":
-                            salvage = complete_activities_from_truncated_json(content)
+                            if self.enable_compact_wire:
+                                from app.trip_understanding.compact_semantic_wire import complete_compact_items_from_truncated_json
+
+                                salvage = complete_compact_items_from_truncated_json(content)
+                            else:
+                                salvage = complete_activities_from_truncated_json(content)
                             if salvage is not None:
                                 try:
-                                    draft = self._read_draft(source_text, salvage)
-                                except ValidationError:
+                                    draft = self._read_wire_draft(source_text, salvage)
+                                except (ValidationError, ValueError):
                                     draft = None
                             raise ValueError("OUTPUT_TRUNCATED")
-                        draft = _expand_source_bound_lists(source_text, self._read_draft(source_text, content))
+                        draft = _expand_source_bound_lists(source_text, self._read_wire_draft(source_text, content))
                         if attempt == 1 and recovery_draft is not None and recovery_partial is not None:
                             draft = merge_preserved_activities(source_text, recovery_draft, recovery_partial, draft)
                         proposal = _proposal_from_live_draft(source_text, draft)
@@ -2829,9 +2850,15 @@ class ExperienceQwenProvider:
                         )):
                             failure = call["outcome"] = INPUT_DAY_CAPACITY_EXCEEDED
                             break
+                        capacity_content = content
+                        if self.enable_compact_wire and any(issue["field"] == "activities" and issue["category"] == "too_long"
+                                for issue in call["validation_errors"]):
+                            from app.trip_understanding.compact_semantic_wire import expand_compact_payload
+
+                            capacity_content = json.dumps(expand_compact_payload(content), ensure_ascii=False)
                         if any(issue["field"] == "activities" and (
                             issue["category"] == "TOO_MANY_ACTIVITIES" or
-                            (issue["category"] == "too_long" and _source_bound_activity_overflow(source_text, content)))
+                            (issue["category"] == "too_long" and _source_bound_activity_overflow(source_text, capacity_content)))
                             for issue in call["validation_errors"]):
                             # A capacity violation is not a malformed JSON retry.
                             # Asking the model to squeeze it into the schema can
@@ -2962,8 +2989,13 @@ class ExperienceQwenProvider:
                             # defaults here contradicted the live wire schema
                             # and made the repair example discard valid meals.
                             repair_content = repair_draft.model_dump_json(exclude_unset=True) if repair_draft is not None else content
+                            assistant_content = repair_content
+                            if self.enable_compact_wire and repair_draft is not None:
+                                from app.trip_understanding.compact_semantic_wire import compact_draft_payload
+
+                                assistant_content = json.dumps(compact_draft_payload(repair_draft), ensure_ascii=False)
                             messages.extend([
-                                {"role": "assistant", "content": repair_content},
+                                {"role": "assistant", "content": assistant_content},
                                 {"role": "user", "content": _repair_prompt(source_text, repair_content, exc)},
                             ])
                         continue
@@ -3056,6 +3088,7 @@ class ExperienceQwenProvider:
             "provider": "QWEN", "model": self.model, "semantic_policy": SEMANTIC_POLICY,
             "source_visit_supplement_enabled": self.enable_source_visits,
             "focused_repair_enabled": self.enable_focused_repair,
+            "compact_wire_enabled": self.enable_compact_wire,
             "deadline_ms": round(max(0, available_seconds) * 1000), "max_output_tokens": self.max_output_tokens,
             "temperature": SEMANTIC_TEMPERATURE,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),

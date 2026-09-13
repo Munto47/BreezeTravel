@@ -2810,8 +2810,9 @@ class PostgresTripUnderstandingRepository(
             current_result = UserFacingTripResult.model_validate(_json_value(current["public_json"]))
             from app.trip_understanding.relative_route_previews import verify_route_move
             route_now = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
+            map_job_id = await self._current_map_job_id(conn, resource.understanding_id, int(aggregate["current_revision"])) if getattr(command, "route_preview_token", None) else ""
             verify_route_move(command, current_result, public_resource_id=resource.public_resource_id,
-                expected_etag=expected_etag, now=route_now)
+                expected_etag=expected_etag, now=route_now, current_map_job_id=map_job_id)
             source_revision, history = advance_edit_history(
                 int(aggregate["current_revision"]), _json_value(current["proposal_json"]),
                 can_undo=current_result.can_undo, command_type=command.command_type)
@@ -6027,7 +6028,8 @@ class InMemoryTripUnderstandingRepository(
             raise CommandTargetChangedError("source hotel is no longer recoverable")
         from app.trip_understanding.relative_route_previews import verify_route_move
         verify_route_move(command, stored.result, public_resource_id=resource.public_resource_id,
-            expected_etag=expected_etag, now=effective_now)
+            expected_etag=expected_etag, now=effective_now,
+            current_map_job_id=self._current_map_job_id_memory(resource.understanding_id, int(aggregate["current_revision"])))
         confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
             expected_etag=expected_etag, now=effective_now if isinstance(command, (LodgingRecoverCommand, DiningInsertCommand)) else now)
         meal_trip = await self.load_recommendation_trip_view(resource.understanding_id, source_revision)

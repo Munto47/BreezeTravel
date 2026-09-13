@@ -776,7 +776,7 @@ def public_checks(
         title, message = _friendly(finding)
         depends, basis_current = bases[finding.finding_id]
         if not basis_current:
-            title, message = "这段交通需要重新核对", "交通依据需要更新；更新路线后重新检查，暂时不能据此判断是否来得及。"
+            title, message = "这段交通需要重新核对", "交通依据需要更新；更新路线后重新检查，暂时不能据此比较交通。"
         items.append(
             PublicTripCheckItem(
                 check_token=token,

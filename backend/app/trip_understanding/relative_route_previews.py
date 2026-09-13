@@ -97,6 +97,7 @@ def _public_edge(edge: ComparedRouteEdge) -> PublicComparedRouteEdge:
 def issue_route_preview(
     option: RelativeRouteOption, visits: Sequence[RelativeRouteVisit], *,
     public_resource_id: str, expected_etag: str, now: datetime,
+    map_job_id: str | None = None,
 ) -> PublicRelativeRoutePreview:
     coverage_scope = compared_path_scope(
         [getattr(edge.facts, edge.selected_mode) for edge in option.changed_edges_before],
@@ -129,6 +130,7 @@ def issue_route_preview(
         "expires": min(now + timedelta(minutes=10), option.expires_at).timestamp(),
         "route_coverage_scope": coverage_scope,
         "geometry_boundaries_checked": True,
+        "map_job_id": map_job_id,
     }
     token = ROUTE_PREVIEW_PREFIX + _cipher().encrypt(json.dumps(payload).encode()).decode()
     if len(token) > MAX_ROUTE_PREVIEW_TOKEN_LENGTH:
@@ -152,6 +154,7 @@ def verify_route_preview(
     token: str, *, public_resource_id: str, expected_etag: str, now: datetime,
     current_result: UserFacingTripResult | None = None,
     check_freshness: bool = True,
+    current_map_job_id: str | None = None,
 ) -> VerifiedRouteMove:
     try:
         if not token.startswith(ROUTE_PREVIEW_PREFIX) or len(token) > MAX_ROUTE_PREVIEW_TOKEN_LENGTH:
@@ -162,6 +165,7 @@ def verify_route_preview(
             or data.get("route_coverage_scope") not in {"REQUESTED_POINTS", "RETURNED_SEGMENTS"}
             or data.get("geometry_boundaries_checked") is not True
             or data["etag"] != expected_etag or now.utcoffset() is None
+            or current_map_job_id is not None and data.get("map_job_id") != current_map_job_id
             or check_freshness and (data["config"] != ROUTE_CONFIG_SHA256 or data["expires"] <= now.timestamp())
         ):
             raise ValueError("expired or changed preview")
@@ -181,10 +185,10 @@ def verify_route_preview(
         raise CommandTargetChangedError("route comparison expired or changed") from exc
 
 
-def verify_route_move(command, result, *, public_resource_id, expected_etag, now):
+def verify_route_move(command, result, *, public_resource_id, expected_etag, now, current_map_job_id):
     if not isinstance(command, ActivityMoveCommand) or command.route_preview_token is None:
         return
     verified = verify_route_preview(command.route_preview_token, public_resource_id=public_resource_id,
-        expected_etag=expected_etag, now=now, current_result=result)
+        expected_etag=expected_etag, now=now, current_result=result, current_map_job_id=current_map_job_id)
     if command.model_dump(exclude={"route_preview_token"}) != verified.command.model_dump(exclude={"route_preview_token"}):
         raise CommandTargetChangedError("move differs from the compared route")

@@ -41,21 +41,21 @@ def _map_pairs(plan):
         for index, (a, b) in enumerate(zip(stops, stops[1:]))}
 
 
-def _replay(value, *, resource, etag, day_index, now):
+def _replay(value, *, resource, etag, day_index, now, map_job_id):
     view = PublicRelativeRouteOptions.model_validate(value)
     if view.day_index != day_index:
         raise IdempotencyConflictError("route request changed")
     for option in view.options:
         try:
             verify_route_preview(option.change_token, public_resource_id=resource.public_resource_id,
-                expected_etag=etag, now=now)
+                expected_etag=etag, now=now, current_map_job_id=map_job_id)
         except CommandTargetChangedError:
             return PublicRelativeRouteOptions(status="NEEDS_UPDATE", day_index=day_index,
                 message="这次路线比较已经过期，请重新比较。")
     return view
 
 
-async def _compare(result, plan, proposal, edges, *, resource, etag, day_index, provider):
+async def _compare(result, plan, proposal, edges, *, resource, etag, day_index, provider, map_job_id):
     try:
         visits, constraints = route_context(result, plan, proposal)
     except ValueError:
@@ -70,7 +70,7 @@ async def _compare(result, plan, proposal, edges, *, resource, etag, day_index, 
         constraints=constraints, current_edges=edges, provider=provider)
     now = datetime.now(UTC)
     options = [issue_route_preview(option, visits, public_resource_id=resource.public_resource_id,
-        expected_etag=etag, now=now) for option in output.options if option.expires_at > now]
+        expected_etag=etag, now=now, map_job_id=map_job_id) for option in output.options if option.expires_at > now]
     if options:
         return PublicRelativeRouteOptions(status="AVAILABLE", day_index=day_index,
             message="已有真实交通对照，请查看变化路段，确认后才调整行程。", options=options)
@@ -90,11 +90,11 @@ class PostgresRelativeRouteRepositoryMixin:
     async def _read_relative_route_edges(self, conn, plan):
         snapshot = await conn.fetchrow("""SELECT s.snapshot_id,j.map_job_id,j.route_config_hash
             FROM trip_plan_revision_refs p JOIN trip_map_render_jobs j ON j.plan_ref_id=p.plan_ref_id
-            JOIN trip_map_render_snapshots s ON s.map_job_id=j.map_job_id
+            LEFT JOIN trip_map_render_snapshots s ON s.map_job_id=j.map_job_id
             WHERE p.understanding_id=$1 AND p.revision_kind='UNDERSTANDING'
               AND p.aggregate_id=$1 AND p.revision=$2 AND j.route_config_hash=$3 AND p.stop_set_hash=$4
-            ORDER BY s.finished_at DESC LIMIT 1""", plan.understanding_id, plan.plan_ref.revision, plan.route_config_hash, plan.plan_ref.stop_set_hash)
-        if snapshot is None:
+            ORDER BY j.render_generation DESC LIMIT 1""", plan.understanding_id, plan.plan_ref.revision, plan.route_config_hash, plan.plan_ref.stop_set_hash)
+        if snapshot is None or snapshot["snapshot_id"] is None:
             return ()
         rows = await conn.fetch("""SELECT e.day_index,e.sequence_index,e.origin_name,e.destination_name,
             f.*,r.request_hash,r.external_call_count FROM trip_map_route_edges e
@@ -127,6 +127,7 @@ class PostgresRelativeRouteRepositoryMixin:
             current = await self._lock_current_result(conn, resource)
             if current["opaque_etag"] != expected_etag:
                 raise RevisionConflictError("route comparison version changed")
+            map_job_id = await self._current_map_job_id(conn, resource.understanding_id, int(current["current_revision"]))
             claimed = await conn.fetchval("""INSERT INTO trip_understanding_idempotency_records
                 (scope,key_hash,request_hash,state,lease_until,created_at) VALUES($1,$2,$3,'IN_PROGRESS',$4,$5)
                 ON CONFLICT(scope,key_hash) DO NOTHING RETURNING scope""", scope, key, request_hash, lease, now)
@@ -134,7 +135,7 @@ class PostgresRelativeRouteRepositoryMixin:
             if record["request_hash"].strip() != request_hash:
                 raise IdempotencyConflictError("route request changed")
             if record["state"] == "COMPLETED":
-                return _replay(_json(record["response_json"]), resource=resource, etag=expected_etag, day_index=day_index, now=now), True
+                return _replay(_json(record["response_json"]), resource=resource, etag=expected_etag, day_index=day_index, now=now, map_job_id=map_job_id), True
             if claimed is None:
                 if record["lease_until"] is not None and record["lease_until"] > now:
                     raise IdempotencyInProgressError("route comparison is in progress")
@@ -145,11 +146,13 @@ class PostgresRelativeRouteRepositoryMixin:
             edges = await self._read_relative_route_edges(conn, plan)
         # No connection or row lock survives supplier IO.
         view = await _compare(result, plan, proposal, edges, resource=resource, etag=expected_etag,
-            day_index=day_index, provider=provider)
+            day_index=day_index, provider=provider, map_job_id=map_job_id)
         async with pool.acquire() as conn, conn.transaction():
             current = await self._lock_current_result(conn, resource)
             if current["opaque_etag"] != expected_etag:
                 raise RevisionConflictError("trip changed during route comparison")
+            if await self._current_map_job_id(conn, resource.understanding_id, int(current["current_revision"])) != map_job_id:
+                raise CommandTargetChangedError("map routes changed during comparison")
             updated = await conn.execute("""UPDATE trip_understanding_idempotency_records
                 SET state='COMPLETED',response_status=200,response_json=$4::jsonb,response_headers_json=$5::jsonb,
                     lease_until=NULL,completed_at=clock_timestamp()
@@ -168,7 +171,8 @@ class InMemoryRelativeRouteRepositoryMixin:
         scope = _scope(resource)
         existing = self._memory_g03_replay(scope=scope, idempotency_key=idempotency_key, request_hash=request_hash)
         if existing is not None:
-            return _replay(existing, resource=resource, etag=expected_etag, day_index=day_index, now=datetime.now(UTC)), True
+            return _replay(existing, resource=resource, etag=expected_etag, day_index=day_index, now=datetime.now(UTC),
+                map_job_id=self._current_map_job_id_memory(resource.understanding_id, int(aggregate["current_revision"]))), True
         active = getattr(self, "_relative_active", None)
         if active is None:
             self._relative_active = active = set()
@@ -184,17 +188,21 @@ class InMemoryRelativeRouteRepositoryMixin:
             jobs = [j for j in self.map_jobs.values() if j["understanding_id"] == resource.understanding_id
                 and j["plan"].plan_ref.revision == revision and j["route_config_hash"] == ROUTE_CONFIG_SHA256
                 and j["plan"].plan_ref.stop_set_hash == plan.plan_ref.stop_set_hash]
-            output = self.map_snapshots.get(jobs[-1]["map_job_id"]) if jobs else None
+            latest = max(jobs, key=lambda item: item.get("render_generation", 0), default=None)
+            map_job_id = latest["map_job_id"] if latest else ""
+            output = self.map_snapshots.get(map_job_id)
             pairs = _map_pairs(plan)
             edges = tuple(DirectedRouteFacts(RouteEndpoint.from_stop(pairs[(e.day_index,e.sequence_index)][0]),
                 RouteEndpoint.from_stop(pairs[(e.day_index,e.sequence_index)][1]), e.walking, e.transit, output.route_config_hash)
                 for e in output.edges if (e.day_index,e.sequence_index) in pairs
                 and (e.origin_name, e.destination_name) == tuple(s.name for s in pairs[(e.day_index,e.sequence_index)])) if output else ()
             view = await _compare(result, plan, proposal, edges, resource=resource, etag=expected_etag,
-                day_index=day_index, provider=provider)
+                day_index=day_index, provider=provider, map_job_id=map_job_id)
             _, current = self._memory_g03_current(resource)
             if current.opaque_etag != expected_etag:
                 raise RevisionConflictError("trip changed during route comparison")
+            if self._current_map_job_id_memory(resource.understanding_id, revision) != map_job_id:
+                raise CommandTargetChangedError("map routes changed during comparison")
             self._remember_g03_outcome(scope=scope, idempotency_key=idempotency_key, request_hash=request_hash, outcome=view.model_dump())
             return view, False
         finally:

@@ -54,6 +54,7 @@ from app.trip_understanding.models import (
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.map_render import ROUTE_CONFIG_SHA256
 from app.trip_understanding.stay import assess_stay_commute, load_stay_commute_assessment, stay_plan_spans_cities
 
 
@@ -66,6 +67,22 @@ def _json(value: Any) -> Any:
 
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _snapshot_map_is_current(snapshot: EvidenceSnapshot, map_job_id: str) -> bool:
+    facts = [fact for fact in snapshot.facts if fact.fact_type == "ROUTE_MODE_SET"]
+    if facts:
+        return bool(map_job_id) and all(isinstance(fact.value, dict) and fact.value.get("map_job_id") == map_job_id for fact in facts)
+    return not any(failure.error_category == "CURRENT_ROUTE_NOT_RENDERED" for failure in snapshot.provider_failures)
+
+
+def _checks_for_map(report, snapshot, *, map_job_id, routes_ready, **kwargs):
+    current = _snapshot_map_is_current(snapshot, map_job_id)
+    view = public_checks(report, snapshot, routes_current=routes_ready and current, **kwargs)
+    if not current:
+        view = view.model_copy(update={"status": "STILL_NEEDS_CONFIRMATION",
+            "message": "路线已更新或尚未完成，旧检查未重新核对；请重新检查。"})
+    return view
 
 
 def _route_stop_pairs(plan, itinerary: ItineraryRevision) -> dict:
@@ -454,19 +471,21 @@ class PostgresG03RepositoryMixin:
 
         snapshot_row = await conn.fetchrow(
             """
-            SELECT s.snapshot_id, s.expires_at
+            SELECT s.snapshot_id, s.expires_at, j.map_job_id
             FROM trip_plan_revision_refs p
             JOIN trip_map_render_jobs j ON j.plan_ref_id = p.plan_ref_id
-            JOIN trip_map_render_snapshots s ON s.map_job_id = j.map_job_id
+            LEFT JOIN trip_map_render_snapshots s ON s.map_job_id = j.map_job_id
             WHERE p.understanding_id = $1 AND p.revision_kind = 'UNDERSTANDING'
               AND p.aggregate_id = $1 AND p.revision = $2
-            ORDER BY s.finished_at DESC LIMIT 1
+              AND j.route_config_hash = $3
+            ORDER BY j.render_generation DESC LIMIT 1
             """,
             understanding_id,
             understanding_revision,
+            ROUTE_CONFIG_SHA256,
         )
         edge_rows: list[Any] = []
-        if snapshot_row is not None:
+        if snapshot_row is not None and snapshot_row["snapshot_id"] is not None:
             edge_rows = list(
                 await conn.fetch(
                     """
@@ -526,6 +545,7 @@ class PostgresG03RepositoryMixin:
                     subject_id=f"{left.stop_id}->{right.stop_id}",
                     fact_type="ROUTE_MODE_SET",
                     value={
+                        "map_job_id": snapshot_row["map_job_id"],
                         "walking": modes.get("walking", {}).get(
                             "status", "UNAVAILABLE"
                         ),
@@ -769,11 +789,12 @@ class PostgresG03RepositoryMixin:
         public_json = await conn.fetchval("SELECT public_json FROM trip_understanding_results WHERE understanding_id=$1 AND revision=$2", understanding_id, pointer["current_understanding_revision"])
         result = UserFacingTripResult.model_validate(_json(public_json)) if public_json else None
         readiness = await self._project_map_readiness(conn, understanding_id, int(pointer["current_understanding_revision"]))
-        return public_checks(
+        return _checks_for_map(
             report,
             snapshot,
             result=result,
-            routes_current=readiness.status in {"AVAILABLE", "LIMITED"},
+            map_job_id=await self._current_map_job_id(conn, understanding_id, int(pointer["current_understanding_revision"])),
+            routes_ready=readiness.status in {"AVAILABLE", "LIMITED"},
             check_tokens={
                 row["finding_id"]: row["check_token"] for row in token_rows
             },
@@ -1113,8 +1134,9 @@ class PostgresG03RepositoryMixin:
             raise ResourceNotReadyError("this check is no longer current")
         snapshot = await audit_repository.get_snapshot_with_conn(conn, report.evidence_snapshot_id)
         readiness = await self._project_map_readiness(conn, understanding_id, revision, now=now)
+        map_job_id = await self._current_map_job_id(conn, understanding_id, revision)
         if snapshot is None or not check_route_basis(finding, snapshot,
-                routes_current=readiness.status in {"AVAILABLE", "LIMITED"}, now=now)[1]:
+                routes_current=readiness.status in {"AVAILABLE", "LIMITED"} and _snapshot_map_is_current(snapshot, map_job_id), now=now)[1]:
             raise ResourceNotReadyError("route evidence needs to be updated before this change")
 
     async def preview_trip_change(
@@ -1864,16 +1886,8 @@ class InMemoryG03RepositoryMixin:
                     )
                 )
 
-        output = next(
-            (
-                self.map_snapshots.get(item["map_job_id"])
-                for item in self.map_jobs.values()
-                if item["understanding_id"] == understanding_id
-                and item["plan"].plan_ref.revision == understanding_revision
-                and self.map_snapshots.get(item["map_job_id"]) is not None
-            ),
-            None,
-        )
+        map_job_id = self._current_map_job_id_memory(understanding_id, understanding_revision)
+        output = self.map_snapshots.get(map_job_id)
         if output is None:
             failures.append(
                 ProviderFailure(
@@ -1900,6 +1914,7 @@ class InMemoryG03RepositoryMixin:
                         subject_id=f"{left.stop_id}->{right.stop_id}",
                         fact_type="ROUTE_MODE_SET",
                         value={
+                            "map_job_id": map_job_id,
                             "walking": edge.walking.status,
                             "transit": edge.transit.status,
                             "selected_mode": edge.selected_mode,
@@ -2054,19 +2069,21 @@ class InMemoryG03RepositoryMixin:
 
     def _memory_checks(self, state: dict[str, Any], *, understanding_id: str) -> PublicTripChecksView:
         readiness = self._project_map_readiness_memory(understanding_id, state["understanding_revision"])
-        return public_checks(
+        return _checks_for_map(
             state["report"],
             state["snapshot"],
             check_tokens=state["tokens"],
             result=state["result"],
-            routes_current=readiness.status in {"AVAILABLE", "LIMITED"},
+            map_job_id=self._current_map_job_id_memory(understanding_id, state["understanding_revision"]),
+            routes_ready=readiness.status in {"AVAILABLE", "LIMITED"},
         )
 
     def _require_current_memory_change_basis(self, state, *, understanding_id, finding_id, now):
         finding = next((item for item in state["report"].findings if item.finding_id == finding_id), None)
         readiness = self._project_map_readiness_memory(understanding_id, state["understanding_revision"], now=now)
         if finding is None or not check_route_basis(finding, state["snapshot"],
-                routes_current=readiness.status in {"AVAILABLE", "LIMITED"}, now=now)[1]:
+                routes_current=readiness.status in {"AVAILABLE", "LIMITED"} and _snapshot_map_is_current(state["snapshot"],
+                    self._current_map_job_id_memory(understanding_id, state["understanding_revision"])), now=now)[1]:
             raise ResourceNotReadyError("route evidence needs to be updated before this change")
 
     async def materialize_trip(

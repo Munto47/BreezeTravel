@@ -328,7 +328,7 @@ def plan_with_stay_anchor(
     )
 
 
-def _logical_key(plan: MapRenderPlan) -> str:
+def _logical_key(plan: MapRenderPlan, render_generation: int = 0) -> str:
     return canonical_sha256(
         {
             "understanding_id": plan.understanding_id,
@@ -337,6 +337,7 @@ def _logical_key(plan: MapRenderPlan) -> str:
             "revision": plan.plan_ref.revision,
             "stop_set_hash": plan.plan_ref.stop_set_hash,
             "route_config_hash": plan.route_config_hash,
+            **({"render_generation": render_generation} if render_generation else {}),
         }
     )
 
@@ -578,22 +579,32 @@ class PostgresMapRenderRepositoryMixin:
             SELECT plan_ref_id, stop_set_hash FROM trip_plan_revision_refs
             WHERE understanding_id = $1 AND revision_kind = 'UNDERSTANDING'
               AND aggregate_id = $1 AND revision = $2
+            FOR UPDATE
             """,
             understanding_id,
             revision,
         )
         if plan_ref is None or plan_ref["stop_set_hash"].strip() != plan.plan_ref.stop_set_hash:
             raise IdempotencyConflictError("plan revision stop binding changed")
+        latest = await conn.fetchrow(
+            """SELECT * FROM trip_map_render_jobs
+            WHERE plan_ref_id = $1 AND route_config_hash = $2
+            ORDER BY render_generation DESC LIMIT 1""",
+            plan_ref["plan_ref_id"], plan.route_config_hash,
+        )
+        if latest is not None and (request_origin == "INITIAL" or latest["status"] in {"QUEUED", "BUILDING"}):
+            return latest
+        generation = int(latest["render_generation"]) + 1 if latest is not None else 0
         map_job_id = str(uuid4())
-        logical_key_hash = _logical_key(plan)
+        logical_key_hash = _logical_key(plan, generation)
         await conn.execute(
             """
             INSERT INTO trip_map_render_jobs (
                 map_job_id, plan_ref_id, understanding_id, route_config_hash,
                 logical_key_hash, request_origin, status, available_at,
-                created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'QUEUED', $7, $7, $7)
-            ON CONFLICT (plan_ref_id, route_config_hash) DO NOTHING
+                created_at, updated_at, render_generation
+            ) VALUES ($1, $2, $3, $4, $5, $6, 'QUEUED', $7, $7, $7, $8)
+            ON CONFLICT (plan_ref_id, route_config_hash, render_generation) DO NOTHING
             """,
             map_job_id,
             plan_ref["plan_ref_id"],
@@ -602,14 +613,16 @@ class PostgresMapRenderRepositoryMixin:
             logical_key_hash,
             request_origin,
             now,
+            generation,
         )
         job = await conn.fetchrow(
             """
             SELECT * FROM trip_map_render_jobs
-            WHERE plan_ref_id = $1 AND route_config_hash = $2
+            WHERE plan_ref_id = $1 AND route_config_hash = $2 AND render_generation = $3
             """,
             plan_ref["plan_ref_id"],
             plan.route_config_hash,
+            generation,
         )
         await conn.execute(
             """
@@ -701,7 +714,7 @@ class PostgresMapRenderRepositoryMixin:
         ]
         if connection_limited:
             return MapRenderView(status="LIMITED", message="已返回部分路段，起终点衔接未核实；不能视为完整路程" + ("；地图线条需更新" if geometry_limited else ""), days=days,
-                available_actions=["VIEW_MAP", "RENDER_MAP"] if geometry_limited else ["VIEW_MAP"])
+                available_actions=["VIEW_MAP", "RENDER_MAP"])
         if snapshot["status"] == "READY" and not geometry_limited:
             return MapRenderView(
                 status="AVAILABLE",
@@ -746,7 +759,7 @@ class PostgresMapRenderRepositoryMixin:
             WHERE p.understanding_id = $1 AND p.revision_kind = 'UNDERSTANDING'
               AND p.aggregate_id = $1 AND p.revision = $2
               AND j.route_config_hash = $3
-            ORDER BY j.created_at DESC LIMIT 1
+            ORDER BY j.render_generation DESC LIMIT 1
             """,
             understanding_id,
             current_revision,
@@ -791,6 +804,16 @@ class PostgresMapRenderRepositoryMixin:
             now=now or datetime.now(timezone.utc),
         )
         return view.readiness()
+
+    async def _current_map_job_id(self, conn: Any, understanding_id: str, revision: int) -> str:
+        return await conn.fetchval(
+            """SELECT j.map_job_id FROM trip_plan_revision_refs p
+            JOIN trip_map_render_jobs j ON j.plan_ref_id = p.plan_ref_id
+            WHERE p.understanding_id = $1 AND p.revision_kind = 'UNDERSTANDING'
+              AND p.aggregate_id = $1 AND p.revision = $2 AND j.route_config_hash = $3
+            ORDER BY j.render_generation DESC LIMIT 1""",
+            understanding_id, revision, ROUTE_CONFIG_SHA256,
+        ) or ""
 
     async def get_map_view(
         self,
@@ -1131,7 +1154,7 @@ class PostgresMapRenderRepositoryMixin:
                         fact.expires_at,
                     )
                     effect_key = (
-                        f"map:{_logical_key(MapRenderPlan(understanding_id=job.understanding_id, plan_ref=job.plan_ref, route_config_hash=job.route_config_hash, stops=[]))}:"
+                        f"map:{current['logical_key_hash'].strip()}:"
                         f"d{edge.day_index}:e{edge.sequence_index}:{fact.mode}"
                     )
                     await conn.execute(
@@ -1350,7 +1373,12 @@ class InMemoryMapRenderRepositoryMixin:
         logical_key = _logical_key(plan)
         existing_id = self.map_jobs_by_logical_key.get(logical_key)
         if existing_id is not None:
-            return self.map_jobs[existing_id]
+            latest = self.map_jobs[existing_id]
+            if request_origin == "INITIAL" or latest["status"] in {"QUEUED", "BUILDING"}:
+                return latest
+            generation = latest.get("render_generation", 0) + 1
+        else:
+            generation = 0
         map_job_id = str(uuid4())
         item = {
             "map_job_id": map_job_id,
@@ -1358,6 +1386,8 @@ class InMemoryMapRenderRepositoryMixin:
             "plan_ref_id": str(uuid4()),
             "plan": plan,
             "route_config_hash": plan.route_config_hash,
+            "render_generation": generation,
+            "logical_key_hash": _logical_key(plan, generation),
             "request_origin": request_origin,
             "status": "QUEUED",
             "lease_owner": None,
@@ -1420,7 +1450,7 @@ class InMemoryMapRenderRepositoryMixin:
         ]
         if connection_limited:
             return MapRenderView(status="LIMITED", message="已返回部分路段，起终点衔接未核实；不能视为完整路程", days=days,
-                available_actions=["VIEW_MAP"])
+                available_actions=["VIEW_MAP", "RENDER_MAP"])
         if output.status == "READY":
             return MapRenderView(
                 status="AVAILABLE",
@@ -1456,7 +1486,7 @@ class InMemoryMapRenderRepositoryMixin:
             and item["route_config_hash"] == ROUTE_CONFIG_SHA256
         ]
         if matching:
-            job = matching[-1]
+            job = max(matching, key=lambda item: item.get("render_generation", 0))
             if job["status"] in {"QUEUED", "BUILDING"}:
                 return MapRenderView(
                     status="PREPARING",
@@ -1478,6 +1508,13 @@ class InMemoryMapRenderRepositoryMixin:
             message="路线暂不可用，不影响查看和调整卡片",
             available_actions=["RENDER_MAP"],
         )
+
+    def _current_map_job_id_memory(self, understanding_id: str, revision: int) -> str:
+        jobs = [item for item in self.map_jobs.values()
+            if item["understanding_id"] == understanding_id and item["plan"].plan_ref.revision == revision
+            and item["route_config_hash"] == ROUTE_CONFIG_SHA256]
+        latest = max(jobs, key=lambda item: item.get("render_generation", 0), default=None)
+        return latest["map_job_id"] if latest else ""
 
     def _project_map_readiness_memory(
         self,
@@ -1646,7 +1683,7 @@ class InMemoryMapRenderRepositoryMixin:
         if output.plan_ref != job.plan_ref or output.route_config_hash != job.route_config_hash:
             raise ValueError("map output is not bound to the claimed plan")
         self.map_snapshots[job.map_job_id] = output
-        logical_key = _logical_key(item["plan"])
+        logical_key = item.get("logical_key_hash") or _logical_key(item["plan"])
         for edge in output.edges:
             for fact in (edge.walking, edge.transit):
                 self.map_provider_effects.add(
@@ -1736,7 +1773,7 @@ class InMemoryMapRenderRepositoryMixin:
             if key[0] == prefix:
                 self.map_request_idempotency.pop(key, None)
         active_keys = {
-            _logical_key(item["plan"])
+            item.get("logical_key_hash") or _logical_key(item["plan"])
             for item in self.map_jobs.values()
         }
         self.map_provider_effects = {
