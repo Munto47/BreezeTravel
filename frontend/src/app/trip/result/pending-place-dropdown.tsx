@@ -5,6 +5,7 @@ import { PROVINCES } from '@/data/cities'
 import { queryTripPlaceCandidates, queryPendingLodgingCandidates, type ActivityCardView, type LodgingRecoveryIntent, type PlaceCandidateView, type TripSupplementaryView, type TripUnderstandingCommand } from '@/lib/trip-understanding-v3'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
 import SourceDetails from './source-details'
+import DiningAccessNote, {diningAdoptionBlocked, diningAdoptionLabel} from './dining-access'
 
 /** An anchored, non-modal search. Opening never searches or confirms a place. */
 type PendingHotel = NonNullable<TripSupplementaryView['pending_lodgings']>[number]
@@ -84,6 +85,7 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
   }
   async function confirm(candidate:PlaceCandidateView) {
     if(locked||saveLock.current||selected?.candidate_token!==candidate.candidate_token||!currentCandidates.current.includes(candidate))return
+    if(card && diningAdoptionBlocked(candidate, card.meal_role))return
     saveLock.current=true
     setSaving(true);setMessage('')
     try {
@@ -98,6 +100,7 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
   return <div ref={root} className="pending-place-dropdown" data-testid="pending-place-dropdown" role="region" aria-label={`修改地点 ${target.name}`} onKeyDown={event=>{if(event.key==='Escape'&&!locked){event.stopPropagation();close.current()}}}>
     <div className="pending-place-head"><strong>地点</strong><button type="button" aria-label="收起地点确认" disabled={locked} onClick={onClose}>×</button></div>
     {card && <SourceDetails card={card} />}
+    {card && <DiningAccessNote value={card} showUnknown={card.category === '餐饮'}/>}
     <label style={{display:'grid',gap:4,marginBottom:8,fontSize:13}}>查询城市
       <select aria-label="查询城市" value={city} disabled={locked}
         style={{width:'100%',minHeight:44,padding:'8px',border:'1px solid #d4e9f0',borderRadius:12,background:'#fff',color:'inherit',fontSize:13}}
@@ -117,7 +120,9 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
           onClick={()=>{if(chosen&&!recovery)void confirm(item);else setSelected(item)}}>
           <strong>{item.name}</strong><small>{item.area_or_address||'地址暂缺'} · {item.category}</small>
         </button>
-        {chosen&&<button type="button" className="pending-place-confirm" aria-label={recovery?'确认保存酒店和用途':'使用这个地点'} disabled={locked} onClick={()=>void confirm(item)}>{saving?'保存中…':recovery?'确认保存':'确认'}</button>}
+        <DiningAccessNote value={item} showUnknown={item.category === '餐饮'}/>
+        {chosen && card && !card.meal_role && item.meal_evidence_status === 'LIGHT_FOOD_ITEMS_ONLY' && <p>保留为用途未指定的餐饮地点，不会替代正餐安排。</p>}
+        {chosen&&<button type="button" className="pending-place-confirm" aria-label={recovery?'确认保存酒店和用途':diningAdoptionLabel(item, '使用这个地点', card?.meal_role)} disabled={locked || (!!card && diningAdoptionBlocked(item, card.meal_role))} onClick={()=>void confirm(item)}>{saving?'保存中…':recovery?'确认保存':diningAdoptionLabel(item, '确认', card?.meal_role)}</button>}
       </div>
     })}</div>
     {message&&<p role="status">{message}</p>}

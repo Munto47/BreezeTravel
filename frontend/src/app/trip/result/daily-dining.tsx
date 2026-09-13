@@ -6,6 +6,7 @@ import {readDailyDining, type ActivityCardView, type DailyDiningView, type Daily
 import type {WorkspaceCommandResult} from './itinerary-workspace'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import {diningCandidateReason} from './result-presentation'
+import DiningAccessNote, {diningAdoptionBlocked, diningAdoptionLabel} from './dining-access'
 import './daily-dining.css'
 
 export function useDailyDining(resource: string | null, etag: string) {
@@ -94,7 +95,8 @@ export function DailyMealCard({day, dayIndex, activities, state, disabled, onRef
   const lock = useRef(false)
   const action = 'daily-dining-action'
   async function adopt(token: string) {
-    if (disabled || lock.current || !canAdopt || !day?.after_activity_token || !candidates.some(item => item.candidate_token === token)) return
+    const candidate = candidates.find(item => item.candidate_token === token)
+    if (disabled || lock.current || !canAdopt || !day?.after_activity_token || !candidate || diningAdoptionBlocked(candidate, 'LUNCH')) return
     lock.current = true; setWriting(true); setError('')
     try {
       const result = await onCommand({command_type:'DINING_INSERT',after_activity_token:day.after_activity_token,candidate_token:token,
@@ -125,7 +127,8 @@ export function DailyMealCard({day, dayIndex, activities, state, disabled, onRef
         <div className="daily-dining-candidate-heading"><span className="daily-dining-restaurant-icon"><UtensilsCrossed aria-hidden="true"/></span><div><h3>{item.name}</h3>{item.recommended && item.route_coverage_scope && <span className="daily-dining-recommended">{item.route_coverage_scope==='RETURNED_SEGMENTS'?'局部路段优先比较':'建议优先比较'}</span>}</div></div>
         <p className="daily-dining-address">{item.area_or_address}</p>
         <p className="daily-dining-reason">{diningCandidateReason(item)}</p>
-        <button type="button" className="daily-dining-adopt" disabled={disabled || writing || !canAdopt} onClick={() => void adopt(item.candidate_token)}>{writing ? '正在保存' : '加入行程'}</button>
+        <DiningAccessNote value={item} showUnknown/>
+        <button type="button" className="daily-dining-adopt" disabled={disabled || writing || !canAdopt || diningAdoptionBlocked(item, 'LUNCH')} onClick={() => void adopt(item.candidate_token)}>{writing ? '正在保存' : diningAdoptionLabel(item, '加入行程', 'LUNCH')}</button>
       </article>)}
     </div>}
     {!!candidates.length && !canAdopt && <p className="daily-dining-note">这组建议的加入位置尚未确认，请更新建议后再选择。</p>}

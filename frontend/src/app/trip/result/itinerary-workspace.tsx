@@ -43,6 +43,7 @@ import AccessibleDialog from './accessible-dialog'
 import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, connectorPresentation, dayRouteSummary, relativeDayLabel } from './result-presentation'
 import './itinerary-workspace.css'
 import SourceMealSlots from './source-meal-slots'
+import {diningAccessBadge} from './dining-access'
 
 
 type DayView = UserFacingTripResult['days'][number]
@@ -540,7 +541,7 @@ export default function ItineraryWorkspace({
                     {day.activities.length > 0 ? <ol className="four-mini-chain" aria-label={`${relativeDayLabel(dayOffset)}折叠地点顺序`}>
                       {day.activities.map((activity, position) => <li key={activity.activity_token}>
                         <div className="four-mini-image"><PlacePhoto card={activity}/><span style={{backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length]}}>{position + 1}</span></div>
-                        <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}</small></div>
+                        <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}{diningAccessBadge(activity) ? ` · ${diningAccessBadge(activity)}` : ''}</small></div>
                         {position < day.activities.length - 1 && <ChevronRight className="four-mini-arrow" aria-hidden="true"/>}
                       </li>)}
                     </ol> : <p className="four-overview-note">当天尚无已确认的主线地点。</p>}
@@ -565,6 +566,7 @@ export default function ItineraryWorkspace({
                               <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
                                 {!!activity.source_details?.length && <span className="block text-xs text-[#0c789d]">原文安排 · {activity.source_details.length} 项</span>}
+                                {diningAccessBadge(activity) && <span className="block text-xs text-amber-800">{diningAccessBadge(activity)}</span>}
                                 <span className="text-xs text-slate-500">{activityCategoryLabel(activity)} · 已确认 · 可更改</span>
                               </button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
@@ -739,6 +741,7 @@ export default function ItineraryWorkspace({
                                       已确认
                                     </span>
                                     {!!activity.source_details?.length && <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">原文安排 · {activity.source_details.length} 项</span>}
+                                    {diningAccessBadge(activity) && <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800">{diningAccessBadge(activity)}</span>}
                                     {(activity.knowledge_suggestions?.length || 0) > 0 && (
                                       <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
                                         有来源建议 {activity.knowledge_suggestions?.length}

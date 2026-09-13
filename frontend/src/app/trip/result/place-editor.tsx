@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import SourceDetails from './source-details'
+import DiningAccessNote, {diningAdoptionBlocked, diningAdoptionLabel} from './dining-access'
 import {relativeKnowledgeSuggestions} from '@/lib/confirmed-trip-view'
 import {relativeDayLabel} from './result-presentation'
 import {
@@ -216,6 +217,7 @@ export default function PlaceEditor({
         </p>
       )}
       <SourceDetails card={card} />
+      <DiningAccessNote value={card} showUnknown={card.category === '餐饮'}/>
       <section className="e-form-section">
         <h3>确认或更换地点</h3>
         <form
@@ -278,6 +280,7 @@ export default function PlaceEditor({
                     <span>{item.area_or_address || '地址暂未提供'}</span>
                     <span>{item.category}</span>
                   </button>
+                  <DiningAccessNote value={item} showUnknown={item.category === '餐饮'}/>
                 </li>
               ))}
             </ul>
@@ -291,11 +294,15 @@ export default function PlaceEditor({
                 ? '地图显示该候选位置。'
                 : '暂不能在地图定位。'}
             </p>
+            {candidate.meal_evidence_status === 'LIGHT_FOOD_ITEMS_ONLY' && !card.meal_role && <p className="e-small e-muted">
+              保留为用途未指定的餐饮地点，不会替代正餐安排。
+            </p>}
             <button
               className="e-button e-button-primary"
               type="button"
-              disabled={busy}
+              disabled={busy || diningAdoptionBlocked(candidate, card.meal_role)}
               onClick={() => {
+                if (diningAdoptionBlocked(candidate, card.meal_role)) return
                 void onCommand({
                   command_type: 'PLACE_CONFIRM',
                   activity_token: card.activity_token,
@@ -310,7 +317,7 @@ export default function PlaceEditor({
                 })
               }}
             >
-              使用这个地点
+              {diningAdoptionLabel(candidate, '使用这个地点', card.meal_role)}
             </button>
             <button
               className="e-button e-button-quiet"

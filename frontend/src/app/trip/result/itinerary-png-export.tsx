@@ -9,6 +9,7 @@ import AccessibleDialog from './accessible-dialog'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import { DAY_COLORS, transportConnectorFor, connectorPresentation, relativeDayLabel } from './result-presentation'
 import {sourceMeals} from './source-meals'
+import {diningAccessLines} from './dining-access'
 
 function exportStatus(result: UserFacingTripResult, unresolvedDays: UserFacingTripResult['days'] = []) {
   // The page passes the confirmed-only mainline. Coverage counts named places;
@@ -130,6 +131,13 @@ async function renderItinerary(
       lines.push(...wrapText(context, `${parent.name}（地点待确认）：`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: true})))
       parent.source_details?.forEach((detail, index) => lines.push(...wrapText(context,
         `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false}))))
+    }
+    const diningCards = [...day.activities, ...(unresolvedDays[dayIndex]?.activities || [])]
+      .map(card => ({card, notes: diningAccessLines(card, card.category === '餐饮')})).filter(item => item.notes.length)
+    if (diningCards.length) lines.push({text: '餐饮访问与用途 · 场所资料不代表入内或营业已确认', heading: true})
+    for (const {card, notes} of diningCards) {
+      lines.push(...wrapText(context, `${card.name}${card.status !== 'READY' ? '（地点待确认）' : ''}：`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: true})))
+      for (const note of notes) lines.push(...wrapText(context, note, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
     }
     const meals = sourceMealDescriptions?.[dayIndex] ?? sourceMeals(day)
     if (meals.length) {

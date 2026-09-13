@@ -49,7 +49,17 @@ export interface KnowledgeSuggestionView {
   freshness: string
 }
 
-export interface ActivityCardView {
+export interface DiningAccessView {
+  status: 'DURING_VISIT' | 'NEEDS_REVIEW'
+  parent_name: string | null
+}
+
+export interface DiningContextView {
+  dining_access?: DiningAccessView | null
+  meal_evidence_status?: 'LIGHT_FOOD_ITEMS_ONLY' | 'UNSPECIFIED'
+}
+
+export interface ActivityCardView extends DiningContextView {
   source_details?: Array<{name: string; optional: boolean}>
   lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | 'VISIT_ONLY' | null
   lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
@@ -79,7 +89,7 @@ export interface PlacePosition {
   latitude: number
   coordinate_system: 'GCJ02'
 }
-export interface PlaceCandidateView {
+export interface PlaceCandidateView extends DiningContextView {
   candidate_token: string
   name: string
   category: string
@@ -953,7 +963,7 @@ export interface DailyMealView {
   insert_before?: boolean; meal_role?: 'LUNCH' | null
   existing_activity_token?: string | null; area?: string | null
   area_relation?: 'PROVIDER_AREA' | 'NEARBY' | null; area_distance_m?: number | null
-  candidates: Array<{candidate_token: string; name: string; area_or_address: string; business_area?: string | null; reason: string; extra_minutes?: number | null; recommended: boolean; route_coverage_scope?: 'REQUESTED_POINTS' | 'RETURNED_SEGMENTS' | null}>
+  candidates: Array<DiningContextView & {candidate_token: string; name: string; area_or_address: string; business_area?: string | null; reason: string; extra_minutes?: number | null; recommended: boolean; route_coverage_scope?: 'REQUESTED_POINTS' | 'RETURNED_SEGMENTS' | null}>
 }
 export interface DailyDiningView {
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'UNAVAILABLE'

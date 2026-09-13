@@ -15,7 +15,7 @@ from app.schemas.place import PlaceCategory
 from app.trip_understanding.amap_place import _admin_matches, _coordinates, _PROVIDER_STATUS_SUFFIX_RE
 from app.trip_understanding.candidates import CandidatePlace, DiningPOIInfo, GCJ02Position, PublicPlaceCandidate, _CITY_BOUNDS, verify_candidate
 from app.trip_understanding.map_render import MapStop
-from app.trip_understanding.models import StrictModel, DiningInsertCommand, PlaceConfirmCommand, LodgingRecoverCommand, SourceMealRef
+from app.trip_understanding.models import StrictModel, DiningAccessView, DiningInsertCommand, PlaceConfirmCommand, LodgingRecoverCommand, SourceMealRef
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
 from app.trip_understanding.stay import haversine_meters
 from app.trip_understanding.city_scope import CityScope, CityScopeLookup
@@ -32,6 +32,99 @@ def _explicitly_unavailable_dining_name(name: str) -> bool:
     # Only a complete supplier status annotation at the end is evidence.
     # Brand words, negation and weekly opening-hour text are not status checks.
     return bool(_PROVIDER_STATUS_SUFFIX_RE.search(name) or _DINING_UNAVAILABLE_SUFFIX_RE.search(name))
+
+
+def meal_evidence_status(info: DiningPOIInfo | None) -> str:
+    # Only complete, explicit supplier menu tags qualify. A mixed menu or a
+    # broad restaurant type is not proof either for or against a full meal.
+    light = {"下午茶", "茶", "茶饮", "茶点", "点心", "甜点", "甜品", "蛋糕", "咖啡", "奶茶", "果汁", "冰淇淋", "面包", "饼干"}
+    tags = info.tags if info else []
+    return "LIGHT_FOOD_ITEMS_ONLY" if 0 < len(tags) < 12 and all(tag in light for tag in tags) else "UNSPECIFIED"
+
+
+def dining_metadata(place: CandidatePlace, row: dict) -> CandidatePlace:
+    """Keep the same available supplier facts in search and nearby candidates."""
+    def text(value, limit=60):
+        return value.strip() if isinstance(value, str) and 0 < len(value.strip()) <= limit and not any(ord(c) < 32 for c in value) else None
+    def number(value, maximum=None):
+        try:
+            parsed = float(value) if isinstance(value, (str, float, int)) and not isinstance(value, bool) else float("nan")
+            return parsed if math.isfinite(parsed) and parsed > 0 and (maximum is None or parsed <= maximum) else None
+        except ValueError:
+            return None
+    business = row.get("business") if isinstance(row.get("business"), dict) else {}
+    raw_tags = business.get("tag") if isinstance(business.get("tag"), str) else ""
+    tags = list(dict.fromkeys(tag for raw in raw_tags.split(",") if (tag := text(raw))))[:12]
+    photos = row.get("photos")
+    photos = photos if isinstance(photos, list) else [photos] if isinstance(photos, dict) else []
+    from app.trip_understanding.models import safe_poi_photo_url
+    photo = next((url for raw in photos if isinstance(raw, dict) and (url := safe_poi_photo_url(raw.get("url")))), None)
+    info = DiningPOIInfo(photo_url=photo, cuisine=text(business.get("keytag")), tags=tags,
+        rating=number(business.get("rating"), 5), cost=number(business.get("cost")), observed_at=datetime.now(timezone.utc))
+    area = row.get("business_area") or business.get("business_area")
+    area = area if isinstance(area, str) and re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9·、（）() -]{1,40}", area) else None
+    place = place.model_copy(update={"dining_info": info, "meal_evidence_status": meal_evidence_status(info), "business_area": area})
+    parent = row.get("parent")
+    if isinstance(parent, str) and re.fullmatch(r"[A-Za-z0-9]{5,40}", parent.strip()):
+        place.provider_parent_place_id = "amap:" + parent.strip()
+        place.dining_access = DiningAccessView(status="NEEDS_REVIEW")
+    return place
+
+
+def bind_dining_access(place: CandidatePlace, *, stops: list[MapStop], activity_token: str | None,
+                       before: bool = False) -> CandidatePlace:
+    """Bind an exact supplier parent to the actual immediately preceding visit."""
+    place = place.model_copy(deep=True)
+    place.meal_evidence_status = meal_evidence_status(place.dining_info)
+    parent_id = place.provider_parent_place_id
+    if not parent_id:
+        # Missing legacy supplier metadata cannot be upgraded into free access.
+        return place
+    place.dining_parent_activity_token = None
+    def same_parent(stop):
+        # Historical resolver rows use both raw IDs and the amap: namespace.
+        return bool(stop.canonical_place_id and stop.canonical_place_id.removeprefix("amap:") == parent_id.removeprefix("amap:"))
+    names = {stop.name for stop in stops if same_parent(stop)}
+    parent_name = next(iter(names)) if len(names) == 1 else None
+    place.dining_access = DiningAccessView(status="NEEDS_REVIEW", parent_name=parent_name)
+    anchors = [stop for stop in stops if stop.activity_token == activity_token]
+    if len(anchors) != 1:
+        return place
+    anchor = anchors[0]
+    day = sorted((stop for stop in stops if stop.day_index == anchor.day_index), key=lambda stop: stop.sequence_index)
+    position = day.index(anchor) + (0 if before else 1)
+    if position == 0:
+        return place
+    parent = day[position - 1]
+    if (valid_anchor(parent) and same_parent(parent) and parent.activity_token
+            and parent.city == place.city and not parent.is_stay_anchor):
+        place.dining_parent_activity_token = parent.activity_token
+        place.dining_access = DiningAccessView(status="DURING_VISIT", parent_name=parent.name)
+    return place
+
+
+def validate_dining_access(place: CandidatePlace, *, result, plan, day_index: int, position: int,
+                           activity_token: str, before: bool) -> DiningAccessView | None:
+    if not place.provider_parent_place_id:
+        if place.dining_access is not None:
+            raise CommandTargetChangedError("dining access evidence needs review")
+        return None
+    if plan is None:
+        raise CommandTargetChangedError("dining parent visit needs verification")
+    rebound = bind_dining_access(place, stops=plan.stops, activity_token=activity_token, before=before)
+    cards = result.days[day_index].activities
+    if (rebound.dining_access.status != "DURING_VISIT" or place.dining_access is None
+            or place.dining_access.status != "DURING_VISIT"
+            or rebound.dining_parent_activity_token != place.dining_parent_activity_token
+            or position == 0 or cards[position - 1].activity_token != rebound.dining_parent_activity_token
+            or cards[position - 1].status != "READY"):
+        raise CommandTargetChangedError("dining must remain within this same parent visit before leaving")
+    return rebound.dining_access
+
+
+def validate_dining_meal_use(place: CandidatePlace, *, meal_role: str | None, source_slot: bool = False) -> None:
+    if meal_evidence_status(place.dining_info) == "LIGHT_FOOD_ITEMS_ONLY" and meal_role in {"BREAKFAST", "LUNCH", "DINNER"}:
+        raise CommandTargetChangedError("only light-food evidence is available; a full meal is not verified")
 
 
 class DiningSearchRequest(StrictModel):
@@ -165,6 +258,8 @@ def verify_command_candidate(command, *, public_resource_id: str, expected_etag:
         # Also reject a previously issued, otherwise valid browser candidate.
         # Already committed requests still replay before this transaction check.
         raise CommandTargetChangedError("supplier marks the dining place unavailable")
+    if isinstance(command, DiningInsertCommand):
+        validate_dining_meal_use(place, meal_role=command.meal_role, source_slot=command.meal_slot is not None)
     return place
 
 
@@ -219,32 +314,14 @@ def select_dining_rows(rows: list, *, anchor: MapStop, excluded_ids: set[str], s
         if not 0 <= distance <= DINING_RADIUS_METERS:
             continue
         address = row.get("address")
-        business = row.get("business")
-        business = business if isinstance(business, dict) else {}
-        def text(value, limit=60):
-            return value.strip() if isinstance(value, str) and 0 < len(value.strip()) <= limit and not any(ord(c) < 32 for c in value) else None
-        cuisine = text(business.get("keytag"))
-        raw_tags = business.get("tag") if isinstance(business.get("tag"), str) else ""
-        tags = list(dict.fromkeys(tag for raw in raw_tags.split(",") if (tag := text(raw))))[:12]
-        if query and re.sub(r"\s+", "", query).casefold() not in re.sub(r"\s+", "", " ".join([name, cuisine or "", *tags])).casefold():
-            continue
-        def number(value, maximum=None):
-            try:
-                parsed = float(value) if isinstance(value, (str, float, int)) and not isinstance(value, bool) else float("nan")
-                return parsed if math.isfinite(parsed) and parsed > 0 and (maximum is None or parsed <= maximum) else None
-            except ValueError:
-                return None
-        photos = row.get("photos")
-        photos = photos if isinstance(photos, list) else [photos] if isinstance(photos, dict) else []
-        from app.trip_understanding.models import safe_poi_photo_url
-        photo = next((url for raw in photos if isinstance(raw, dict) and (url := safe_poi_photo_url(raw.get("url")))), None)
-        info = DiningPOIInfo(photo_url=photo, cuisine=cuisine, tags=tags, rating=number(business.get("rating"), 5),
-            cost=number(business.get("cost")), observed_at=datetime.now(timezone.utc))
-        area = row.get("business_area") or (business.get("business_area") if isinstance(business, dict) else None)
-        area = area if isinstance(area, str) and re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9·、（）() -]{1,40}", area) else None
-        place = CandidatePlace(canonical_place_id=canonical, city=anchor.city, name=name, category="餐饮", business_area=area, dining_info=info,
+        place = CandidatePlace(canonical_place_id=canonical, city=anchor.city, name=name, category="餐饮",
             area_or_address=address[:120] if isinstance(address, str) and address else str(row.get("adname") or anchor.city)[:120],
             position=GCJ02Position(longitude=coordinates[0], latitude=coordinates[1]))
+        place = dining_metadata(place, row)
+        info = place.dining_info
+        if query and re.sub(r"\s+", "", query).casefold() not in re.sub(r"\s+", "", " ".join([name, info.cuisine or "", *info.tags])).casefold():
+            continue
+        place = bind_dining_access(place, stops=[anchor], activity_token=anchor.activity_token)
         accepted[canonical] = (distance, place)
     return [place for _, place in sorted(accepted.values(), key=lambda item: (item[0], item[1].name))[:3]]
 

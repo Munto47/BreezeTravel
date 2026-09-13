@@ -7,6 +7,7 @@ import type {WorkspaceCommandResult} from './itinerary-workspace'
 import type {TripUnderstandingCommand} from '@/lib/trip-understanding-v3'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import {sourceMeals} from './source-meals'
+import DiningAccessNote, {diningAdoptionBlocked, diningAdoptionLabel} from './dining-access'
 import './source-meal-slots.css'
 
 type Day = UserFacingTripResult['days'][number]
@@ -59,7 +60,8 @@ function SourceMeal({day,dayIndex,unresolvedActivities=[],resource,etag,disabled
     } finally {clearTimeout(timeout);if(controller.current===request){controller.current=null;setSearching(false)}}
   }
   async function adopt(token:string) {
-    if(locked||writeLock.current||view?.status!=='AVAILABLE'||!view.after_activity_token||!view.candidates.some(c=>c.candidate_token===token))return
+    const candidate=view?.candidates.find(c=>c.candidate_token===token)
+    if(locked||writeLock.current||view?.status!=='AVAILABLE'||!view.after_activity_token||!candidate||diningAdoptionBlocked(candidate,view.meal_role||slot.meal_role))return
     writeLock.current=true;setWriting(true);setNotice('')
     try {
       const result=await onCommand({command_type:'DINING_INSERT',meal_slot:{day_index:dayIndex,slot_index:index},
@@ -75,7 +77,7 @@ function SourceMeal({day,dayIndex,unresolvedActivities=[],resource,etag,disabled
     <div className="source-meal-top"><p>{description}</p><button type="button" aria-expanded={expanded} className="source-meal-toggle" onClick={()=>setExpanded(v=>!v)}>
       {expanded?'收起':slot.selection_status==='SELECTED'?'查看用餐':`为${labels[slot.meal_role]}选餐厅`}{expanded?<ChevronUp aria-hidden="true"/>:<ChevronDown aria-hidden="true"/>}</button></div>
     {expanded&&<div className="source-meal-editor">
-      {slot.selection_status==='SELECTED'&&!pending ? <p>这餐已安排，未重复生成新餐位。可在餐厅卡片调整，撤销可恢复上一安排。</p>:<>
+      {slot.selection_status==='SELECTED'&&!pending ? <><p>这餐已安排，未重复生成新餐位。可在餐厅卡片调整，撤销可恢复上一安排。</p>{selected&&<DiningAccessNote value={selected} showUnknown/>}</>:<>
         {pending?<div className="source-meal-confirm"><p>先确认「{pending.name}」，再继续这顿用餐。</p><button type="button" disabled={locked} onClick={()=>setConfirming(pending)}>确认用餐位置：{pending.name}</button>
           {confirming&&<PendingPlaceDropdown card={confirming} resource={resource} disabled={locked} onCommand={onCommand} onClose={()=>setConfirming(null)}/>}</div>:<>
           {noSourcePosition&&<label>原文未指定位置，请明确选择<select value={position} disabled={locked||searching} onChange={event=>{setPosition(event.target.value);setView(null)}}>
@@ -93,7 +95,8 @@ function SourceMeal({day,dayIndex,unresolvedActivities=[],resource,etag,disabled
         <h4><UtensilsCrossed aria-hidden="true"/>{candidate.name}</h4><p>{candidate.area_or_address}</p>
         {candidate.dining_info&&<><p>{[candidate.dining_info.cuisine,candidate.dining_info.rating!=null?`评分 ${candidate.dining_info.rating}/5`:null,candidate.dining_info.cost!=null?`参考人均 ¥${candidate.dining_info.cost}`:null].filter(Boolean).join(' · ')}</p>
           {!!candidate.dining_info.tags.length&&<p>供应商菜品标签：{candidate.dining_info.tags.join('、')}</p>}<small>高德地点资料 · 菜品、营业与价格以门店为准</small></>}
-        <p>{candidate.reason}</p><button type="button" disabled={locked} onClick={()=>void adopt(candidate.candidate_token)}>{writing?'正在保存':`选择这家${labels[slot.meal_role]}餐厅`}</button>
+        <p>{candidate.reason}</p><DiningAccessNote value={candidate} showUnknown/>
+        <button type="button" disabled={locked||diningAdoptionBlocked(candidate,view.meal_role||slot.meal_role)} onClick={()=>void adopt(candidate.candidate_token)}>{writing?'正在保存':diningAdoptionLabel(candidate,`选择这家${labels[slot.meal_role]}餐厅`,view.meal_role||slot.meal_role)}</button>
       </article>)}</div>}
       {notice&&<p role="status" className="source-meal-notice">{notice}</p>}
     </div>}

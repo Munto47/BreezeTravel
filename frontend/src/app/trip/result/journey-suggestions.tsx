@@ -14,6 +14,7 @@ import StayCandidates from './stay-candidates'
 import ItineraryChoices from './itinerary-choices'
 import {relativeDayLabel} from './result-presentation'
 import RelativeRouteSuggestions from './relative-route-suggestions'
+import DiningAccessNote, {diningAdoptionBlocked, diningAdoptionLabel} from './dining-access'
 
 type Props = {
   resource: string; etag: string; result: UserFacingTripResult; disabled: boolean
@@ -142,7 +143,7 @@ export default function JourneySuggestions(props: Props) {
   const content = open && <aside ref={panel} id="journey-suggestions" aria-label="检查与建议" className={dock ? 'journey-suggestions-docked' : 'fixed right-3 top-24 z-50 max-h-[calc(100dvh-7rem)] w-[min(25rem,calc(100vw-1.5rem))] overflow-y-auto rounded-3xl border border-sky-100 bg-white p-4 shadow-xl'}>
       <div className="flex items-center justify-between"><strong>检查与建议</strong><button type="button" className={action} aria-label="关闭建议" onClick={closePanel}><X className="h-4 w-4"/></button></div>
       <div className="journey-suggestion-tabs" aria-label="建议分类">{([['all','总体检查'],['dining','用餐'],['route','顺路优化'],['stay','住宿']] as const).map(([key,label]) => <button type="button" key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</div>
-      {selectedCard && props.mapDock && <section className="journey-selected-place" aria-label="当前选中地点"><p>当前选中 · {relativeDayLabel(props.selectedDayIndex || 0)}</p><strong>{selectedCard.name}</strong><p>{selectedCard.category} · 已确认</p><SourceDetails card={selectedCard}/></section>}
+      {selectedCard && props.mapDock && <section className="journey-selected-place" aria-label="当前选中地点"><p>当前选中 · {relativeDayLabel(props.selectedDayIndex || 0)}</p><strong>{selectedCard.name}</strong><p>{selectedCard.category} · 已确认</p><SourceDetails card={selectedCard}/><DiningAccessNote value={selectedCard} showUnknown={selectedCard.category === '餐饮'}/></section>}
       {tab === 'all' && <details open className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">行程检查</summary>
         <div className="grid gap-3" aria-live="polite">
           {shownItems.map(item => {
@@ -173,7 +174,14 @@ export default function JourneySuggestions(props: Props) {
       {(tab === 'all' || tab === 'dining') && <details open={tab === 'dining' || undefined} className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">附近餐饮</summary>
         {anchors.length ? <><label className="mt-2 flex items-center gap-2 text-sm">靠近<select aria-label="餐饮附近地点" className="min-h-11 min-w-0 flex-1 rounded-xl bg-slate-50 px-3" value={Math.min(anchorIndex, anchors.length - 1)} onChange={event => {setAnchorIndex(Number(event.target.value)); generation.current++; setSearching(false); setDining(null)}}>{anchors.map((card, index) => <option key={index} value={index}>{card.name}</option>)}</select></label>
           <button type="button" className={action} disabled={busy || searching} onClick={() => void findDining()}>{searching ? '正在查找…' : '找附近餐饮'}</button></> : <p className="py-2 text-sm text-slate-500">先确认当天的一个地点。</p>}
-        {dining && <><p className="py-2 text-sm text-slate-500">{stale ? '行程有调整，请重新查询。' : dining.view.message}</p>{!stale && dining.view.candidates.map(item => <article key={item.candidate_token} className="my-2 rounded-2xl bg-slate-50 p-3"><h3 className="text-sm font-semibold">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.area_or_address}</p><p className="mt-1 text-xs text-slate-500">{item.reason}</p><button className={action} disabled={busy} onClick={() => void apply({command_type:'DINING_INSERT', after_activity_token:dining.anchor, candidate_token:item.candidate_token})}>加入行程</button></article>)}</>}
+        {dining && <><p className="py-2 text-sm text-slate-500">{stale ? '行程有调整，请重新查询。' : dining.view.message}</p>{!stale && dining.view.candidates.map(item => <article key={item.candidate_token} className="my-2 rounded-2xl bg-slate-50 p-3">
+          <h3 className="text-sm font-semibold">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.area_or_address}</p><p className="mt-1 text-xs text-slate-500">{item.reason}</p>
+          <DiningAccessNote value={item} showUnknown/>
+          {item.meal_evidence_status === 'LIGHT_FOOD_ITEMS_ONLY' && <p className="mb-2 text-xs leading-5 text-slate-600">加入后保留为用途未指定的餐饮地点，不会替代正餐安排。</p>}
+          <button className={action} disabled={busy || diningAdoptionBlocked(item)} onClick={() => {
+            if (!diningAdoptionBlocked(item)) void apply({command_type:'DINING_INSERT', after_activity_token:dining.anchor, candidate_token:item.candidate_token})
+          }}>{diningAdoptionLabel(item, '加入行程')}</button>
+        </article>)}</>}
       </details>}
       {tab === 'all' && !!alternatives.length && <details ref={alternativesSection} className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">备选地点 · {alternatives.length}</summary>
         <ItineraryChoices key={`${etag}:${currentDayIndex}`} day={day} dayIndex={currentDayIndex} disabled={busy} onApply={apply}/>

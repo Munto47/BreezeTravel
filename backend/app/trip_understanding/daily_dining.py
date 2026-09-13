@@ -9,12 +9,12 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.trip_understanding.candidates import CandidatePlace, issue_candidate
-from app.trip_understanding.dining import dining_binding, search_dining, valid_anchor
+from app.trip_understanding.candidates import CandidatePlace, DiningPOIInfo, issue_candidate
+from app.trip_understanding.dining import bind_dining_access, dining_binding, meal_evidence_status, search_dining, valid_anchor
 from app.trip_understanding.dining_areas import nearby_dining_area
 from app.trip_understanding.map_render import MapStop
 from app.trip_understanding.route_connection import compared_path_scope, route_segment
-from app.trip_understanding.models import StrictModel
+from app.trip_understanding.models import StrictModel, DiningAccessView
 
 
 class DailyMealCandidate(StrictModel):
@@ -26,6 +26,9 @@ class DailyMealCandidate(StrictModel):
     extra_minutes: int | None = None
     route_coverage_scope: Literal["REQUESTED_POINTS", "RETURNED_SEGMENTS"] | None = None
     recommended: bool = False
+    dining_info: DiningPOIInfo | None = None
+    dining_access: DiningAccessView | None = None
+    meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
 
 
 class DailyMealView(StrictModel):
@@ -90,7 +93,7 @@ def meal_context(day, stops: list[MapStop], *, source_gaps: dict[str, str] | Non
     # A breakfast/dinner with an explicit hour is not treated as lunch.
     meals = [c for c in cards if c.category == "餐饮" and c.status == "READY"
              and (getattr(c,"meal_role",None) == "LUNCH" or
-                  (getattr(c,"meal_role",None) is None and
+                  (getattr(c,"meal_role",None) is None and getattr(c, "meal_evidence_status", "UNSPECIFIED") != "LIGHT_FOOD_ITEMS_ONLY" and
                    ((not c.start_time and not explicit_slot) or (c.start_time and "10:30" <= c.start_time <= "15:00"))))]
     if meals:
         view.update(status="EXISTING", message=f"已安排{meals[0].name}，可在地点卡片更换。",
@@ -99,7 +102,7 @@ def meal_context(day, stops: list[MapStop], *, source_gaps: dict[str, str] | Non
     pending_meals = [c for c in cards if c.category == "餐饮" and c.status != "READY"
                      and not _unnamed_meal_card(c)
                      and (getattr(c, "meal_role", None) == "LUNCH" or
-                          (getattr(c, "meal_role", None) is None and
+                          (getattr(c, "meal_role", None) is None and getattr(c, "meal_evidence_status", "UNSPECIFIED") != "LIGHT_FOOD_ITEMS_ONLY" and
                            ((not c.start_time and not explicit_slot) or
                             (c.start_time and "10:30" <= c.start_time <= "15:00"))))]
     if pending_meals:
@@ -247,6 +250,8 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None, 
             baseline = await duration(anchor, next_stop) if next_stop else None
             ranked = []
             for place in places[:3]:
+                place = bind_dining_access(place, stops=plan.stops, activity_token=anchor.activity_token,
+                    before=bool(view.get("insert_before")))
                 meal = MapStop(day_index=index, day_label=day.label, sequence_index=anchor.sequence_index + 1,
                     name=place.name, category="餐饮", canonical_place_id=place.canonical_place_id,
                     resolution_status="AUTO_MATCHED", city=place.city,
@@ -310,8 +315,12 @@ def project_daily_meals(rows: list[dict], *, public_resource_id: str, etag: str,
             scoped = scope in ("REQUESTED_POINTS", "RETURNED_SEGMENTS")
             candidates.append(DailyMealCandidate(candidate_token=issued.candidate_token, name=place.name,
                 area_or_address=place.area_or_address, business_area=place.business_area,
+                dining_info=place.dining_info, dining_access=place.dining_access,
+                meal_evidence_status=meal_evidence_status(place.dining_info),
                 reason=item["reason"] if scoped else "该店位置已保存；绕路时间及营业情况尚未确认。",
                 extra_minutes=item.get("extra_minutes") if scoped else None,
-                route_coverage_scope=scope if scoped else None, recommended=index == 0 and scoped))
+                route_coverage_scope=scope if scoped else None, recommended=index == 0 and scoped
+                and meal_evidence_status(place.dining_info) != "LIGHT_FOOD_ITEMS_ONLY"
+                and (place.dining_access is None or place.dining_access.status == "DURING_VISIT")))
         output.append(DailyMealView(**row, candidates=candidates))
     return output

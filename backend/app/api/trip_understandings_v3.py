@@ -20,7 +20,7 @@ from app.trip_understanding.candidates import CandidateSearchRequest, PendingLod
 from app.trip_understanding.lodging_recovery import confirmed_single_destination, recovery_binding, result_cards, validate_recovery_target
 from app.trip_understanding.dining import (
     DiningSearchRequest, DiningCandidatesView, DiningCandidateView, dining_binding, search_dining, valid_anchor,
-    SourceMealSearchRequest, SourceMealCandidatesView, source_meal_context, source_meal_binding,
+    SourceMealSearchRequest, SourceMealCandidatesView, source_meal_context, source_meal_binding, bind_dining_access,
 )
 from app.trip_understanding.daily_dining import DailyDiningView
 from app.trip_understanding.dining_jobs import read_daily_dining
@@ -436,6 +436,12 @@ async def find_place_candidates(
     response.headers["Cache-Control"] = "no-store"
     if places is None:
         return CandidateSearchView(status="UNAVAILABLE")
+    if not isinstance(body, PendingLodgingCandidateRequest) and any(place.category == "餐饮" for place in places):
+        plan, etag = await repository.get_current_place_plan(resource)
+        if etag != stored.opaque_etag:
+            raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已变化，请刷新后重试"})
+        places = [bind_dining_access(place, stops=plan.stops, activity_token=body.activity_token, before=True)
+            if place.category == "餐饮" else place for place in places]
     now = datetime.now(timezone.utc)
     candidates = [issue_candidate(place, public_resource_id=public_resource_id,
         activity_token=binding, expected_etag=stored.opaque_etag, now=now, expires_at=resource.expires_at) for place in places]
@@ -467,7 +473,8 @@ async def find_dining_candidates(
     now = datetime.now(timezone.utc)
     candidates = [DiningCandidateView(**issue_candidate(place, public_resource_id=public_resource_id,
         activity_token=dining_binding(body.activity_token), expected_etag=etag, now=now).model_dump(),
-        reason=f"在{anchor.name}附近；营业情况请到店前确认。") for place in places[:3]]
+        reason=f"在{anchor.name}附近；营业情况请到店前确认。") for place in
+        [bind_dining_access(place, stops=plan.stops, activity_token=body.activity_token) for place in places[:3]]]
     return DiningCandidatesView(status="AVAILABLE" if candidates else "EMPTY",
         message="附近餐饮" if candidates else "暂未找到合适的附近餐饮，可换一站再看看。", candidates=candidates)
 
@@ -507,7 +514,9 @@ async def find_source_meal_candidates(public_resource_id: str, body: SourceMealS
     view.candidates = [DiningCandidateView(**issue_candidate(place, public_resource_id=public_resource_id,
         activity_token=source_meal_binding(view.after_activity_token, before=view.insert_before,
             meal_slot=body.meal_slot, meal_role=view.meal_role), expected_etag=etag, now=now,
-        expires_at=resource.expires_at).model_dump(), reason="按你的手动搜索词找到的附近门店；菜品供应、营业与绕路情况仍需确认。") for place in places[:3]]
+        expires_at=resource.expires_at).model_dump(), reason="按你的手动搜索词找到的附近门店；菜品供应、营业与绕路情况仍需确认。") for place in
+        [bind_dining_access(place, stops=plan.stops, activity_token=view.after_activity_token,
+            before=view.insert_before) for place in places[:3]]]
     if not view.candidates:
         view.status, view.message = "EMPTY", "附近未找到名称或供应商标签与搜索词对应的门店，可以换一个词；没有改选其他餐厅。"
     return view

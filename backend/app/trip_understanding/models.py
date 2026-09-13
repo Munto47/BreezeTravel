@@ -255,6 +255,12 @@ class SourceDetailView(StrictModel):
     optional: bool = False
 
 
+class DiningAccessView(StrictModel):
+    # This describes a saved visit relationship, never a ticket or opening claim.
+    status: Literal["DURING_VISIT", "NEEDS_REVIEW"]
+    parent_name: str | None = Field(default=None, min_length=1, max_length=120)
+
+
 class ActivityCardView(ActivityTiming):
     photo_url: str | None = None
     city: str | None = None
@@ -268,6 +274,8 @@ class ActivityCardView(ActivityTiming):
     name: str
     category: str
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    dining_access: DiningAccessView | None = None
+    meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
     lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP", "VISIT_ONLY"] | None = None
     lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
     lodging_role_uncertain: bool = False

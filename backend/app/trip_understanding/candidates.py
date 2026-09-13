@@ -19,7 +19,7 @@ from app.trip_understanding.amap_place import (
     _visitor_type_compatible,
 )
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
-from app.trip_understanding.models import StrictModel, LodgingRecoveryIntent, safe_poi_photo_url
+from app.trip_understanding.models import StrictModel, LodgingRecoveryIntent, DiningAccessView, safe_poi_photo_url
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.city_knowledge import get_city_knowledge
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
@@ -68,11 +68,16 @@ class CandidatePlace(StrictModel):
     position: GCJ02Position
     business_area: str | None = None
     dining_info: DiningPOIInfo | None = None
+    provider_parent_place_id: str | None = None
+    dining_parent_activity_token: str | None = None
+    dining_access: DiningAccessView | None = None
+    meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
 
     def receipt(self) -> dict:
         return {"status": "USER_CONFIRMED", "provider": "AMAP_POI_V2",
                 "city": self.city, "coordinates": self.position.model_dump(),
-                "category": self.category, "area_or_address": self.area_or_address}
+                "category": self.category, "area_or_address": self.area_or_address,
+                **({"dining_parent_place_id": self.provider_parent_place_id} if self.provider_parent_place_id else {})}
 
 
 class PublicPlaceCandidate(StrictModel):
@@ -83,6 +88,8 @@ class PublicPlaceCandidate(StrictModel):
     position: GCJ02Position
     business_area: str | None = None
     dining_info: DiningPOIInfo | None = None
+    dining_access: DiningAccessView | None = None
+    meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
 
 
 class CandidateSearchView(StrictModel):
@@ -104,7 +111,8 @@ def issue_candidate(place: CandidatePlace, *, public_resource_id: str, activity_
     body = {"resource": public_resource_id, "activity": activity_token, "etag": expected_etag,
             "expires": expiry.timestamp(), "place": place.model_dump(mode="json")}
     token = _cipher().encrypt(json.dumps(body, ensure_ascii=False).encode()).decode()
-    return PublicPlaceCandidate(candidate_token=token, **place.model_dump(exclude={"canonical_place_id", "city"}))
+    return PublicPlaceCandidate(candidate_token=token, **place.model_dump(exclude={
+        "canonical_place_id", "city", "provider_parent_place_id", "dining_parent_activity_token"}))
 
 
 def verify_candidate(token: str, *, public_resource_id: str, activity_token: str,
@@ -182,6 +190,9 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
             name=name, category=_CATEGORY_LABELS[category],
             area_or_address=str(address)[:120] if isinstance(address, str) and address else str(row.get("adname") or city),
             position=GCJ02Position(longitude=coordinates[0], latitude=coordinates[1]))
+        if category == PlaceCategory.FOOD:
+            from app.trip_understanding.dining import dining_metadata
+            places[poi_id] = dining_metadata(places[poi_id], row)
     # Rank before truncation; generic keyword search still offers related POIs.
     tiers = {"CANONICAL_EXACT": 0, "SAFE_ALIAS_EXACT": 1, "VENUE_SUFFIX_EQUIVALENT": 2}
     return sorted(places.values(), key=lambda place: tiers.get(_name_match_tier(

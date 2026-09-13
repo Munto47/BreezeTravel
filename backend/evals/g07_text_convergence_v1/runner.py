@@ -110,6 +110,7 @@ PUBLIC_RESULT_ALLOWED_KEYS = {
     "unclassified_mention_count", "unprocessed_count", "unresolved_place_count",
     "lodging_constraints", "lodging_event", "lodging_excluded_nights",
     "lodging_role_uncertain", "lodging_scope", "meal_role", "meal_slots",
+    "dining_access", "parent_name", "meal_evidence_status",
     "selection_status", "selected_activity_token", "preference_text",
     "overnight_days", "pending_lodgings", "pending_token", "preserved_hotels",
     "scope", "segment_token", "segments", "brand_group", "brand_note",

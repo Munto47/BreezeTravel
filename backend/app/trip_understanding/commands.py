@@ -125,6 +125,32 @@ def refresh_choice_selection_tokens(
                 selection.status = "MODIFIED"
 
 
+def refresh_dining_access(current, result, token_map: dict[str, str], *, changed_identity: str | None = None) -> None:
+    """Follow the same preceding parent visit; never rematch another by name."""
+    positions = {card.activity_token: (day_index, index, card)
+        for day_index, day in enumerate(result.days) for index, card in enumerate(day.activities)}
+    for day_index, day in enumerate(current.days):
+        for index, old in enumerate(day.activities):
+            located = positions.get(token_map.get(old.activity_token, old.activity_token))
+            if located is None:
+                continue
+            new_day, new_index, card = located
+            if old.activity_token == changed_identity:
+                card.meal_evidence_status = "UNSPECIFIED"
+            access = old.dining_access
+            if access is None or card.dining_access is None or access.status != "DURING_VISIT":
+                continue
+            parent = day.activities[index - 1] if index else None
+            parent_token = token_map.get(parent.activity_token, parent.activity_token) if parent else None
+            new_parent = result.days[new_day].activities[new_index - 1] if new_index else None
+            valid = (parent is not None and parent.name == access.parent_name and parent.status == "READY"
+                and old.status == "READY" and new_day == day_index and new_parent is not None
+                and new_parent.activity_token == parent_token and new_parent.status == "READY" and card.status == "READY"
+                and changed_identity not in {old.activity_token, parent.activity_token})
+            card.dining_access = access.model_copy(update={"status": "DURING_VISIT" if valid else "NEEDS_REVIEW",
+                "parent_name": new_parent.name if valid else access.parent_name})
+
+
 def _result_status(days: list[TripDayView], constraints=()) -> str:
     cards = [card for day in days for card in day.activities] + list(constraints)
     if len(cards) > MAX_TRIP_ACTIVITIES:
@@ -174,6 +200,7 @@ def apply_public_command(
     changed: set[str] = set()
     inserted_card: ActivityCardView | None = None
     filled_gap_token: str | None = None
+    confirmed_dining_state = None
 
     if isinstance(command, (UndoCommand, RedoCommand)):
         target = undo_result if isinstance(command, UndoCommand) else redo_result
@@ -244,8 +271,20 @@ def apply_public_command(
             card = constraint
             changed.update(result.days[night - 1].label for night in constraint.overnight_days)
         else:
-            day_index, _, card = _find_card(result.days, command.activity_token)
+            day_index, position, card = _find_card(result.days, command.activity_token)
             changed.add(result.days[day_index].label)
+            if confirmed_place.category == "餐饮":
+                from app.trip_understanding.dining import validate_dining_access, validate_dining_meal_use, meal_evidence_status
+                validate_dining_meal_use(confirmed_place, meal_role=card.meal_role)
+                access = validate_dining_access(confirmed_place, result=result, plan=dining_plan,
+                    day_index=day_index, position=position, activity_token=card.activity_token, before=True)
+                evidence = meal_evidence_status(confirmed_place.dining_info)
+                same_identity = current_place_id and current_place_id.removeprefix("amap:") == confirmed_place.canonical_place_id.removeprefix("amap:")
+                if same_identity and confirmed_place.dining_info is None:
+                    evidence = card.meal_evidence_status
+                if evidence == "LIGHT_FOOD_ITEMS_ONLY" and card.meal_role in {"BREAKFAST", "LUNCH", "DINNER"}:
+                    raise CommandTargetChangedError("only light-food evidence is available; a full meal is not verified")
+                confirmed_dining_state = (access, evidence)
         if card.source_details:
             # An initial identity choice fills a missing city; it is not a
             # replacement of the source-bound visit. Known identities/cities
@@ -295,6 +334,11 @@ def apply_public_command(
         if anchor.status != "READY" or (anchor.city and anchor.city != confirmed_place.city):
             raise CommandTargetChangedError("dining anchor needs confirmation")
         day = result.days[day_index]
+        from app.trip_understanding.dining import validate_dining_access, validate_dining_meal_use, meal_evidence_status
+        validate_dining_meal_use(confirmed_place, meal_role=command.meal_role, source_slot=command.meal_slot is not None)
+        access = validate_dining_access(confirmed_place, result=result, plan=dining_plan,
+            day_index=day_index, position=position + (0 if command.insert_before else 1),
+            activity_token=command.after_activity_token, before=command.insert_before)
         lunch_gap = None
         selected_slot = None
         selected_role = command.meal_role
@@ -339,6 +383,7 @@ def apply_public_command(
         values = dict(activity_token=token_factory(), name=confirmed_place.name,
             category="餐饮", area_or_address=confirmed_place.area_or_address, city=confirmed_place.city,
             meal_role=selected_role, photo_url=confirmed_place.dining_info.photo_url if confirmed_place.dining_info else None, knowledge_suggestions=[],
+            dining_access=access, meal_evidence_status=meal_evidence_status(confirmed_place.dining_info),
             status="READY", available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"])
         if lunch_gap:
             filled_gap_token = lunch_gap.activity_token
@@ -352,6 +397,10 @@ def apply_public_command(
         else:
             inserted_card = ActivityCardView(**values)
             day.activities.insert(position + (0 if command.insert_before else 1), inserted_card)
+        if access is not None:
+            actual_position = day.activities.index(inserted_card)
+            if actual_position == 0 or day.activities[actual_position - 1].activity_token != confirmed_place.dining_parent_activity_token:
+                raise CommandTargetChangedError("the original meal gap is not adjacent to this parent visit")
         if selected_slot is not None:
             selected_slot.selection_status = "SELECTED"
             selected_slot.selected_activity_token = inserted_card.activity_token
@@ -541,6 +590,19 @@ def apply_public_command(
 
     refresh_meal_slot_tokens(result.days, token_map)
     refresh_choice_selection_tokens(result.days, token_map, token_factory)
+    dining_base = undo_result if isinstance(command, UndoCommand) else redo_result if isinstance(command, RedoCommand) else current
+    dining_identity_changed = changed_choice_token
+    if isinstance(command, PlaceConfirmCommand) and current_place_id and confirmed_place and (
+            current_place_id.removeprefix("amap:") == confirmed_place.canonical_place_id.removeprefix("amap:")):
+        dining_identity_changed = None
+    refresh_dining_access(dining_base, result, token_map, changed_identity=dining_identity_changed)
+    if confirmed_dining_state is not None:
+        token = token_map.get(command.activity_token, command.activity_token)
+        card = next(card for card in result_cards(result) if card.activity_token == token)
+        access, evidence = confirmed_dining_state
+        if access is not None:
+            card.dining_access = access
+        card.meal_evidence_status = evidence
 
     result.status = _result_status(result.days, result.lodging_constraints)
     refresh_result_coverage(result)
