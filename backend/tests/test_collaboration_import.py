@@ -62,7 +62,7 @@ def _guard_args(prepared) -> dict:
     }
 
 
-def test_saved_collaboration_route_keeps_readable_source_and_typed_schedule() -> None:
+def test_saved_collaboration_route_keeps_readable_source_and_relative_order() -> None:
     prepared = prepare_collaboration_import(
         user_id="account-owner",
         room_id="low-entropy-room-code",
@@ -73,9 +73,9 @@ def test_saved_collaboration_route_keeps_readable_source_and_typed_schedule() ->
     )
     assert prepared.source_text == (
         "北京1日行程。\n"
-        "Day 1｜2026-09-06\n"
-        "09:00-11:00 去故宫博物院（景点）。\n"
-        "13:30-15:00 去景山公园（景点）。"
+        "Day 1\n"
+        "去故宫博物院（景点）。\n"
+        "去景山公园（景点）。"
     )
     serialized = json.dumps(
         {
@@ -111,7 +111,7 @@ def test_saved_collaboration_route_keeps_readable_source_and_typed_schedule() ->
 
 
 @pytest.mark.asyncio
-async def test_normalized_start_times_remain_visit_times_through_full_pipeline() -> None:
+async def test_legacy_start_times_are_not_adopted_by_new_relative_import() -> None:
     prepared = prepare_collaboration_import(
         user_id="account-owner",
         room_id="room",
@@ -129,10 +129,10 @@ async def test_normalized_start_times_remain_visit_times_through_full_pipeline()
     cards = [card for day in output.public_result.days for card in day.activities]
 
     assert [(card.name, card.time_hint) for card in cards] == [
-        ("故宫博物院", "09:00"),
-        ("景山公园", "13:30"),
+        ("故宫博物院", None),
+        ("景山公园", None),
     ]
-    assert [(card.start_time, card.end_time) for card in cards] == [("09:00", "11:00"), ("13:30", "15:00")]
+    assert [(card.start_time, card.end_time) for card in cards] == [(None, None), (None, None)]
 
 
 @pytest.mark.asyncio

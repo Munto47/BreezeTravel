@@ -180,10 +180,8 @@ def prepare_collaboration_import(
             raise CollaborationRouteUnavailableError("saved day is not usable")
         day = _mapping(raw_day)
         day_sequence_index = 0
-        day_date = _date(day.get("date"))
-        if day_date:
-            day_labels[day_index] = day_date
-        lines.append(f"Day {day_index}{f'｜{day_date}' if day_date else ''}")
+        # New imports adopt only relative days/order, including from old saved schedules.
+        lines.append(f"Day {day_index}")
         raw_slots = day.get("slots")
         if not isinstance(raw_slots, list):
             if raw_slots is not None:
@@ -201,19 +199,14 @@ def prepare_collaboration_import(
                 raise CollaborationRouteUnavailableError("saved route contains an invalid place name", code="COLLABORATION_INVALID_PLACE", message="已保存路线中有地点名称无效，请修正后再转入")
             category_key = str(place.get("category") or "").casefold()
             category = _CATEGORY_LABELS.get(category_key)
-            start = _time(slot.get("startTime") or slot.get("start_time"))
-            end = _time(slot.get("endTime") or slot.get("end_time"))
-            if end and start and end < start:
-                raise CollaborationRouteUnavailableError("saved visit has an invalid time range")
             detail = f"去{name}{f'（{category}）' if category else ''}。"
-            line = f"{start}{'-' + end if end else ''} {detail}" if start else detail
+            line = detail
             offset = sum(len(value) + 1 for value in lines) + line.index(name)
             lines.append(line)
             mentions.append(ProposedMention(mention_id=f"collaboration-slot-{day_index}-{day_sequence_index}",
                 raw_text=name, span_start=offset, span_end=offset + len(name), role=ActivityRole.PLANNED,
                 day_index=day_index, sequence_index=day_sequence_index, atomic_place_name=name,
-                category_hint=category, city_hint=city_name or None, start_time=start, end_time=end,
-                time_hint=start, timing_source="SUGGESTED" if start or end else "UNSPECIFIED"))
+                category_hint=category, city_hint=city_name or None))
             guard_tokens.append(
                 collaboration_place_guard_token(
                     day_index=day_index,

@@ -9,6 +9,14 @@ import {relativeDayLabel} from '@/app/trip/result/result-presentation'
 
 const UNAVAILABLE_MESSAGE = '此链接不存在、已过期或已被撤销。'
 
+function SharedDetails({items}: {items?: Array<{name: string; optional: boolean}>}) {
+  if (!items?.length) return null
+  return <div className="mt-2 border-l-2 border-sky-100 pl-3 text-xs leading-6 text-slate-600">
+    <p>原文安排 · 门口及内部地点未单独核验</p>
+    <ol>{items.map((item, index) => <li key={index}>{index + 1}. {item.name}{item.optional ? '（备选）' : ''}</li>)}</ol>
+  </div>
+}
+
 export default function SharedItineraryPage() {
   const params = useParams()
   const shareRef = typeof params.token === 'string' ? params.token : ''
@@ -130,6 +138,8 @@ export default function SharedItineraryPage() {
             住宿：{shared.accommodation}
           </p>
         ) : null}
+        {!!shared.warnings?.length && <ul data-testid="shared-incomplete" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-6 text-amber-900">{shared.warnings.map((text, i) => <li key={i}>{text}</li>)}</ul>}
+        {!!shared.lodging_arrangements?.length && <section className="mt-4 rounded-xl bg-sky-50 p-3 text-sm leading-6"><h2 className="font-semibold">原文住宿安排</h2>{shared.lodging_arrangements.map((text, i) => <p key={i}>{text}</p>)}</section>}
       </section>
       <section className="mt-4 space-y-3" aria-label="只读行程">
         {shared.days.map((storedDay, dayIndex) => {
@@ -138,9 +148,12 @@ export default function SharedItineraryPage() {
           return (
           <article
             key={day.label}
+            data-testid={`shared-day-${dayIndex + 1}`}
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
           >
             <h2 className="font-semibold text-slate-900">{relativeDayLabel(dayIndex)}</h2>
+            {!!day.unprocessed_count && <p className="mt-2 text-sm text-amber-800">原文未整理：{day.unprocessed_count} 处</p>}
+            {!!day.pending_count && <p className="mt-2 text-sm text-amber-800">待确认地点：{day.pending_count} 处</p>}
             {day.activities.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">当天暂无地点</p>
             ) : (
@@ -155,14 +168,31 @@ export default function SharedItineraryPage() {
                       第 {index + 1} 站 · {activity.area_or_address}
                     </p>
                     <p className="mt-1 text-[11px] text-slate-500">{activity.note}</p>
+                    <SharedDetails items={activity.details} />
                   </li>
                 ))}
               </ol>
             )}
+            {!!day.pending_activities?.length && <section className="mt-4 rounded-xl border border-amber-200 p-3">
+              <h3 className="text-sm font-semibold text-amber-900">待确认安排 · 不作为已核验主线</h3>
+              {day.pending_activities.map((activity, index) => <div className="mt-2 text-sm" key={index}><p>{activity.name} · 地点待确认</p><SharedDetails items={activity.details} /></div>)}
+            </section>}
+            {!!day.meal_arrangements?.length && <section className="mt-4 rounded-xl bg-orange-50 p-3 text-sm leading-6" data-testid="shared-meals">
+              <h3 className="font-semibold">原文用餐安排</h3>{day.meal_arrangements.map((meal, index) => <p key={index}>{meal}</p>)}
+            </section>}
+            {!!day.alternatives?.length && <section className="mt-4 rounded-xl bg-sky-50 p-3" data-testid="shared-alternatives">
+              <h3 className="text-sm font-semibold">原文备选与方案 · 未选择的内容不属于主线</h3>
+              {day.alternatives.map((item, index) => <div className="mt-3 text-sm leading-6" key={index}>
+                <p className="font-medium">{item.branch_label ? `${item.branch_label} · ` : ''}{item.name}</p><p className="text-xs text-slate-600">{item.state}</p><SharedDetails items={item.details} />
+              </div>)}
+            </section>}
           </article>
           )
         })}
       </section>
+      {!!shared.unassigned_alternatives?.length && <section data-testid="shared-unassigned" className="mt-4 rounded-2xl border border-sky-200 bg-white p-5 text-sm leading-7">
+        <h2 className="font-semibold">未指定日期 · 备选地点</h2><p className="text-xs text-slate-500">尚未排入任何一天的主线。</p>{shared.unassigned_alternatives.map((name, index) => <p key={index}>{name}</p>)}
+      </section>}
       <p className="mt-4 text-center text-xs text-slate-500">
         只读分享；不提供编辑、路线计算或账号权限。
       </p>

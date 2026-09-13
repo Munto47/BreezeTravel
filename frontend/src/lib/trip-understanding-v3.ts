@@ -312,6 +312,14 @@ export interface ShareListItemView {
   status: 'ACTIVE' | 'REVOKED' | 'EXPIRED'
 }
 
+export interface SharedTripActivity {
+  name: string
+  area_or_address: string
+  time_hint: string | null
+  note: '可直接查看' | '地点待确认'
+  details?: Array<{name: string; optional: boolean}>
+}
+
 export interface ShareProjectionView {
   title: string
   destination: string
@@ -319,15 +327,18 @@ export interface ShareProjectionView {
   party_size: string
   days: Array<{
     label: string
-    activities: Array<{
-      name: string
-      area_or_address: string
-      time_hint: string | null
-      note: '可直接查看' | '地点待确认'
-    }>
+    activities: SharedTripActivity[]
+    pending_activities?: SharedTripActivity[]
+    alternatives?: Array<{name: string; category: string; branch_label: string | null; state: string; details?: Array<{name: string; optional: boolean}>}>
+    meal_arrangements?: string[]
+    pending_count?: number
+    unprocessed_count?: number
   }>
   accommodation: string | null
   message: string
+  warnings?: string[]
+  unassigned_alternatives?: string[]
+  lodging_arrangements?: string[]
 }
 
 export interface MaterializedTripView {

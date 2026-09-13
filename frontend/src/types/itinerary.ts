@@ -17,8 +17,8 @@ export interface WeatherInfo {
 export interface TimeSlot {
   placeId: string
   place: Place
-  startTime: string     // "09:00"
-  endTime: string       // "11:30"
+  startTime?: string    // Historical compatibility only; not used by relative trips.
+  endTime?: string
   transport?: TransportLeg  // 与下一地点的交通（最后一个为 undefined）
   tips: string[]        // 温馨提示（TipsGenerator 生成）
 }
@@ -129,9 +129,9 @@ export function parseSavedItinerary(value: unknown): Itinerary | null {
       const rawPlace = objectValue(slot?.place)
       if (!slot || !rawPlace) return null
       const placeId = boundedString(slot.placeId, 200)
-      const startTime = boundedString(slot.startTime, 20)
-      const endTime = boundedString(slot.endTime, 20)
-      if (!placeId || !startTime || !endTime) return null
+      const startTime = slot.startTime == null ? undefined : boundedString(slot.startTime, 20)
+      const endTime = slot.endTime == null ? undefined : boundedString(slot.endTime, 20)
+      if (!placeId || startTime === null || endTime === null) return null
       const place = parseSavedPlace(rawPlace, placeId)
       if (!place) return null
       slots.push({
@@ -192,8 +192,8 @@ export function parseItineraryFromAPI(raw: Record<string, unknown>): Itinerary {
       return {
         placeId: slot.place_id as string,
         place: parsePlaceFromAPI(slot.place as Record<string, unknown>),
-        startTime: slot.start_time as string,
-        endTime: slot.end_time as string,
+        startTime: typeof slot.start_time === 'string' ? slot.start_time : undefined,
+        endTime: typeof slot.end_time === 'string' ? slot.end_time : undefined,
         transport,
         tips: (slot.tips as string[] | undefined) ?? [],
       } satisfies TimeSlot

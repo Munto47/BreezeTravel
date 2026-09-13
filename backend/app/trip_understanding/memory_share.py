@@ -15,11 +15,13 @@ from app.trip_understanding.errors import (
     IdempotencyConflictError,
     ResourceAccessDeniedError,
     ResourceNotFoundError,
+    RevisionConflictError,
 )
 from app.trip_understanding.models import (
     PublicResourceRecord,
     StrictModel,
     UserFacingTripResult,
+    SourceDetailView,
 )
 
 
@@ -110,11 +112,25 @@ class SharedActivityView(StrictModel):
     area_or_address: str
     time_hint: str | None = None
     note: Literal["可直接查看", "地点待确认"]
+    details: list[SourceDetailView] = Field(default_factory=list)
+
+
+class SharedAlternativeView(StrictModel):
+    name: str
+    category: str
+    branch_label: str | None = None
+    state: str = "备选，未加入主线"
+    details: list[SourceDetailView] = Field(default_factory=list)
 
 
 class SharedDayView(StrictModel):
     label: str
     activities: list[SharedActivityView]
+    pending_activities: list[SharedActivityView] = Field(default_factory=list)
+    alternatives: list[SharedAlternativeView] = Field(default_factory=list)
+    meal_arrangements: list[str] = Field(default_factory=list)
+    pending_count: int = Field(default=0, ge=0)
+    unprocessed_count: int = Field(default=0, ge=0)
 
 
 class ShareProjectionView(StrictModel):
@@ -125,6 +141,9 @@ class ShareProjectionView(StrictModel):
     days: list[SharedDayView]
     accommodation: str | None = None
     message: str = "这是朋友分享的只读行程。"
+    warnings: list[str] = Field(default_factory=list)
+    unassigned_alternatives: list[str] = Field(default_factory=list)
+    lodging_arrangements: list[str] = Field(default_factory=list)
 
 
 class ShareExchangeRequest(StrictModel):
@@ -136,37 +155,86 @@ class ShareSessionOutcome(StrictModel):
     expires_at: datetime
 
 
-def build_share_projection(result: UserFacingTripResult) -> ShareProjectionView:
+def _shared_meals(day) -> list[str]:
+    labels = {"BREAKFAST": "早餐", "LUNCH": "午餐", "DINNER": "晚餐", "SNACK": "加餐", "UNSPECIFIED": "用餐"}
+    cards = {getattr(card, "activity_token", None): card for card in day.activities}
+    lines = []
+    for slot in getattr(day, "meal_slots", []):
+        label = labels[slot.meal_role]
+        if slot.selection_status == "SELECTED":
+            selected = cards.get(slot.selected_activity_token)
+            text = f"{label} · 已选餐厅需确认" if selected is None else (
+                f"{label} · {'已安排' if selected.status == 'READY' else '餐厅需确认'}：「{selected.name}」")
+        else:
+            text = f"{label} · 餐厅待选择" if slot.selection_status == "UNSELECTED" else f"原文有{label}安排"
+            after, before = cards.get(slot.after_activity_token), cards.get(slot.before_activity_token)
+            if not (after and before and day.activities.index(after) >= day.activities.index(before)):
+                def anchor(card):
+                    return f"「{card.name}」" + ("（地点待确认）" if card.status != "READY" else "")
+                relation = [*([f"在{anchor(after)}之后"] if after else []), *([f"在{anchor(before)}之前"] if before else [])]
+                if relation:
+                    text += "（" + "，".join(relation) + "）"
+        if slot.preference_text:
+            text += f"；用餐意向：{slot.preference_text}"
+        lines.append(text)
+    return lines
+
+
+def build_share_projection(result: UserFacingTripResult, *, supplementary=None) -> ShareProjectionView:
     assumptions = {item.key: item.value for item in result.assumptions}
     destination = assumptions.get("destination", "目的地待确认")
-    calendar = assumptions.get("calendar", "按天安排")
+    calendar = "按天安排"
     party_size = assumptions.get("party_size", "2人")
     accommodation = next(
         (candidate.name for candidate in result.stay.candidates if candidate.selected),
         None,
     )
+    days = []
+    whole_lodgings = []
+    for index, day in enumerate(result.days, 1):
+        def activity_view(activity):
+            return SharedActivityView(name=activity.name, area_or_address=activity.area_or_address,
+                time_hint=None, note="可直接查看" if activity.status == "READY" else "地点待确认",
+                details=[detail.model_copy(deep=True) for detail in getattr(activity, "source_details", [])])
+        alternatives = []
+        for item in getattr(day, "alternatives", []):
+            selection = next((s for s in getattr(day, "choice_selections", []) if s.choice_group_token == item.choice_group_token), None)
+            state = ("已调整，原方案供对照" if selection and selection.status == "MODIFIED" else
+                "已选择，地点状态见行程" if selection and item.branch_token and selection.branch_token == item.branch_token else "备选，未加入主线")
+            alternatives.append(SharedAlternativeView(name=item.name, category=item.category, branch_label=item.branch_label,
+                state=state, details=[detail.model_copy(deep=True) for detail in item.source_details]))
+        pending = [activity_view(a) for a in day.activities if a.status != "READY"]
+        whole = [a for a in day.activities if getattr(a, "lodging_scope", None) == "WHOLE_TRIP" and getattr(a, "lodging_event", None) == "OVERNIGHT"]
+        whole_lodgings.extend(whole)
+        days.append(SharedDayView(label=f"Day {index}", activities=[activity_view(a) for a in day.activities if a.status == "READY" and a not in whole],
+            pending_activities=pending, pending_count=len(pending), unprocessed_count=getattr(day, "unprocessed_count", 0),
+            alternatives=alternatives, meal_arrangements=_shared_meals(day)))
+    warnings = []
+    coverage = getattr(result, "coverage", None)
+    if coverage and not coverage.complete or any(day.unprocessed_count for day in days):
+        warnings.append("原文尚未完整整理，分享内容仍需补全。")
+    pending_count = max(sum(day.pending_count for day in days), coverage.unresolved_place_count if coverage else 0)
+    if pending_count:
+        warnings.append(f"待确认地点：{pending_count} 处；下列待确认内容不作为已核验主线。")
+    if coverage and coverage.unprocessed_count:
+        warnings.append(f"原文未整理：{coverage.unprocessed_count} 处。")
+    unassigned = [item.name for group in supplementary.days if group.day_index is None for item in group.items if item.role == "OPTIONAL"] if supplementary and supplementary.status == "AVAILABLE" else []
+    if supplementary and supplementary.status != "AVAILABLE":
+        warnings.append("原文补充安排已删除或暂不可读取；这里只保留当前结构化结果。")
+    lodgings = []
+    for item in [*whole_lodgings, *getattr(result, "lodging_constraints", [])]:
+        nights = "、".join(str(value) for value in getattr(item, "overnight_days", []))
+        scope = f"第{nights}晚" if nights else "全程住宿安排，具体夜晚未列明"
+        lodgings.append(f"{item.name} · {scope} · {'已确认' if item.status == 'READY' else '地点待确认'}")
+        lodgings.extend(f"{item.name} · {detail.name}{'（备选）' if detail.optional else ''}" for detail in getattr(item, "source_details", []))
     return ShareProjectionView(
         title=f"{destination}行程",
         destination=destination,
         schedule=calendar,
         party_size=party_size,
-        days=[
-            SharedDayView(
-                label=day.label,
-                activities=[
-                    SharedActivityView(
-                        name=activity.name,
-                        area_or_address=activity.area_or_address,
-                        time_hint=activity.time_hint,
-                        note="可直接查看",
-                    )
-                    for activity in day.activities
-                    if activity.status == "READY"
-                ],
-            )
-            for day in result.days
-        ],
+        days=days,
         accommodation=accommodation,
+        warnings=warnings, unassigned_alternatives=unassigned, lodging_arrangements=lodgings,
     )
 
 
@@ -199,6 +267,7 @@ class MemoryShareRepository(Protocol):
         expires_in_days: int,
         signing_key: str,
         now: datetime,
+        supplementary=None,
     ) -> tuple[ShareCreatedView, bool]: ...
     async def list_shares(self, user_id: str, *, now: datetime) -> list[ShareListItemView]: ...
     async def revoke_share(self, share_ref: str, user_id: str, *, now: datetime) -> bool: ...
@@ -377,9 +446,10 @@ class PostgresMemoryShareRepositoryMixin:
         expires_in_days: int,
         signing_key: str,
         now: datetime,
+        supplementary=None,
     ) -> tuple[ShareCreatedView, bool]:
         key_hash = _sha256(idempotency_key)
-        projection = build_share_projection(result)
+        projection = build_share_projection(result, supplementary=supplementary)
         request_hash = _canonical_hash(
             {"expires_in_days": expires_in_days, "projection": projection.model_dump(mode="json")}
         )
@@ -392,12 +462,14 @@ class PostgresMemoryShareRepositoryMixin:
         expires_at = now + timedelta(days=expires_in_days)
         pool = await self._memory_share_pool()
         async with pool.acquire() as conn, conn.transaction():
-            owner_user_id = await conn.fetchval(
-                "SELECT owner_user_id FROM trip_understandings WHERE understanding_id = $1 FOR UPDATE",
+            owner = await conn.fetchrow(
+                "SELECT owner_user_id,current_result_id,deleted_at,source_expires_at FROM trip_understandings WHERE understanding_id = $1 FOR UPDATE",
                 resource.understanding_id,
             )
-            if owner_user_id != user_id:
+            if owner is None or owner["owner_user_id"] != user_id or owner["deleted_at"] is not None or owner["source_expires_at"] <= now:
                 raise ResourceAccessDeniedError("only the trip owner can share")
+            if owner["current_result_id"] != resource.current_result_id:
+                raise RevisionConflictError("trip changed before sharing")
             await conn.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
                 f"g06-share:{user_id}:{resource.understanding_id}:{key_hash}",
@@ -646,12 +718,15 @@ class InMemoryMemoryShareRepositoryMixin:
         expires_in_days: int,
         signing_key: str,
         now: datetime,
+        supplementary=None,
     ) -> tuple[ShareCreatedView, bool]:
         row = self.resources.get(resource.public_resource_id)
-        if row is None or row["owner_user_id"] != user_id:
+        if row is None or row["owner_user_id"] != user_id or row.get("deleted_at") is not None or row["expires_at"] <= now:
             raise ResourceAccessDeniedError("only the trip owner can share")
+        if row["current_result_id"] != resource.current_result_id:
+            raise RevisionConflictError("trip changed before sharing")
         key_hash = _sha256(idempotency_key)
-        projection = build_share_projection(result)
+        projection = build_share_projection(result, supplementary=supplementary)
         request_hash = _canonical_hash(
             {"expires_in_days": expires_in_days, "projection": projection.model_dump(mode="json")}
         )

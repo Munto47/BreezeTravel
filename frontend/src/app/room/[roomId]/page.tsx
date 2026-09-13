@@ -21,7 +21,6 @@ import BackupDrawer from '@/components/places/BackupDrawer'
 import GlassPanel from '@/components/ui/GlassPanel'
 import type { YjsPlace } from '@/types/room'
 import { parseSavedItinerary, type Itinerary } from '@/types/itinerary'
-import type { TripTaskSpec } from '@/types/taskSpec'
 import { parsePlaceFromAPI } from '@/types/place'
 
 const AMapContainer = dynamic(
@@ -134,7 +133,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   const tripDays = roomData.tripDays || 3
 
   // ── Yjs 协同 ───────────────────────────────────────────────────────────
-  const { places, members, isConnected, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(
+  const { places, members, isConnected, isSynced, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(
     roomId,
     userId,
     nickname,
@@ -202,7 +201,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   const [dbReady, setDbReady] = useState(false)
 
   useEffect(() => {
-    if (!roomData.loaded || dbLoadedRef.current) return
+    if (!roomData.loaded || !isSynced || dbLoadedRef.current) return
     dbLoadedRef.current = true
     ;(async () => {
       try {
@@ -215,8 +214,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         dbPlaces.forEach((raw) => {
           try {
             const place = parsePlaceFromAPI(raw)
-            if (!places.find(p => p.placeId === place.placeId)) {
-              addPlace(place as any)
+            if (addPlace(place)) {
               if (raw.room_selected === true) toggleVote(place.placeId)
             }
           } catch { /* 格式错误跳过 */ }
@@ -231,7 +229,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         toast('候选地点暂时无法从房间记录恢复，已暂停同步以保护原数据', 'warning')
       }
     })()
-  }, [roomData.loaded]) // eslint-disable-line
+  }, [roomData.loaded, isSynced]) // eslint-disable-line
 
   // ── 持久化：Yjs places 变化时同步到 DB（防抖 2s） ────────────────────
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -449,7 +447,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   const [autoInitFired, setAutoInitFired] = useState(false)
   useEffect(() => {
     if (!roomData.loaded || autoInitFired) return
-    if (!isConnected) return
+    if (!isConnected || !isSynced || !dbReady) return
     if (places.length > 0 || messages.length > 0 || isStreaming) return
     if (!tripCity || !threadId) return
     setAutoInitFired(true)
@@ -463,7 +461,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
 
 每个地点一句话特色描述。优先高评分、知名度高的，剩余可在用户追问时再补充。`
     sendMessage(prompt, [], tripCity)
-  }, [roomData.loaded, autoInitFired, isConnected, places.length, messages.length, isStreaming, tripCity, threadId, tripDays, storeDays, sendMessage])
+  }, [roomData.loaded, autoInitFired, isConnected, isSynced, dbReady, places.length, messages.length, isStreaming, tripCity, threadId, tripDays, storeDays, sendMessage])
 
   // AI 推荐地点自动加入工作台
   useEffect(() => {
@@ -487,43 +485,10 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
       toast('请先在候选地点中点击心形，至少选择 2 个地点再排线', 'warning')
       return
     }
-    const hasAttraction = selectedPlaces.some((p) => p.category === 'attraction')
-    const hasFood = selectedPlaces.some((p) => p.category === 'food')
-    const hasHotel = selectedPlaces.some((p) => p.category === 'hotel')
-    const missing: string[] = []
-    if (!hasAttraction) missing.push('景点（美景）')
-    if (!hasFood) missing.push('餐饮（美食）')
-    if (!hasHotel) missing.push('住宿（美梦）')
-    if (missing.length > 0) {
-      toast(`行程缺少：${missing.join('、')}，请在候选地点中补充选择`, 'warning')
-      return
-    }
     setIsPlanning(true)
     try {
-      const latestUserText = [...messages].reverse().find(message => message.role === 'user')?.content
-        || `${tripCity}${storeDays || tripDays}日游`
-      let parsedTaskSpec
-      try {
-        const parsed = await api.post<{
-          needs_clarification?: boolean
-          clarification_message?: string
-          task_spec?: TripTaskSpec
-        }>(`/api/room/${encodeURIComponent(roomId)}/task/parse`, {
-          text: latestUserText,
-          default_city: tripCity,
-          default_days: storeDays || tripDays,
-        })
-        if (parsed.needs_clarification) {
-          toast(parsed.clarification_message || '关键约束仍需确认，暂不生成可能误导的行程', 'warning')
-          return
-        }
-        parsedTaskSpec = parsed.task_spec
-      } catch {
-        toast('任务约束解析失败，未开始排线', 'error')
-        return
-      }
       setPhase('optimizing')
-      const optimized = await optimize(selectedPlaces, storeDays || tripDays, undefined, parsedTaskSpec)
+      const optimized = await optimize(selectedPlaces, storeDays || tripDays)
       if (!optimized) {
         setPhase('selecting')
         toast('路线暂不可用，候选地点仍已保留，可以稍后重试', 'error')

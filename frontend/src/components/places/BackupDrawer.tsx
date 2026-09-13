@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ArchiveRestore, MapPin, Clock } from 'lucide-react'
+import { X, ArchiveRestore, MapPin } from 'lucide-react'
 import type { Place } from '@/types/place'
 
 interface BackupDrawerProps {
@@ -16,13 +16,6 @@ const CATEGORY_ICON: Record<string, string> = {
   food: '🍜',
   hotel: '🏨',
   transport: '🚉',
-}
-
-function formatDuration(mins?: number): string {
-  if (!mins) return ''
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return h > 0 ? (m > 0 ? `${h}h${m}min` : `${h}h`) : `${m}min`
 }
 
 export default function BackupDrawer({ places, isOpen, onClose, onAddToTrip }: BackupDrawerProps) {
@@ -73,7 +66,7 @@ export default function BackupDrawer({ places, isOpen, onClose, onAddToTrip }: B
             {/* 说明文案 */}
             <div className="px-5 py-3 bg-amber-50 border-b border-amber-100">
               <p className="text-xs text-amber-700 leading-relaxed">
-                以下已选地点尚未排入时间表，仍会保存并转入行程查。可调整天数或地点后重新排线。
+                以下已选地点尚未排入每日路线，仍会保存并转入行程查。可调整天数或地点后重新排线。
               </p>
             </div>
 
@@ -112,11 +105,6 @@ export default function BackupDrawer({ places, isOpen, onClose, onAddToTrip }: B
                         {place.city && (
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" /> {place.city}
-                          </span>
-                        )}
-                        {place.estimatedDuration && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {formatDuration(place.estimatedDuration)}
                           </span>
                         )}
                       </div>

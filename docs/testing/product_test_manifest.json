@@ -123,7 +123,9 @@
         "tests/test_order_assessment_coverage.py",
         "tests/test_relative_route_context.py",
         "tests/test_relative_route_flow.py",
-        "tests/test_relative_route_api.py"
+        "tests/test_relative_route_api.py",
+        "tests/test_share_complete_content.py",
+        "tests/test_collaboration_relative_route.py"
       ]
     },
     "postgres": {
@@ -168,7 +170,8 @@
         "tests/test_named_meal_area_intent.py",
         "tests/test_source_meal_selection.py",
         "tests/test_dining_unavailable_store.py",
-        "tests/test_relative_route_flow.py"
+        "tests/test_relative_route_flow.py",
+        "tests/test_share_complete_content.py"
       ]
     },
     "browser-core": {
@@ -230,7 +233,9 @@
         "e2e/edit-history.spec.js",
         "e2e/named-meal-area.spec.js",
         "e2e/source-meal-selection.spec.js",
-        "e2e/relative-route-suggestions.spec.js"
+        "e2e/relative-route-suggestions.spec.js",
+        "e2e/share-complete-export.spec.js",
+        "e2e/collaboration-relative-local.spec.js"
       ]
     }
   }

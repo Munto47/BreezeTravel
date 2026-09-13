@@ -900,7 +900,7 @@ export default function TripResultPage() {
                   <ItineraryWorkspace
                     resource={trip.resource}
                     onRender={() => void trip.renderMap()}
-                    toolbar={<ItineraryPngExport result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
+                    toolbar={<ItineraryPngExport result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
                     pendingCounts={trip.unresolvedDays.map(day => day.activities.length)}
                     unresolvedDays={trip.unresolvedDays}

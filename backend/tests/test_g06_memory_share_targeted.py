@@ -167,6 +167,7 @@ def test_g06_share_fragment_exchange_minimal_projection_revoke_and_owner_checks(
     assert set(shared.json()) == {
         "title", "destination", "schedule", "party_size", "days",
         "accommodation", "message",
+        "warnings", "unassigned_alternatives", "lodging_arrangements",
     }
     serialized = json.dumps(shared.json(), ensure_ascii=False)
     for forbidden in (

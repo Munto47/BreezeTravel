@@ -256,6 +256,7 @@ export function useTripExperience() {
       setPreviewStale(true)
     if (current.current.etag && current.current.etag !== value) {
       clearPendingLodgings()
+      setSupplementary(sourceDeletedRef.current ? {status: 'DELETED', days: []} : null)
       invalidateEnhancements()
       mapState.current = null
       stayState.current = null
@@ -477,17 +478,19 @@ export function useTripExperience() {
   )
 
   const loadSupplementary = useCallback(async () => {
-    const { resource: reference, generation } = current.current
-    const epoch = pendingLodgingEpoch.current
+    const { resource: reference, generation, etag: tag } = current.current
     if (!reference || sourceDeletedRef.current) return
+    const valid = () => generation === current.current.generation &&
+      reference === current.current.resource && tag === current.current.etag &&
+      alive.current && !sourceDeletedRef.current
     try {
       const next = await bounded((signal) =>
         api.readTripSupplementary(reference, signal),
       )
-      if (generation === current.current.generation && alive.current && !sourceDeletedRef.current && epoch === pendingLodgingEpoch.current)
+      if (valid())
         setSupplementary(next)
     } catch {
-      if (generation === current.current.generation && alive.current && !sourceDeletedRef.current && epoch === pendingLodgingEpoch.current)
+      if (valid())
         setSupplementary({ status: 'UNAVAILABLE', days: [] })
     }
   }, [])
@@ -794,7 +797,6 @@ export function useTripExperience() {
       })
     const finalizeReady = () => {
       void readMapAndStay()
-      void loadSupplementary()
       if (!sessionStorage.getItem(PENDING_KEY)) void prepareChecks()
       if (!sessionStorage.getItem(PENDING_KEY)) setWriteStatus('CONFIRMED')
     }
@@ -1082,6 +1084,13 @@ export function useTripExperience() {
   ])
 
   useEffect(() => {
+    // Read only the supplementary view for the current saved version. A write
+    // must not leave export waiting on a response that belongs to the old ETag.
+    if (resource && etag && resource === current.current.resource && etag === current.current.etag)
+      void loadSupplementary()
+  }, [resource, etag, retry, loadSupplementary])
+
+  useEffect(() => {
     const followAddress = () => setRetry((value) => value + 1)
     window.addEventListener('hashchange', followAddress)
     return () => window.removeEventListener('hashchange', followAddress)
@@ -1238,7 +1247,6 @@ export function useTripExperience() {
       }
       setNotice('已停止继续核对地点，当前卡片可以编辑。')
       void readMapAndStay()
-      void loadSupplementary()
       void prepareChecks()
       setWriteStatus('CONFIRMED')
       return true

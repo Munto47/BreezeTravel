@@ -102,10 +102,11 @@ interface UseYjsRoomReturn {
   members: RoomMember[]
   phase: RoomPhase
   isConnected: boolean
+  isSynced: boolean
   chatMessages: ChatMessage[]
 
   // 操作方法
-  addPlace: (place: Place) => void
+  addPlace: (place: Place) => boolean
   removePlace: (placeId: string) => void
   toggleVote: (placeId: string) => void
   updateNote: (placeId: string, note: string) => void
@@ -127,6 +128,7 @@ export function useYjsRoom(
   const [members, setMembers] = useState<RoomMember[]>([])
   const [phase, setPhaseState] = useState<RoomPhase>('exploring')
   const [isConnected, setIsConnected] = useState(false)
+  const [isSynced, setIsSynced] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
   useEffect(() => {
@@ -158,6 +160,7 @@ export function useYjsRoom(
       provider = null
       providerRef.current = null
       setIsConnected(false)
+      setIsSynced(false)
       setMembers([])
     }
     const scheduleRefresh = (delayMs: number) => {
@@ -224,6 +227,7 @@ export function useYjsRoom(
             connectionTimer = null
           }
         })
+        provider.on('sync', (synced: boolean) => setIsSynced(synced))
         // Awareness is intentionally connection-only; it cannot assert account identity.
         provider.awareness.setLocalStateField('connection', { active: true })
         setMembers([])
@@ -297,8 +301,10 @@ export function useYjsRoom(
   /** 添加地点到协同工作台 */
   const addPlace = useCallback((place: Place) => {
     const doc = docRef.current
-    if (!doc) return
+    if (!doc) return false
     const placesMap = doc.getMap<YjsPlace>('places')
+    // Restoring an older DB snapshot must never clear a newer shared selection.
+    if (placesMap.has(place.placeId)) return false
     const yjsPlace: YjsPlace = {
       ...place,
       votedBy: [],      // AI 推荐进候选池，用户主动点心形才算"想去"
@@ -310,6 +316,7 @@ export function useYjsRoom(
     doc.transact(() => {
       placesMap.set(place.placeId, yjsPlace)
     })
+    return true
   }, [])
 
   /** 从协同工作台移除地点 */
@@ -368,6 +375,7 @@ export function useYjsRoom(
     members,
     phase,
     isConnected,
+    isSynced,
     chatMessages,
     addPlace,
     removePlace,

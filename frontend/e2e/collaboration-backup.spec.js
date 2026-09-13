@@ -44,7 +44,7 @@ for (const width of [1440, 390]) test(`saved unscheduled selection remains visib
   await page.goto('/room/BACKUP42')
   const drawer = page.getByRole('region', {name: '尚未排入的地点'})
   await expect(drawer).toContainText('颐和园')
-  await expect(drawer).toContainText('尚未排入时间表')
+  await expect(drawer).toContainText('尚未排入每日路线')
   // A preserved selection must not offer an action that toggles it off.
   await expect(drawer.getByRole('button', {name: '加入行程'})).toHaveCount(0)
   await page.getByLabel('关闭未排入地点').click()
@@ -59,9 +59,14 @@ for (const width of [1440, 390]) test(`saved unscheduled selection remains visib
 })
 
 test('old saved route without a backup field remains readable', async ({page}) => {
+  await page.setViewportSize({width:1440,height:900})
   const writes = await setup(page, savedRoute(false))
   await page.goto('/room/BACKUP42')
   await expect(page.getByRole('button', {name: '转入行程查', exact: true})).toBeEnabled()
   await expect(page.getByTestId('collaboration-unassigned')).toHaveCount(0)
+  // The old clock fields remain readable data, but September scope displays relative order.
+  const route = page.locator('[data-testid="collaboration-relative-itinerary"]:visible')
+  await expect(route).toContainText('第 1 站')
+  await expect(route).not.toContainText(/18:00|19:00/)
   expect(writes()).toBe(0)
 })

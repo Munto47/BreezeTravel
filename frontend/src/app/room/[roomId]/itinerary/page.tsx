@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Route, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
 
 import type { Itinerary, DayPlan, TimeSlot } from '@/types/itinerary'
 import { parseSavedItinerary } from '@/types/itinerary'
@@ -30,7 +30,7 @@ function getWeatherIcon(condition: string): string {
   return '🌤️'
 }
 
-function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean; dayColor: string }) {
+function SlotCard({ slot, position, isLast, dayColor }: { slot: TimeSlot; position: number; isLast: boolean; dayColor: string }) {
   const icon = CATEGORY_ICON[slot.place.category] ?? '📍'
   const label = CATEGORY_LABEL[slot.place.category] ?? slot.place.category
   const hasPhoto = slot.place.amapPhotos && slot.place.amapPhotos.length > 0
@@ -69,8 +69,7 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
               {/* 时间 + 标签 */}
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] font-mono text-gray-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {slot.startTime} – {slot.endTime}
+                  第 {position + 1} 站
                 </span>
                 <span
                   className="text-[10px] font-medium px-2 py-0.5 rounded-full"
@@ -149,9 +148,6 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
 
 function DaySection({ day, index }: { day: DayPlan; index: number }) {
   const dayColor = CLUSTER_COLORS[index % CLUSTER_COLORS.length]
-  const dateLabel = day.date
-    ? new Date(day.date).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
-    : null
 
   return (
     <motion.section
@@ -170,7 +166,6 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
         </div>
         <div>
           <p className="font-bold text-gray-900 text-sm">第 {day.dayIndex + 1} 天</p>
-          {dateLabel && <p className="text-xs text-gray-400">{dateLabel}</p>}
         </div>
         <span className="text-xs text-gray-300 ml-1">{day.slots.length} 个地点</span>
 
@@ -193,6 +188,7 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
           <SlotCard
             key={slot.placeId}
             slot={slot}
+            position={idx}
             isLast={idx === day.slots.length - 1}
             dayColor={dayColor}
           />
@@ -366,7 +362,7 @@ export default function ItineraryPage() {
             ))}
 
             <p className="text-center text-[11px] text-gray-300 mt-4">
-              由 BreezeTravel AI 生成 · {new Date(itinerary.generatedAt).toLocaleString('zh-CN')}
+              已保存的分日和先后安排 · 地点及路线可转入行程查后核验
             </p>
           </>
         )}

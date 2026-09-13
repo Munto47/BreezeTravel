@@ -41,11 +41,12 @@ class OptimizeRequest(BaseModel):
     planning_input_hash: Optional[str] = None
     workspace_id: Optional[str] = None
     persist_workspace: bool = False
+    relative_only: bool = False
 
 
 class OptimizeResponse(BaseModel):
     itinerary: Itinerary
-    total_distance_km: float
+    total_distance_km: Optional[float]
     optimization_method: str = "kmeans_tsp"
     duration_ms: int
     backup_pool: list[Place] = []        # 因时间/体力不足被移出行程的备选地点（A7）
@@ -87,8 +88,8 @@ class ExperiencePlaceView(BaseModel):
 class ExperienceTimeSlotView(BaseModel):
     place_id: str
     place: ExperiencePlaceView
-    start_time: str
-    end_time: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     transport: Optional[TransportLeg] = None
     tips: list[str] = Field(default_factory=list)
 

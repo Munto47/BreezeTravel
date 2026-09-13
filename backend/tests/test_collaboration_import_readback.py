@@ -85,8 +85,9 @@ async def test_all_selected_places_survive_worker_save_edit_undo_and_private_sou
             return resource, stored
 
         resource, original = await read_expected(["故宫博物院", "景山公园"])
-        assert [(card.start_time, card.end_time) for card in original.result.days[0].activities] == [("09:00", "11:00"), ("13:30", "15:00")]
-        assert all(card.timing_source == "SUGGESTED" and not card.locked and not card.fixed_commitment
+        # September relative-only scope: legacy saved clocks no longer become new visit constraints.
+        assert [(card.start_time, card.end_time) for card in original.result.days[0].activities] == [(None, None), (None, None)]
+        assert all(card.timing_source == "UNSPECIFIED" and not card.locked and not card.fixed_commitment
                    for card in original.result.days[0].activities)
         assert (await repository.get_source_view(resource, now=now)).text == prepared.source_text
         with pytest.raises(ResourceAccessDeniedError):

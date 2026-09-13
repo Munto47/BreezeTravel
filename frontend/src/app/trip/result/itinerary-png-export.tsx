@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Download, Image as ImageIcon, X } from 'lucide-react'
 
-import type { MapRenderView, UserFacingTripResult } from '@/lib/trip-understanding-v3'
+import type { MapRenderView, TripSupplementaryView, UserFacingTripResult } from '@/lib/trip-understanding-v3'
+import type {SourceLodgingCard} from '@/lib/confirmed-trip-view'
 import AccessibleDialog from './accessible-dialog'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import { DAY_COLORS, transportConnectorFor, distanceLabel, relativeDayLabel } from './result-presentation'
@@ -79,6 +80,8 @@ async function renderItinerary(
   mapView: MapRenderView | null,
   unresolvedDays: UserFacingTripResult['days'],
   sourceMealDescriptions?: string[][],
+  supplementary?: TripSupplementaryView | null,
+  sourceLodgings: SourceLodgingCard[] = [],
 ) {
   if ('fonts' in document) await document.fonts.ready
   const leftWidth = 140
@@ -114,6 +117,13 @@ async function renderItinerary(
         lines.push(...wrapText(context, `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false})))
       })
     }
+    const pendingDetails = (unresolvedDays[dayIndex]?.activities || []).filter(card => card.source_details?.length)
+    if (pendingDetails.length) lines.push({text: '待确认地点的原文安排 · 不作为已核验主线', heading: true})
+    for (const parent of pendingDetails) {
+      lines.push(...wrapText(context, `${parent.name}（地点待确认）：`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: true})))
+      parent.source_details?.forEach((detail, index) => lines.push(...wrapText(context,
+        `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`, width - padding * 2 - leftWidth - 32).map(text => ({text, heading: false}))))
+    }
     const meals = sourceMealDescriptions?.[dayIndex] ?? sourceMeals(day)
     if (meals.length) {
       lines.push({text: '原文用餐安排', heading: true})
@@ -140,7 +150,28 @@ async function renderItinerary(
     return lines
   })
   const sourceHeights = sourceLines.map(lines => lines.length ? lines.length * 24 + 32 : 0)
-  const height = headerHeight + dayLayouts.reduce((sum, layout, index) => sum + layout.height + 30 + (dayMessages[index] ? 32 : 0) + sourceHeights[index], 0) + 64
+  const appendixLines: Array<{text: string; heading: boolean}> = []
+  const append = (value: string, heading = false) => appendixLines.push(...wrapText(context, value, width - padding * 2 - 32).map(text => ({text, heading})))
+  const unassigned = supplementary?.status === 'AVAILABLE' ? supplementary.days.filter(day => day.day_index == null).flatMap(day => day.items.filter(item => item.role === 'OPTIONAL')) : []
+  if (unassigned.length) {
+    append('未指定日期 · 原文备选，尚未排入任何一天', true)
+    unassigned.forEach(item => append(item.name))
+  }
+  if (supplementary && supplementary.status !== 'AVAILABLE') append('原文补充安排已删除或暂不可读取；这里只保留当前结构化结果。')
+  // The page's sourceLodgings contains confirmed hotels only. The authoritative
+  // constraints also carry unconfirmed hotels and their explicit night scope.
+  const exportLodgings = [...new Map([...sourceLodgings, ...(result.lodging_constraints || [])]
+    .map(lodging => [lodging.activity_token, lodging])).values()]
+  if (exportLodgings.length) {
+    append('原文住宿安排', true)
+    exportLodgings.forEach(lodging => {
+      const nights = lodging.overnight_days?.length ? `第${lodging.overnight_days.join('、')}晚` : '全程住宿安排，具体夜晚未列明'
+      append(`${lodging.name} · ${nights} · ${lodging.status === 'READY' ? '已确认' : '地点待确认'}`)
+      lodging.source_details?.forEach(detail => append(`${detail.name}${detail.optional ? '（备选）' : ''}`))
+    })
+  }
+  const appendixHeight = appendixLines.length ? appendixLines.length * 24 + 40 : 0
+  const height = headerHeight + dayLayouts.reduce((sum, layout, index) => sum + layout.height + 30 + (dayMessages[index] ? 32 : 0) + sourceHeights[index], 0) + appendixHeight + 64
   canvas.height = height
 
   const gradient = context.createLinearGradient(0, 0, width, height)
@@ -268,6 +299,18 @@ async function renderItinerary(
     dayY += dayHeight
   })
 
+  if (appendixLines.length) {
+    context.fillStyle = 'rgba(255,255,255,0.88)'
+    context.beginPath()
+    context.roundRect(padding, dayY, width - padding * 2, appendixHeight, 20)
+    context.fill()
+    appendixLines.forEach((line, index) => {
+      context.font = `${line.heading ? '600' : '400'} 14px "Microsoft YaHei", sans-serif`
+      context.fillStyle = line.heading ? '#0c789d' : '#425c66'
+      context.fillText(line.text, padding + 16, dayY + 28 + index * 24)
+    })
+  }
+
   context.fillStyle = '#607984'
   context.font = '400 12px "Microsoft YaHei", sans-serif'
   context.fillText('地点状态见各卡片；原文备选与方案另列。路线时效与参观条件需另行核对。', padding, height - 30)
@@ -290,6 +333,8 @@ export default function ItineraryPngExport({
   disabled,
   unresolvedDays = [],
   sourceMealDescriptions,
+  supplementary,
+  sourceLodgings = [],
 }: {
   result: UserFacingTripResult
   mapView: MapRenderView | null
@@ -297,6 +342,8 @@ export default function ItineraryPngExport({
   disabled: boolean
   unresolvedDays?: UserFacingTripResult['days']
   sourceMealDescriptions?: string[][]
+  supplementary?: TripSupplementaryView | null
+  sourceLodgings?: SourceLodgingCard[]
 }) {
   const currentEtag = useRef(etag)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -314,7 +361,8 @@ export default function ItineraryPngExport({
     setBusy(true)
     setError('')
     try {
-      const canvas = await renderItinerary(result, mapView, unresolvedDays, sourceMealDescriptions)
+      if (supplementary === null) throw new Error('SUPPLEMENTARY_NOT_READY')
+      const canvas = await renderItinerary(result, mapView, unresolvedDays, sourceMealDescriptions, supplementary, sourceLodgings)
       if (startingEtag !== currentEtag.current) throw new Error('ITINERARY_CHANGED')
       const blob = await canvasBlob(canvas)
       if (startingEtag !== currentEtag.current) throw new Error('ITINERARY_CHANGED')
@@ -326,7 +374,8 @@ export default function ItineraryPngExport({
       setError(
         reason instanceof Error && reason.message === 'ITINERARY_CHANGED'
           ? '生成期间行程已经更新，请重新生成。'
-          : '暂时无法生成图片，请稍后重试。',
+          : reason instanceof Error && reason.message === 'SUPPLEMENTARY_NOT_READY'
+            ? '补充安排尚未读取，请稍后再导出。' : '暂时无法生成图片，请稍后重试。',
       )
     } finally {
       setBusy(false)
@@ -347,12 +396,12 @@ export default function ItineraryPngExport({
         data-testid="export-itinerary-png"
         ref={triggerRef}
         type="button"
-        disabled={disabled || busy}
+        disabled={disabled || busy || supplementary === null}
         onClick={() => void createPreview()}
         className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#0c789d]/20 bg-white px-4 text-sm font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50"
       >
         <ImageIcon className="h-4 w-4" aria-hidden="true" />
-        {busy ? '正在生成…' : '导出图片'}
+        {busy ? '正在生成…' : supplementary === null ? '正在读取安排…' : '导出图片'}
       </button>
       {error && <p className="mt-2 text-sm text-amber-800" role="alert">{error}</p>}
       {previewUrl && (

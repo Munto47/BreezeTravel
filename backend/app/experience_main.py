@@ -226,7 +226,10 @@ def create_app() -> FastAPI:
         # Without a per-leg receipt neither may be advertised as a verified route.
         for day in public_itinerary["days"]:
             for slot in day["slots"]:
-                slot["transport"] = None
+                leg = slot.get("transport")
+                if not (request.relative_only and leg and leg.get("status") == "AVAILABLE"
+                        and leg.get("duration_mins", 0) > 0 and leg.get("distance_km", 0) > 0):
+                    slot["transport"] = None
         return ExperienceOptimizeResponse(
             itinerary=public_itinerary,
             backup_pool=[place.model_dump(mode="json") for place in result.backup_pool],
