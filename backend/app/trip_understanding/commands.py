@@ -76,7 +76,7 @@ def refresh_meal_slot_tokens(days: list[TripDayView], token_map: dict[str, str])
                 setattr(slot, field, refreshed if refreshed in cards else None)
             if slot.selection_status == "SELECTED":
                 selected = cards.get(slot.selected_activity_token)
-                if selected is None or selected.category != "餐饮" or selected.meal_role != slot.meal_role:
+                if selected is None or selected.category != "餐饮" or selected.meal_role != (None if slot.meal_role == "UNSPECIFIED" else slot.meal_role):
                     slot.selected_activity_token = None
                     slot.selection_status = "UNSELECTED"
 
@@ -297,7 +297,21 @@ def apply_public_command(
         day = result.days[day_index]
         lunch_gap = None
         selected_slot = None
-        if command.meal_role == "LUNCH":
+        selected_role = command.meal_role
+        if command.meal_slot is not None:
+            from app.trip_understanding.dining import SourceMealPosition, source_meal_context
+            if len(result_cards(result)) >= MAX_TRIP_ACTIVITIES:
+                raise CommandTargetChangedError("source meal insertion exceeds trip capacity")
+            if dining_plan is None or command.meal_slot.day_index != day_index + 1 or command.meal_slot.slot_index >= len(day.meal_slots):
+                raise CommandTargetChangedError("source meal target changed")
+            slot = day.meal_slots[command.meal_slot.slot_index]
+            position_choice = SourceMealPosition(activity_token=command.after_activity_token, insert_before=command.insert_before) if not slot.after_activity_token and not slot.before_activity_token else None
+            context = source_meal_context(result, dining_plan, command.meal_slot, position_choice)
+            if (context.status != "AVAILABLE" or context.after_activity_token != command.after_activity_token
+                    or context.insert_before != command.insert_before or context.meal_role != command.meal_role):
+                raise CommandTargetChangedError("source meal position or role changed")
+            selected_slot, selected_role = slot, context.meal_role
+        elif command.meal_role == "LUNCH":
             from app.trip_understanding.daily_dining import meal_context
 
             meal, _, _ = meal_context(day, [])
@@ -324,7 +338,7 @@ def apply_public_command(
             raise CommandTargetChangedError("dining place is already in this day")
         values = dict(activity_token=token_factory(), name=confirmed_place.name,
             category="餐饮", area_or_address=confirmed_place.area_or_address, city=confirmed_place.city,
-            meal_role=command.meal_role, photo_url=None, knowledge_suggestions=[],
+            meal_role=selected_role, photo_url=confirmed_place.dining_info.photo_url if confirmed_place.dining_info else None, knowledge_suggestions=[],
             status="READY", available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"])
         if lunch_gap:
             filled_gap_token = lunch_gap.activity_token

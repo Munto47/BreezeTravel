@@ -210,7 +210,7 @@ export type TripUnderstandingCommand =
   | { command_type: 'CHOICE_CLEAR'; day_index: number; choice_group_token: string; preserve_activities?: boolean }
   | { command_type: 'CHOICE_SELECT'; day_index: number; choice_group_token: string; branch_token: string; position?: number }
   | { command_type: 'LODGING_RECOVER'; pending_token: string; candidate_token: string; intent: LodgingRecoveryIntent }
-  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK' }
+  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK'; meal_slot?:SourceMealRef }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
       changes: Array<{
@@ -888,6 +888,34 @@ export interface DiningCandidatesView {
   status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'NEEDS_CONFIRMATION'
   message: string
   candidates: Array<PlaceCandidateView & { reason: string }>
+}
+
+export interface SourceMealRef {day_index: number; slot_index: number}
+export interface DiningPOIInfo {
+  photo_url?: string | null; cuisine?: string | null; tags: string[]
+  rating?: number | null; cost?: number | null; source: 'AMAP_POI_V2'; observed_at: string
+}
+export interface SourceMealCandidatesView {
+  status: 'AVAILABLE'|'EMPTY'|'UNAVAILABLE'|'NEEDS_CONFIRMATION'|'POSITION_REQUIRED'|'EXISTING'|'NEEDS_REVIEW'
+  message: string; meal_slot: SourceMealRef; preference_text?: string | null
+  meal_role?: 'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK'|null
+  after_activity_token?:string|null; insert_before:boolean; anchor_name?:string|null
+  pending_activity_tokens:string[]
+  candidates:Array<PlaceCandidateView & {reason:string;dining_info?:DiningPOIInfo|null}>
+}
+export async function querySourceMealCandidates(resource: string, etag: string,
+  body: {meal_slot:SourceMealRef; query:string;position?:{activity_token:string;insert_before:boolean}}, signal:AbortSignal,
+): Promise<SourceMealCandidatesView> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/source-meal-candidates`, {
+    method:'POST', credentials:'include', cache:'no-store', signal,
+    headers:{...authorizationHeaders(),'Content-Type':'application/json','If-Match':etag}, body:JSON.stringify(body),
+  })
+  if (response.status === 409) throw new Error('SOURCE_MEAL_VERSION_CHANGED')
+  if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+  if (response.status === 404 || response.status === 410) throw new Error('TRIP_GONE')
+  if (!response.ok) throw new Error('SOURCE_MEAL_UNAVAILABLE')
+  if (response.headers.get('ETag') !== etag) throw new Error('SOURCE_MEAL_VERSION_CHANGED')
+  return response.json() as Promise<SourceMealCandidatesView>
 }
 
 export interface DailyMealView {

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.config import get_settings
 from app.constraints.amap_types import classify_amap_type_signals
@@ -19,7 +19,7 @@ from app.trip_understanding.amap_place import (
     _visitor_type_compatible,
 )
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
-from app.trip_understanding.models import StrictModel, LodgingRecoveryIntent
+from app.trip_understanding.models import StrictModel, LodgingRecoveryIntent, safe_poi_photo_url
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.city_knowledge import get_city_knowledge
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
@@ -44,6 +44,21 @@ class GCJ02Position(StrictModel):
     coordinate_system: Literal["GCJ02"] = "GCJ02"
 
 
+class DiningPOIInfo(StrictModel):
+    photo_url: str | None = None
+    cuisine: str | None = Field(default=None, max_length=60)
+    tags: list[str] = Field(default_factory=list, max_length=12)
+    rating: float | None = Field(default=None, gt=0, le=5, allow_inf_nan=False)
+    cost: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    source: Literal["AMAP_POI_V2"] = "AMAP_POI_V2"
+    observed_at: datetime
+
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def safe_photo(cls, value):
+        return safe_poi_photo_url(value)
+
+
 class CandidatePlace(StrictModel):
     canonical_place_id: str
     city: str
@@ -52,6 +67,7 @@ class CandidatePlace(StrictModel):
     area_or_address: str
     position: GCJ02Position
     business_area: str | None = None
+    dining_info: DiningPOIInfo | None = None
 
     def receipt(self) -> dict:
         return {"status": "USER_CONFIRMED", "provider": "AMAP_POI_V2",
@@ -66,6 +82,7 @@ class PublicPlaceCandidate(StrictModel):
     area_or_address: str
     position: GCJ02Position
     business_area: str | None = None
+    dining_info: DiningPOIInfo | None = None
 
 
 class CandidateSearchView(StrictModel):
@@ -85,7 +102,7 @@ def issue_candidate(place: CandidatePlace, *, public_resource_id: str, activity_
     if expires_at is not None:
         expiry = min(expiry, expires_at)
     body = {"resource": public_resource_id, "activity": activity_token, "etag": expected_etag,
-            "expires": expiry.timestamp(), "place": place.model_dump()}
+            "expires": expiry.timestamp(), "place": place.model_dump(mode="json")}
     token = _cipher().encrypt(json.dumps(body, ensure_ascii=False).encode()).decode()
     return PublicPlaceCandidate(candidate_token=token, **place.model_dump(exclude={"canonical_place_id", "city"}))
 

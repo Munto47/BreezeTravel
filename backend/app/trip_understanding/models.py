@@ -346,7 +346,7 @@ class TripDayView(StrictModel):
             if slot.selection_status != "SELECTED":
                 continue
             selected = cards.get(slot.selected_activity_token)
-            if (selected is None or selected.category != "餐饮" or selected.meal_role != slot.meal_role
+            if (selected is None or selected.category != "餐饮" or selected.meal_role != (None if slot.meal_role == "UNSPECIFIED" else slot.meal_role)
                     or slot.selected_activity_token in selected_tokens):
                 raise ValueError("selected meal must reference this day's matching restaurant")
             selected_tokens.add(slot.selected_activity_token)
@@ -894,12 +894,18 @@ class RedoCommand(StrictModel):
     command_type: Literal["REDO"]
 
 
+class SourceMealRef(StrictModel):
+    day_index: int = Field(ge=1, le=14, strict=True)
+    slot_index: int = Field(ge=0, strict=True)
+
+
 class DiningInsertCommand(StrictModel):
     command_type: Literal["DINING_INSERT"]
     after_activity_token: str = Field(min_length=20, max_length=80)
     insert_before: bool = False
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
-    candidate_token: str = Field(min_length=40, max_length=6000)
+    meal_slot: SourceMealRef | None = None
+    candidate_token: str = Field(min_length=40, max_length=8192)
 
 
 TripUnderstandingCommand = Annotated[

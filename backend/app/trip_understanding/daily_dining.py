@@ -252,7 +252,7 @@ async def build_daily_meals(result, plan, *, search=search_dining, routes=None, 
                     first, second = await duration(anchor, meal), await duration(meal, next_stop)
                     if first is not None and second is not None:
                         extra = max(0, first + second - baseline)
-                ranked.append({"place": place.model_dump(), "extra_minutes": extra,
+                ranked.append({"place": place.model_dump(mode="json"), "extra_minutes": extra,
                     "reason": f"经此店前往下一站约多{extra}分钟；营业情况请到店前确认。" if extra is not None
                     else f"在{anchor.name}附近；绕路时间及营业情况尚未确认。"})
             ranked.sort(key=lambda r: (r["extra_minutes"] is None, r["extra_minutes"] or 0, r["place"]["name"]))

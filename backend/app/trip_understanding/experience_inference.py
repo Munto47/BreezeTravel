@@ -2136,7 +2136,9 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
                 # description/URL as a real place or sending it to POI search.
                 place = None
                 unprocessed += 1
-        source_meal_activity = item.category == "餐饮"
+        # Area identity and meal intent are independent. A supplied meal hint
+        # still has to pass the same local source/action/negation checks below.
+        source_meal_activity = item.category == "餐饮" or item.meal_role is not None
         if place and item.category == "餐饮" and re.search(r"(?:步行街|胡同|路|街|巷|街区|滨江|商圈|周边)$", place):
             item = item.model_copy(update={"category": "地点"})
         if item.category == "餐饮" and draft.destination.strip().removesuffix("市") == "北京" and place in {"大栅栏", "前门大栅栏"}:

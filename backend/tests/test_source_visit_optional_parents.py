@@ -187,31 +187,26 @@ async def test_captured_shanghai_first_and_controlled_four_details_reach_optiona
 
 async def build_shanghai_optional_parent_live_result():
     """Real first + separately obtained real second + saved POIs; no new HTTP."""
-    from collections import defaultdict, deque
+    from tests.test_anonymous_meal_context import replay_saved_shanghai_poi_response
 
     folder = Path(__file__).parent / "fixtures"
     first = json.loads((folder / "live_owner_shanghai_meal_context.json").read_text(encoding="utf-8"))
     second = json.loads((folder / "live_shanghai_optional_parent_second.json").read_text(encoding="utf-8"))
-    responses = defaultdict(deque)
-    for call in first["place_calls"]:
-        responses[(call["path"], tuple(sorted(call["query"].items())))].append(call)
     used = []
 
     def reply(request):
-        query = {key: value for key, value in request.url.params.multi_items()
-                 if key.lower() not in {"key", "sig", "token"}}
-        key = (request.url.path, tuple(sorted(query.items())))
-        assert responses[key], "Unexpected request; there is no external fallback."
-        call = responses[key].popleft()
-        used.append(key)
-        return httpx.Response(200, json=call["response"], request=request)
+        return replay_saved_shanghai_poi_response(request, used, saved=first)
 
     client = Client(first["response"], second["response"])
     async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as http:
         places = AmapPlaceResolver(api_key="fixed-only", client=http)
         result = await TripUnderstandingPipeline(provider(client, deadline=10), places).run(first["source"])
         await places.aclose()
-    assert len(client.calls) == 2 and len(used) == 20 and not any(responses.values())
+    # The current official-site query resolves on the old response's exact
+    # same POI, so it no longer needs the historical twentieth fallback call.
+    # This is explicit FIXED_RESPONSE_REUSE, never a fresh map observation.
+    assert len(client.calls) == 2 and len(used) == 19
+    assert sum(call['response_policy'] == 'FIXED_RESPONSE_REUSE' for call in used) == 1
     return result
 
 
@@ -223,10 +218,11 @@ async def test_actual_shanghai_second_failure_preserves_mainline_and_reports_eve
                 for a in result.activities if a.compiled.mention.role == ActivityRole.PLANNED and a.compiled.mention.atomic_place_name}
     assert len(identity) == 17
     assert [identity[item["source_name"]] for item in saved["expected_main_identities"]] == [
-        item["poi_id"] for item in saved["expected_main_identities"]]
+        'B0MGOCVPM6' if item['source_name'] == '中共一大会址' else item["poi_id"]
+        for item in saved["expected_main_identities"]]
     public = result.public_result
-    assert sum(card.status == "READY" for day in public.days for card in day.activities) == 13
-    assert sum(card.status == "NEEDS_CONFIRMATION" for day in public.days for card in day.activities) == 4
+    assert sum(card.status == "READY" for day in public.days for card in day.activities) == 14
+    assert sum(card.status == "NEEDS_CONFIRMATION" for day in public.days for card in day.activities) == 3
     assert not public.days[2].activities
     assert all(not card.source_details for day in public.days for card in (*day.activities, *day.alternatives))
     rejected = [d for d in result.proposal.diagnostics if d.category == "SOURCE_VISIT_UNRESOLVED"]

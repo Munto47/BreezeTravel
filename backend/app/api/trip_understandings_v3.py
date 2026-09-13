@@ -19,6 +19,7 @@ from app.trip_understanding.candidates import CandidateSearchRequest, PendingLod
 from app.trip_understanding.lodging_recovery import confirmed_single_destination, recovery_binding, result_cards, validate_recovery_target
 from app.trip_understanding.dining import (
     DiningSearchRequest, DiningCandidatesView, DiningCandidateView, dining_binding, search_dining, valid_anchor,
+    SourceMealSearchRequest, SourceMealCandidatesView, source_meal_context, source_meal_binding,
 )
 from app.trip_understanding.daily_dining import DailyDiningView
 from app.trip_understanding.dining_jobs import read_daily_dining
@@ -448,6 +449,47 @@ async def find_dining_candidates(
         reason=f"在{anchor.name}附近；营业情况请到店前确认。") for place in places[:3]]
     return DiningCandidatesView(status="AVAILABLE" if candidates else "EMPTY",
         message="附近餐饮" if candidates else "暂未找到合适的附近餐饮，可换一站再看看。", candidates=candidates)
+
+
+@router.post("/{public_resource_id}/source-meal-candidates", response_model=SourceMealCandidatesView)
+async def find_source_meal_candidates(public_resource_id: str, body: SourceMealSearchRequest,
+    request: Request, response: Response, repository: RepositoryDep, current_user: OptionalUserDep,
+    search=Depends(get_dining_candidate_search)):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    expected = _require_if_match(request.headers.get("If-Match"))
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        plan, etag = await repository.get_current_place_plan(resource)
+        if etag != expected:
+            raise RevisionConflictError("source meal version changed")
+        trip = await repository.load_recommendation_trip_view(resource.understanding_id, plan.plan_ref.revision)
+        if trip.etag != expected:
+            raise RevisionConflictError("source meal version changed")
+        view = source_meal_context(trip.result, trip.plan, body.meal_slot, body.position)
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
+    except RevisionConflictError:
+        raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后重新查找。"}) from None
+    except CommandTargetChangedError:
+        raise HTTPException(status_code=422, detail={"code": "MEAL_TARGET_CHANGED", "message": "这餐的位置已变化，请重新打开餐位。"}) from None
+    response.headers["ETag"] = f'"{etag}"'
+    if view.status != "AVAILABLE":
+        return view
+    selected = next(stop for stop in plan.stops if stop.activity_token == view.after_activity_token)
+    excluded = {stop.canonical_place_id for stop in plan.stops if stop.day_index == body.meal_slot.day_index and stop.canonical_place_id}
+    places = await search(anchor=selected, excluded_ids=excluded, meal_only=view.meal_role != "SNACK", query=body.query.strip())
+    if places is None:
+        return view.model_copy(update={"status": "UNAVAILABLE", "message": "餐厅暂时无法查询，原文安排已保留，可以稍后重试。"})
+    now = datetime.now(timezone.utc)
+    view.candidates = [DiningCandidateView(**issue_candidate(place, public_resource_id=public_resource_id,
+        activity_token=source_meal_binding(view.after_activity_token, before=view.insert_before,
+            meal_slot=body.meal_slot, meal_role=view.meal_role), expected_etag=etag, now=now,
+        expires_at=resource.expires_at).model_dump(), reason="按你的手动搜索词找到的附近门店；菜品供应、营业与绕路情况仍需确认。") for place in places[:3]]
+    if not view.candidates:
+        view.status, view.message = "EMPTY", "附近未找到名称或供应商标签与搜索词对应的门店，可以换一个词；没有改选其他餐厅。"
+    return view
 
 
 @router.get("/{public_resource_id}/daily-dining", response_model=DailyDiningView)

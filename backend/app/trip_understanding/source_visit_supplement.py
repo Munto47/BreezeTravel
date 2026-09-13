@@ -68,6 +68,21 @@ def _visible_slice(source: str, start: int, end: int) -> str:
     return "".join(char for char, index in zip(visible, indices, strict=True) if start <= index < end)
 
 
+def _explicit_consumption_object(source: str, start: int, end: int) -> bool:
+    """A complete object of eating/drinking is not an internal visit.
+
+    Read the source action, not a food-name dictionary or a character inside
+    an experience name. Participating in a named cooking experience remains
+    eligible for the ordinary source/parent validation.
+    """
+    left = max(source.rfind(mark, 0, start) for mark in "\n。；;，,") + 1
+    right = min((p for mark in "\n。；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
+    before = _visible_slice(source, left, start).rstrip(" \t\r‘’“”「」『』")
+    after = _visible_slice(source, end, right).lstrip(" \t\r‘’“”「」『』")
+    return bool(re.search(r"(?:吃|喝|品尝|享用)(?:了|过|一些|一份|一杯)?$", before)
+        and (not after or after[0] in "、！？!?"))
+
+
 def _local_condition(source: str, start: int, end: int, *, lower_bound: int = 0) -> bool:
     # Read the actual source, not a model-selected short quote. A condition
     # before this member can govern a comma-separated list, while a later
@@ -315,6 +330,9 @@ def apply_source_visit_supplement(
             if row.kind == "VISIT" and name == parent.atomic_place_name:
                 reject(index, diagnostic_span)
                 continue
+        if row.kind == "VISIT" and _explicit_consumption_object(source, *span):
+            reject(index, diagnostic_span)
+            continue
         if row.kind in {"VISIT", "ENTRY", "EXIT"}:
             gate = _gate_anchor(row, quote_indices) if row.kind != "VISIT" else None
             for evidence_span in evidence_spans:

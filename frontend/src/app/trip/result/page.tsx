@@ -902,6 +902,8 @@ export default function TripResultPage() {
                     toolbar={<ItineraryPngExport result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
                     pendingCounts={trip.unresolvedDays.map(day => day.activities.length)}
+                    unresolvedDays={trip.unresolvedDays}
+                    etag={trip.etag}
                     sourceMealDescriptions={trip.sourceMealDescriptions}
                     renderDaySuggestion={dayIndex => <DailyMealCard
                       dayIndex={dayIndex}

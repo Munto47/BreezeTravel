@@ -111,7 +111,12 @@
         "tests/test_source_model_meal_role.py",
         "tests/test_amap_cpc_first_congress_site_identity.py",
         "tests/test_edit_history.py",
-        "tests/test_named_meal_area_intent.py"
+        "tests/test_named_meal_area_intent.py",
+        "tests/test_source_meal_hint_category.py",
+        "tests/test_source_visit_experience_scope.py",
+        "tests/test_source_meal_selection.py",
+        "tests/test_relative_route_options.py",
+        "tests/test_relative_route_previews.py"
       ]
     },
     "postgres": {
@@ -153,7 +158,8 @@
         "tests/test_account_task_recovery.py",
         "tests/test_confirm_source_details.py",
         "tests/test_edit_history.py",
-        "tests/test_named_meal_area_intent.py"
+        "tests/test_named_meal_area_intent.py",
+        "tests/test_source_meal_selection.py"
       ]
     },
     "browser-core": {
@@ -213,7 +219,8 @@
         "e2e/four-pages-cards.spec.js",
         "e2e/daily-dining-expansion.spec.js",
         "e2e/edit-history.spec.js",
-        "e2e/named-meal-area.spec.js"
+        "e2e/named-meal-area.spec.js",
+        "e2e/source-meal-selection.spec.js"
       ]
     }
   }
