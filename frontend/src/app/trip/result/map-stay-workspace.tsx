@@ -11,7 +11,7 @@ import type {
 } from '@/lib/trip-understanding-v3'
 import RouteMap from './route-map'
 import PendingPlaceDropdown from './pending-place-dropdown'
-import PlacePhoto from './place-photo'
+import PlacePhoto, {PlacePhotoProvider} from './place-photo'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
 import RoutePlayback from './route-playback'
 import { DAY_COLORS, relativeDayLabel } from './result-presentation'
@@ -118,6 +118,7 @@ export default function MapStayWorkspace({
 
 
   return (
+    <PlacePhotoProvider days={result.days}>
     <section data-testid="map-theater" data-map-status={mapView?.status || result.map.status} id="map-stay-view" aria-label="地图" className="fluid-map-workspace">
       <aside id="map-place-directory" data-testid="map-place-directory" data-open={directoryOpen} className="map-place-directory" aria-label="本行程地点列表">
         <div className="map-directory-heading"><h2>地点列表</h2><button className="e-button e-button-quiet map-directory-close" type="button" onClick={() => setDirectoryOpen(false)}>收起</button></div>
@@ -235,5 +236,6 @@ export default function MapStayWorkspace({
         </div>
       </div>
     </section>
+    </PlacePhotoProvider>
   )
 }

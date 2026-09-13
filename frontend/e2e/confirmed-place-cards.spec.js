@@ -250,7 +250,7 @@ test('every photo subtype has at least ten distinct, traceable local assets', ()
 
 test('ten similar places use ten pictures, stable after refresh and reordering', async ({ page }) => {
   const state = await fixture(page, { historicPlaces: true })
-  const images = page.locator('img[data-image-type="historic"]')
+  const images = page.getByTestId('itinerary-workspace').locator('img[data-image-type="historic"]')
   await expect(images).toHaveCount(10)
   const read = () => images.evaluateAll(items => items.map(item => item.getAttribute('src')))
   const first = await read()
@@ -283,7 +283,7 @@ test('repeated visits keep a picture and larger groups reuse the pool evenly', (
 
 test('broken POI photo falls back to matching type', async ({ page }) => {
   await fixture(page, { brokenPhoto: true })
-  await expect(page.locator('img[data-image-type="restaurant"]')).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').locator('img[data-image-type="restaurant"]')).toBeVisible()
 })
 
 test('generation snapshots also show only confirmed cards', async ({ page }) => {
@@ -344,7 +344,7 @@ test('older read-only shares omit unresolved cards while preserving day labels',
 })
 test('both image sources fail without broken image or unusable card', async ({ page }) => {
   await fixture(page, { brokenPhoto: true, failFallback: true })
-  await expect(page.locator('img[data-image-type="restaurant"]')).toHaveCount(0)
+  await expect(page.getByTestId('itinerary-workspace').locator('img[data-image-type="restaurant"]')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: types[0][0], exact: true })).toBeVisible()
 })
 

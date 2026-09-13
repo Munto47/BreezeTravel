@@ -139,8 +139,10 @@ for (const width of [1440,390]) test(`map directory and selected suggestions sta
   await expect(directory.getByLabel('地点确认状态')).toHaveValue('all')
   await expect(directory.getByLabel('地点类别')).toHaveValue('all')
   await expect(directory.getByTestId('map-directory-place').filter({hasText:'北京合成公园'})).toBeInViewport()
+  const selectedPhoto=await directory.getByTestId('map-directory-place').filter({hasText:'北京合成公园'}).locator('img').getAttribute('src')
   const cardTab=width<1024 ? 'mobile-nav-itinerary':'desktop-nav-itinerary'
   await page.getByTestId(cardTab).click()
+  await expect(page.getByTestId('activity-card').filter({has:page.getByRole('heading',{name:'北京合成公园',exact:true})}).locator('img')).toHaveAttribute('src',selectedPhoto)
   await page.getByTestId(width<1024 ? 'mobile-nav-map_stay':'desktop-nav-map_stay').click()
   if(width<1024)await page.getByTestId('journey-suggestions-toggle').click()
   await expect(suggestions.getByLabel('当前选中地点')).toContainText('北京合成公园')
