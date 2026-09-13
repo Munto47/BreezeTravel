@@ -51,3 +51,6 @@
  .journey-suggestions-docked { height:auto; position:fixed; top:90px; right:12px; bottom:calc(92px + env(safe-area-inset-bottom)); width:min(340px,calc(100vw - 24px)); z-index:45; box-shadow:0 16px 60px #29465828; }
  .experience .fluid-map-bottom { grid-column:1; }
 }
+
+.map-directory-photo {position:relative;flex:0 0 36px;width:36px;height:40px;overflow:hidden;border-radius:7px;background:#e7f3f7;}
+.map-directory-place-copy {min-width:0;overflow-wrap:anywhere;}

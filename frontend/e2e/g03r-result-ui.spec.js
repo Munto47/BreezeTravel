@@ -1930,10 +1930,25 @@ test('desktop keyboard drag previews locally and Escape cancels without a dialog
 })
 
 
-test('mobile and keyboard controls move within and across days with accessible targets', async ({ page }) => {
+test('mobile and keyboard controls move within and across days with accessible targets', async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 390, height: 844 })
-  const fixture = await installInteractionFixture(page, { exposeWrites: true })
+  // The map visit only checks accessible controls. Keep its SDK local so this
+  // fixed interaction case never loads external tiles or provider endpoints.
+  await page.addInitScript(() => {
+    window.AMap = {
+      Map: class {
+        on(name, callback) { if (name === 'complete') queueMicrotask(callback) }
+        add() {} remove() {} destroy() {} setCenter() {} setFitView() {} resize() {}
+      },
+      Marker: class {},
+      Polyline: class {},
+    }
+  })
+  await page.route(/^https?:\/\/[^/]*\.amap\.com\//, route => route.abort())
+  // This case moves confirmed mainline cards. The default pending second place
+  // correctly has no mainline drag target; its confirmation coverage is separate.
+  const fixture = await installInteractionFixture(page, { exposeWrites: true, confirmedExportPlaces: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('itinerary-workspace')).toHaveAttribute('data-reduced-motion', 'true')
   await expect(page.getByTestId('drag-handle-1-0')).toBeVisible()
@@ -1948,9 +1963,25 @@ test('mobile and keyboard controls move within and across days with accessible t
   await openStayTools(page)
   await expectMinimumTarget(page.getByTestId('choose-stay'))
   await openResultView(page, 'itinerary')
-  await moveDownByDrag(page)
+  await expect.poll(() => dayCardNames(page, 1)).toEqual(['故宫博物院', '景山公园'])
+  // Exercise the actual pointer gesture; HTML5 synthetic drop slots are no
+  // longer the workspace's touch/pointer implementation.
+  // Returning from the map leaves the cards below the fixed mobile navigation.
+  // Scroll the whole source card into view before choosing viewport coordinates.
+  await page.getByTestId('day-lane-1').getByTestId('activity-card').first().scrollIntoViewIfNeeded()
+  const source = await page.getByTestId('card-grab-1-0').boundingBox()
+  const target = await page.getByTestId('card-grab-1-1').boundingBox()
+  await page.mouse.move(source.x + 28, source.y + 34)
+  await page.mouse.down()
+  await page.mouse.move(target.x + target.width - 16, target.y + 35, {steps: 12})
+  await expect(page.getByTestId('drop-preview')).toBeVisible()
+  expect(fixture.calls().commands).toHaveLength(0)
+  await page.mouse.up()
   await expect.poll(() => fixture.calls().commands.length).toBe(1)
   expect(fixture.calls().commands[0]).toMatchObject({ target_day_index: 1, target_position: 1 })
+  await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
+  await expect(page.locator('[data-day-heading="1"]')).toBeFocused()
+  expect(fixture.calls().mapRenderPosts).toBe(0)
 
   const move = page.getByRole('button', { name: '拖动 故宫博物院' })
   await expect(move).toBeEnabled()
@@ -1965,9 +1996,13 @@ test('mobile and keyboard controls move within and across days with accessible t
   expect(fixture.calls().commands[1]).toMatchObject({ target_day_index: 3, target_position: 0 })
   await expect(page.getByTestId('drop-preview')).toHaveCount(0)
   await expect.poll(() => dayCardNames(page, 3)).toEqual(['故宫博物院'])
+  await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园'])
+  await expect.poll(() => dayCardNames(page, 2)).toEqual(['天坛公园'])
   await expect(page.locator('[data-day-heading="3"]')).toBeFocused()
   await expect(page.getByTestId('day-lane-4')).toHaveCount(0)
   expect(fixture.calls().mapRenderPosts).toBe(0)
+  expect(fixture.calls().directProviderRequests).toBe(0)
+  await page.screenshot({ path: testInfo.outputPath('mobile-pointer-keyboard-moved.png'), fullPage: true })
 })
 
 

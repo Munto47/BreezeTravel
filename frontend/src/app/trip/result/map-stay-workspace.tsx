@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { List, Search } from 'lucide-react'
 import './map-workspace.css'
 
@@ -11,6 +11,7 @@ import type {
 } from '@/lib/trip-understanding-v3'
 import RouteMap from './route-map'
 import PendingPlaceDropdown from './pending-place-dropdown'
+import PlacePhoto from './place-photo'
 import type { WorkspaceCommandResult } from './itinerary-workspace'
 import RoutePlayback from './route-playback'
 import { DAY_COLORS, relativeDayLabel } from './result-presentation'
@@ -55,6 +56,7 @@ export default function MapStayWorkspace({
   resource: string
   onCommand: (command: import('@/lib/trip-understanding-v3').TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
 }) {
+  const directoryScroll = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
   const [status, setStatus] = useState('all')
@@ -89,13 +91,31 @@ export default function MapStayWorkspace({
   const selectCard = (token: string) => {
     setPendingToken(null)
     const index = result.days.findIndex(day => day.activities.some(card => card.activity_token === token))
-    if (index >= 0 && index !== dayIndex) onDayChange(index)
+    if (index >= 0) {
+      if (index !== dayIndex) onDayChange(index)
+      const card = result.days[index].activities.find(item => item.activity_token === token)!
+      // Selecting a map point reveals its corresponding list entry. Ordinary
+      // typing/filtering and switching views still preserve the user's filters.
+      if (query.trim() && !card.name.includes(query.trim())) setQuery('')
+      if (category !== 'all' && card.category !== category) setCategory('all')
+      if (status !== 'all' && card.status !== status) setStatus('all')
+    }
     onSelect(token)
   }
 
   useEffect(() => {
     setDirectoryOpen(window.matchMedia('(min-width: 1024px)').matches)
   }, [])
+  useEffect(() => {
+    const container = directoryScroll.current
+    if (!active || !directoryOpen || !container) return
+    const item = container.querySelector<HTMLElement>('[data-testid="map-directory-place"][aria-pressed="true"]')
+    if (!item) return
+    const outer = container.getBoundingClientRect(), inner = item.getBoundingClientRect()
+    if (inner.top < outer.top) container.scrollTop += inner.top - outer.top
+    else if (inner.bottom > outer.bottom) container.scrollTop += inner.bottom - outer.bottom
+  }, [active, selected, pendingToken, directoryOpen, query, category, status, mapScope, dayIndex])
+
 
   return (
     <section data-testid="map-theater" data-map-status={mapView?.status || result.map.status} id="map-stay-view" aria-label="地图" className="fluid-map-workspace">
@@ -111,13 +131,14 @@ export default function MapStayWorkspace({
           <label>状态<select aria-label="地点确认状态" value={status} onChange={event => setStatus(event.target.value)}><option value="all">全部状态</option><option value="READY">已确认</option><option value="NEEDS_CONFIRMATION">待确认</option></select></label>
         </div>
         <p className="map-directory-count" role="status">{listedCount ? `显示 ${listedCount} 个地点` : '没有符合筛选条件的地点。'}</p>
-        <div className="map-directory-days">{listedDays.map(day => day.activities.length > 0 && <section key={day.index}>
+        <div ref={directoryScroll} className="map-directory-days">{listedDays.map(day => day.activities.length > 0 && <section key={day.index}>
           <h3><span style={{background: DAY_COLORS[day.index % DAY_COLORS.length]}}/>{relativeDayLabel(day.index)} <small>{day.activities.length} 个地点</small></h3>
           {day.activities.map(card => <div key={card.activity_token}>
             <button data-testid="map-directory-place" data-day-index={day.index} data-confirmation={card.status} type="button" aria-pressed={selected === card.activity_token || pendingToken === card.activity_token}
               onClick={() => {onDayChange(day.index); if (card.status === 'READY') {setPendingToken(null); onSelect(card.activity_token)} else {setPendingToken(card.activity_token)} }}>
               <span className="map-directory-number" style={{backgroundColor: DAY_COLORS[day.index % DAY_COLORS.length]}}>{card.status === 'READY' ? result.days[day.index].activities.indexOf(card) + 1 : '?'}</span>
-              <span><strong>{card.name}</strong><small>{card.category} · {card.status === 'READY' ? '已确认' : '待确认'}</small></span>
+              {card.status === 'READY' && <span className="map-directory-photo" aria-hidden="true"><PlacePhoto card={card}/></span>}
+              <span className="map-directory-place-copy"><strong>{card.name}</strong><small>{card.category} · {card.status === 'READY' ? '已确认' : '待确认'}</small></span>
             </button>
             {pendingToken === card.activity_token && <PendingPlaceDropdown card={card} resource={resource} disabled={disabled} onCommand={onCommand} onClose={() => setPendingToken(null)}/>}
           </div>)}
