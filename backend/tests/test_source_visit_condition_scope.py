@@ -99,3 +99,55 @@ def test_local_cancellation_negation_and_direction_remain_strict(text, quote, ev
     before = plan(source, [("青溪公园", 1, 1)])
     after = apply(source, before, [location(quote, kind, evidence, optional=True)])
     assert after.mentions == before.mentions and after.unprocessed_count > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("instruction,expected", [
+    ("不玩星光环线", False),
+    ("不再玩星光环线", False),
+    ("星光环线不玩", False),
+    ("不要体验星光环线", False),
+    ("取消体验星光环线", False),
+    ("星光环线已取消", False),
+    ("不玩云海航船和星光环线", False),
+    ("不要错过星光环线", True),
+    ("不玩云海航船改玩星光环线", True),
+    ("不玩云海航船不改玩星光环线", False),
+    ("取消云海航船改玩星光环线", True),
+    ("不玩云海航船、晨星穿梭飞车改玩星光环线", True),
+    ("不玩云海航船改玩晨星飞车和星光环线", True),
+    ("不玩云海航船、晨星穿梭飞车；再玩星光环线", True),
+    ("并未取消星光环线", True),
+    ("星光环线没有取消", True),
+    ("星光环线不取消", True),
+])
+async def test_internal_play_cancellation_is_local_and_preserves_actual_replacement(instruction, expected):
+    # Synthetic family from the saved-reply compatibility review. A short
+    # model quote must not hide its source negation or cancel a replacement.
+    source = "北京。\nDay1：青岚乐园，园内先看晨光亭，" + instruction + "。"
+    before = plan(source, [("青岚乐园", 1, 1)])
+    after = apply(source, before, [location("晨光亭", "VISIT", "园内先看晨光亭"),
+        location("星光环线", "VISIT", "星光环线")])
+    assert after.mentions[0] == before.mentions[0]
+    assert [m.atomic_place_name for m in after.mentions[1:]] == (
+        ["晨光亭", "星光环线"] if expected else ["晨光亭"])
+    output = await TripUnderstandingPipeline(None, FixedReplayPlaces()).run(source, prepared_plan=after)
+    assert [a.name for a in output.public_result.days[0].activities] == ["青岚乐园"]
+    assert [d.name for d in output.public_result.days[0].activities[0].source_details] == (
+        ["晨光亭", "星光环线"] if expected else ["晨光亭"])
+    if not expected:
+        assert after.unprocessed_count > 0 and not output.public_result.coverage.complete
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("middle,distance", [("晨星飞车", 10), ("晨星穿梭飞车", 12)])
+async def test_explicit_parallel_cancellation_keeps_last_member_rejected_beyond_ten_characters(middle, distance):
+    source = "北京。\nDay1：青岚乐园，园内不玩云海航船、" + middle + "和星光环线。"
+    before = plan(source, [("青岚乐园", 1, 1)])
+    assert len(source[source.index("不玩") + 2:source.index("星光环线")]) == distance
+    after = apply(source, before, [location("星光环线", "VISIT", "星光环线")])
+    output = await TripUnderstandingPipeline(None, FixedReplayPlaces()).run(source, prepared_plan=after)
+    assert after.mentions == before.mentions
+    assert [a.name for a in output.public_result.days[0].activities] == ["青岚乐园"]
+    assert output.public_result.days[0].activities[0].source_details == []
+    assert after.unprocessed_count > 0 and not output.public_result.coverage.complete

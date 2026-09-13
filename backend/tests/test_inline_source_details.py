@@ -136,6 +136,23 @@ async def test_invalid_inline_rows_do_not_attach_or_destroy_a_valid_sibling(row)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("instruction,expected", [
+    ("不玩星光环线", ["晨光亭"]),
+    ("星光环线不玩", ["晨光亭"]),
+    ("不玩云海航船改玩星光环线", ["晨光亭", "星光环线"]),
+])
+async def test_inline_internal_play_cancellation_uses_same_source_boundary(instruction, expected):
+    source = "北京。\nDay1：青岚乐园，园内先看晨光亭，" + instruction + "。"
+    result, client = await run(source, "{broken", draft(activity("青岚乐园", source_details=[
+        detail("晨光亭", "园内先看晨光亭"), detail("星光环线", "星光环线")])))
+    assert len(client.calls) == 2
+    assert main(result) == [["青岚乐园"]] and names(result) == expected
+    if expected == ["晨光亭"]:
+        assert any(d.category == "SOURCE_VISIT_UNRESOLVED" for d in result.proposal.diagnostics)
+        assert not result.public_result.coverage.complete
+
+
+@pytest.mark.asyncio
 async def test_inline_purpose_belongs_to_exact_parent_and_preserves_parent_days():
     source = "北京。\nDay1：青岚乐园，只看外观。\nDay2：晨光公园，仅取行李，不进园内。"
     result, _ = await run(source, "{broken", draft(

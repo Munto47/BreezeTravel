@@ -117,10 +117,25 @@ def _cancelled_or_conditional(source: str, start: int, end: int, evidence: str, 
     right = min((p for mark in "\n。；;，," if (p := source.find(mark, end)) >= 0), default=len(source))
     before = _visible_slice(source, left, start)
     after = _visible_slice(source, end, right)
-    cancelled = re.search(r"(?:取消|不去|不看|不参观|不进入|不进|不再去|跳过)[^。；;，,\n]{0,10}$", before)
-    if cancelled and not re.search(r"(?:没有|并未|未|不)\s*$", before[:cancelled.start()]):
-        return True
-    if re.match(r"\s*(?:已取消|取消|本次不去|不去了|不参观)", after):
+    list_tail = r"(?:[^\s、和及与]+\s*[、和及与]\s*)+"
+    actions = list(re.finditer(r"取消|不(?:要|再)?(?:去|看|参观|进入|进|玩|游玩|体验|参与)|跳过", before))
+    for cancelled in reversed(actions):
+        tail = before[cancelled.end():]
+        # Explicit list connectors retain the same cancellation regardless
+        # of earlier members' name lengths. Do not extend this proof across
+        # punctuation or arbitrary longer narrative between the action/item.
+        listed = re.fullmatch(list_tail, tail)
+        if (len(tail) > 10 and not listed
+            or re.search(r"(?:没有|并未|未|不)\s*$", before[:cancelled.start()])):
+            continue
+        # A cancelled earlier object does not cancel its explicit replacement:
+        # “不玩甲改玩乙”. The replacement verb must itself be affirmative.
+        replacement = re.search(r"(?:改(?:为)?|转而)(?:玩|游玩|体验|参观|看|去|进入|进|参与|乘坐)"
+                                r"\s*(?P<members>.*)$", tail)
+        if (not replacement or replacement["members"] and not re.fullmatch(list_tail, replacement["members"])
+            or re.search(r"(?:不|没|没有|未|并未)\s*$", tail[:replacement.start()])):
+            return True
+    if re.match(r"\s*(?:已取消|取消|本次不去|不去了|不参观|不(?:要|再)?(?:玩|游玩|体验|参与))", after):
         return True
     return not optional and _local_condition(source, start, end, lower_bound=condition_start)
 
