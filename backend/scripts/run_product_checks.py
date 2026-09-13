@@ -31,7 +31,7 @@ def main() -> int:
         command = [sys.executable, "-m", "pytest", "-q"]
     else:
         command = ["node", str(cwd / "node_modules/@playwright/test/cli.js"), "test",
-                   "-c", "playwright.experience.config.js"]
+                   "-c", suite.get("config", "playwright.experience.config.js")]
     return subprocess.call([*command, *suite["files"], *suite.get("args", []), *extra], cwd=cwd)
 
 

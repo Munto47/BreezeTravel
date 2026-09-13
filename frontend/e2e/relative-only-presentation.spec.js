@@ -145,7 +145,7 @@ async function show(page, legacyPreview = false) {
 }
 
 for (const width of [1440, 390]) {
-  test(`old result keeps relative days, unfinished content and real-route minutes in page and PNG at ${width}px`, async ({page}, info) => {
+  test(`old result keeps relative days, unfinished content and real-route minutes in page and PNG at ${width}px`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({page}, info) => {
     await page.setViewportSize({width, height: 900})
     await page.addInitScript(() => {
       window.exportText = []
@@ -203,7 +203,7 @@ for (const width of [1440, 390]) {
     expect(requests.filter(item => /commands|changes\/adopt|place-candidates|map-renders$/.test(item.pathname))).toEqual([])
   })
 
-  test(`old readonly share hides calendar and clock while preserving days and confirmed places at ${width}px`, async ({page}, info) => {
+  test(`old readonly share hides calendar and clock while preserving days and confirmed places at ${width}px`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({page}, info) => {
     await page.setViewportSize({width, height: 900})
     await page.route('**/api/**', route => route.fulfill({json: {title: '合成旧行程', message: '只读分享',
       destination: '北京', schedule: '2026-10-01 至 2026-10-02', party_size: '2人', accommodation: '青溪酒店',
@@ -238,7 +238,7 @@ test('legacy timing preview returns to the itinerary without adopting its old fi
   expect(requests.filter(item => /commands|changes\/adopt/.test(item.pathname))).toEqual([])
 })
 
-for (const width of [1440, 390]) test(`profile edits relative preferences without erasing an old hidden clock at ${width}px`, async ({page}, info) => {
+for (const width of [1440, 390]) test(`profile edits relative preferences without erasing an old hidden clock at ${width}px`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({page}, info) => {
   await page.setViewportSize({width, height: 900})
   await page.addInitScript(() => {
     localStorage.setItem('authToken', 'synthetic-relative-profile-session')

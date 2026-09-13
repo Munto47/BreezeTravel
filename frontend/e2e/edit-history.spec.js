@@ -59,7 +59,7 @@ async function applyAndCheck(page, action, commandType, names, canUndo, canRedo,
 }
 
 for (const width of [1440, 390]) {
-  test(`real saved undo and redo history survives reload and new branch at ${width}px`, async ({page}, testInfo) => {
+  test(`real saved undo and redo history survives reload and new branch at ${width}px`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({page}, testInfo) => {
     await page.setViewportSize({width, height: 900})
     await openDemo(page)
     const initial = await assertStored(page, ORIGINAL, false, false, {changed: false})

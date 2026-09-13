@@ -70,7 +70,7 @@ async function otherDayRemains(page) {
   await expect(page.locator('[data-day-heading="2"]')).toHaveText('Day 2')
 }
 
-for (const width of [1440, 390]) test(`unknown-city parent confirmation keeps source details through refresh and undo at ${width}`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`unknown-city parent confirmation keeps source details through refresh and undo at ${width}`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({ page }, info) => {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 })
   const state = await show(page)
   expect(replay.evidence.external_http_calls).toBe(0)

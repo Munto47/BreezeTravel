@@ -74,7 +74,7 @@ async function show(page, width, options = {}) {
   return state
 }
 
-for (const width of [1440, 1280, 390]) test(`route comparison is explicit and adopts only after confirmation at ${width}`, async ({page}, info) => {
+for (const width of [1440, 1280, 390]) test(`route comparison is explicit and adopts only after confirmation at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}, info) => {
   test.skip(width < 1024, 'Owner scope: small-screen verification is paused; keep its prior implementation and evidence.')
   const state = await show(page, width)
   const otherDays = structuredClone(state.result.days.slice(1))

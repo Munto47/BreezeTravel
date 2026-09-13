@@ -19,11 +19,12 @@ async function fixture(page, {accepted = false} = {}) {
     return route.fulfill({status:404, contentType:'application/json', body:'{}'})
   })
   await page.goto('/')
-  await expect(page.getByTestId('create-full-trip')).toBeEnabled()
+  await expect(page.getByTestId('trip-source-text')).toBeEnabled()
+  await expect(page.getByTestId('create-full-trip')).toBeDisabled()
   return creates
 }
 
-for (const width of [1440, 390]) test(`four-page home: real text entry, labelled preview and guide fit ${width}px`, async ({page}, info) => {
+for (const width of [1440, 390]) test(`four-page home: real text entry, labelled preview and guide fit ${width}px`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({page}, info) => {
   await page.setViewportSize({width, height: width === 1440 ? 1024 : 844})
   const creates = await fixture(page)
   await expect(page.getByRole('heading',{level:1})).toHaveText('把旅行想法，变成清晰的行程')

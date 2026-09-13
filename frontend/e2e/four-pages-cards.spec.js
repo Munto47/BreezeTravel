@@ -97,7 +97,7 @@ async function expectFit(lane) {
 }
 
 for (const width of [1440, 390]) {
-  test(`daily panel collapse keeps long names, pending, source meal and alternatives; keyboard move at ${width}`, async ({ page }, info) => {
+  test(`daily panel collapse keeps long names, pending, source meal and alternatives; keyboard move at ${width}`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({ page }, info) => {
     const state = await show(page, width)
     const lane = page.getByTestId('day-lane-1')
     await expect(lane.getByTestId('activity-card')).toHaveCount(13)
@@ -158,7 +158,7 @@ for (const width of [1440, 390]) {
     await page.screenshot({ path: info.outputPath(`daily-moved-${width}.png`), fullPage: true })
   })
 
-  test(`measured long card height keeps reverse-row pointer drop and truthful routes at ${width}`, async ({ page }, info) => {
+  test(`measured long card height keeps reverse-row pointer drop and truthful routes at ${width}`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({ page }, info) => {
     const state = await show(page, width)
     const lane = page.getByTestId('day-lane-1'), canvas = page.getByTestId('serpentine-canvas-1')
     await expectFit(lane)

@@ -222,6 +222,7 @@
     "browser-four-pages": {
       "runner": "playwright",
       "directory": "frontend",
+      "config": "playwright.desktop.config.js",
       "files": [
         "e2e/four-pages-home.spec.js",
         "e2e/four-pages-progress.spec.js",

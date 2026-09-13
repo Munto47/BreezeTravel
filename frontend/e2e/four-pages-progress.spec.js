@@ -99,7 +99,7 @@ async function install(page, { cancelOutcome = 'STOPPED_EMPTY', cancelFailures =
 }
 
 for (const width of [1440, 390]) {
-  test(`202 and SSE keep truthful phases and two-day confirmed/pending preview at ${width}`, async ({ page }, testInfo) => {
+  test(`202 and SSE keep truthful phases and two-day confirmed/pending preview at ${width}`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 })
     const api = await install(page)
     try {
@@ -153,9 +153,9 @@ for (const width of [1440, 390]) {
   })
 }
 
-for (const outcome of ['STOPPED_EMPTY', 'STOPPED_WITH_DRAFT']) {
-  test(`cancel failure is retryable and ${outcome} stops the progress workspace`, async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 390, height: 844 })
+for (const width of [1440, 390]) for (const outcome of ['STOPPED_EMPTY', 'STOPPED_WITH_DRAFT']) {
+  test(`cancel failure is retryable and ${outcome} stops the progress workspace at ${width}`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 })
     const api = await install(page, { cancelOutcome: outcome, cancelFailures: 1 })
     try {
       await page.goto('/trip/result')
@@ -165,7 +165,7 @@ for (const outcome of ['STOPPED_EMPTY', 'STOPPED_WITH_DRAFT']) {
       await workspace.getByRole('button', { name: '停止整理', exact: true }).click()
       await expect(workspace.getByRole('alert')).toHaveText('尚未确认是否已经停止，系统不会重复创建行程，请稍后重试。')
       await expect(workspace.getByRole('button', { name: '停止整理', exact: true })).toBeEnabled()
-      await page.screenshot({ path: testInfo.outputPath(`cancel-retry-${outcome}.png`), fullPage: true })
+      await page.screenshot({ path: testInfo.outputPath(`cancel-retry-${outcome}-${width}.png`), fullPage: true })
       await workspace.getByRole('button', { name: '停止整理', exact: true }).click()
       await expect(workspace).toHaveCount(0)
       await expect(page.getByTestId('generation-stages')).toHaveCount(0)
@@ -183,7 +183,7 @@ for (const outcome of ['STOPPED_EMPTY', 'STOPPED_WITH_DRAFT']) {
       expect(api.calls.cancels[1]['idempotency-key']).toBe(api.calls.cancels[0]['idempotency-key'])
       expect(api.calls.cancels[1]['if-match']).toBeUndefined()
       expect(api.calls.external).toEqual([])
-      await page.screenshot({ path: testInfo.outputPath(`cancelled-${outcome}.png`), fullPage: true })
+      await page.screenshot({ path: testInfo.outputPath(`cancelled-${outcome}-${width}.png`), fullPage: true })
     } finally { api.close() }
   })
 }

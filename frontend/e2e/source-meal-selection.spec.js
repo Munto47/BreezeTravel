@@ -64,12 +64,13 @@ async function show(page, width, options = {}) {
   return state
 }
 
-for (const width of [1440, 390]) test(`source dinner search, authoritative anchor, refresh undo redo at ${width}`, async ({page}, info) => {
-  const state = await show(page, width, {pending: width === 390})
+// A pending anchor must remain covered on desktop when small-screen runs are paused.
+for (const width of [1440, 390]) for (const pending of [false, true]) test(`source dinner search, ${pending ? 'pending' : 'confirmed'} authoritative anchor, refresh undo redo at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}, info) => {
+  const state = await show(page, width, {pending})
   const dinner = page.getByTestId('source-meal-1-1')
   await expect(dinner).toContainText('本帮菜，想吃红烧肉')
   await dinner.getByRole('button', {name: '为晚餐选餐厅'}).click()
-  if (width === 390) {
+  if (pending) {
     await expect(dinner).toContainText('先确认「景山公园」')
     await expect(dinner.getByLabel('手动搜索词')).toHaveCount(0)
     expect(state.searches).toHaveLength(0)
@@ -92,7 +93,7 @@ for (const width of [1440, 390]) test(`source dinner search, authoritative ancho
   await expect(candidate).toContainText('红烧肉、油爆虾')
   await expect(candidate.locator('img')).toBeVisible()
   await expect(dinner).toContainText('不表示整句偏好、忌口或菜品供应已经核验')
-  await page.screenshot({path: info.outputPath(`source-dinner-candidates-${width}.png`), fullPage: true})
+  await page.screenshot({path: info.outputPath(`source-dinner-candidates-${pending ? 'pending' : 'confirmed'}-${width}.png`), fullPage: true})
   const before = state.commands.length
   await candidate.getByRole('button', {name: '选择这家晚餐餐厅'}).dblclick()
   await expect.poll(() => state.commands.length).toBe(before + 1)
@@ -107,7 +108,7 @@ for (const width of [1440, 390]) test(`source dinner search, authoritative ancho
   await dinner.getByRole('button', {name: '查看用餐'}).click()
   await expect(dinner).toContainText('这餐已安排，未重复生成新餐位')
   await expect(dinner.getByLabel('手动搜索词')).toHaveCount(0)
-  await page.screenshot({path: info.outputPath(`source-dinner-adopted-${width}.png`), fullPage: true})
+  await page.screenshot({path: info.outputPath(`source-dinner-adopted-${pending ? 'pending' : 'confirmed'}-${width}.png`), fullPage: true})
   await page.getByRole('button', {name: '撤销', exact: true}).click()
   await expect(dinner).toContainText('晚餐 · 餐厅待选择')
   await expect(dinner.getByTestId('source-meal-candidate')).toHaveCount(0)
@@ -118,8 +119,8 @@ for (const width of [1440, 390]) test(`source dinner search, authoritative ancho
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('missing source position is explicit; failed and empty search leave original meal intact', async ({page}) => {
-  const state = await show(page, 390, {no_anchor: true, failSearch: true})
+for (const width of [1440, 390]) test(`missing source position is explicit; failed and empty search leave original meal intact at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}) => {
+  const state = await show(page, width, {no_anchor: true, failSearch: true})
   const dinner = page.getByTestId('source-meal-1-1')
   await dinner.getByRole('button', {name: '为晚餐选餐厅'}).click()
   await dinner.getByLabel('手动搜索词').fill('红烧肉')
@@ -136,8 +137,8 @@ test('missing source position is explicit; failed and empty search leave origina
   await expect(dinner).toContainText('晚餐 · 餐厅待选择')
 })
 
-test('version conflict and expired adoption never consume an original dinner or retain old candidates', async ({page}) => {
-  const state = await show(page, 390, {stale: true})
+for (const width of [1440, 390]) test(`version conflict and expired adoption never consume an original dinner or retain old candidates at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}) => {
+  const state = await show(page, width, {stale: true})
   const dinner = page.getByTestId('source-meal-1-1')
   await dinner.getByRole('button', {name: '为晚餐选餐厅'}).click()
   await dinner.getByLabel('手动搜索词').fill('红烧肉')

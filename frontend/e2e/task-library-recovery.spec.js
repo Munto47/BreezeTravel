@@ -93,8 +93,8 @@ test('explicit source recovery preserves a different home draft until user choos
   expect(creates).toBe(0)
 })
 
-test('mobile new tab finds only authorized anonymous references and drops expired ones', async ({ context, page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+for (const width of [1440, 390]) test(`new tab finds only authorized anonymous references and drops expired ones at ${width}`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({ context, page }, testInfo) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 })
   const gone = 'gone_' + 'b'.repeat(24)
   const requests = []
   await context.route('**/api/v3/trip-understandings/*/result', (route) => {
@@ -107,7 +107,7 @@ test('mobile new tab finds only authorized anonymous references and drops expire
   await page.evaluate(({ resource, gone }) => localStorage.setItem('bt_browser_trip_refs_v1', JSON.stringify([{ resource }, { resource: gone }])), { resource: refs.PROCESSING, gone })
   await page.close()
   const reopened = await context.newPage()
-  await reopened.setViewportSize({ width: 390, height: 844 })
+  await reopened.setViewportSize({ width, height: width === 390 ? 844 : 1000 })
   await reopened.goto('/my-trips')
   const local = reopened.getByRole('list', { name: '当前浏览器行程' })
   await expect(local.getByRole('listitem')).toHaveCount(1)
@@ -117,7 +117,7 @@ test('mobile new tab finds only authorized anonymous references and drops expire
   expect(await reopened.evaluate(() => sessionStorage.getItem('bt_input_draft'))).toBeNull()
   expect(await reopened.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await expect(reopened.getByRole('navigation', { name: '全局导航' }).getByRole('link', { name: '我的行程' })).toHaveAttribute('aria-current', 'page')
-  await reopened.screenshot({ path: testInfo.outputPath('task-library-mobile.png'), fullPage: true })
+  await reopened.screenshot({ path: testInfo.outputPath(`task-library-anonymous-${width}.png`), fullPage: true })
   await local.getByRole('button', { name: '移除本机入口', exact: true }).click()
   await expect(local).not.toBeVisible()
   expect(await reopened.evaluate(() => localStorage.getItem('bt_browser_trip_refs_v1'))).toBeNull()

@@ -12,7 +12,7 @@ print(asyncio.run(build_named_meal_area_result()).public_result.model_dump_json(
     env: {...process.env, RUNTIME_PROFILE: 'test', PYTHONPATH: '.', PYTHONIOENCODING: 'utf-8'}}))
 })
 
-for (const width of [1440, 390]) test(`saved Shanghai named meal area preserves unselected dinner at ${width}px`, async ({page}, info) => {
+for (const width of [1440, 390]) test(`saved Shanghai named meal area preserves unselected dinner at ${width}px`, { tag: width === 390 ? '@small-screen' : '@desktop' }, async ({page}, info) => {
   await page.setViewportSize({width, height: 1000})
   await page.route('**/*', route => {
     const url = new URL(route.request().url())

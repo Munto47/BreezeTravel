@@ -95,8 +95,8 @@ async function show(page, width, {before = false, stale = false, noAnchor = fals
   return state
 }
 
-for (const width of [1440, 390]) test(`daily restaurant expansion preserves source meals, adopts at authoritative position and restores at ${width}`, async ({page}, info) => {
-  const before = width === 390
+// The source insertion position is business coverage, independent of viewport size.
+for (const width of [1440, 390]) for (const before of [false, true]) test(`daily restaurant expansion preserves source meals, adopts ${before ? 'before' : 'after'} the authoritative anchor and restores at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}, info) => {
   const state = await show(page, width, {before})
   const meal = page.getByTestId('daily-meal-card').first()
   const source = page.getByTestId('source-meals-1')
@@ -116,7 +116,7 @@ for (const width of [1440, 390]) test(`daily restaurant expansion preserves sour
   expect(await articles.locator('h3').evaluateAll(nodes => nodes.every(node => node.scrollWidth <= node.clientWidth + 1))).toBe(true)
   await expect(articles.locator('img')).toHaveCount(0)
   await expect(meal).not.toContainText(/人均|评分|¥/)
-  await page.screenshot({path: info.outputPath(`dining-expanded-${width}.png`), fullPage: true})
+  await page.screenshot({path: info.outputPath(`dining-expanded-${before ? 'before' : 'after'}-${width}.png`), fullPage: true})
   await meal.getByRole('button', {name: '收起候选'}).click()
   await expect(articles).toHaveCount(0)
   expect(state.commands).toHaveLength(0)
@@ -146,7 +146,7 @@ for (const width of [1440, 390]) test(`daily restaurant expansion preserves sour
   await page.reload()
   await expect(source).toContainText(`午餐 · 已安排：「${restaurantNames[1]}」`)
   await expect(meal).toContainText(`已安排${restaurantNames[1]}`)
-  await page.screenshot({path: info.outputPath(`dining-adopted-${width}.png`), fullPage: true})
+  await page.screenshot({path: info.outputPath(`dining-adopted-${before ? 'before' : 'after'}-${width}.png`), fullPage: true})
   await page.getByRole('button', {name: '撤销', exact: true}).click()
   await expect.poll(() => state.commands.length).toBe(2)
   expect(state.commands[1]).toEqual({command_type: 'UNDO'})
@@ -160,23 +160,23 @@ for (const width of [1440, 390]) test(`daily restaurant expansion preserves sour
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('stale version never exposes old candidates and missing anchor prevents adoption', async ({page}) => {
-  const state = await show(page, 390, {stale: true})
+for (const width of [1440, 390]) test(`stale version never exposes old candidates and missing anchor prevents adoption at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}) => {
+  const state = await show(page, width, {stale: true})
   const meal = page.getByTestId('daily-meal-card').first()
   await expect(meal).toContainText('行程已调整')
   await expect(meal.getByRole('button', {name: '查看 3 家候选'})).toHaveCount(0)
   expect(state.commands).toHaveLength(0)
   await page.unroute('**/api/**')
   await page.goto('about:blank')
-  const next = await show(page, 390, {noAnchor: true})
+  const next = await show(page, width, {noAnchor: true})
   await meal.getByRole('button', {name: '查看 3 家候选'}).click()
   await expect(meal).toContainText('加入位置尚未确认')
   for (const button of await meal.getByRole('button', {name: '加入行程'}).all()) await expect(button).toBeDisabled()
   expect(next.commands).toHaveLength(0)
 })
 
-test('expired selection remains a failure with original lunch unconsumed', async ({page}) => {
-  const state = await show(page, 390, {expired: true})
+for (const width of [1440, 390]) test(`expired selection remains a failure with original lunch unconsumed at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}) => {
+  const state = await show(page, width, {expired: true})
   const meal = page.getByTestId('daily-meal-card').first()
   await meal.getByRole('button', {name: '查看 3 家候选'}).click()
   await meal.getByRole('button', {name: '加入行程'}).first().click()
@@ -190,8 +190,8 @@ test('expired selection remains a failure with original lunch unconsumed', async
   expect(state.result.days[0].activities).toHaveLength(2)
 })
 
-for (const protectedStatus of ['NEEDS_UPDATE', 'PREPARING', 'UNAVAILABLE']) test(`protected source lunch remains confirmable during ${protectedStatus}, with candidates unavailable`, async ({page}) => {
-  const state = await show(page, 390, {protectedStatus})
+for (const width of [1440, 390]) for (const protectedStatus of ['NEEDS_UPDATE', 'PREPARING', 'UNAVAILABLE']) test(`protected source lunch remains confirmable during ${protectedStatus}, with candidates unavailable at ${width}`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}) => {
+  const state = await show(page, width, {protectedStatus})
   const meals = page.getByTestId('daily-meal-card'), pending = meals.nth(1)
   await expect(meals.getByRole('button', {name: '加入行程'})).toHaveCount(0)
   await expect(meals.getByRole('button', {name: '查看 3 家候选'})).toHaveCount(0)
