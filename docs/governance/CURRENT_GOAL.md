@@ -3,6 +3,8 @@
 2026-09-13更新。以[产品定义](../product/PROJECT_CHARTER.md)和[实施计划](IMPLEMENTATION_PLAN.md)为准。只接收文字、相对Day和地点先后；真实交通距离/耗时保留。完整目标G1—G8未完成，不以单页或单篇通过结束开发。
 
 ## 当前版本与运行
+用户9月13日最新决定：本阶段只开发和优化电脑浏览器，手机竖屏与小屏暂停。所有代理已收到调整，新切片与正式公网验收只做桌面；下文已完成的手机检查保留为历史证据，不代表继续投入，也不再作为交付前置。核心功能、数据保护与公网上线终点不变。
+
 
 - 目录D:/CODEX/BreezeTravel-four-pages，分支codex/four-pages-public-20260912；基线f7b0081/cc2dce1，包含develop=ecc113e；M0/M1检查点7897cab，卡片/地图/餐别/重做检查点16f3d09；其后补地图选中项跨筛选定位与手机实际拖动回归。未合入main、推送或部署。
 - 原目录C:/Users/18770/.codex/worktrees/5a75/BreezeTravel的五个停工文件原地保留。仅在新树选择性复用并重验上海会址资产及相关固定回放助手；未导入未完成的test_model_meal_role_validation.py，不覆盖原文件或旧原答。
