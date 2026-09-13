@@ -10,6 +10,7 @@ import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import { DAY_COLORS, transportConnectorFor, connectorPresentation, relativeDayLabel } from './result-presentation'
 import {sourceMeals} from './source-meals'
 import {diningAccessLines} from './dining-access'
+import {lodgingExportLines} from './lodging-export'
 
 function exportStatus(result: UserFacingTripResult, unresolvedDays: UserFacingTripResult['days'] = []) {
   // The page passes the confirmed-only mainline. Coverage counts named places;
@@ -173,17 +174,10 @@ async function renderItinerary(
     unassigned.forEach(item => append(item.name))
   }
   if (supplementary && supplementary.status !== 'AVAILABLE') append('原文补充安排已删除或暂不可读取；这里只保留当前结构化结果。')
-  // The page's sourceLodgings contains confirmed hotels only. The authoritative
-  // constraints also carry unconfirmed hotels and their explicit night scope.
-  const exportLodgings = [...new Map([...sourceLodgings, ...(result.lodging_constraints || [])]
-    .map(lodging => [lodging.activity_token, lodging])).values()]
-  if (exportLodgings.length) {
-    append('原文住宿安排', true)
-    exportLodgings.forEach(lodging => {
-      const nights = lodging.overnight_days?.length ? `第${lodging.overnight_days.join('、')}晚` : '全程住宿安排，具体夜晚未列明'
-      append(`${lodging.name} · ${nights} · ${lodging.status === 'READY' ? '已确认' : '地点待确认'}`)
-      lodging.source_details?.forEach(detail => append(`${detail.name}${detail.optional ? '（备选）' : ''}`))
-    })
+  const lodgingLines = lodgingExportLines(result, sourceLodgings)
+  if (lodgingLines.length) {
+    append('住宿安排 · 原文与已选建议', true)
+    lodgingLines.forEach(line => append(line.text, line.heading))
   }
   const appendixHeight = appendixLines.length ? appendixLines.length * 24 + 40 : 0
   const height = headerHeight + dayLayouts.reduce((sum, layout, index) => sum + layout.height + 30 + (dayMessages[index] ? 32 : 0) + sourceHeights[index], 0) + appendixHeight + 64

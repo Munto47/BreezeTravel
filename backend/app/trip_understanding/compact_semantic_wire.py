@@ -12,7 +12,8 @@ from typing import Literal
 
 from pydantic import Field, create_model
 
-from app.trip_understanding.models import ActivityRole, StrictModel
+from app.trip_understanding.models import ActivityRole, SemanticDiagnostic, SourceSemanticPlan, StrictModel
+from app.trip_understanding.source_order import SemanticOrderGroup
 
 
 FORMAT_INSTRUCTION = """
@@ -24,8 +25,105 @@ name必须明确：具名项填原文地点名；其定位引文就是name时不
 detail_mode=EMPTY是明确本块各项没有内部安排；有安排用ITEMS并逐项填source_details；
 无法判断用UNASSESSED，不得用EMPTY掩盖遗漏。详情的原父访问、日序和条件仍按原规则验证。
 choice_groups/order_groups的activity_indices引用blocks依次展平后的items下标，不是块下标。
+order_groups不重复整段scope_quote，改用scope_range:{start:{quote,occurrence},end:{quote,occurrence}}。
+两端quote必须是本次原文逐字引文，occurrence为它在整份本次原文从头计数的正整数出现次数；
+范围从start引文开头到end引文结尾。不能改写空白/Markdown、借另一日同名位置或猜范围。
+这只定位原有顺序证据；kind仍须依据全文明确评估，不能从相邻端点推断INITIAL_ORDER。
+required_precedence的完整evidence及choice_groups证据保持原格式，不得省略或压缩。
 修复仍返回完整同格式JSON；不得修改原先正确访问。所有原文上下文仍须考虑。
 """
+
+
+class CompactScopeAnchor(StrictModel):
+    quote: str = Field(strict=True, min_length=1, max_length=120)
+    occurrence: int = Field(strict=True, ge=1, le=50000)
+
+
+class CompactOrderScopeRange(StrictModel):
+    start: CompactScopeAnchor
+    end: CompactScopeAnchor
+
+
+class CompactSemanticOrderGroup(SemanticOrderGroup):
+    # Local compatibility accepts the old complete scope_quote. The active
+    # compact request schema advertises only the required range representation.
+    scope_range: CompactOrderScopeRange | None = None
+
+
+def _literal_spans(source: str, quote: str) -> list[tuple[int, int]]:
+    found, start = [], 0
+    while quote:
+        start = source.find(quote, start)
+        if start < 0:
+            break
+        found.append((start, start + len(quote)))
+        start += 1
+    return found
+
+
+def expand_order_scope(source: str, value: object) -> str:
+    scope = CompactOrderScopeRange.model_validate(value)
+    positions = []
+    for anchor in (scope.start, scope.end):
+        spans = _literal_spans(source, anchor.quote)
+        if anchor.occurrence > len(spans):
+            raise ValueError("COMPACT_SCOPE_ANCHOR_NOT_FOUND")
+        positions.append(spans[anchor.occurrence - 1])
+    (left, start_end), (end_start, right) = positions
+    if left > end_start or start_end > right:
+        raise ValueError("COMPACT_SCOPE_ENDPOINTS_REVERSED")
+    quote = source[left:right]
+    if not 1 <= len(quote) <= 5000 or len(_literal_spans(source, quote)) != 1:
+        raise ValueError("COMPACT_SCOPE_NOT_UNIQUE_OR_TOO_LONG")
+    return quote
+
+
+def compact_order_scope(source: str, quote: str) -> dict:
+    spans = _literal_spans(source, quote)
+    if len(spans) != 1:
+        raise ValueError("COMPACT_SCOPE_NOT_UNIQUE")
+    left, right = spans[0]
+    prefix, suffix = quote[:24], quote[-24:]
+    value = dict(start=dict(quote=prefix,
+        occurrence=_literal_spans(source, prefix).index((left, left + len(prefix))) + 1),
+        end=dict(quote=suffix,
+        occurrence=_literal_spans(source, suffix).index((right - len(suffix), right)) + 1))
+    if expand_order_scope(source, value) != quote:
+        raise ValueError("COMPACT_SCOPE_NOT_REVERSIBLE")
+    return value
+
+
+def _expand_order_group(raw: object, source: str | None, activity_count: int) -> tuple[dict, bool]:
+    try:
+        group = CompactSemanticOrderGroup.model_validate(raw)
+        value = group.model_dump(mode="json", exclude_unset=True, exclude={"scope_range"})
+        if "scope_range" not in group.model_fields_set:
+            return value, False
+        if source is None or group.scope_range is None:
+            raise ValueError("COMPACT_SCOPE_SOURCE_REQUIRED")
+        quote = expand_order_scope(source, group.scope_range)
+        if group.scope_quote is not None and group.scope_quote != quote:
+            raise ValueError("COMPACT_SCOPE_REPRESENTATIONS_CONFLICT")
+        return {**value, "scope_quote": quote}, False
+    except ValueError:
+        if isinstance(raw, dict):
+            try:
+                # Bad endpoint evidence does not erase a well-typed hard
+                # constraint. It remains unbound until the same constraints
+                # have source evidence; a later free group cannot replace it.
+                base = SemanticOrderGroup.model_validate({key: val for key, val in raw.items()
+                    if key not in {"scope_range", "scope_quote"}})
+                return {**base.model_dump(mode="json", exclude_unset=True), "scope_quote": None}, True
+            except ValueError:
+                pass
+        # An invalid range never discards valid visits or gives an overlapping
+        # free group permission. An unbound UNKNOWN occupies the supplied valid
+        # indices; without trustworthy membership, keep all visits unassessed.
+        indices = raw.get("activity_indices") if isinstance(raw, dict) else None
+        if not (isinstance(indices, (list, tuple)) and 1 <= len(indices) <= 160
+                and all(type(i) is int and 0 <= i < 160 for i in indices)):
+            indices = list(range(min(activity_count, 160)))
+        return dict(kind="UNKNOWN", activity_indices=list(indices), scope_quote=None), True
 
 
 @lru_cache(maxsize=1)
@@ -51,6 +149,7 @@ def _wire_model():
         items=(list[item], Field(min_length=1, json_schema_extra={"maxItems": 160})))
     top = {name: (field.annotation, deepcopy(field))
         for name, field in SemanticDraft.model_fields.items() if name != "activities"}
+    top["order_groups"] = (list[CompactSemanticOrderGroup], deepcopy(SemanticDraft.model_fields["order_groups"]))
     return create_model("CompactSemanticDraft", __base__=StrictModel,
         blocks=(list[block], Field(max_length=160)), **top)
 
@@ -64,11 +163,21 @@ def compact_schema(active_legacy_schema: dict) -> dict:
         if name not in {"name", "quote"} and name not in legacy_props:
             del item_props[name]
     schema["properties"]["day_labels"] = deepcopy(active_legacy_schema["properties"]["day_labels"])
+    group = schema["$defs"]["CompactSemanticOrderGroup"]
+    del group["properties"]["scope_quote"]
+    group["properties"]["scope_range"] = {"$ref": "#/$defs/CompactOrderScopeRange"}
+    group["required"] = [*group["required"], "scope_range"]
     return schema
 
 
-def expand_compact_payload(payload: object) -> dict:
+def expand_compact_payload(payload: object, *, source: str | None = None) -> dict:
     value = json.loads(payload) if isinstance(payload, str) else payload
+    if isinstance(value, dict) and isinstance(value.get("order_groups"), list):
+        blocks = value.get("blocks") if isinstance(value.get("blocks"), list) else []
+        count = sum(len(b.get("items", [])) for b in blocks
+            if isinstance(b, dict) and isinstance(b.get("items"), list))
+        groups = [_expand_order_group(group, source, count) for group in value["order_groups"]]
+        value = {**value, "order_groups": [group for group, _ in groups]}
     parsed = _wire_model().model_validate(value)
     result = parsed.model_dump(mode="json", exclude_unset=True)
     activities = []
@@ -103,7 +212,85 @@ def expand_compact_payload(payload: object) -> dict:
     return result
 
 
-def compact_draft_payload(draft) -> dict:
+def mark_unbound_compact_order(proposal: SourceSemanticPlan) -> SourceSemanticPlan:
+    # Only failed bindings count here. A valid explicit UNKNOWN or ordinary
+    # missing assessment does not claim a missing place. No source span is
+    # marked covered: unrelated known-place omissions must remain visible.
+    failures = {"ORDER_SCOPE_UNBOUND", "ORDER_MEMBERS_UNBOUND",
+        "ORDER_WIRE_MEMBERS_UNBOUND", "ORDER_PRECEDENCE_UNBOUND"}
+    category = "ORDER_EVIDENCE_UNPROCESSED"
+    if not failures.intersection(proposal.order_assessment.issues) or any(
+        issue.category == category for issue in proposal.diagnostics
+    ):
+        return proposal
+    return proposal.model_copy(update={
+        "diagnostics": [*proposal.diagnostics, SemanticDiagnostic(category=category, field="order_groups")],
+        "unprocessed_count": proposal.unprocessed_count + 1,
+    })
+
+
+def without_repaired_order_placeholders(source: str, original, repaired):
+    """Replace only unbound placeholders, after independent source validation.
+
+    The ordinary merge still protects every visit and every grounded order
+    group. Replacement requires the same members, kind and hard evidence;
+    retaining both copies would otherwise falsely create overlap.
+    """
+    from app.trip_understanding.experience_inference import _proposal_from_live_draft
+    from app.trip_understanding.semantic_recovery import _identity
+
+    try:
+        checked = _proposal_from_live_draft(source, repaired)
+    except ValueError:
+        return original
+    by_id = {m.mention_id: (m.span_start, m.span_end, m.day_index, m.role) for m in checked.mentions}
+    bound = {(frozenset(by_id[mid] for mid in group.member_mention_ids), group.kind)
+        for group in checked.order_assessment.groups}
+
+    def keys(draft, indices):
+        found = []
+        for index in indices:
+            if index >= len(draft.activities):
+                return frozenset()
+            row = draft.activities[index]
+            span = _identity(source, row)
+            if (span is None or row.role != ActivityRole.PLANNED or row.day_index is None
+                    or not row.place_name or source[span[0]:span[1]] != row.place_name):
+                return frozenset()
+            found.append((*span, row.day_index, row.role))
+        return frozenset(found) if len(set(found)) == len(indices) else frozenset()
+
+    def edges(draft, group):
+        found = []
+        for edge in group.required_precedence:
+            before, after = keys(draft, [edge.before_index]), keys(draft, [edge.after_index])
+            if not before or not after:
+                return None
+            found.append((next(iter(before)), next(iter(after)), edge.evidence))
+        return frozenset(found)
+
+    replacements = []
+    explicit_unknown = {by_id[mid] for mid in checked.order_assessment.explicit_unknown_mention_ids}
+    for group in repaired.order_groups:
+        members = keys(repaired, group.activity_indices)
+        if members and (members, group.kind) in bound:
+            replacements.append((members, group.kind, edges(repaired, group)))
+        elif group.kind == "UNKNOWN" and members and members <= explicit_unknown:
+            replacements.append((members, "UNKNOWN", frozenset()))
+    kept = []
+    for group in original.order_groups:
+        placeholder = group.scope_quote is None
+        members = keys(original, group.activity_indices) if placeholder else frozenset()
+        original_edges = edges(original, group)
+        same = bool(members) and any(members == new_members and group.kind == kind
+            and original_edges is not None and original_edges == new_edges
+            for new_members, kind, new_edges in replacements)
+        if not same:
+            kept.append(group)
+    return original.model_copy(update={"order_groups": kept})
+
+
+def compact_draft_payload(draft, *, source: str | None = None) -> dict:
     value = draft.model_dump(mode="json", exclude_unset=True)
     blocks = []
     for activity, raw in zip(draft.activities, value.pop("activities"), strict=True):
@@ -128,6 +315,18 @@ def compact_draft_payload(draft) -> dict:
         if not blocks or any(blocks[-1][key] != val for key, val in header.items()):
             blocks.append({**header, "items": []})
         blocks[-1]["items"].append(row)
+    if source is not None:
+        for group in value.get("order_groups", []):
+            quote = group.get("scope_quote")
+            if quote:
+                try:
+                    scope = compact_order_scope(source, quote)
+                except ValueError:
+                    # Keep the actual invalid old evidence in a repair example;
+                    # never manufacture endpoints to make it fit the new wire.
+                    continue
+                group.pop("scope_quote")
+                group["scope_range"] = scope
     return {**value, "blocks": blocks}
 
 

@@ -2737,7 +2737,7 @@ class ExperienceQwenProvider:
         if self.enable_compact_wire:
             from app.trip_understanding.compact_semantic_wire import expand_compact_payload
 
-            payload = expand_compact_payload(payload)
+            payload = expand_compact_payload(payload, source=source)
         return self._read_draft(source, payload)
 
     async def propose(self, source_text: str) -> SourceSemanticPlan:
@@ -2830,7 +2830,12 @@ class ExperienceQwenProvider:
                             raise ValueError("OUTPUT_TRUNCATED")
                         draft = _expand_source_bound_lists(source_text, self._read_wire_draft(source_text, content))
                         if attempt == 1 and recovery_draft is not None and recovery_partial is not None:
-                            draft = merge_preserved_activities(source_text, recovery_draft, recovery_partial, draft)
+                            original_for_merge = recovery_draft
+                            if self.enable_compact_wire:
+                                from app.trip_understanding.compact_semantic_wire import without_repaired_order_placeholders
+
+                                original_for_merge = without_repaired_order_placeholders(source_text, recovery_draft, draft)
+                            draft = merge_preserved_activities(source_text, original_for_merge, recovery_partial, draft)
                         proposal = _proposal_from_live_draft(source_text, draft)
                         if (_explicit_day_count(source_text) > 14 and
                             any(issue.category == "UNSUPPORTED_DAY_COUNT" for issue in proposal.diagnostics)):
@@ -2855,7 +2860,7 @@ class ExperienceQwenProvider:
                                 for issue in call["validation_errors"]):
                             from app.trip_understanding.compact_semantic_wire import expand_compact_payload
 
-                            capacity_content = json.dumps(expand_compact_payload(content), ensure_ascii=False)
+                            capacity_content = json.dumps(expand_compact_payload(content, source=source_text), ensure_ascii=False)
                         if any(issue["field"] == "activities" and (
                             issue["category"] == "TOO_MANY_ACTIVITIES" or
                             (issue["category"] == "too_long" and _source_bound_activity_overflow(source_text, capacity_content)))
@@ -2993,7 +2998,7 @@ class ExperienceQwenProvider:
                             if self.enable_compact_wire and repair_draft is not None:
                                 from app.trip_understanding.compact_semantic_wire import compact_draft_payload
 
-                                assistant_content = json.dumps(compact_draft_payload(repair_draft), ensure_ascii=False)
+                                assistant_content = json.dumps(compact_draft_payload(repair_draft, source=source_text), ensure_ascii=False)
                             messages.extend([
                                 {"role": "assistant", "content": assistant_content},
                                 {"role": "user", "content": _repair_prompt(source_text, repair_content, exc)},
@@ -3078,6 +3083,10 @@ class ExperienceQwenProvider:
                 # Field-only or source-detail repairs can return before the
                 # ordinary validation loop. A full reply still needs coverage.
                 proposal = _capacity_checked_proposal(source_text, proposal, allow_partial=True)
+        if self.enable_compact_wire and proposal is not None:
+            from app.trip_understanding.compact_semantic_wire import mark_unbound_compact_order
+
+            proposal = mark_unbound_compact_order(proposal)
         known_usage = all(isinstance(c.get("input_tokens"), int) and isinstance(c.get("output_tokens"), int) for c in calls)
         input_tokens = sum(int(c["input_tokens"]) for c in calls) if known_usage else None
         output_tokens = sum(int(c["output_tokens"]) for c in calls) if known_usage else None
