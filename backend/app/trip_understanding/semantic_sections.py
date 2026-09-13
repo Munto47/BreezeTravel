@@ -196,6 +196,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
 
     mentions = []
     order_groups = []
+    order_explicit_unknown = []
     order_issues = []
     unprocessed = len(diagnostics)
     unprocessed_by_day = {day: 1 for day, _left, _right in sections if day not in results}
@@ -218,6 +219,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
         order = remap_source_order_assessment(output.order_assessment, ids,
             offset=offset, source_start=len(prefix))
         order_groups.extend(order.groups)
+        order_explicit_unknown.extend(order.explicit_unknown_mention_ids)
         order_issues.extend(order.issues)
         for item in scoped:
             mentions.append(item.model_copy(update={"mention_id": ids[item.mention_id],
@@ -253,7 +255,8 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
     result = first.model_copy(update={"source_hash": hashlib.sha256(source.encode()).hexdigest(),
         "mentions": mentions, "diagnostics": diagnostics, "day_labels": day_labels, "day_count": len(sections),
         "order_assessment": retain_source_order_assessment(SourceOrderAssessment(
-            groups=tuple(order_groups), issues=tuple(order_issues)), mentions),
+            groups=tuple(order_groups), explicit_unknown_mention_ids=tuple(order_explicit_unknown),
+            issues=tuple(order_issues)), mentions),
         "unprocessed_count": unprocessed, "unprocessed_by_day": unprocessed_by_day})
     from app.trip_understanding.experience_inference import _capacity_checked_proposal, SourceAnchorValidationError
 

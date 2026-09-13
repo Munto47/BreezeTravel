@@ -17,7 +17,7 @@ MODEL = "qwen3.7-flash-2026-07-15"
 SOURCE = "北京。Day1：青溪公园。"
 VALID = dict(destination="北京", day_labels=[None], unprocessed_quotes=[], activities=[
     dict(source_quote="青溪公园", place_name="青溪公园", role="PLANNED", day_index=1),
-])
+], order_groups=[dict(kind="INITIAL_ORDER", activity_indices=[0], scope_quote="Day1：青溪公园。")])
 
 
 @asynccontextmanager
@@ -84,7 +84,7 @@ async def test_actual_schema_keeps_all_business_fields_bounds_and_requires_name_
     schema = request_schema(requests[0])
     activity = schema["$defs"]["SemanticActivity"]
     assert set(schema["properties"]) == {"destination", "day_labels", "activities", "unprocessed_quotes", "choice_groups", "order_groups"}
-    assert set(schema["required"]) == {"activities", "day_labels", "unprocessed_quotes"}
+    assert set(schema["required"]) == {"activities", "day_labels", "unprocessed_quotes", "order_groups"}
     assert set(activity["required"]) == {"source_quote", "role", "place_name", "day_index"}
     assert set(activity["properties"]) == {
         "source_quote", "occurrence", "place_name", "role", "day_index", "category", "meal_role",
@@ -102,7 +102,7 @@ async def test_actual_schema_keeps_all_business_fields_bounds_and_requires_name_
     assert branch["properties"]["activity_indices"]["items"]["exclusiveMaximum"] == 160
     validator = Draft202012Validator(schema)
     validator.validate(VALID)
-    for field in ("day_labels", "unprocessed_quotes"):
+    for field in ("day_labels", "unprocessed_quotes", "order_groups"):
         missing = {key: value for key, value in VALID.items() if key != field}
         assert any(error.validator == "required" and not error.path for error in validator.iter_errors(missing))
     for field in ("place_name", "day_index"):
@@ -125,7 +125,7 @@ async def test_explicit_null_meal_and_undated_whole_trip_hotel_are_valid_without
              category="住宿", lodging_event="OVERNIGHT", lodging_scope="WHOLE_TRIP", lodging_evidence="全程住星河酒店"),
         dict(source_quote="午餐待定", place_name=None, role="PLANNED", day_index=1, category="餐饮", meal_role="LUNCH"),
         dict(source_quote="休息", place_name=None, role="PLANNED", day_index=2),
-    ])
+    ], order_groups=[])
     async with recorded_provider(payload) as (provider, requests):
         result = await provider.propose(source)
     assert len(requests) == 1
@@ -157,6 +157,7 @@ def test_strict_wire_does_not_change_legacy_draft_or_saved_plan_defaults():
     old = SemanticDraft.model_validate({"activities": [{"source_quote": "午餐", "role": "PLANNED"}]})
     assert old.activities[0].place_name is None and old.activities[0].day_index is None
     assert old.day_labels == [] and old.unprocessed_quotes == []
+    assert old.order_groups == []  # Required only on the active model wire; old records still read.
     restored = SemanticDraft.model_validate_json(old.model_dump_json(exclude_unset=True))
     assert restored == old
     plan = SourceSemanticPlan.model_validate(dict(source_hash="0" * 64, destination_name="北京", binding={},
@@ -164,6 +165,7 @@ def test_strict_wire_does_not_change_legacy_draft_or_saved_plan_defaults():
                        role="PLANNED", sequence_index=0)]))
     assert plan.mentions[0].atomic_place_name is None and plan.mentions[0].day_index is None
     assert plan.day_labels == {} and plan.unprocessed_count == 0
+    assert plan.order_assessment.unassessed_mention_ids == ()
 
 
 @pytest.mark.asyncio

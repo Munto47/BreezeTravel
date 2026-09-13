@@ -88,7 +88,22 @@ class BoundSourceOrderGroup(OrderModel):
 class SourceOrderAssessment(OrderModel):
     groups: tuple[BoundSourceOrderGroup, ...] = ()
     unknown_mention_ids: tuple[str, ...] = ()
+    explicit_unknown_mention_ids: tuple[str, ...] = ()
+    unassessed_mention_ids: tuple[str, ...] = ()
     issues: tuple[str, ...] = ()
+
+
+def _assessment(groups, mentions, explicit_unknown=(), issues=()):
+    eligible = [m.mention_id for m in mentions if _eligible(m)]
+    known = {mid for group in groups for mid in group.member_mention_ids}
+    reviewed_unknown = set(explicit_unknown) - known
+    missing = tuple(mid for mid in eligible if mid not in known and mid not in reviewed_unknown)
+    codes = tuple(dict.fromkeys(code for code in issues if code != "ORDER_ASSESSMENT_INCOMPLETE"))
+    return SourceOrderAssessment(groups=tuple(groups),
+        unknown_mention_ids=tuple(mid for mid in eligible if mid not in known),
+        explicit_unknown_mention_ids=tuple(mid for mid in eligible if mid in reviewed_unknown),
+        unassessed_mention_ids=missing,
+        issues=(*codes, "ORDER_ASSESSMENT_INCOMPLETE") if missing else codes)
 
 
 def _unique_span(source: str, quote: str | None, left=0, right=None) -> tuple[int, int] | None:
@@ -114,14 +129,12 @@ def bind_source_order_groups(
     by_id = {m.mention_id: m for m in mentions}
     if len(by_id) != len(mentions):
         raise ValueError("Source mentions must have unique identities")
-    eligible = {m.mention_id for m in mentions if _eligible(m)}
     counts = Counter(mid for draft in drafts for mid in draft.member_mention_ids)
     groups = []
+    explicit_unknown = []
     issues = []
     for draft in drafts:
         members = [by_id[mid] for mid in draft.member_mention_ids if mid in by_id]
-        if draft.kind == "UNKNOWN":
-            continue
         if (len(members) != len(draft.member_mention_ids)
                 or any(not _eligible(m) or counts[m.mention_id] != 1 for m in members)
                 or len({m.day_index for m in members}) != 1):
@@ -133,6 +146,11 @@ def bind_source_order_groups(
             or source[m.span_start:m.span_end] != m.raw_text for m in members
         ):
             issues.append("ORDER_SCOPE_UNBOUND")
+            continue
+        if draft.kind == "UNKNOWN":
+            # A genuine unknown decision still identifies exactly which visits
+            # were assessed. It never becomes an optimization permission.
+            explicit_unknown.extend(draft.member_mention_ids)
             continue
         hard = []
         evidence_spans = []
@@ -161,10 +179,7 @@ def bind_source_order_groups(
             hard_precedence=tuple(dict.fromkeys(hard)), scope_start=scope[0], scope_end=scope[1],
             evidence_spans=tuple(evidence_spans),
         ))
-    verified = {mid for group in groups for mid in group.member_mention_ids}
-    return SourceOrderAssessment(groups=tuple(groups), unknown_mention_ids=tuple(
-        m.mention_id for m in mentions if m.mention_id in eligible - verified
-    ), issues=tuple(issues))
+    return _assessment(groups, mentions, explicit_unknown, issues)
 
 
 def bind_semantic_order_groups(source, original, mentions) -> SourceOrderAssessment:
@@ -268,9 +283,7 @@ def retain_source_order_assessment(assessment, mentions) -> SourceOrderAssessmen
         if all(mid in eligible and group.scope_start <= eligible[mid].span_start
                < eligible[mid].span_end <= group.scope_end for mid in group.member_mention_ids)
         and len({eligible[mid].day_index for mid in group.member_mention_ids}) == 1)
-    known = {mid for group in groups for mid in group.member_mention_ids}
-    return SourceOrderAssessment(groups=groups,
-        unknown_mention_ids=tuple(mid for mid in eligible if mid not in known), issues=assessment.issues)
+    return _assessment(groups, mentions, assessment.explicit_unknown_mention_ids, assessment.issues)
 
 
 def remap_source_order_assessment(assessment, ids, *, offset=0, source_start=0):
@@ -286,7 +299,10 @@ def remap_source_order_assessment(assessment, ids, *, offset=0, source_start=0):
             "scope_start": group.scope_start + offset, "scope_end": group.scope_end + offset,
             "evidence_spans": tuple((left + offset, right + offset) for left, right in group.evidence_spans),
         }))
-    return SourceOrderAssessment(groups=tuple(groups), issues=assessment.issues)
+    return SourceOrderAssessment(groups=tuple(groups), issues=assessment.issues,
+        unknown_mention_ids=tuple(ids[mid] for mid in assessment.unknown_mention_ids if mid in ids),
+        explicit_unknown_mention_ids=tuple(ids[mid] for mid in assessment.explicit_unknown_mention_ids if mid in ids),
+        unassessed_mention_ids=tuple(ids[mid] for mid in assessment.unassessed_mention_ids if mid in ids))
 
 
 class PrivateVisitOrigin(OrderModel):

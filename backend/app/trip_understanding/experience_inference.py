@@ -86,7 +86,7 @@ class SemanticDraft(StrictModel):
     choice_groups: list[SemanticChoiceGroup] = Field(default_factory=list, max_length=80,
         description="仅原文明示尚未选择的二选一。scope_quote逐字包含两分支与选择条件；branches按原顺序引用activities从0起的index，每分支可有多个连续地点。已选、取消、普通可前往路线不建组。")
     order_groups: list[SemanticOrderGroup] = Field(default_factory=list, max_length=160,
-        description="审阅原文后的同日具名主线先后判断，activity_indices引用本答activities从0起的原访问；匿名餐位不作为成员。INITIAL_ORDER仅初始排列；REQUIRED_PRECEDENCE保留有逐字依据的必需先后；UNKNOWN或省略表示尚未判断，不等于自由改序。")
+        description="必须逐项覆盖所有同日具名PLANNED独立访问，每项恰好属于一个组，activity_indices引用本答activities从0起的原访问；匿名餐位和备选不作为成员。INITIAL_ORDER为初始排列；REQUIRED_PRECEDENCE为必需先后；无法判断也显式用UNKNOWN。只有无具名主线时可为空数组，不得用空数组代替全文判断。")
 
     @field_validator("destination", mode="before")
     @classmethod
@@ -2674,7 +2674,7 @@ class ExperienceQwenProvider:
         # class defaults remain permissive for historical stored drafts.
         activity_schema = self.schema["$defs"]["SemanticActivity"]
         activity_schema["required"] = [*activity_schema["required"], "place_name", "day_index"]
-        self.schema["required"] = [*self.schema["required"], "day_labels", "unprocessed_quotes"]
+        self.schema["required"] = [*self.schema["required"], "day_labels", "unprocessed_quotes", "order_groups"]
         activity_schema["properties"]["place_name"].pop("default", None)
         if relative_only:
             for field in (*ActivityTiming.model_fields, "time_evidence"):
@@ -3007,6 +3007,7 @@ class ExperienceQwenProvider:
             "semantic_partial_recovery": semantic_partial_used,
             "semantic_diagnostic_counts": ({category: sum(issue.category == category for issue in proposal.diagnostics)
                 for category in sorted({issue.category for issue in proposal.diagnostics})} if proposal is not None else {}),
+            "order_unassessed_mention_count": len(proposal.order_assessment.unassessed_mention_ids) if proposal else None,
             "known_source_place_count": len(source_places),
             "source_grounded_day_activities": grounded_days,
             "restored_validated_draft_attempt": restored_draft_attempt,

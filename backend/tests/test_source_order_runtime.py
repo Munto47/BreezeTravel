@@ -40,7 +40,7 @@ async def test_real_wire_to_pipeline_seed_keeps_mainline_and_only_explicit_hard_
     assert len(requests) == 1
     schema = request_schema(requests[0])
     Draft202012Validator(schema).validate(raw)
-    assert "order_groups" in schema["properties"] and "order_groups" not in schema["required"]
+    assert "order_groups" in schema["properties"] and "order_groups" in schema["required"]
     assert "INITIAL_ORDER" in requests[0]["messages"][0]["content"]
     assessment = output.proposal.order_assessment
     assert len(assessment.groups) == 1 and not assessment.unknown_mention_ids

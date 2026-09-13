@@ -82,7 +82,7 @@ def test_exact_evidence_of_another_occurrence_cannot_lock_the_current_visits():
     items = mentions()  # The route's A/B, not the later repeated A/B in the rule.
     assessment = bind_source_order_groups(SOURCE, items, [draft(items)])
     assert assessment.groups == () and len(assessment.unknown_mention_ids) == 4
-    assert assessment.issues == ("ORDER_PRECEDENCE_UNBOUND",)
+    assert assessment.issues == ("ORDER_PRECEDENCE_UNBOUND", "ORDER_ASSESSMENT_INCOMPLETE")
 
 
 @pytest.mark.parametrize("problem", ["wrong_scope", "cross_day", "reference", "cancelled", "overlap", "forged_span", "cycle"])

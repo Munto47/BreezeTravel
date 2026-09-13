@@ -120,6 +120,7 @@
         "tests/test_relative_route_previews.py",
         "tests/test_source_order.py",
         "tests/test_source_order_runtime.py",
+        "tests/test_order_assessment_coverage.py",
         "tests/test_relative_route_context.py",
         "tests/test_relative_route_flow.py",
         "tests/test_relative_route_api.py"
