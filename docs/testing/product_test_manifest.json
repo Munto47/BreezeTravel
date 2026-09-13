@@ -115,6 +115,7 @@
         "tests/test_edit_history.py",
         "tests/test_named_meal_area_intent.py",
         "tests/test_source_meal_hint_category.py",
+        "tests/test_duplicate_source_meal_intent.py",
         "tests/test_source_visit_experience_scope.py",
         "tests/test_source_meal_selection.py",
         "tests/test_dining_unavailable_store.py",

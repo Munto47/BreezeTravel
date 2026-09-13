@@ -1220,6 +1220,7 @@ class PublicResultProjector:
         for day_index in range(1, day_count + 1):
             cards = []
             meal_slots = []
+            anonymous_meal_occurrences: set[tuple] = set()
             daily = sorted((activity for activity in activities
                 if activity.compiled.mention.role == ActivityRole.PLANNED
                 and not _is_internal_detail(activity.compiled.mention)
@@ -1273,11 +1274,26 @@ class PublicResultProjector:
                             and source_meal_block(source_text, other.span_start, other.span_end) == block)
 
                     anonymous_covers_area = area_meal and any(same_meal_source(row.compiled.mention) for row in daily)
-                    if not anonymous_covers_area:
+                    after_token = preceding[-1].compiled.public_activity_token if preceding else None
+                    before_token = following[0].compiled.public_activity_token if following else None
+                    repeated_anonymous_source = False
+                    if (anonymous_meal and mention.meal_role and source_text
+                            and 0 <= mention.span_start < mention.span_end <= len(source_text)
+                            and source_text[mention.span_start:mention.span_end] == mention.raw_text):
+                        block = source_meal_block(source_text, mention.span_start, mention.span_end)
+                        if block:
+                            # Literal spans with the same start are nested. A
+                            # shorter/longer quote of this single meal can share
+                            # one slot only with the same branch and anchors.
+                            # Retain both semantic mentions and diagnostics.
+                            occurrence = (day_index, mention.meal_role, mention.choice_group_id,
+                                mention.branch_id, mention.span_start, block, after_token, before_token)
+                            repeated_anonymous_source = occurrence in anonymous_meal_occurrences
+                            anonymous_meal_occurrences.add(occurrence)
+                    if not anonymous_covers_area and not repeated_anonymous_source:
                         meal_slots.append(MealSlotView(meal_role=mention.meal_role or "UNSPECIFIED", selection_status="UNSELECTED",
                             preference_text=" ".join(preference.split()) if len(preference) <= 1000 else None,
-                            after_activity_token=preceding[-1].compiled.public_activity_token if preceding else None,
-                            before_activity_token=following[0].compiled.public_activity_token if following else None))
+                            after_activity_token=after_token, before_activity_token=before_token))
                     if anonymous_meal:
                         continue
                 place = item.place
