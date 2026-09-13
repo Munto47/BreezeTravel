@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Star, Clock, MapPin, AlertTriangle, Heart, ChevronRight, BookOpen, ArrowLeftRight } from 'lucide-react'
+import { Star, MapPin, AlertTriangle, Heart, ChevronRight, BookOpen, ArrowLeftRight } from 'lucide-react'
 import type { YjsPlace, RoomMember } from '@/types/room'
 import type { PlaceRecommendation } from '@/types/place'
 
@@ -29,13 +29,6 @@ const CONFIDENCE_CONFIG = {
   high:   { label: '高可信', color: 'text-green-600 bg-green-50' },
   medium: { label: '中可信', color: 'text-amber-600 bg-amber-50' },
   low:    { label: '低可信', color: 'text-gray-500 bg-gray-50' },
-}
-
-function formatDuration(mins?: number): string {
-  if (!mins) return ''
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return h > 0 ? (m > 0 ? `${h}h${m}min` : `${h}h`) : `${m}min`
 }
 
 export default function PlaceCard({
@@ -188,14 +181,6 @@ export default function PlaceCard({
             <div className="flex items-center gap-2 mt-2.5 text-[11px] text-gray-400">
               <MapPin className="w-3 h-3 flex-shrink-0" />
               <span className="truncate flex-1">{place.district || place.address}</span>
-              {place.estimatedDuration && (
-                <>
-                  <span className="text-gray-200">|</span>
-                  <span className="flex items-center gap-0.5 flex-shrink-0">
-                    <Clock className="w-2.5 h-2.5" /> {formatDuration(place.estimatedDuration)}
-                  </span>
-                </>
-              )}
               {place.amapPrice && (
                 <>
                   <span className="text-gray-200">|</span>

@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.trip_understanding.errors import InferenceProviderUnavailableError
 from app.trip_understanding.experience_inference import (
     ExperienceQwenProvider,
     SemanticDraft,
@@ -190,7 +189,8 @@ def test_choice_scope_keeps_observed_passed_and_excluded_places_out_of_visit_opt
 
 
 def test_only_an_explicit_optional_visit_can_correct_a_reference_role():
-    source = "Day1：云岭公园。Iris咖啡可以打卡。"
+    # Preserve optional recovery's purpose with a real condition (owner rule).
+    source = "Day1：云岭公园。如果有空，Iris咖啡可以打卡。"
     proposal = propose(source, [row("云岭公园"), row("Iris咖啡", role="REFERENCE", category="餐饮")])
     assert [m.role.value for m in proposal.mentions] == ["PLANNED", "OPTIONAL"]
     assert not EvidenceCompiler().compile(source, proposal)[0][1].eligible_for_place_search
@@ -233,10 +233,11 @@ async def test_repair_hints_stay_in_current_model_request_not_bindings_logs_or_n
     if repair_succeeds:
         binding = (await provider.propose(source)).binding
     else:
-        with pytest.raises(InferenceProviderUnavailableError) as raised:
-            await provider.propose(source)
-        binding = raised.value.provider_binding
-        assert missing_name not in str(raised.value)
+        partial = await provider.propose(source)
+        binding = partial.binding
+        assert binding["outcome"] == "PARTIAL_RESULT"
+        assert partial.unprocessed_count > 0
+        assert [mention.atomic_place_name for mention in partial.mentions] == ["星河公园"]
     assert len(requests) == 2
     assert len(requests[0]["messages"]) == 2
     assert requests[1]["messages"][-1]["role"] == "user"

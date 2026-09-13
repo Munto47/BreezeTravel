@@ -11,7 +11,7 @@ import ToastContainer from '@/components/ui/ToastContainer'
 
 export const metadata: Metadata = {
   title: 'BreezeTravel — 行程查',
-  description: '核验北京、上海或杭州的单城市行程，并给出有依据的风险与调整建议',
+  description: '粘贴旅行攻略文字，整理每天的地点与先后顺序，查看地图，保存并导出清晰的行程卡片。',
 }
 
 export default function RootLayout({

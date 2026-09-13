@@ -11,6 +11,9 @@ PlannerGraph v2 拓扑：
 """
 
 import time
+import logging
+import asyncio
+import httpx
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,6 +39,37 @@ async def optimize(request: OptimizeRequest, current_user: str | None = Depends(
         raise HTTPException(status_code=400, detail="room_id 必填")
     if not request.places:
         raise HTTPException(status_code=400, detail="places 不能为空")
+    if request.relative_only:
+        if request.persist_workspace or request.workspace_id or request.start_date:
+            raise HTTPException(status_code=422, detail="相对行程不使用日期或旧时间表工作区")
+        from app.services.collaboration_relative_route import plan_relative_route
+        from app.services.room_current_itinerary import check_publication, publish_itinerary, fail_publication
+        if request.base_room_route_version is not None:
+            replay = await check_publication(request, current_user)
+            if replay is not None:
+                return replay.optimize_response()
+        started = time.monotonic()
+        try:
+            try:
+                async with httpx.AsyncClient(timeout=6.0) as client:
+                    itinerary, total_distance = await plan_relative_route(request.places,
+                        trip_days=request.trip_days, thread_id=request.thread_id,
+                        api_key=cfg.amap_api_key, client=client)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            result = OptimizeResponse(itinerary=itinerary, total_distance_km=total_distance,
+                optimization_method="relative_geographic_order", duration_ms=int((time.monotonic()-started)*1000),
+                backup_pool=[], tips_status="NOT_REQUESTED")
+            if request.base_room_route_version is not None:
+                return (await publish_itinerary(request, current_user, result)).optimize_response()
+            return result
+        except (Exception, asyncio.CancelledError):
+            if request.base_room_route_version is not None:
+                try:
+                    await fail_publication(request, current_user)
+                except Exception:
+                    logging.getLogger(__name__).warning("Room route request cleanup unavailable")
+            raise
     if request.task_spec and request.task_spec.needs_clarification:
         raise HTTPException(
             status_code=409,

@@ -27,6 +27,7 @@ interface ChatPanelProps {
   weather?: WeatherData | null
   tripCity?: string
   onSend: (text: string) => void
+  onStop?: () => void
   onClickPlace?: (placeId: string) => void
 }
 
@@ -93,7 +94,7 @@ const PROGRESS_LABELS = {
   ORGANIZING: '整理建议',
 } as const
 
-export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend, onClickPlace }: ChatPanelProps) {
+export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend, onStop, onClickPlace }: ChatPanelProps) {
   const [input, setInput] = useState('')
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -146,7 +147,7 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
           <div>
             <h2 className="text-sm font-bold text-gray-900">AI 旅行顾问</h2>
             <p className="text-[11px] text-gray-400 leading-tight">
-              本设备会话 · 完成的地点会同步到房间
+              本页问答刷新后不保留 · 完成的地点同步到房间
             </p>
           </div>
 
@@ -229,8 +230,10 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
             rows={2}
             className="input-glass flex-1 resize-none text-sm"
           />
-          <button
+          {isStreaming && onStop ? <button type="button" aria-label="停止回答" onClick={onStop}
+            className="min-h-11 rounded-lg border border-coral-200 bg-white px-3 text-sm text-coral-700 flex-shrink-0">停止回答</button> : <button
             data-testid="chat-send"
+            aria-label="发送问题"
             onClick={handleSend}
             disabled={isStreaming || !input.trim()}
             className="btn-coral p-2.5 rounded-lg flex-shrink-0"
@@ -240,7 +243,7 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
             ) : (
               <Send className="w-4 h-4" />
             )}
-          </button>
+          </button>}
         </div>
       </div>
     </div>

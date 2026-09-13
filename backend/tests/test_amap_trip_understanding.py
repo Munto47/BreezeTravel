@@ -93,7 +93,9 @@ async def test_amap_owned_client_is_reused_and_closed(monkeypatch) -> None:
 
     assert all(outcome.place is not None for outcome in outcomes)
     assert len(created) == 1
-    assert len(observed) == 2
+    assert len(observed) == 1
+    assert sum(outcome.receipt["external_calls"] for outcome in outcomes) == 1
+    assert outcomes[1].receipt["cache_reuse"] == "INFLIGHT_COALESCED"
     assert created[0].is_closed is False
     await resolver.aclose()
     assert created[0].is_closed is True
@@ -136,6 +138,7 @@ async def test_amap_exact_city_category_match_is_adopted_with_redacted_receipt()
         "140400",
         "140500",
         "140600",
+        "140700",
     ]
     assert "key=test-only" in str(request.url)
     assert "test-only" not in str(outcome.receipt)
@@ -342,7 +345,7 @@ async def test_amap_provider_name_variants_remain_unique_city_category_matches(
     assert outcome.place is not None
     assert outcome.receipt["provider_alias_candidate_count"] == alias_count
     assert outcome.receipt["category_compatible_candidate_count"] == 1
-    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_UNIQUE_OR_SAME_ROAD_V6"
+    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_VISITOR_IDENTITY_V7"
     assert len(observed) == 1
 
 
@@ -386,6 +389,7 @@ async def test_amap_safe_alias_excludes_a_different_venue_candidate() -> None:
         "140400",
         "140500",
         "140600",
+        "140700",
     ]
     assert len(observed) == 1
 
@@ -474,7 +478,8 @@ async def test_amap_timeout_preserves_redacted_city_and_atomic_query_binding() -
 
     binding = captured.value.provider_binding
     assert captured.value.category == "DEADLINE_EXCEEDED"
-    assert captured.value.external_call_count == 1
+    assert captured.value.external_call_count == 2
+    assert binding["retry_events"] == [{"attempt": 1, "reason": "ReadTimeout"}]
     assert binding["city"] == "杭州"
     assert binding["city_limit"] is True
     assert len(str(binding["query_sha256"])) == 64

@@ -19,11 +19,27 @@ from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
 from app.trip_understanding.stay import (
     ControlledStayRouteProvider,
+    HotelBrandRegistry,
     StayCandidate,
     StayRecommendationEngine,
     stay_plan_from_map,
 )
 from app.trip_understanding.worker import TripUnderstandingWorker
+
+
+def _test_registry():
+    """Explicit synthetic branch evidence for route/transaction tests only."""
+    properties = []
+    for city in ("北京", "上海", "广州", "深圳", "杭州"):
+        for number in range(15):
+            for token in (f"测试{number:02d}店", f"合成{number}店"):
+                properties.append({"city": city, "brand": "汉庭", "name": f"汉庭酒店({token})",
+                    "name_tokens": ["汉庭", token], "address_tokens": [f"测试路{number}号"],
+                    "source_url": "https://example.invalid/synthetic-hotel-evidence", "checked_at": "2026-09-07", "status": "LISTED"})
+        properties.append({"city": city, "brand": "汉庭", "name": "汉庭酒店(单模式店)",
+            "name_tokens": ["汉庭", "单模式店"], "address_tokens": ["测试路1号"],
+            "source_url": "https://example.invalid/synthetic-hotel-evidence", "checked_at": "2026-09-07", "status": "LISTED"})
+    return HotelBrandRegistry({"brands": [{"brand": "汉庭", "aliases": ["汉庭"], "group": "合成集团", "priority": 1}], "properties": properties})
 
 
 class ManyHotelsProvider:
@@ -166,13 +182,14 @@ def _map_plan() -> MapRenderPlan:
 
 
 @pytest.mark.asyncio
-async def test_stay_domain_caps_twelve_and_uses_frozen_deterministic_order() -> None:
+async def test_stay_recall_twelve_scores_six_in_deterministic_order() -> None:
     provider = ManyHotelsProvider()
     plan = stay_plan_from_map(_map_plan())
     assert plan is not None
     output = await StayRecommendationEngine(
         provider,
         ControlledStayRouteProvider(),
+        brand_registry=_test_registry(),
     ).recommend(
         plan,
         observed_at=datetime(2026, 8, 30, tzinfo=timezone.utc),
@@ -180,13 +197,14 @@ async def test_stay_domain_caps_twelve_and_uses_frozen_deterministic_order() -> 
 
     assert output.status == "READY"
     assert provider.scopes == [2000]
-    assert len(output.candidates) == 12
-    assert all(item.candidate.brand == "汉庭" for item in output.candidates)
+    assert len(output.candidates) == 6
+    assert all(item.candidate.brand == "汉庭" and item.candidate.provider_binding["property_identity"] == "OFFICIAL_NAME_ADDRESS"
+        for item in output.candidates)
     assert [item.total_score for item in output.candidates] == sorted(
         item.total_score for item in output.candidates
     )
     assert [item.candidate.canonical_place_id for item in output.candidates] == [
-        f"hotel-{index:02d}" for index in range(12)
+        f"hotel-{index:02d}" for index in range(6)
     ]
     assert len(output.candidates[0].legs) == 4
     assert output.provider_binding["route_external_calls"] == 0
@@ -215,6 +233,7 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     one_mode = await StayRecommendationEngine(
         candidate_provider,
         TransitUnavailableProvider(),
+        brand_registry=_test_registry(),
     ).recommend(plan, observed_at=observed_at)
     assert candidate_provider.scopes == [2000, 4000, 8000, None]
     assert len(one_mode.candidates) == 1
@@ -222,12 +241,12 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     candidate = one_mode.candidates[0]
     short_walks = [leg for leg in candidate.legs if leg.walking.duration_minutes <= 30]
     long_walks = [leg for leg in candidate.legs if leg.walking.duration_minutes > 30]
-    assert len(short_walks) == 3
-    assert len(long_walks) == 1
+    assert len(short_walks) == 2
+    assert len(long_walks) == 2
     assert all(leg.selected_mode == "walking" for leg in short_walks)
     assert all(leg.selected_mode is None for leg in long_walks)
-    assert candidate.missing_leg_count == 1
-    assert candidate.evidence_penalty == 90 + 8 * 3
+    assert candidate.missing_leg_count == 2
+    assert candidate.evidence_penalty == 90 * 2 + 8 * 2
     assert all(
         leg.walking.status == "AVAILABLE" and leg.transit.status == "UNAVAILABLE"
         for leg in one_mode.candidates[0].legs
@@ -236,6 +255,7 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     no_modes = await StayRecommendationEngine(
         OneHotelProvider(),
         TransitUnavailableProvider(fail_walking=True),
+        brand_registry=_test_registry(),
     ).recommend(plan, observed_at=observed_at)
     assert no_modes.status == "UNAVAILABLE"
     assert no_modes.candidates == []
@@ -244,7 +264,7 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
 @pytest.mark.asyncio
 async def test_stay_attempt_fences_stale_completion_and_failure_for_reused_worker_id() -> None:
     repository = InMemoryTripUnderstandingRepository()
-    now = datetime(2026, 9, 2, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     await repository.create_demo(
         capability_hash="f" * 64,
         idempotency_key="stay-attempt-fencing",
@@ -270,6 +290,7 @@ async def test_stay_attempt_fences_stale_completion_and_failure_for_reused_worke
     output = await StayRecommendationEngine(
         ManyHotelsProvider(),
         ControlledStayRouteProvider(),
+        brand_registry=_test_registry(),
     ).recommend(
         await repository.load_stay_plan(stale),
         observed_at=now + timedelta(seconds=2),
@@ -403,7 +424,8 @@ def test_g02_public_map_stay_selection_and_stale_journey() -> None:
         payload = suggestions.json()
         assert payload["status"] in {"AVAILABLE", "LIMITED"}
         assert 1 <= len(payload["candidates"]) <= 3
-        assert all(candidate["brand"] for candidate in payload["candidates"])
+        assert all(candidate["brand_note"] for candidate in payload["candidates"])
+        assert all(candidate["brand_group"] is None for candidate in payload["candidates"] if not candidate["brand"])
 
         provider_effects = repository.map_provider_effect_count
         selected = client.post(
@@ -446,11 +468,13 @@ def test_g02_public_map_stay_selection_and_stale_journey() -> None:
         assert refreshed_map["status"] == "AVAILABLE"
         overnight_routes = [
             route
-            for day in refreshed_map["days"][:2]
+            for day in refreshed_map["days"]
             for route in day["routes"]
         ]
         assert sum(route["from_name"] == selected_name for route in overnight_routes) == 2
         assert sum(route["to_name"] == selected_name for route in overnight_routes) == 2
+        assert refreshed_map["days"][0]["routes"][0]["from_name"] != selected_name
+        assert refreshed_map["days"][-1]["routes"][0]["from_name"] == selected_name
         assert repository.map_provider_effect_count > provider_effects
         assert "price" not in json_text(updated.json()).lower()
         assert all(

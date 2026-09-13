@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import asyncpg
+from app.trip_understanding.errors import RevisionConflictError, ResourceNotReadyError
 
 from app.trip_understanding.models import (
     ChangeAdoptOutcome,
@@ -107,6 +108,7 @@ class TripUnderstandingApplicationService:
             now=now or datetime.now(timezone.utc),
             retention_days=self.full_retention_days,
             initial_inference_binding=source.internal_binding,
+            initial_plan=source.initial_plan,
         )
 
     async def store_screenshot_batch(
@@ -335,6 +337,31 @@ class TripUnderstandingApplicationService:
         idempotency_key: str,
         now: datetime | None = None,
     ) -> ChangeAdoptOutcome:
+        from app.trip_understanding.relative_route_previews import ROUTE_PREVIEW_PREFIX, verify_route_preview
+        if change_token.startswith(ROUTE_PREVIEW_PREFIX):
+            from app.trip_understanding.models import PublicChangeAdopted, PublicTripChecksView
+            attempted_at = now or datetime.now(timezone.utc)
+            # Decode a genuine bound command, but let the command transaction
+            # replay an already-completed request before checking current route
+            # configuration and expiry. First adoption checks both under lock.
+            move = verify_route_preview(change_token, public_resource_id=resource.public_resource_id,
+                expected_etag=expected_etag, now=attempted_at, check_freshness=False).command
+            move = move.model_copy(update={"route_preview_token": change_token})
+            outcome = await self.apply_command(resource, move, expected_etag=expected_etag,
+                idempotency_key=f"relative-adopt:{idempotency_key}", now=attempted_at)
+            try:
+                await self.materialize_trip(resource, expected_etag=outcome.opaque_etag,
+                    idempotency_key=f"relative-materialize:{idempotency_key}", now=attempted_at)
+                checks = await self.get_trip_checks(resource)
+            except (RevisionConflictError, ResourceNotReadyError):
+                # The change is saved even if another edit overtook materialize.
+                # Do not return checks from an older version as current success.
+                checks = PublicTripChecksView(status="STILL_NEEDS_CONFIRMATION",
+                    message="顺序已保存；当前检查尚未就绪，请刷新行程。", items=[], remaining_must_adjust=0)
+            return ChangeAdoptOutcome(adopted=PublicChangeAdopted(
+                status="APPLIED", message="顺序已保存，请手动更新地图和建议。",
+                changed_days=outcome.applied.changed_days, checks=checks),
+                opaque_etag=outcome.opaque_etag, replayed=outcome.replayed)
         request_hash = canonical_sha256(
             {
                 "action": "ADOPT_CHANGE",

@@ -7,7 +7,8 @@ import { AnimatePresence } from 'framer-motion'
 
 import { useYjsRoom } from '@/hooks/useYjsRoom'
 import { useAIChat } from '@/hooks/useAIChat'
-import { useOptimize } from '@/hooks/useOptimize'
+import { useCurrentRoomRoute } from '@/hooks/useCurrentRoomRoute'
+import { roomRouteSelectionChanged } from '@/lib/current-room-route'
 import { useRoomStore } from '@/stores/roomStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -21,7 +22,6 @@ import BackupDrawer from '@/components/places/BackupDrawer'
 import GlassPanel from '@/components/ui/GlassPanel'
 import type { YjsPlace } from '@/types/room'
 import { parseSavedItinerary, type Itinerary } from '@/types/itinerary'
-import type { TripTaskSpec } from '@/types/taskSpec'
 import { parsePlaceFromAPI } from '@/types/place'
 
 const AMapContainer = dynamic(
@@ -74,8 +74,9 @@ function stableFingerprint(value: unknown): string {
 export default function RoomPage() {
   const params = useParams()
   const roomId = params.roomId as string
+  const accountId = useAuthStore(state => state.user?.userId || '')
 
-  return <RoomWorkspace key={roomId} roomId={roomId} />
+  return <RoomWorkspace key={`${roomId}:${accountId}`} roomId={roomId} />
 }
 
 function RoomWorkspace({ roomId }: { roomId: string }) {
@@ -93,6 +94,13 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
 
   const userId = user?.userId ?? ''
   const nickname = user?.nickname ?? '旅行者'
+  const scope = `${roomId}:${userId}:${token || ''}`
+  const scopeRef = useRef<string | null>(scope)
+  scopeRef.current = scope
+  useEffect(() => {
+    scopeRef.current = scope
+    return () => { scopeRef.current = null }
+  }, [scope])
 
   // ── 房间元数据 ─────────────────────────────────────────────────────────
   const [roomData, setRoomData] = useState({
@@ -107,6 +115,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   useEffect(() => {
     if (!isHydrated || !user || !token) return
     let cancelled = false
+    const valid = () => !cancelled && scopeRef.current === scope && localStorage.getItem('authToken') === token
     setRoomLoadError('')
     setRoomData((current) => ({ ...current, loaded: false }))
     ;(async () => {
@@ -116,9 +125,10 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           trip_city?: string
           trip_days?: number
         }>(`/api/room/${encodeURIComponent(roomId)}/state`)
-        if (cancelled) return
+        if (!valid()) return
         setRoomData({ threadId: data.thread_id || roomId, tripCity: data.trip_city || '', tripDays: data.trip_days || 3, loaded: true })
       } catch (failure) {
+        if (!valid()) return
         if (failure instanceof ApiRequestError && failure.status === 403) {
           router.replace(`/collaborate?join=${encodeURIComponent(roomId)}`)
           return
@@ -127,14 +137,14 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
       }
     })()
     return () => { cancelled = true }
-  }, [roomId, isHydrated, roomLoadAttempt, token, user, router])
+  }, [roomId, isHydrated, roomLoadAttempt, scope, token, user, router])
 
   const threadId = roomData.threadId || roomId
   const tripCity = roomData.tripCity || ''
   const tripDays = roomData.tripDays || 3
 
   // ── Yjs 协同 ───────────────────────────────────────────────────────────
-  const { places, members, isConnected, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(
+  const { places, members, isConnected, isSynced, routeVersion, announceRouteVersion, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(
     roomId,
     userId,
     nickname,
@@ -142,7 +152,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   )
 
   // ── AI 聊天 ────────────────────────────────────────────────────────────
-  const { messages, isStreaming, sendMessage } = useAIChat(
+  const { messages, isStreaming, sendMessage, stopMessage } = useAIChat(
     threadId,
     userId,
     roomId,
@@ -169,8 +179,20 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   }, [places, messages])
 
   // ── 路线优化 ───────────────────────────────────────────────────────────
-  const { itinerary, isOptimizing, backupPool, optimize, restoreItinerary } = useOptimize(threadId, roomId)
+  const sharedRoute = useCurrentRoomRoute(roomId, userId, token, roomData.loaded, routeVersion, announceRouteVersion)
+  const [personalItinerary, setPersonalItinerary] = useState<Itinerary | null>(null)
+  const itinerary = sharedRoute.route?.itinerary || personalItinerary
+  const isOptimizing = sharedRoute.publishing
+  const backupPool = itinerary?.backupPool || []
+  const restoreItinerary = useCallback((data: unknown) => {
+    const restored = parseSavedItinerary(data)
+    if (restored) setPersonalItinerary(restored)
+    return restored
+  }, [])
   const [isBackupOpen, setIsBackupOpen] = useState(false)
+  useEffect(() => {
+    if (backupPool.length) setIsBackupOpen(true)
+  }, [backupPool])
   const [isPlanning, setIsPlanning] = useState(false)
 
   const { isChatOpen, tripDays: storeDays, setTripDays, setIsChatOpen, setRightTab, setSelectedPlaceId } = useRoomStore()
@@ -193,92 +215,115 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
     days: { date: string; condition: string; icon: string; temp_high: number; temp_low: number; suggestion: string }[]
   }>(null)
 
-  // ── 持久化：从 DB 恢复景点（进入房间时） ─────────────────────────────
+  // Read the server's saved shape before comparing CRDT updates. A fresh
+  // subscription is not a user edit, but changes during this read still are.
   const dbLoadedRef = useRef(false)
   const isSyncingFromDB = useRef(false)
   const [dbReady, setDbReady] = useState(false)
-
-  useEffect(() => {
-    if (!roomData.loaded || dbLoadedRef.current) return
-    dbLoadedRef.current = true
-    ;(async () => {
-      try {
-        const dbPlaces = await api.get<Record<string, unknown>[]>(`/api/room/${roomId}/places`)
-        if (!dbPlaces.length) {
-          setDbReady(true)
-          return
-        }
-        isSyncingFromDB.current = true
-        dbPlaces.forEach((raw) => {
-          try {
-            const place = parsePlaceFromAPI(raw)
-            if (!places.find(p => p.placeId === place.placeId)) {
-              addPlace(place as any)
-              if (raw.room_selected === true) toggleVote(place.placeId)
-            }
-          } catch { /* 格式错误跳过 */ }
-        })
-        // voted_by 恢复：通过 updateNote 的方式处理 votedBy（Yjs addPlace 会重置 votedBy，这里额外回写）
-        // 简化处理：voted_by 在协同房间内是实时的，历史数据只恢复景点列表即可
-        setTimeout(() => {
-          isSyncingFromDB.current = false
-          setDbReady(true)
-        }, 500)
-      } catch {
-        toast('候选地点暂时无法从房间记录恢复，已暂停同步以保护原数据', 'warning')
-      }
-    })()
-  }, [roomData.loaded]) // eslint-disable-line
-
-  // ── 持久化：Yjs places 变化时同步到 DB（防抖 2s） ────────────────────
+  const savedPlacesKeyRef = useRef<string | null>(null)
+  const currentPlacesRef = useRef(places)
+  currentPlacesRef.current = places
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const placeSyncChainRef = useRef<Promise<void>>(Promise.resolve())
+  const placeSyncPendingRef = useRef(0)
   const placeSyncUncertainRef = useRef(false)
 
   useEffect(() => {
-    // 初始加载阶段 / 从 DB 恢复时不触发同步
-    if (isSyncingFromDB.current || !roomData.loaded || !dbReady) return
+    if (!roomData.loaded || !isSynced || dbLoadedRef.current) return
+    dbLoadedRef.current = true
+    let cancelled = false
+    let restored = false
+    let restoreTimer: ReturnType<typeof setTimeout> | undefined
+    const valid = () => !cancelled && scopeRef.current === scope && localStorage.getItem('authToken') === token
+    const initiallyPresent = new Set(currentPlacesRef.current.map(place => place.placeId))
+    ;(async () => {
+      try {
+        const dbPlaces = await api.get<Record<string, unknown>[]>(`/api/room/${roomId}/places`)
+        if (!valid()) return
+        savedPlacesKeyRef.current = savedPlaceSnapshotKey(dbPlaces)
+        isSyncingFromDB.current = true
+        const nowPresent = new Set(currentPlacesRef.current.map(place => place.placeId))
+        dbPlaces.forEach((raw) => {
+          try {
+            const place = parsePlaceFromAPI(raw)
+            // A peer or this user may remove a known item while the GET is in
+            // flight. Do not resurrect it from the older database response.
+            if (initiallyPresent.has(place.placeId) && !nowPresent.has(place.placeId)) return
+            if (addPlace(place) && raw.room_selected === true) toggleVote(place.placeId)
+          } catch { /* Keep the existing rejection of malformed historical rows. */ }
+        })
+        restoreTimer = setTimeout(() => {
+          if (!valid()) return
+          isSyncingFromDB.current = false
+          restored = true
+          setDbReady(true)
+        }, 500)
+      } catch {
+        if (valid()) toast('候选地点暂时无法从房间记录恢复，已暂停同步以保护原数据', 'warning')
+      }
+    })()
+    return () => {
+      cancelled = true
+      if (restoreTimer) clearTimeout(restoreTimer)
+      if (!restored) { dbLoadedRef.current = false; isSyncingFromDB.current = false }
+    }
+  }, [roomData.loaded, isSynced]) // eslint-disable-line
 
+  useEffect(() => {
+    if (isSyncingFromDB.current || !roomData.loaded || !dbReady || savedPlacesKeyRef.current === null) return
+    const snapshot = places.map(placeToRaw)
+    const key = savedPlaceSnapshotKey(snapshot)
+    const valid = () => scopeRef.current === scope && localStorage.getItem('authToken') === token
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    // Do not swallow a revert while an earlier, different write is in flight.
+    if (key === savedPlacesKeyRef.current && !placeSyncPendingRef.current) return
     syncTimerRef.current = setTimeout(() => {
-      const snapshot = places.map(placeToRaw)
+      placeSyncPendingRef.current += 1
       placeSyncChainRef.current = placeSyncChainRef.current
         .then(async () => {
-          if (placeSyncUncertainRef.current) return
-          await api.post(`/api/room/${roomId}/places/sync`, {
-            places: snapshot,
-          })
+          if (!valid() || placeSyncUncertainRef.current || key === savedPlacesKeyRef.current) return
+          await api.post(`/api/room/${roomId}/places/sync`, { places: snapshot })
+          if (valid()) savedPlacesKeyRef.current = key
         })
         .catch(() => {
-          if (placeSyncUncertainRef.current) return
+          if (!valid() || placeSyncUncertainRef.current) return
           placeSyncUncertainRef.current = true
           toast(
             '候选地点保存结果暂时无法确认；本会话内容仍保留，刷新房间前不会继续覆盖服务端记录。',
             'warning',
           )
         })
+        .finally(() => { placeSyncPendingRef.current -= 1 })
     }, 2000)
-
     return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current) }
   }, [places, roomData.loaded, dbReady]) // eslint-disable-line
 
-  // ── 持久化：排线完成后自动保存路线 ────────────────────────────────────
+  // Shared reads never write a personal archive; saving requires an explicit click.
   const savedItineraryRef = useRef<string | null>(null)
   const savingItineraryRef = useRef<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [savedFingerprint, setSavedFingerprint] = useState<string | null>(null)
   const [saveRetry, setSaveRetry] = useState(0)
+  const [requestedSave, setRequestedSave] = useState<string | null>(null)
+  useEffect(() => {
+    if (requestedSave && (!itinerary || requestedSave !== stableFingerprint(itinerary))) {
+      setRequestedSave(null)
+      setSaveStatus('idle')
+    }
+  }, [itinerary, requestedSave])
   useEffect(() => {
     if (!itinerary || !user || !roomData.loaded) return
     const key = stableFingerprint(itinerary)
+    if (requestedSave !== key) return
     if (savedItineraryRef.current === key || savingItineraryRef.current === key) return
     let cancelled = false
+    const valid = () => !cancelled && scopeRef.current === scope && localStorage.getItem('authToken') === token
     let writeAttempted = false
     savingItineraryRef.current = key
     setSaveStatus('saving')
     setSavedFingerprint(null)
     const markSaved = () => {
-      if (cancelled) return
+      if (!valid()) return
       savedItineraryRef.current = key
       setSavedFingerprint(key)
       setSaveStatus('saved')
@@ -298,7 +343,9 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
     }
     ;(async () => {
       try {
-        if (await latestMatches()) {
+        const matches = await latestMatches()
+        if (!valid()) return
+        if (matches) {
           markSaved()
           return
         }
@@ -315,7 +362,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           throw new Error('INVALID_SAVE_RESPONSE')
         markSaved()
       } catch {
-        if (cancelled) return
+        if (!valid()) return
         if (writeAttempted) {
           try {
             if (await latestMatches()) {
@@ -326,18 +373,18 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
             /* The explicit retry will always read before another write. */
           }
         }
-        if (!cancelled) setSaveStatus('error')
+        if (valid()) setSaveStatus('error')
       } finally {
         if (savingItineraryRef.current === key)
           savingItineraryRef.current = null
       }
     })()
     return () => { cancelled = true }
-  }, [itinerary, roomData.loaded, roomId, saveRetry, storeDays, tripCity, tripDays, user])
+  }, [itinerary, requestedSave, roomData.loaded, roomId, saveRetry, scope, storeDays, token, tripCity, tripDays, user])
 
   const restoredRoomRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!roomData.loaded || !user || restoredRoomRef.current === roomId || itinerary) return
+    if (!roomData.loaded || !user || sharedRoute.route?.version !== 0 || restoredRoomRef.current === roomId || itinerary) return
     restoredRoomRef.current = roomId
     let cancelled = false
     api.get<{ itinerary_data: unknown }>(`/api/room/${roomId}/itinerary`)
@@ -357,27 +404,39 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         }
       })
     return () => { cancelled = true }
-  }, [itinerary, restoreItinerary, roomData.loaded, roomId, toast, user])
+  }, [itinerary, restoreItinerary, roomData.loaded, roomId, sharedRoute.route?.version, toast, user])
 
   const [isTransferring, setIsTransferring] = useState(false)
   const transferAttemptRef = useRef<{ fingerprint: string; key: string } | null>(null)
   const handleTransfer = useCallback(async () => {
-    if (!savedFingerprint || isTransferring) return
+    const commonVersion = sharedRoute.route?.version || 0
+    const transferIdentity = commonVersion ? `room-route:${roomId}:${commonVersion}` : savedFingerprint
+    if (!transferIdentity || isTransferring) return
+    const valid = () => scopeRef.current === scope && localStorage.getItem('authToken') === token
     setIsTransferring(true)
     const previous = transferAttemptRef.current
-    const idempotencyKey = previous?.fingerprint === savedFingerprint
+    const idempotencyKey = previous?.fingerprint === transferIdentity
       ? previous.key
       : crypto.randomUUID()
-    transferAttemptRef.current = { fingerprint: savedFingerprint, key: idempotencyKey }
+    transferAttemptRef.current = { fingerprint: transferIdentity, key: idempotencyKey }
     try {
       const accepted = await api.postWithHeaders<TripUnderstandingAcceptedView>(
         '/api/v3/trip-understandings/from-collaboration',
-        { room_id: roomId },
+        { room_id: roomId, ...(commonVersion ? { room_route_version: commonVersion } : {}) },
         { 'Idempotency-Key': idempotencyKey },
       )
+      if (!valid()) return
       sessionStorage.setItem('bt_active_trip_mode', 'CLAIMED')
       router.push(`/trip/result#trip=${encodeURIComponent(accepted.public_resource_id)}`)
     } catch (failure) {
+      if (!valid()) return
+      if (failure instanceof ApiRequestError && failure.code === 'ROOM_ROUTE_VERSION_CONFLICT') {
+        transferAttemptRef.current = null
+        await sharedRoute.refresh()
+        if (!valid()) return
+        toast('共同路线已更新，请核对当前方案后再次转入。', 'warning')
+        return
+      }
       if (
         failure instanceof ApiRequestError &&
         failure.code === 'IDEMPOTENCY_KEY_REUSED'
@@ -387,6 +446,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           const latest = await api.get<{ itinerary_data: unknown }>(
             `/api/room/${encodeURIComponent(roomId)}/itinerary`,
           )
+          if (!valid()) return
           const restored = restoreItinerary(latest.itinerary_data)
           if (!restored) throw new Error('INVALID_SAVED_ITINERARY')
           const fingerprint = stableFingerprint(restored)
@@ -411,9 +471,9 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         toast('暂时没有转入成功。再次尝试会安全地续用同一次请求。', 'error')
       }
     } finally {
-      setIsTransferring(false)
+      if (valid()) setIsTransferring(false)
     }
-  }, [isTransferring, restoreItinerary, roomId, router, savedFingerprint, toast])
+  }, [isTransferring, restoreItinerary, roomId, router, savedFingerprint, scope, sharedRoute, toast, token])
 
   // ── 初始化 ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -446,7 +506,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   const [autoInitFired, setAutoInitFired] = useState(false)
   useEffect(() => {
     if (!roomData.loaded || autoInitFired) return
-    if (!isConnected) return
+    if (!isConnected || !isSynced || !dbReady) return
     if (places.length > 0 || messages.length > 0 || isStreaming) return
     if (!tripCity || !threadId) return
     setAutoInitFired(true)
@@ -460,7 +520,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
 
 每个地点一句话特色描述。优先高评分、知名度高的，剩余可在用户追问时再补充。`
     sendMessage(prompt, [], tripCity)
-  }, [roomData.loaded, autoInitFired, isConnected, places.length, messages.length, isStreaming, tripCity, threadId, tripDays, storeDays, sendMessage])
+  }, [roomData.loaded, autoInitFired, isConnected, isSynced, dbReady, places.length, messages.length, isStreaming, tripCity, threadId, tripDays, storeDays, sendMessage])
 
   // AI 推荐地点自动加入工作台
   useEffect(() => {
@@ -484,60 +544,25 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
       toast('请先在候选地点中点击心形，至少选择 2 个地点再排线', 'warning')
       return
     }
-    const hasAttraction = selectedPlaces.some((p) => p.category === 'attraction')
-    const hasFood = selectedPlaces.some((p) => p.category === 'food')
-    const hasHotel = selectedPlaces.some((p) => p.category === 'hotel')
-    const missing: string[] = []
-    if (!hasAttraction) missing.push('景点（美景）')
-    if (!hasFood) missing.push('餐饮（美食）')
-    if (!hasHotel) missing.push('住宿（美梦）')
-    if (missing.length > 0) {
-      toast(`行程缺少：${missing.join('、')}，请在候选地点中补充选择`, 'warning')
-      return
-    }
     setIsPlanning(true)
     try {
-      const latestUserText = [...messages].reverse().find(message => message.role === 'user')?.content
-        || `${tripCity}${storeDays || tripDays}日游`
-      let parsedTaskSpec
-      try {
-        const parsed = await api.post<{
-          needs_clarification?: boolean
-          clarification_message?: string
-          task_spec?: TripTaskSpec
-        }>(`/api/room/${encodeURIComponent(roomId)}/task/parse`, {
-          text: latestUserText,
-          default_city: tripCity,
-          default_days: storeDays || tripDays,
-        })
-        if (parsed.needs_clarification) {
-          toast(parsed.clarification_message || '关键约束仍需确认，暂不生成可能误导的行程', 'warning')
-          return
-        }
-        parsedTaskSpec = parsed.task_spec
-      } catch {
-        toast('任务约束解析失败，未开始排线', 'error')
-        return
-      }
       setPhase('optimizing')
-      const optimized = await optimize(selectedPlaces, storeDays || tripDays, undefined, parsedTaskSpec)
+      const optimized = await sharedRoute.publish(selectedPlaces, storeDays || tripDays, threadId)
       if (!optimized) {
         setPhase('selecting')
-        toast('路线暂不可用，候选地点仍已保留，可以稍后重试', 'error')
         return
       }
       setPhase('planned')
-      // 备选池提示（A7）
-      if (backupPool.length > 0) {
-        toast(`${backupPool.length} 个地点因时间限制未能排入，已放入「备选」`, 'info')
-        setIsBackupOpen(true)
-      }
     } finally {
       setIsPlanning(false)
     }
   }
 
   const selectedCount = places.filter((p) => p.votedBy.length > 0).length
+  const selectionChanged = isSynced && dbReady && roomRouteSelectionChanged(sharedRoute.route,
+    places.filter(p => p.votedBy.length > 0).map(p => p.placeId), storeDays || tripDays)
+  const isSharedRoute = Boolean(sharedRoute.route?.version)
+  const currentSaved = Boolean(itinerary) && savedFingerprint === stableFingerprint(itinerary)
 
   if (!isHydrated || !user) return null
 
@@ -573,11 +598,6 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         places={backupPool}
         isOpen={isBackupOpen}
         onClose={() => setIsBackupOpen(false)}
-        onAddToTrip={(place) => {
-          addPlace(place)
-          toggleVote(place.placeId)
-          setIsBackupOpen(false)
-        }}
       />
 
       <div className="overlay-layer flex flex-col">
@@ -591,15 +611,30 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
           onToggleChat={toggleChat}
           selectedCount={selectedCount}
           isOptimizing={isPlanning || isOptimizing}
+          optimizeDisabled={!sharedRoute.route || sharedRoute.loading || sharedRoute.needsReadback}
           hasItinerary={!!itinerary}
           onOptimize={handleOptimize}
-          onViewItinerary={() => router.push(`/room/${roomId}/itinerary`)}
-          saveStatus={saveStatus}
-          canTransfer={saveStatus === 'saved' && Boolean(itinerary) && savedFingerprint === stableFingerprint(itinerary)}
+          onViewItinerary={() => router.push(`/room/${roomId}/itinerary${isSharedRoute ? '?shared=1' : ''}`)}
+          saveStatus={currentSaved ? 'saved' : saveStatus === 'saved' ? 'idle' : saveStatus}
+          canTransfer={Boolean(itinerary) && !sharedRoute.loading && !sharedRoute.needsReadback && !selectionChanged && (isSharedRoute || currentSaved)}
           isTransferring={isTransferring}
           onTransfer={() => void handleTransfer()}
-          onRetrySave={() => setSaveRetry((value) => value + 1)}
+          onRetrySave={() => { if (itinerary) setRequestedSave(stableFingerprint(itinerary)); setSaveRetry((value) => value + 1) }}
         />
+        <section data-testid="shared-route-status" aria-live="polite"
+          className="overlay-interactive mx-4 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-sky-100 bg-white/95 px-4 py-2 text-sm text-slate-700">
+          <span>{isSharedRoute ? '共同路线 · 已同步' : personalItinerary
+            ? '个人上次保存的路线 · 房间尚未发布共同路线' : sharedRoute.loading ? '正在读取共同路线…' : '房间尚未发布共同路线'}</span>
+          {selectionChanged && <strong className="text-amber-800">选点或天数已变化，原共同路线需要更新。</strong>}
+          {sharedRoute.message && <span role="status">{sharedRoute.message}</span>}
+          <button type="button" onClick={() => void sharedRoute.refresh()} disabled={sharedRoute.loading || isOptimizing}
+            className="min-h-11 rounded-lg border border-slate-200 px-3 text-xs disabled:opacity-50">重新读取共同路线</button>
+        </section>
+        {backupPool.length > 0 && <button type="button" data-testid="collaboration-unassigned"
+          className="overlay-interactive mx-4 mt-2 self-start rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+          onClick={() => setIsBackupOpen(true)}>
+          尚未排入 {backupPool.length} 个已选地点 · 查看
+        </button>}
 
         <div className="hidden lg:flex flex-1 min-h-0 items-start gap-3 px-4 pb-3 mt-3">
           <AnimatePresence>
@@ -615,6 +650,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
                 <ChatPanel
                   messages={messages}
                   isStreaming={isStreaming}
+                  onStop={stopMessage}
                   weather={weather}
                   tripCity={tripCity}
                   onSend={(text) =>
@@ -653,6 +689,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
               <ChatPanel
                 messages={messages}
                 isStreaming={isStreaming}
+                onStop={stopMessage}
                 weather={weather}
                 tripCity={tripCity}
                 onSend={(text) =>
@@ -730,4 +767,23 @@ function placeToRaw(p: YjsPlace) {
     estimated_duration: p.estimatedDuration,
     room_selected: p.votedBy.length > 0,
   }
+}
+
+// Compare only fields the room place endpoint persists. Missing nullable fields
+// and null are the same saved value; CRDT voter identity/order is not stored.
+function savedPlaceSnapshotKey(rows: Record<string, unknown>[]): string {
+  const nullable = ['district', 'amap_rating', 'amap_price', 'opening_hours', 'phone', 'description', 'estimated_duration']
+  return stableFingerprint(rows.map(raw => ({
+    place_id: raw.place_id,
+    name: raw.name,
+    category: raw.category,
+    address: raw.address || '',
+    coords: raw.coords,
+    city: raw.city || '',
+    source: raw.source || 'synthesized',
+    amap_photos: raw.amap_photos || [],
+    tags: raw.tags || [],
+    ...Object.fromEntries(nullable.map(key => [key, raw[key] ?? null])),
+    room_selected: raw.room_selected === true,
+  })).sort((left, right) => String(left.place_id).localeCompare(String(right.place_id))))
 }

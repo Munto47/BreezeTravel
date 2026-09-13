@@ -106,7 +106,11 @@ async def test_optional_only_day_and_trailing_empty_dates_are_visible_without_se
     assert [len(day.activities) for day in output.public_result.days] == [1, 0, 0]
     assert [choice.name for choice in output.public_result.days[1].alternatives] == ["景山公园", "颐和园"]
     assert len(resolver.calls) == 1
-    assert set(output.public_result.days[1].alternatives[0].model_dump()) == {"name", "category", "city"}
+    alternative = output.public_result.days[1].alternatives[0].model_dump()
+    assert set(alternative) == {"name", "category", "city", "activity_token", "choice_group_token", "branch_token", "branch_label"}
+    assert alternative["activity_token"]
+    assert alternative["branch_token"] is None
+    assert all(key not in alternative for key in ("span_start", "span_end", "raw_text", "mention_id"))
 
 
 @pytest.mark.asyncio

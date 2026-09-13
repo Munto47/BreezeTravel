@@ -84,6 +84,7 @@ backend/models/
 .playwright-mcp/
 frontend/playwright-report/
 frontend/test-results/
+frontend/test-results-*/
 backend/data/test_mini.jsonl
 
 # TypeScript 构建缓存

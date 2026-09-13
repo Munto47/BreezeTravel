@@ -1,4 +1,8 @@
+import type {components} from './generated/schema'
+
 export type DemoCreateRequest = { mode: 'DEMO' }
+export type DailyDiningView = components['schemas']['DailyDiningView']
+export type DailyMealView = components['schemas']['DailyMealView']
 
 export interface DiningCandidatesView {
   status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'NEEDS_CONFIRMATION'
@@ -13,6 +17,7 @@ export interface PlaceCandidatesView {
     name: string
     category: string
     area_or_address: string
+    business_area?: string | null
     position: {
       longitude: number
       latitude: number
@@ -53,7 +58,8 @@ export interface TripUnderstandingCancelView {
 }
 
 export type TripUnderstandingCommand =
-  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string }
+  | { command_type: 'LODGING_RECOVER'; pending_token: string; candidate_token: string; intent: LodgingRecoveryIntent }
+  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK' }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
       changes: Array<{
@@ -137,6 +143,11 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | 'VISIT_ONLY' | null
+  lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
+  lodging_role_uncertain?: boolean
+  lodging_excluded_nights?: number[]
+  meal_role?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK' | null
   city?: string | null
   photo_url?: string | null
   start_time?: string | null
@@ -156,12 +167,24 @@ export interface ActivityCardView {
 }
 
 export interface TripDayView {
+  meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK';after_activity_token?:string|null;before_activity_token?:string|null}>
   label: string
   activities: ActivityCardView[]
-  alternatives?: Array<{ name: string; category: string; city?: string | null }>
+  alternatives?: Array<{ name: string; category: string; city?: string | null;
+    activity_token?: string | null; choice_group_token?: string | null; branch_token?: string | null; branch_label?: string | null }>
+}
+
+export interface StaySegmentView {
+  segment_token: string; city?: string | null; overnight_days: string[]
+  status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+  message: string; candidates: UserFacingTripResult['stay']['candidates']; preserved_hotels?: string[]
+  expected_boundary_count?: number; missing_boundary_count?: number
 }
 
 export interface UserFacingTripResult {
+  pending_lodgings?: PendingLodgingView[]
+  lodging_constraints?: LodgingConstraintView[]
+  coverage?: components['schemas']['TripRecognitionCoverage'] | null
   can_undo?: boolean
   ownership?: 'ANONYMOUS' | 'ACCOUNT'
   expires_at?: string | null
@@ -181,6 +204,7 @@ export interface UserFacingTripResult {
     available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
   }
   stay: {
+    segments?: StaySegmentView[]
     status:
       | 'PREPARING'
       | 'AVAILABLE'
@@ -194,6 +218,8 @@ export interface UserFacingTripResult {
       candidate_token: string
       name: string
       brand: string
+      brand_group?: string | null
+      brand_note?: string | null
       category: string
       area_or_address: string
       commute_summary: string
@@ -217,6 +243,12 @@ export interface PublicRouteModeView {
 }
 
 export interface MapRenderView {
+  lodging_points?: Array<{
+    point_token: string
+    day_label: string
+    name: string
+    position: { longitude: number; latitude: number; coordinate_system: 'GCJ02' }
+  }>
   points?: Array<{
     activity_token: string
     day_label: string
@@ -303,6 +335,12 @@ export interface TripSourceView {
 }
 
 export interface TripSupplementaryView {
+  pending_lodgings?: Array<{
+    pending_token: string
+    name: string
+    city: string | null
+    status: 'NEEDS_CONFIRMATION'
+  }>
   status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
   days: Array<{
     day_index: number | null
@@ -313,6 +351,24 @@ export interface TripSupplementaryView {
       role: 'OPTIONAL' | 'EXCLUDED'
     }>
   }>
+}
+
+export interface PendingLodgingView {
+  pending_token: string
+  status: 'NEEDS_CONFIRMATION'
+  unprocessed_count: number
+}
+
+export interface LodgingRecoveryIntent {
+  kind: 'WHOLE_TRIP' | 'NIGHTS' | 'VISIT_ONLY'
+  overnight_days?: number[]
+  day_index?: number | null
+  before_activity_token?: string | null
+}
+
+export interface LodgingConstraintView extends ActivityCardView {
+  scope: 'WHOLE_TRIP' | 'NIGHTS'
+  overnight_days: number[]
 }
 
 export interface PublicTripChecksView {

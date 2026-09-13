@@ -1,0 +1,288 @@
+[
+  {
+    "id": "gz-attractions",
+    "city": "广州",
+    "title": "广州市A级景区名录（2026年6月更新）",
+    "publisher": "广州市文化广电旅游局",
+    "url": "https://wglj.gz.gov.cn/ggfw/lyl/lydwcx/content/post_10878689.html",
+    "parser": "table",
+    "name_column": 3,
+    "district_column": 2,
+    "kind": "scenic_area"
+  },
+  {
+    "id": "gz-museums",
+    "city": "广州",
+    "title": "广州市备案博物馆参观信息表（2024年6月）",
+    "publisher": "广州市文化广电旅游局",
+    "url": "https://www.gz.gov.cn/zwgk/zdly/shgysyjs/ggwhty/ggwh/content/post_9864493.html",
+    "parser": "table",
+    "name_column": 1,
+    "kind": "poi"
+  },
+  {
+    "id": "sz-museums",
+    "city": "深圳",
+    "title": "博物馆一览表（2026年1月28日）",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://wtl.sz.gov.cn/ggfw/whl/bwgylb/",
+    "parser": "table",
+    "name_column": 1,
+    "kind": "poi"
+  },
+  {
+    "id": "sz-parks",
+    "city": "深圳",
+    "title": "公园深圳官方公园目录",
+    "publisher": "深圳市城市管理和综合执法局",
+    "url": "https://cgj.sz.gov.cn/xsmh/gysz/",
+    "parser": "parks_labels",
+    "kind": "poi"
+  },
+  {
+    "id": "sz-parks-city",
+    "city": "深圳",
+    "title": "公园深圳：自然公园与城市公园",
+    "publisher": "深圳市人民政府",
+    "url": "https://www.sz.gov.cn/szzt2010/gysz/index.html",
+    "parser": "parks_labels",
+    "kind": "poi"
+  },
+  {
+    "id": "sz-attractions",
+    "city": "深圳",
+    "title": "A级旅游景区一览表（2026年1月4日）",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://wtl.sz.gov.cn/ggfw/lyl/jqjdylb/index.html",
+    "parser": "reviewed_names",
+    "kind": "scenic_area",
+    "names": [
+      "华侨城旅游度假区",
+      "世界之窗",
+      "锦绣中华民俗文化村",
+      "欢乐谷",
+      "欢乐海岸",
+      "观澜湖旅游休闲度假区",
+      "东部华侨城",
+      "青青世界",
+      "深圳市野生动物园",
+      "仙湖植物园",
+      "深圳市欢乐港湾旅游景区"
+    ]
+  },
+  {
+    "id": "sz-ports",
+    "city": "深圳",
+    "title": "口岸概况",
+    "publisher": "深圳市人民政府口岸办公室",
+    "url": "https://ka.sz.gov.cn/bmfw/kagk/",
+    "parser": "reviewed_names",
+    "kind": "poi",
+    "category": "transport",
+    "names": [
+      "罗湖口岸",
+      "皇岗口岸",
+      "深圳湾口岸",
+      "文锦渡口岸",
+      "福田口岸",
+      "莲塘口岸",
+      "蛇口港口岸",
+      "深圳宝安国际机场"
+    ]
+  },
+  {
+    "id": "sz-rail",
+    "city": "深圳",
+    "title": "火车站分布",
+    "publisher": "深圳市交通运输局",
+    "url": "https://jtys.sz.gov.cn/jtzx/wycx/hccx/hczfb/",
+    "parser": "reviewed_names",
+    "kind": "poi",
+    "category": "transport",
+    "names": [
+      "深圳北站",
+      "福田站",
+      "光明城站",
+      "深圳坪山站",
+      "深圳站",
+      "深圳东站",
+      "平湖站",
+      "深圳机场站",
+      "深圳机场北站"
+    ]
+  },
+  {
+    "id": "sz-citywalk",
+    "city": "深圳",
+    "title": "深圳City Walk打卡线路“文旅菜单”上新",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://www.sz.gov.cn/cn/xxgk/zfxxgj/bmdt/content/post_11571456.html",
+    "parser": "reviewed_names",
+    "kind": "poi",
+    "names": [
+      "节日大道",
+      "百姓书房",
+      "海上世界",
+      "深圳天文台",
+      "华强北步行街",
+      "深圳市工业展览馆",
+      "大疆天空之城",
+      "腾讯滨海大厦",
+      "金啤坊艺术街区",
+      "大万世居",
+      "东门老街",
+      "渔民村",
+      "观澜古墟",
+      "凤凰古村",
+      "较场尾"
+    ]
+  },
+  {
+    "id": "sz-art-branches",
+    "city": "深圳",
+    "title": "深圳美术馆",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://www.sz.gov.cn/szzt2010/szwtt/wtcg/whcg/content/post_11127097.html",
+    "parser": "reviewed_names",
+    "kind": "campus",
+    "names": [
+      "深圳美术馆（新馆）",
+      "深圳美术馆（东湖馆）"
+    ]
+  },
+  {
+    "id": "reviewed-source-11",
+    "city": "北京",
+    "title": "北京城市商业消费空间布局专项规划（2022—2035年）",
+    "publisher": "北京市人民政府",
+    "url": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202212/W020221201321005754524.pdf",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-12",
+    "city": "广州",
+    "title": "广州印发重点商业功能区发展规划 商圈新格局",
+    "publisher": "广州市人民政府",
+    "url": "https://www.gz.gov.cn/ysgz/xwdt/ysdt/content/post_9099408.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-13",
+    "city": "广州",
+    "title": "让城市成为老百姓宜业宜居的乐园",
+    "publisher": "广州市人民政府",
+    "url": "https://www.gz.gov.cn/zt/gzlfzgzld/gzgzlfz/content/post_9978566.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-14",
+    "city": "广州",
+    "title": "广东民间工艺博物馆与陈家祠",
+    "publisher": "广州市人民政府",
+    "url": "https://www.gz.gov.cn/zlgz/gzly/wzgz/wbcg/content/post_9587900.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-15",
+    "city": "杭州",
+    "title": "对接G20峰会 提升杭城商业特色街国际化水平",
+    "publisher": "杭州市机关工委",
+    "url": "https://szjggw.hangzhou.gov.cn/art/2016/5/4/art_1083832_693326.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-16",
+    "city": "杭州",
+    "title": "杭州市人民政府关于加快总部经济发展的若干意见",
+    "publisher": "杭州市人民政府",
+    "url": "https://www.hangzhou.gov.cn/art/2007/8/22/art_808517_3000.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-17",
+    "city": "上海",
+    "title": "上海市人民政府公报2014年第16期：商业发展",
+    "publisher": "上海市人民政府",
+    "url": "https://www.shanghai.gov.cn/newshanghai2018/zfgb/201416/ZFGB1416.pdf",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-18",
+    "city": "上海",
+    "title": "上海商圈能级提升行动方案发布",
+    "publisher": "上海市人民政府",
+    "url": "https://www.shanghai.gov.cn/nw4411/20240412/7dcff210346d490188daf4b095ede10d.html?siteId=1",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-19",
+    "city": "深圳",
+    "title": "深圳市商业网点规划（2025—2035）附表",
+    "publisher": "深圳市人民政府",
+    "url": "https://www.sz.gov.cn/attachment/1/1556/1556028/12058550.pdf",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-20",
+    "city": "深圳",
+    "title": "深圳市博物馆一览表",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://wtl.sz.gov.cn/ggfw/whl/bwgylb/index_4.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-21",
+    "city": "深圳",
+    "title": "深圳市博物馆一览表",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://wtl.sz.gov.cn/ggfw/whl/bwgylb/index_3.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-22",
+    "city": "深圳",
+    "title": "深圳市博物馆一览表",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://wtl.sz.gov.cn/ggfw/whl/bwgylb/index_2.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-23",
+    "city": "深圳",
+    "title": "南头古城与大鹏所城入选文旅产业赋能城市更新优秀案例",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://wtl.sz.gov.cn/xxgk/qt/whsy/content/post_11409390.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-24",
+    "city": "深圳",
+    "title": "市级以上文物保护单位名录：大鹏所城",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://wtl.sz.gov.cn/ggfw/whl/shwhttylb/content/post_11653799.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  },
+  {
+    "id": "reviewed-source-25",
+    "city": "深圳",
+    "title": "聚焦甘坑古镇：文化和旅游街区",
+    "publisher": "深圳市文化广电旅游体育局",
+    "url": "https://www.sz.gov.cn/cn/xxgk/zfxxgj/gqdt/content/post_11041713.html",
+    "parser": "manual_review",
+    "review_note": "Exact attributable names and relationships were reviewed from the public page or PDF. No automatic extraction recipe or live POI verification is claimed."
+  }
+]

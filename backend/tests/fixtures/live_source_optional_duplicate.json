@@ -1,0 +1,136 @@
+{
+  "scope": "SAVED_QWEN_TWO_ANSWERS_AGENT_CONSTRUCTED_DEVELOPMENT_SOURCE_NOT_HOLDOUT",
+  "source": "深圳两日慢游。\r\n\r\nDay1\r\n上午到**莲花山公园**，从南门进。园内先去风筝广场，再看邓小平雕像；若有余力，再看园内桃花林，这项仅作备选。最后从南门出。中午留出午餐，餐厅待选。下午到深圳市当代艺术与城市规划馆，只看外观，不进馆。\r\n\r\nDay2\r\n上午参观深圳博物馆历史民俗馆，不换成其他分馆。中午留出午餐，餐厅待选。下午再到莲花山公园，只在门外取随身物品，不进园，也不重复第一天的园内安排。",
+  "responses": [
+    {
+      "destination": "深圳",
+      "day_labels": [
+        null,
+        null
+      ],
+      "activities": [
+        {
+          "source_quote": "莲花山公园",
+          "place_name": "莲花山公园",
+          "role": "PLANNED",
+          "day_index": 1,
+          "category": "景点"
+        },
+        {
+          "source_quote": "桃花林",
+          "place_name": "桃花林",
+          "role": "OPTIONAL",
+          "day_index": 1,
+          "category": "景点"
+        },
+        {
+          "source_quote": "午餐",
+          "place_name": null,
+          "role": "PLANNED",
+          "day_index": 1,
+          "category": "餐饮",
+          "meal_role": "LUNCH"
+        },
+        {
+          "source_quote": "深圳市当代艺术与城市规划馆",
+          "place_name": "深圳市当代艺术与城市规划馆",
+          "role": "PLANNED",
+          "day_index": 1,
+          "category": "景点"
+        },
+        {
+          "source_quote": "深圳博物馆历史民俗馆",
+          "place_name": "深圳博物馆历史民俗馆",
+          "role": "PLANNED",
+          "day_index": 2,
+          "category": "景点"
+        },
+        {
+          "source_quote": "午餐",
+          "place_name": null,
+          "role": "PLANNED",
+          "day_index": 2,
+          "category": "餐饮",
+          "meal_role": "LUNCH"
+        },
+        {
+          "source_quote": "莲花山公园",
+          "place_name": "莲花山公园",
+          "role": "PLANNED",
+          "day_index": 2,
+          "category": "地点"
+        }
+      ],
+      "unprocessed_quotes": []
+    },
+    {
+      "city_fields": [],
+      "source_visits": [
+        {
+          "parent_index": 0,
+          "kind": "ENTRY",
+          "source_quote": "从南门进",
+          "occurrence": 1,
+          "optional": false,
+          "evidence": "从南门进"
+        },
+        {
+          "parent_index": 0,
+          "kind": "VISIT",
+          "source_quote": "风筝广场",
+          "occurrence": 1,
+          "optional": false,
+          "evidence": "园内先去风筝广场"
+        },
+        {
+          "parent_index": 0,
+          "kind": "VISIT",
+          "source_quote": "邓小平雕像",
+          "occurrence": 1,
+          "optional": false,
+          "evidence": "再看邓小平雕像"
+        },
+        {
+          "parent_index": 0,
+          "kind": "VISIT",
+          "source_quote": "桃花林",
+          "occurrence": 1,
+          "optional": true,
+          "evidence": "若有余力，再看园内桃花林，这项仅作备选"
+        },
+        {
+          "parent_index": 0,
+          "kind": "EXIT",
+          "source_quote": "从南门出",
+          "occurrence": 1,
+          "optional": false,
+          "evidence": "最后从南门出"
+        },
+        {
+          "parent_index": 1,
+          "kind": "EXTERIOR_ONLY",
+          "source_quote": "深圳市当代艺术与城市规划馆",
+          "occurrence": 1,
+          "optional": false,
+          "evidence": "下午到深圳市当代艺术与城市规划馆，只看外观，不进馆"
+        },
+        {
+          "parent_index": 2,
+          "kind": "VISIT",
+          "source_quote": "深圳博物馆历史民俗馆",
+          "occurrence": 1,
+          "optional": false,
+          "evidence": "上午参观深圳博物馆历史民俗馆"
+        },
+        {
+          "parent_index": 3,
+          "kind": "PICKUP_ONLY",
+          "source_quote": "莲花山公园",
+          "occurrence": 1,
+          "optional": false,
+          "evidence": "下午再到莲花山公园，只在门外取随身物品，不进园"
+        }
+      ]
+    }
+  ]
+}

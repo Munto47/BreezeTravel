@@ -1159,12 +1159,16 @@ async function installInteractionFixture(page, {
   rolloverPreparing = false,
   longDay = false,
   pendingFirst = false,
+  confirmedExportPlaces = false,
 } = {}) {
   let revision = 0
   let etag = 'tu3_interaction_0'
   const view = interactionResult()
   if(pendingFirst) view.days[0].activities[0].status='PLACE_PENDING'
   if(longDay) view.days[0].activities = Array.from({length:13},(_,i)=>({...activity('long-card-'+i,'景点'+(i+1)),status:i===8?'PLACE_PENDING':'READY'}))
+  // Export geometry/route checks need confirmed mainline visits. Pending places
+  // remain in the default fixture and have dedicated coverage export tests.
+  if (confirmedExportPlaces) view.days.forEach(day => day.activities.forEach(card => { card.status = 'READY' }))
   if (exposeWrites) {
     view.map = {
       status: 'NEEDS_UPDATE',
@@ -1926,10 +1930,25 @@ test('desktop keyboard drag previews locally and Escape cancels without a dialog
 })
 
 
-test('mobile and keyboard controls move within and across days with accessible targets', async ({ page }) => {
+test('mobile and keyboard controls move within and across days with accessible targets', async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 390, height: 844 })
-  const fixture = await installInteractionFixture(page, { exposeWrites: true })
+  // The map visit only checks accessible controls. Keep its SDK local so this
+  // fixed interaction case never loads external tiles or provider endpoints.
+  await page.addInitScript(() => {
+    window.AMap = {
+      Map: class {
+        on(name, callback) { if (name === 'complete') queueMicrotask(callback) }
+        add() {} remove() {} destroy() {} setCenter() {} setFitView() {} resize() {}
+      },
+      Marker: class {},
+      Polyline: class {},
+    }
+  })
+  await page.route(/^https?:\/\/[^/]*\.amap\.com\//, route => route.abort())
+  // This case moves confirmed mainline cards. The default pending second place
+  // correctly has no mainline drag target; its confirmation coverage is separate.
+  const fixture = await installInteractionFixture(page, { exposeWrites: true, confirmedExportPlaces: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('itinerary-workspace')).toHaveAttribute('data-reduced-motion', 'true')
   await expect(page.getByTestId('drag-handle-1-0')).toBeVisible()
@@ -1944,9 +1963,25 @@ test('mobile and keyboard controls move within and across days with accessible t
   await openStayTools(page)
   await expectMinimumTarget(page.getByTestId('choose-stay'))
   await openResultView(page, 'itinerary')
-  await moveDownByDrag(page)
+  await expect.poll(() => dayCardNames(page, 1)).toEqual(['故宫博物院', '景山公园'])
+  // Exercise the actual pointer gesture; HTML5 synthetic drop slots are no
+  // longer the workspace's touch/pointer implementation.
+  // Returning from the map leaves the cards below the fixed mobile navigation.
+  // Scroll the whole source card into view before choosing viewport coordinates.
+  await page.getByTestId('day-lane-1').getByTestId('activity-card').first().scrollIntoViewIfNeeded()
+  const source = await page.getByTestId('card-grab-1-0').boundingBox()
+  const target = await page.getByTestId('card-grab-1-1').boundingBox()
+  await page.mouse.move(source.x + 28, source.y + 34)
+  await page.mouse.down()
+  await page.mouse.move(target.x + target.width - 16, target.y + 35, {steps: 12})
+  await expect(page.getByTestId('drop-preview')).toBeVisible()
+  expect(fixture.calls().commands).toHaveLength(0)
+  await page.mouse.up()
   await expect.poll(() => fixture.calls().commands.length).toBe(1)
   expect(fixture.calls().commands[0]).toMatchObject({ target_day_index: 1, target_position: 1 })
+  await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
+  await expect(page.locator('[data-day-heading="1"]')).toBeFocused()
+  expect(fixture.calls().mapRenderPosts).toBe(0)
 
   const move = page.getByRole('button', { name: '拖动 故宫博物院' })
   await expect(move).toBeEnabled()
@@ -1961,9 +1996,13 @@ test('mobile and keyboard controls move within and across days with accessible t
   expect(fixture.calls().commands[1]).toMatchObject({ target_day_index: 3, target_position: 0 })
   await expect(page.getByTestId('drop-preview')).toHaveCount(0)
   await expect.poll(() => dayCardNames(page, 3)).toEqual(['故宫博物院'])
+  await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园'])
+  await expect.poll(() => dayCardNames(page, 2)).toEqual(['天坛公园'])
   await expect(page.locator('[data-day-heading="3"]')).toBeFocused()
   await expect(page.getByTestId('day-lane-4')).toHaveCount(0)
   expect(fixture.calls().mapRenderPosts).toBe(0)
+  expect(fixture.calls().directProviderRequests).toBe(0)
+  await page.screenshot({ path: testInfo.outputPath('mobile-pointer-keyboard-moved.png'), fullPage: true })
 })
 
 
@@ -2963,14 +3002,14 @@ test('PNG export renders the complete structured chain and downloads locally', a
       return original.call(this, text, ...args)
     }
   })
-  const fixture = await installInteractionFixture(page, { mapSnapshot: connectedMapView() })
+  const fixture = await installInteractionFixture(page, { mapSnapshot: connectedMapView(), confirmedExportPlaces: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('transport-connector').first()).toContainText('12 分钟')
 
   await page.getByTestId('export-itinerary-png').click()
   const preview = page.getByTestId('png-preview')
   await expect(preview).toBeVisible()
-  const image = page.getByAltText('完整行程横链导出预览')
+  const image = page.getByAltText('行程横链导出预览')
   await expect.poll(() => image.evaluate((node) => ({ width: node.naturalWidth, height: node.naturalHeight })))
     .toMatchObject({ width: 1440 })
   const drawn = await page.evaluate(() => window.__pngDrawnText)
@@ -3531,7 +3570,7 @@ test('serpentine: complete PNG keeps reverse rows, offscreen places and honest r
    return original.call(this,text,x,y,...args)
   }
  })
- const fixture=await installInteractionFixture(page,{longDay:true,exposeWrites:true,mapSnapshot:{...connectedMapView(),status:'NEEDS_UPDATE'}})
+ const fixture=await installInteractionFixture(page,{longDay:true,confirmedExportPlaces:true,exposeWrites:true,mapSnapshot:{...connectedMapView(),status:'NEEDS_UPDATE'}})
  await page.goto('/trip/result')
  await page.getByTestId('export-itinerary-png').click()
  await expect(page.getByTestId('png-preview')).toBeVisible()
@@ -3542,7 +3581,8 @@ test('serpentine: complete PNG keeps reverse rows, offscreen places and honest r
  expect(row2).toHaveLength(6)
  expect(row2[1].x).toBeLessThan(row2[0].x)
  expect(places[12].y).toBeGreaterThan(places[6].y)
- expect(drawn.some(t=>t.text==='待确认')).toBe(true)
+ expect(drawn.filter(t=>t.text==='已确认')).toHaveLength(14)
+ expect(drawn.some(t=>t.text==='待确认')).toBe(false)
  expect(drawn.filter(t=>t.text==='路线需要更新')).toHaveLength(12)
  expect(drawn.some(t=>/上午|时间待定|停留/.test(t.text))).toBe(false)
  const download=page.waitForEvent('download')

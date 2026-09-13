@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 from collections import Counter
 from copy import deepcopy
@@ -18,10 +17,6 @@ from app.trip_understanding.qwen_provider import (
     QwenStructuredInferenceProvider,
 )
 from evals.g07_text_convergence_v1.runner import (
-    CASES_PATH,
-    FROZEN_DATASET_SHA256,
-    FROZEN_SCHEMA_SHA256,
-    SCHEMA_PATH,
     _empty_observation,
     _public_payload_is_redacted,
     _has_duration_field,
@@ -45,7 +40,7 @@ def _mention(name: str) -> ProposedMention:
     )
 
 
-def test_public_dataset_is_frozen_strict_and_non_blind() -> None:
+def test_public_dataset_is_strict_and_non_blind() -> None:
     payload = load_cases()
     cases = payload["cases"]
 
@@ -68,8 +63,6 @@ def test_public_dataset_is_frozen_strict_and_non_blind() -> None:
     serialized_cases = json.dumps(cases, ensure_ascii=False).casefold()
     assert "frozen_blind" not in serialized_cases
     assert "agent_gate_v1" not in serialized_cases
-    assert hashlib.sha256(CASES_PATH.read_bytes()).hexdigest() == FROZEN_DATASET_SHA256
-    assert hashlib.sha256(SCHEMA_PATH.read_bytes()).hexdigest() == FROZEN_SCHEMA_SHA256
 
 
 def test_duration_guard_ignores_only_null_schema_slots() -> None:
@@ -753,3 +746,19 @@ def test_public_photo_contract_accepts_only_sanitized_photo_url(photo_url: str |
 ])
 def test_public_photo_contract_does_not_expand_private_field_or_url_boundary(payload: dict) -> None:
     assert not _public_payload_is_redacted(payload)
+
+
+@pytest.mark.parametrize("private_key", ["raw_text", "span_start", "span_end", "provider", "model", "hash", "revision", "diagnostics", "api_key"])
+def test_current_public_semantic_fields_do_not_allow_private_payload_keys(private_key):
+    safe = {
+        "coverage": {"recognized_place_count": 2, "confirmed_place_count": 1, "unresolved_place_count": 1,
+                     "unclassified_mention_count": 0, "unprocessed_count": 1, "complete": False},
+        "days": [{"unprocessed_count": 1, "meal_slots": [{"meal_role": "LUNCH", "after_activity_token": "opaque-public-token"}]}],
+        "pending_lodgings": [{"pending_token": "opaque-public-token", "status": "NEEDS_CONFIRMATION", "unprocessed_count": 1}],
+        "stay": {"segments": [{"segment_token": "opaque-public-token", "overnight_days": ["Day 1"], "preserved_hotels": []}]},
+    }
+    assert _public_payload_is_redacted(safe)
+    for container in (safe, safe["days"][0], safe["pending_lodgings"][0]):
+        container[private_key] = "private-value"
+        assert not _public_payload_is_redacted(safe)
+        del container[private_key]

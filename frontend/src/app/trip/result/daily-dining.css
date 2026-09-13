@@ -1,0 +1,47 @@
+.daily-dining {margin:12px 0 18px;padding:16px 18px;border:1px solid #dcedf5;border-radius:18px;background:#f3faff;color:#294e69;}
+.daily-dining-heading {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.daily-dining-icon,.daily-dining-restaurant-icon {display:grid;place-items:center;flex-shrink:0;border-radius:12px;background:#e2f2f8;color:#1683a6;}
+.daily-dining-icon {width:40px;height:40px;}
+.daily-dining-icon svg {width:20px;height:20px;}
+.daily-dining-title {display:grid;gap:3px;min-width:0;}
+.daily-dining-title strong {font-size:15px;line-height:1.5;}
+.daily-dining-title > span {font-size:11px;color:#6c8599;}
+.daily-dining-state {display:inline-flex;align-items:center;gap:4px;padding:5px 9px;border-radius:15px;background:#e5f1f8;font-size:11px;color:#4c708b;}
+.daily-dining-state.is-selected {color:#147d64;background:#e0f3e9;}
+.daily-dining-state svg {width:13px;height:13px;}
+.daily-dining-toggle,.daily-dining-action {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:1px solid #cfe4ee;border-radius:12px;padding:8px 12px;background:#fff;color:#18769a;font-size:12px;line-height:1.5;}
+.daily-dining-toggle {margin-left:auto;}
+.daily-dining-toggle svg,.daily-dining-action svg {width:14px;height:14px;}
+.daily-dining button {cursor:pointer;}
+.daily-dining button:disabled {opacity:.5;cursor:default;}
+.daily-dining button:focus-visible {outline:2px solid #087eae;outline-offset:3px;}
+.daily-dining-toggle:hover,.daily-dining-action:hover {background:#eaf7fe;}
+.daily-dining-message {font-size:12px;line-height:1.75;margin:10px 0 0;overflow-wrap:anywhere;}
+.daily-dining-area {display:flex;align-items:center;gap:5px;margin:7px 0 0;font-size:12px;color:#50788f;}
+.daily-dining-area svg {width:14px;height:14px;flex-shrink:0;}
+.daily-dining-note {font-size:11px;line-height:1.75;color:#758795;margin:5px 0 0;}
+.daily-dining-position {margin:9px 0 0;font-size:12px;line-height:1.75;color:#30627e;overflow-wrap:anywhere;}
+.daily-dining-candidates {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px;}
+.daily-dining-candidate {display:flex;flex-direction:column;min-width:0;padding:16px;border:1px solid #e0eaf0;border-radius:15px;background:#fff;box-shadow:0 4px 14px #2d658a05;}
+.daily-dining-candidate-heading {display:flex;align-items:flex-start;gap:10px;min-width:0;}
+.daily-dining-candidate-heading > div {min-width:0;}
+.daily-dining-restaurant-icon {width:34px;height:34px;background:#f1f7f9;}
+.daily-dining-restaurant-icon svg {width:16px;height:16px;}
+.daily-dining-candidate h3 {font-size:14px;font-weight:650;line-height:1.6;white-space:normal;overflow-wrap:anywhere;margin:0;color:#244a66;}
+.daily-dining-recommended {display:inline-block;color:#15836f;font-size:10px;margin-top:5px;}
+.daily-dining-address {font-size:12px;color:#6b8191;line-height:1.7;margin:12px 0 0;overflow-wrap:anywhere;}
+.daily-dining-reason {font-size:12px;color:#647b8d;line-height:1.75;margin:8px 0 14px;overflow-wrap:anywhere;}
+.experience .daily-dining .daily-dining-adopt {min-height:44px;margin-top:auto;width:100%;border:0;border-radius:11px;padding:9px 12px;font-size:13px;color:#fff;background:#087fa4;}
+.experience .daily-dining .daily-dining-adopt:hover {background:#066f90;}
+.daily-dining-refresh {margin-top:12px;}
+.daily-dining-confirm {position:relative;margin-top:12px;}
+.daily-dining-error {font-size:12px;line-height:1.7;color:#9a592f;margin:10px 0 0;}
+@media(max-width:740px) {
+  .daily-dining {padding:14px 12px;border-radius:15px;}
+  .daily-dining-heading {gap:8px;}
+  .daily-dining-title strong {font-size:14px;}
+  .daily-dining-state {margin-left:auto;}
+  .daily-dining-toggle {width:100%;margin:5px 0 0;}
+  .daily-dining-candidates {grid-template-columns:minmax(0,1fr);gap:10px;}
+  .daily-dining-candidate {padding:14px;}
+}

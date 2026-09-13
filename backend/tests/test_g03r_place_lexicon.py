@@ -161,7 +161,8 @@ def test_city_scoped_lookup_obeys_tier_priority_and_exposes_ambiguity() -> None:
 
     canonical = lexicon.lookup(city="北京市", name="故宫")
     assert canonical.tier is LexiconMatchTier.CANONICAL_EXACT
-    assert [entry.entry_id for entry in canonical.matches] == ["two"]
+    assert {entry.entry_id for entry in canonical.matches} == {"one", "two"}
+    assert canonical.unique is None
 
     alias = lexicon.lookup(city="北京", name="紫禁城")
     assert alias.tier is LexiconMatchTier.SAFE_ALIAS_EXACT
@@ -191,3 +192,14 @@ def test_missing_or_invalid_lexicon_fails_safe_without_startup_error(tmp_path: P
     assert invalid.error_code == "LEXICON_INVALID"
     with pytest.raises(LexiconValidationError):
         load_three_city_place_lexicon(invalid_path, strict=True)
+
+
+def test_runtime_legacy_compatibility_isolates_bad_row_without_exact_quota(tmp_path: Path) -> None:
+    first = LEXICON_PATH.read_text(encoding="utf-8").splitlines()[0]
+    path = tmp_path / "partial.jsonl"
+    path.write_text(first + '\n{"untrusted":"broken record"}\n', encoding="utf-8")
+    loaded = load_three_city_place_lexicon(path)
+    assert loaded.available and len(loaded.entries) == 1
+    assert loaded.error_code == "LEXICON_PARTIAL"
+    with pytest.raises(LexiconValidationError):
+        load_three_city_place_lexicon(path, strict=True)

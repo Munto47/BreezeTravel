@@ -214,7 +214,7 @@ class MapRenderWorker:
             async def execute_stay():
                 plan = await self.repository.load_stay_plan(stay_job)
                 source_reader = getattr(self.repository, "get_map_source_type", None)
-                is_demo = self.demo_source_routing and source_reader is not None and await source_reader(stay_job.understanding_id) == "FIXED_DEMO"
+                is_demo = source_reader is not None and await source_reader(stay_job.understanding_id) == "FIXED_DEMO"
                 engine = (
                     self.lease_takeover_stay_engine
                     if stay_job.attempt > 1

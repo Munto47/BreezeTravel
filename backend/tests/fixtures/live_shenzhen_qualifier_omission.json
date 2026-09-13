@@ -1,0 +1,174 @@
+{
+  "response_type": "SAVED_REAL_MODEL_RESPONSE_FROM_CONTAMINATED_PROMPT",
+  "use": "ADAPTER_REPLAY_ONLY_NOT_MODEL_QUALITY",
+  "source": "深圳是一座充满活力且节奏飞快的城市，两天时间虽短，但若规划得当，足以让你领略其独特的“山海都市”魅力与美食文化。这份攻略将景点游览与地道美食相结合，旨在为你提供最舒适、高效的体验。\n\n**第一天：经典地标与文化漫步**\n\n上午建议从**莲花山公园**开始。乘坐地铁3号线或4号线至少年宫站，步行即可到达。登上山顶广场，你可以俯瞰深圳市中心的天际线，这里也是拍摄市民中心全景的最佳位置。游览时间约1-1.5小时，随后下山前往附近的**深圳博物馆**（历史民俗馆），了解这座城市从边陲小镇到国际大都市的变迁。若对艺术更感兴趣，可转而前往旁边的**关山月美术馆**。\n\n中午时分，推荐前往**华强北美食街区**。这里不仅是电子产品的天堂，也隐藏着许多老字号。建议在**顺记冰室**品尝经典的椰子雪糕和姜撞奶，这是深圳极具代表性的广式甜品。或者选择**炳胜品味**（华强北店）享用精致的粤菜，如黑叉烧和脆皮水牛奶，环境舒适且口味稳定。\n\n下午前往**世界之窗**或**锦绣中华·民俗文化村**。两者相邻，若喜欢微缩景观和世界名胜可选择前者；若偏爱中国各地民族风情，则选择后者。园区较大，建议预留3-4小时，乘坐观光车节省体力。傍晚时分，返回市中心，前往**东门老街**。这里是深圳最古老的商业区，虽然商业化较重，但充满市井气息。你可以在这里购买一些特色纪念品，或在街头寻找小吃，如深南大道的煎饼果子和各类奶茶店。\n\n晚餐推荐在**国贸食街**解决。这里汇聚了来自全国各地的美食，人气极旺。若想尝试海鲜，可以选择**船歌鱼水饺**或附近的潮汕牛肉火锅店；若偏好清淡口味，**点都德**的早茶点心同样适合晚餐时段，虾饺和流沙包不容错过。晚上可在东门步行街散步，感受深圳夜晚的热闹氛围，随后返回酒店休息。\n\n**第二天：滨海风光与现代艺术**\n\n清晨从**深圳湾公园**开始。乘坐地铁9号线至深圳湾公园站，沿海岸线骑行或漫步是最佳选择。这里视野开阔，可以看到对面的香港天际线。若是春季，还能看到红树林候鸟。建议停留2小时左右，呼吸新鲜空气。\n\n上午前往**海上世界文化艺术中心**。位于蛇口片区，建筑风格现代，毗邻女娲补天雕塑。内部常设有高质量的艺术展览，即使不参观展览，建筑本身和周边的海滨栈道也非常值得打卡。这里比市中心安静许多，适合拍照和静心思考。\n\n午餐推荐在**海上世界广场**内解决。这里有众多国际化餐厅，如**陶陶居**提供正宗粤式点心，或选择**Wagas**享受健康轻食。若想吃海鲜，广场内的**东海渔村**也是不错的选择，食材新鲜，环境优雅。\n\n下午前往**南山书城**或**万象天地**。万象天地是深圳新兴的潮流地标，品牌旗舰店云集，建筑造型独特，非常适合逛街和拍照。若喜欢阅读，南山书城则能提供片刻宁静。最后，根据返程时间，可前往**宝安机场**或**福田高铁站**。若时间充裕，不妨在**壹方城**购物中心稍作停留，这是华南地区规模最大的购物中心之一，餐饮选择丰富，可作为最后的补给站。\n\n**住宿建议**：\n第一天建议住在**福田区**（如会展中心附近），交通便捷，靠近地铁站，方便前往莲花山、博物馆及东门。第二天若前往蛇口方向，也可考虑提前更换酒店至**南山区**，以便更从容地欣赏海景。\n\n**温馨提示**：\n深圳夏季炎热多雨，请备好防晒用品和雨具。地铁网络发达，推荐使用“深圳通”小程序或支付宝乘车码，避免排队购票。所有推荐餐厅和景点均为知名地标，但具体营业状态可能随季节调整，出行前建议通过地图APP确认最新信息。",
+  "model_response": {
+    "destination": "深圳",
+    "day_labels": [
+      "第一天",
+      "第二天"
+    ],
+    "activities": [
+      {
+        "source_quote": "莲花山公园",
+        "role": "PLANNED",
+        "place_name": "莲花山公园",
+        "day_index": 1,
+        "category": "景点",
+        "visit_duration_minutes": 75
+      },
+      {
+        "source_quote": "深圳博物馆",
+        "role": "PLANNED",
+        "place_name": "深圳博物馆",
+        "day_index": 1,
+        "category": "景点"
+      },
+      {
+        "source_quote": "关山月美术馆",
+        "role": "OPTIONAL",
+        "place_name": "关山月美术馆",
+        "day_index": 1,
+        "category": "景点"
+      },
+      {
+        "source_quote": "华强北美食街区",
+        "role": "PLANNED",
+        "place_name": "华强北美食街区",
+        "day_index": 1,
+        "category": "地点"
+      },
+      {
+        "source_quote": "顺记冰室",
+        "role": "OPTIONAL",
+        "place_name": "顺记冰室",
+        "day_index": 1,
+        "category": "餐饮",
+        "meal_role": "SNACK"
+      },
+      {
+        "source_quote": "炳胜品味",
+        "role": "OPTIONAL",
+        "place_name": "炳胜品味",
+        "day_index": 1,
+        "category": "餐饮",
+        "meal_role": "LUNCH"
+      },
+      {
+        "source_quote": "世界之窗",
+        "role": "OPTIONAL",
+        "place_name": "世界之窗",
+        "day_index": 1,
+        "category": "景点",
+        "visit_duration_minutes": 210
+      },
+      {
+        "source_quote": "锦绣中华·民俗文化村",
+        "role": "OPTIONAL",
+        "place_name": "锦绣中华·民俗文化村",
+        "day_index": 1,
+        "category": "景点",
+        "visit_duration_minutes": 210
+      },
+      {
+        "source_quote": "东门老街",
+        "role": "PLANNED",
+        "place_name": "东门老街",
+        "day_index": 1,
+        "category": "景点"
+      },
+      {
+        "source_quote": "国贸食街",
+        "role": "PLANNED",
+        "place_name": "国贸食街",
+        "day_index": 1,
+        "category": "餐饮",
+        "meal_role": "DINNER"
+      },
+      {
+        "source_quote": "船歌鱼水饺",
+        "role": "OPTIONAL",
+        "place_name": "船歌鱼水饺",
+        "day_index": 1,
+        "category": "餐饮",
+        "meal_role": "DINNER"
+      },
+      {
+        "source_quote": "点都德",
+        "role": "OPTIONAL",
+        "place_name": "点都德",
+        "day_index": 1,
+        "category": "餐饮",
+        "meal_role": "DINNER"
+      },
+      {
+        "source_quote": "深圳湾公园",
+        "role": "PLANNED",
+        "place_name": "深圳湾公园",
+        "day_index": 2,
+        "category": "景点",
+        "visit_duration_minutes": 120
+      },
+      {
+        "source_quote": "海上世界文化艺术中心",
+        "role": "PLANNED",
+        "place_name": "海上世界文化艺术中心",
+        "day_index": 2,
+        "category": "景点"
+      },
+      {
+        "source_quote": "海上世界广场",
+        "role": "PLANNED",
+        "place_name": "海上世界广场",
+        "day_index": 2,
+        "category": "餐饮",
+        "meal_role": "LUNCH"
+      },
+      {
+        "source_quote": "陶陶居",
+        "role": "OPTIONAL",
+        "place_name": "陶陶居",
+        "day_index": 2,
+        "category": "餐饮",
+        "meal_role": "LUNCH"
+      },
+      {
+        "source_quote": "Wagas",
+        "role": "OPTIONAL",
+        "place_name": "Wagas",
+        "day_index": 2,
+        "category": "餐饮",
+        "meal_role": "LUNCH"
+      },
+      {
+        "source_quote": "东海渔村",
+        "role": "OPTIONAL",
+        "place_name": "东海渔村",
+        "day_index": 2,
+        "category": "餐饮",
+        "meal_role": "LUNCH"
+      },
+      {
+        "source_quote": "南山书城",
+        "role": "OPTIONAL",
+        "place_name": "南山书城",
+        "day_index": 2,
+        "category": "地点"
+      },
+      {
+        "source_quote": "万象天地",
+        "role": "OPTIONAL",
+        "place_name": "万象天地",
+        "day_index": 2,
+        "category": "地点"
+      },
+      {
+        "source_quote": "壹方城",
+        "role": "OPTIONAL",
+        "place_name": "壹方城",
+        "day_index": 2,
+        "category": "地点"
+      }
+    ]
+  }
+}

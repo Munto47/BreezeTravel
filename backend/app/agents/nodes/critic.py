@@ -62,6 +62,8 @@ def _validate_alternatives(recs: list[PlaceRecommendation]) -> list[PlaceRecomme
 # ─── 主入口 ───────────────────────────────────────────────────────────────────
 
 async def run(state: AgentState) -> dict:
+    if state.get("answer_only") and state.get("final_response"):
+        return {"critic_retry": False, "critic_exhausted": False, "recommendations": []}
     places = state.get("synthesized_places", [])
     rag_chunks: list[dict] = state.get("rag_chunks", [])
     recs: list[PlaceRecommendation] = state.get("recommendations", [])

@@ -28,7 +28,7 @@ export default function ResultNavigation({
     <>
       <aside
         data-testid="result-desktop-nav"
-        className="group fixed left-4 top-[5.75rem] z-30 hidden w-[4.25rem] overflow-hidden rounded-[1.4rem] border border-sky-950/10 bg-white/90 shadow-[0_24px_60px_-32px_rgba(12,120,157,0.55)] backdrop-blur-xl transition-[width] duration-200 motion-reduce:transition-none hover:w-[11.5rem] focus-within:w-[11.5rem] lg:block"
+        className="fixed left-4 top-[5.75rem] z-30 hidden w-[4.25rem] overflow-hidden rounded-[1.4rem] border border-sky-950/10 bg-white/90 shadow-[0_24px_60px_-32px_rgba(12,120,157,0.55)] backdrop-blur-xl lg:block"
         aria-label="结果主视图"
       >
         <nav className="flex flex-col gap-2 p-2.5">
@@ -43,12 +43,12 @@ export default function ResultNavigation({
                 aria-controls={panelId}
                 aria-label={desktopLabel}
                 onClick={() => onChange(id)}
-                className={`flex min-h-12 w-full items-center gap-3 overflow-hidden rounded-xl px-2 text-left text-sm font-semibold transition motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 ${current ? 'bg-[#0c789d] text-white shadow-sm' : 'text-slate-600 hover:bg-sky-50 hover:text-sky-950'}`}
+                className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-[11px] font-semibold transition motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 ${current ? 'bg-[#0c789d] text-white shadow-sm' : 'text-slate-600 hover:bg-sky-50 hover:text-sky-950'}`}
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <span className="whitespace-nowrap opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100 group-focus-within:opacity-100">
+                <span className="whitespace-nowrap">
                   {desktopLabel}
                 </span>
               </button>

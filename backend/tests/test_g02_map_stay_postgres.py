@@ -174,7 +174,7 @@ async def test_g02_postgres_persists_snapshot_selection_restart_and_zero_hidden_
         selected_name = current.result.stay.candidates[0].name
         overnight_routes = [
             route
-            for day in refreshed_map.days[:2]
+            for day in refreshed_map.days
             for route in day.routes
         ]
         assert sum(route.from_name == selected_name for route in overnight_routes) == 2

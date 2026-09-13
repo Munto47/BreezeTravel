@@ -146,6 +146,7 @@ async def run(args, cases: list[dict]) -> int:
     provider = experience_inference.ExperienceQwenProvider(
         api_key=values["QWEN_API_KEY"], base_url=values["QWEN_API_URL"],
         model=values["TRIP_UNDERSTANDING_QWEN_MODEL"],
+        enable_source_visits=True,
         deadline_seconds=number("TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS", 30, float),
         max_output_tokens=number("TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS", 4096, int),
         input_cny_per_million=number("TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION", None, float),

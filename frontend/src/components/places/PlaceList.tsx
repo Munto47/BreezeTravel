@@ -320,7 +320,7 @@ function CandidatesPanel({
 /* ─── 已排路线面板 ─── */
 function ItineraryPanel({ itinerary }: { itinerary: Itinerary | null }) {
   return (
-    <div className="flex-1 overflow-y-auto px-3 pb-3 pt-3 scrollbar-thin">
+    <div data-testid="collaboration-relative-itinerary" className="flex-1 overflow-y-auto px-3 pb-3 pt-3 scrollbar-thin">
       {!itinerary ? (
         <div className="text-center mt-16 px-4">
           <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
@@ -333,11 +333,13 @@ function ItineraryPanel({ itinerary }: { itinerary: Itinerary | null }) {
         </div>
       ) : (
         <div className="space-y-4">
+          <p className="text-xs text-slate-500">按地理位置给出的分日和先后建议；可转入行程查后调整。</p>
           {itinerary.days.map((day) => {
             const dayColor = CLUSTER_COLORS[day.dayIndex % CLUSTER_COLORS.length]
             return (
               <motion.div
                 key={day.dayIndex}
+                data-testid={`collaboration-day-${day.dayIndex + 1}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: day.dayIndex * 0.08 }}
@@ -363,10 +365,10 @@ function ItineraryPanel({ itinerary }: { itinerary: Itinerary | null }) {
                       <div className="bg-white/70 rounded-lg border border-gray-100/80 p-3">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-[10px] font-mono text-gray-400">
-                            {slot.startTime} - {slot.endTime}
+                            第 {slotIdx + 1} 站
                           </span>
                         </div>
-                        <p className="text-sm font-semibold text-gray-900">{slot.place.name}</p>
+                        <p data-testid="collaboration-stop-name" className="text-sm font-semibold text-gray-900">{slot.place.name}</p>
                         {slot.place.description && (
                           <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{slot.place.description}</p>
                         )}
@@ -376,6 +378,7 @@ function ItineraryPanel({ itinerary }: { itinerary: Itinerary | null }) {
                             <span>{slot.transport.durationMins} 分钟 · {slot.transport.distanceKm} km</span>
                           </div>
                         )}
+                        {!slot.transport && slotIdx < day.slots.length - 1 && <p className="mt-2 text-[10px] text-slate-500">下一段驾车路线暂不可用</p>}
                       </div>
                     </div>
                   ))}

@@ -14,7 +14,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 interface UseOptimizeReturn {
   itinerary: Itinerary | null
   isOptimizing: boolean
-  totalDistanceKm: number
+  totalDistanceKm: number | null
   backupPool: Place[]           // 备选池（A7）
   optimize: (places: Place[], tripDays: number, startDate?: string, taskSpec?: TripTaskSpec) => Promise<boolean>
   restoreItinerary: (itinerary: unknown) => Itinerary | null
@@ -23,13 +23,14 @@ interface UseOptimizeReturn {
 export function useOptimize(threadId: string, roomId?: string): UseOptimizeReturn {
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [isOptimizing, setIsOptimizing] = useState(false)
-  const [totalDistanceKm, setTotalDistanceKm] = useState(0)
+  const [totalDistanceKm, setTotalDistanceKm] = useState<number | null>(null)
   const [backupPool, setBackupPool] = useState<Place[]>([])
   const inFlightRef = useRef(false)
   const restoreItinerary = useCallback((saved: unknown) => {
     const restored = parseSavedItinerary(saved)
     if (!restored) return null
     setItinerary(restored)
+    setBackupPool(restored.backupPool || [])
     return restored
   }, [])
 
@@ -41,7 +42,6 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
 
       try {
         const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
-        const shouldPersistWorkspace = Boolean(roomId && startDate && authToken)
         const data = await runWithDeadline(async (signal) => {
           const response = await fetch(`${API_BASE}/api/optimize`, {
             method: 'POST',
@@ -66,14 +66,12 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
                 amap_rating: p.amapRating,
                 amap_price: p.amapPrice,
                 amap_photos: p.amapPhotos,
-                estimated_duration: p.estimatedDuration,
                 description: p.description,
                 tags: p.tags,
               })),
               trip_days: tripDays,
-              start_date: startDate ?? null,
-              task_spec: parsedTaskSpec ?? null,
-              persist_workspace: shouldPersistWorkspace,
+              relative_only: true,
+              persist_workspace: false,
             }),
           })
           if (response.status === 401) {
@@ -83,13 +81,14 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
           if (!response.ok) throw new Error(`排线失败：${response.status}`)
           return await response.json()
         }, 45000)
-        const parsed = parseItineraryFromAPI(data.itinerary)
+        const rawBackup: unknown[] = data.backup_pool ?? []
+        const retainedBackup = rawBackup.map((r) => parsePlaceFromAPI(r as Record<string, unknown>))
+        const parsed = {...parseItineraryFromAPI(data.itinerary), backupPool: retainedBackup}
         setItinerary(parsed)
-        setTotalDistanceKm(data.total_distance_km ?? 0)
+        setTotalDistanceKm(data.total_distance_km ?? null)
 
         // 解析备选池（A7）
-        const rawBackup: unknown[] = data.backup_pool ?? []
-        setBackupPool(rawBackup.map((r) => parsePlaceFromAPI(r as Record<string, unknown>)))
+        setBackupPool(retainedBackup)
 
         if (roomId && typeof window !== 'undefined') {
           // Cache only. PostgreSQL workspace/revision/report remains authoritative.

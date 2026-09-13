@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Undo2,
+  Redo2,
 } from 'lucide-react'
 import {
   createTripShare,
@@ -29,12 +30,18 @@ import PlaceEditor from './place-editor'
 import ContextPanel, { type ContextMode } from './context-panel'
 import ChangePreviewPanel from './change-preview-panel'
 import GenerationStages from './generation-stages'
+import GenerationWorkspace from './generation-workspace'
+import ExperienceHeader from '@/components/experience/experience-header'
+import { forgetBrowserTripReference } from '@/lib/browser-resource-ref'
 import ItineraryPngExport from './itinerary-png-export'
 import ItineraryWorkspace from './itinerary-workspace'
 import MapStayWorkspace from './map-stay-workspace'
 import JourneySuggestions from './journey-suggestions'
+import {DailyMealCard, useDailyDining} from './daily-dining'
+import UnresolvedPlaces from './unresolved-places'
+import SourceLodging from './source-lodging'
 import ResultNavigation from './result-navigation'
-import { type ResultViewId } from './result-presentation'
+import { relativeDayLabel, routeModeSummary, type ResultViewId } from './result-presentation'
 import {
   findingLabel,
   formatExpiry,
@@ -44,6 +51,7 @@ import '../../experience.css'
 
 export default function TripResultPage() {
   const trip = useTripExperience()
+  const dailyDining = useDailyDining(trip.result ? trip.resource : null, trip.etag)
   const router = useRouter()
   const { user, hydrate, logout } = useAuthStore()
   const [dayIndex, setDayIndex] = useState(0)
@@ -180,7 +188,7 @@ export default function TripResultPage() {
           ? '上次修改未保存'
           : accountSaved
             ? '已保存到账号'
-            : '已整理'
+            : result?.coverage?.complete === false ? '部分待补全' : '已整理'
   const progressTitle =
     trip.phase === 'CHECKING_PLACES'
       ? '正在核对地点'
@@ -352,12 +360,14 @@ export default function TripResultPage() {
       user &&
       result &&
       !trip.busy &&
-      !trip.pending &&
+      (!trip.pending ||
+        (trip.pending.type === 'claim' && trip.pending.recoveryChecked)) &&
       !accountSaved &&
       sessionStorage.getItem('bt_claim_after_login') === 'true'
     ) {
       sessionStorage.removeItem('bt_claim_after_login')
-      void trip.claim()
+      if (trip.pending) void trip.reconcile()
+      else void trip.claim()
     }
   }, [user, result, trip, accountSaved])
   async function confirmDelete() {
@@ -376,6 +386,7 @@ export default function TripResultPage() {
         await boundedTripRequest((signal) =>
           deleteTripUnderstanding(trip.resource, signal),
         )
+        forgetBrowserTripReference(trip.resource)
         clearTripUnderstandingSession()
         sessionStorage.removeItem('bt_pending_operation')
         router.replace('/')
@@ -529,76 +540,12 @@ export default function TripResultPage() {
         setDiscard(true)
       }}
     >
-      <header className="e-header">
-        <Link href="/" className="e-brand">
-          行程查<span>TRIPCHECK</span>
-        </Link>
-        <nav className="e-actions" aria-label="全局导航">
-          <Link href="/" className="e-button e-button-quiet" aria-current="page">
-            行程查
-          </Link>
-          <Link href="/collaborate" className="e-button e-button-quiet">
-            协同规划
-          </Link>
-          {user && (
-            <Link href="/my-trips" className="e-button e-button-quiet">
-              我的行程
-            </Link>
-          )}
-          <Link
-            className="e-button e-button-quiet"
-            href={user ? '/profile' : '/'}
-          >
-            {user ? '账号' : '首页'}
-          </Link>
-        </nav>
-      </header>
+      <ExperienceHeader />
       {!result ? (
-        trip.progressSnapshot ? (
-          <section className="e-progress-workspace" aria-busy={trip.loading}>
-            <div className="e-progress-heading">
-              <div>
-                <h1 className="sr-only">{progressTitle}</h1>
-              </div>
-              <div className="e-progress-actions">
-                <button
-                  type="button"
-                  className="e-button"
-                  disabled={trip.cancelling}
-                  onClick={() => void trip.stopUnderstanding()}
-                >
-                  {trip.cancelling ? '正在停止…' : '停止整理'}
-                </button>
-              </div>
-            </div>
-<GenerationStages phase={trip.phase} progress={trip.progress} />
-            <div className="e-progress-days">
-              {trip.progressSnapshot.days.map((day) => (
-                <section className="e-progress-day" key={day.label}>
-                  <header>
-                    <strong>{day.label}</strong>
-                    <span>{day.activities.length} 个地点</span>
-                  </header>
-                  <div className="e-progress-chain" role="list">
-                    {day.activities.map((card, index) => (
-                      <div className="e-progress-card-wrap" key={card.activity_token}>
-                        {index > 0 && (
-                          <span className="e-progress-connector" aria-hidden="true">
-
-                          </span>
-                        )}
-                        <article className="e-progress-card" role="listitem">
-                          <span>第 {index + 1} 站</span>
-                          <strong>{card.name}</strong>
-                          <small>已确认</small>
-                        </article>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </section>
+        trip.loading ? (
+          <GenerationWorkspace phase={trip.phase} progress={trip.progress}
+            snapshot={trip.progressSnapshot} pendingDays={trip.progressPendingDays} notice={trip.notice} cancelling={trip.cancelling}
+            onStop={() => void trip.stopUnderstanding()} />
         ) : (
           <section className="e-loading">
             <h1 className={trip.loading ? 'sr-only' : undefined}>
@@ -764,7 +711,7 @@ export default function TripResultPage() {
 
                       {discard && <div role="alert" className="e-inline-confirm"><p>放弃未保存的修改？</p><button type="button" className="e-button" onClick={() => setDiscard(false)}>继续编辑</button><button type="button" className="e-button" onClick={() => closeContext(true)}>放弃修改</button></div>}
                     </div> : <>
-                    {result.assumptions.map((item) => (
+                    {result.assumptions.filter((item) => item.key !== 'calendar').map((item) => (
                       <button
                         type="button"
                         key={item.key}
@@ -803,11 +750,17 @@ export default function TripResultPage() {
                 <button
                   type="button"
                   className="e-button e-button-quiet"
+                  data-testid="undo-trip-command"
                   disabled={disabled || !result.can_undo || dirty}
                   onClick={() => void trip.command({ command_type: 'UNDO' })}
                 >
                   <Undo2 aria-hidden="true" />
                   撤销
+                </button>
+                <button type="button" className="e-button e-button-quiet" data-testid="redo-trip-command"
+                  disabled={disabled || !result.can_redo || dirty}
+                  onClick={() => void trip.command({command_type:'REDO'})}>
+                  <Redo2 aria-hidden="true"/>重做
                 </button>
                 <button
                   type="button"
@@ -827,12 +780,18 @@ export default function TripResultPage() {
                   checksError={trip.checksError || ''}
                   map={displayMap}
                   stay={displayStay}
+                  supplementary={trip.supplementary}
                   onCommand={trip.workspaceCommand}
+                  onAdoptRelativeRoute={trip.adoptRelativeRoute}
                   onRetry={() => void trip.retryChecks()}
                   onPreview={openPreview}
                   onLocate={locateFinding}
                   onStay={token => void trip.selectStay(token)}
+                  onRefreshStay={() => void trip.refreshStay()}
                   alternativesRequest={alternativesRequest}
+                  mapDock={activeView === 'MAP_STAY' && !contextOpen}
+                  selectedToken={selected}
+                  selectedDayIndex={safeDayIndex}
                 />
                 <details className="e-more">
                   <summary aria-label="更多行程操作">
@@ -898,7 +857,11 @@ export default function TripResultPage() {
             </div>
           )}
           <div className="e-page-message">
-            {trip.omittedPlaceCount > 0 && <p className="e-small e-muted" data-testid="unmatched-places-note">已展示匹配到的真实地点，可随时更改。另有 {trip.omittedPlaceCount} 项未找到可靠地点，未展示为卡片。</p>}
+            <UnresolvedPlaces key={`${trip.resource}:${trip.etag}:${sourceDeleted}`} days={trip.unresolvedDays} visitDays={result.days}
+              coverage={result.coverage} resource={trip.resource} etag={trip.etag} disabled={disabled || dirty} onCommand={trip.workspaceCommand}
+              pendingLodgings={trip.pendingLodgings} lodgingDetails={trip.pendingLodgingDetails} lodgingStatus={trip.pendingLodgingStatus}
+              sourceDeleted={sourceDeleted} onLoadLodgings={() => void trip.loadPendingLodgings()} onClearLodgings={trip.clearPendingLodgings} onRefresh={trip.retry}/>
+            {!contextOpen && <SourceLodging cards={trip.sourceLodgings} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand} />}
             {trip.notice && (
               <div
                 className="e-message"
@@ -937,8 +900,20 @@ export default function TripResultPage() {
                   <ItineraryWorkspace
                     resource={trip.resource}
                     onRender={() => void trip.renderMap()}
-                    toolbar={<ItineraryPngExport result={result} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
+                    toolbar={<ItineraryPngExport result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
+                    pendingCounts={trip.unresolvedDays.map(day => day.activities.length)}
+                    unresolvedDays={trip.unresolvedDays}
+                    etag={trip.etag}
+                    sourceMealDescriptions={trip.sourceMealDescriptions}
+                    renderDaySuggestion={dayIndex => <DailyMealCard
+                      dayIndex={dayIndex}
+                      activities={result.days[dayIndex-1]?.activities}
+                      resource={trip.resource}
+                      day={dailyDining.value?.days.find(day => day.day_index===dayIndex)}
+                      existingActivity={trip.unresolvedDays[dayIndex-1]?.activities.find(card => card.activity_token===dailyDining.value?.days.find(day => day.day_index===dayIndex)?.existing_activity_token)}
+                      state={dailyDining.value} disabled={disabled || dirty || dailyDining.busy}
+                      onRefresh={() => void dailyDining.refresh()} onCommand={trip.workspaceCommand}/>}
                     disabled={disabled || dirty}
                     routesPending={hideOldRoutes}
                     mapView={displayMap}
@@ -964,6 +939,7 @@ export default function TripResultPage() {
                 <MapStayWorkspace
                   active={activeView === 'MAP_STAY'}
                   result={result}
+                  pendingDays={trip.unresolvedDays}
                   mapView={displayMap}
                   stay={displayStay}
                   dayIndex={safeDayIndex}
@@ -974,6 +950,7 @@ export default function TripResultPage() {
                   onSelect={setSelected}
                   onRouteMode={setRouteMode}
                   onRetryMap={() => void trip.retryMap()}
+                  onRefreshStay={() => void trip.refreshStay()}
                   onSelectStay={(token) => void trip.selectStay(token)}
                   resource={trip.resource}
                   onCommand={trip.workspaceCommand}
@@ -997,7 +974,7 @@ export default function TripResultPage() {
                     aria-pressed={index === safeDayIndex}
                     onClick={() => changeDay(index)}
                   >
-                    {day.label}
+                    {relativeDayLabel(index)}
                   </button>
                 ))}
               </nav>
@@ -1020,7 +997,7 @@ export default function TripResultPage() {
               {String(context.kind) === 'timeline' ? (
                 <>
                   <div className="e-section-heading">
-                    <h2>{currentDay?.label}</h2>
+                    <h2>{relativeDayLabel(safeDayIndex)}</h2>
                     <span className="e-muted">
                       {currentDay?.activities.length || 0} 个地点
                     </span>
@@ -1182,7 +1159,7 @@ export default function TripResultPage() {
                                       : '到下一站的交通待确认'
                                     : chosen?.status === 'AVAILABLE' &&
                                         chosen.duration_minutes != null
-                                      ? `${route?.selected_mode === 'transit' ? '公交' : '步行'} · 约 ${chosen.duration_minutes} 分钟`
+                                      ? routeModeSummary(route?.selected_mode === 'transit' ? 'transit' : 'walking', chosen)
                                       : '到下一站的交通待确认'}
                                 </span>
                                 <span className="e-transport-expand">比较</span>
@@ -1198,14 +1175,8 @@ export default function TripResultPage() {
                                         const data = route[mode]
                                         return (
                                           <p key={mode}>
-                                            <strong>
-                                              {mode === 'walking'
-                                                ? '步行'
-                                                : '公交'}
-                                            </strong>
-                                            {data.status === 'AVAILABLE'
-                                              ? ` · ${data.duration_minutes == null ? '时长未提供' : `约 ${data.duration_minutes} 分钟`}${data.distance_meters == null ? '' : ` · 总距离 ${(data.distance_meters / 1000).toFixed(1)} 公里`}${mode === 'transit' && data.transfer_count != null ? ` · 换乘 ${data.transfer_count} 次` : ''}`
-                                              : ' · 暂不可用'}
+                                            {routeModeSummary(mode, data)}
+                                            {data.status === 'AVAILABLE' && mode === 'transit' && data.transfer_count != null ? ` · 换乘 ${data.transfer_count} 次` : ''}
                                           </p>
                                         )
                                       },
@@ -1334,7 +1305,7 @@ export default function TripResultPage() {
               ) : (
                 <ContextPanel
                   title={contextTitle}
-                  dayLabel={currentDay?.label || '行程'}
+                  dayLabel={currentDay ? relativeDayLabel(safeDayIndex) : '行程'}
                   busy={trip.busy || privacyBusy}
                   modal={
                     context.kind === 'place' ||
@@ -1431,7 +1402,7 @@ export default function TripResultPage() {
                           <div key={item.check_token}>
                             {context.allDays && (
                               <p className="e-small e-muted">
-                                {item.affected_days.join('、')}
+                                {item.affected_days.map(label => result.days.findIndex(day => day.label === label)).filter(index => index >= 0).map(relativeDayLabel).join('、') || '所属日待确认'}
                               </p>
                             )}
                             {issue(item)}
@@ -1528,7 +1499,7 @@ export default function TripResultPage() {
                 >
                   {result.days.map((day, index) => (
                     <option key={index} value={index}>
-                      {day.label}
+                      {relativeDayLabel(index)}
                     </option>
                   ))}
                 </select>

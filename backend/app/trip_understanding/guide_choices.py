@@ -49,6 +49,15 @@ _OPTIONAL_BEFORE = re.compile(
     rf"(?:^|[。！？；;，,、\n：:（(])[ \t]*(?:[-•][ \t]*)?(?:\*\*)?"
     rf"(?P<name>{_OPTIONAL_NAME})(?:\*\*)?[ \t]*(?:可以打卡|可顺路参观|可以参观)"
 )
+# Weak advice ("可以去", "可以打卡") alone is part of a dated route under
+# the owner's 2026-09-08 rule. This recovery helper may override a semantic
+# role only when a condition or an explicit alternative is locally stated.
+_OPTIONAL_CONDITION = re.compile(
+    r"(?:(?:如果|假如|要是|若)[^。！？；;，,：:\r\n]{1,24}|"
+    r"时间(?:充裕|充足|足够)|(?:体力|精力)(?:允许|充足)|有(?:空|时间|余力)|备选|可选)"
+    r"[ \t，,：:]*(?:(?:再|还|也|就)[ \t]*)?$"
+)
+_WALK_REPLACEMENT_CONDITION = re.compile(r"不想挤[^。！？；;，,\r\n]{1,24}[，,][ \t]*$")
 _OPTIONAL_UNSAFE_CONTEXT = re.compile(
     r"https?://|www\.|[\"“”‘’？?]|(?:引用|引文|转述|原文|资料|作者|据说|例如|示例)|"
     r"(?:不要|不能|不可|不去|不想|不打算|不考虑|不必|无需|别去|勿去|取消|禁止|并非|不是)"
@@ -210,6 +219,37 @@ def choice_scopes(source: str) -> list[tuple[int, int, int | None]]:
     return sorted(scopes)
 
 
+@dataclass(frozen=True)
+class ChoiceBranch:
+    group_id: str
+    branch_id: str
+    label: str
+    start: int
+    end: int
+    day: int | None
+
+
+def explicit_choice_branches(source: str) -> list[ChoiceBranch]:
+    """Retain the structure of unselected alternatives, never choose one.
+
+    Use the same source scopes that already guard OPTIONAL roles. A settled
+    choice or ambiguous heading cannot acquire a new branch identity here.
+    IDs are private source positions, converted to opaque tokens at projection.
+    """
+    result = []
+    for left, right, day in choice_scopes(source):
+        headings = list(_BRANCH_HEADING.finditer(source, left, right))
+        if len(headings) < 2:
+            continue
+        group_id = f"choice-{left}-{right}"
+        for index, heading in enumerate(headings):
+            end = headings[index + 1].start() if index + 1 < len(headings) else right
+            label = unicodedata.normalize("NFKC", heading["label"]).upper()
+            result.append(ChoiceBranch(group_id, f"{group_id}-{heading.start()}",
+                                       f"方案{label}", heading.end(), end, day))
+    return result
+
+
 def explicit_binary_choice_clauses(source: str) -> list[tuple[int, int, int]]:
     """Bound two unselected clauses in a literal day heading, without NER.
 
@@ -283,13 +323,16 @@ def explicit_optional_labels(source: str) -> list[tuple[int, int]]:
     from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
     spans: set[tuple[int, int]] = set()
-    # An explicit pair of suggested walking streets remains two unselected
-    # options, including when both were omitted by the semantic draft. The
-    # preceding comma may separate a different, negated crowded destination.
+    # A conditional replacement pair stays unselected. Merely saying that
+    # the route "can walk" two streets does not create an unselected choice.
     for match in _WALK_OPTIONS.finditer(source):
         if not any(_day_number(heading["label"]) for heading in _DAY_HEADING.finditer(source[:match.start()])):
             continue
         left = max(source.rfind(mark, 0, match.start()) for mark in "。！？；;，,\n") + 1
+        sentence_start = max(source.rfind(mark, 0, match.start()) for mark in "。！？；;\n") + 1
+        prefix = source[sentence_start:match.start()]
+        if not (_OPTIONAL_CONDITION.search(prefix) or _WALK_REPLACEMENT_CONDITION.search(prefix)):
+            continue
         stops = [source.find(mark, match.end()) for mark in "。！？；;\n"]
         right = min((position + 1 for position in stops if position >= 0), default=len(source))
         line_left = source.rfind("\n", 0, match.start()) + 1
@@ -319,6 +362,9 @@ def explicit_optional_labels(source: str) -> list[tuple[int, int]]:
             right = min((position + 1 for position in stops if position >= 0), default=len(source))
             context = source[left:right]
             if context.lstrip().startswith(">") or _OPTIONAL_UNSAFE_CONTEXT.search(context):
+                continue
+            condition_end = match.start() if pattern is _OPTIONAL_AFTER else start
+            if not _OPTIONAL_CONDITION.search(source[left:condition_end].rstrip(" \t*")):
                 continue
             spans.add((start, end))
 

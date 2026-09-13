@@ -10,6 +10,7 @@ from app.trip_understanding.errors import (
     IdempotencyConflictError,
     ResourceAccessDeniedError,
     ResourceNotFoundError,
+    RevisionConflictError,
 )
 from app.trip_understanding.memory_share import (
     ConsentUpdateRequest,
@@ -200,6 +201,10 @@ async def create_trip_share(
             detail={"code": "TRIP_NOT_READY", "message": "行程还在整理，请稍后分享"},
         )
     try:
+        supplementary = await repository.get_supplementary_view(resource, now=_utcnow())
+        current = await _authorize(public_resource_id, cookie_value=None, user_id=current_user, repository=repository)
+        if current.current_result_id != resource.current_result_id:
+            raise RevisionConflictError("trip changed while collecting share content")
         view, replayed = await _memory_share_repository(repository).create_share(
             resource,
             current_user,
@@ -208,7 +213,12 @@ async def create_trip_share(
             expires_in_days=body.expires_in_days,
             signing_key=_settings_signing_key(),
             now=_utcnow(),
+            supplementary=supplementary,
         )
+    except RevisionConflictError:
+        raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后重新分享。"}) from None
+    except ResourceAccessDeniedError:
+        raise _share_unavailable() from None
     except IdempotencyConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

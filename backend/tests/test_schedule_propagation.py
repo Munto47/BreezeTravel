@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -16,6 +17,22 @@ from app.trip_understanding.schedule_checks import ScheduleFeasibilityRule
 from app.trip_understanding.service import TripUnderstandingApplicationService
 from tests.test_experience_twelve_tasks import TwentyMinuteRoutes
 from tests.test_experience_v3_journey import create, repository_for, refresh
+
+
+@pytest.fixture
+def legacy_schedule_contract(monkeypatch):
+    """Keep old clock/transaction regressions under an explicit test-only entry.
+
+    The production v3 checker now rejects clock changes. Its rejection and
+    relative meal/route behavior are covered by test_relative_only_runtime.
+    """
+    from app.trip_understanding import g03, g03_repository
+
+    for name in ("build_itinerary_revision", "run_g03_audit", "public_checks", "check_route_basis", "command_for_finding"):
+        original = getattr(g03, name)
+        monkeypatch.setattr(g03, name, partial(original, relative_only=False))
+        if hasattr(g03_repository, name):
+            monkeypatch.setattr(g03_repository, name, partial(original, relative_only=False))
 
 
 def context_for(windows, routes, *, locked=(), suggested=()):
@@ -72,7 +89,7 @@ def test_uncertain_or_protected_downstream_boundary_has_no_automatic_partial_pla
     assert finding.input_values["shift_changes"] == []
 
 
-def test_route_staleness_downgrades_only_route_dependent_checks():
+def test_route_staleness_downgrades_only_route_dependent_checks(legacy_schedule_contract):
     context = context_for([("10:00", "12:00", 120), ("11:00", "12:00", 60)], [20])
     route = first_conflict(context)
     place = AuditFinding(finding_id="place", rule_id="g03.place_readiness", rule_version="1.0",
@@ -80,6 +97,7 @@ def test_route_staleness_downgrades_only_route_dependent_checks():
         reason_code="PLACE_CONFIRMATION_REQUIRED", message="地点待确认")
     report = SimpleNamespace(findings=[route, place])
     checks = public_checks(report, context.evidence_snapshot, routes_current=False,
+        relative_only=False,
         check_tokens={route.finding_id: "route-check-token-00000001", "place": "place-check-token-00000001"})
     route_view = next(item for item in checks.items if item.depends_on_routes)
     place_view = next(item for item in checks.items if not item.depends_on_routes)
@@ -88,11 +106,12 @@ def test_route_staleness_downgrades_only_route_dependent_checks():
     assert checks.remaining_must_adjust == 0
 
 
-def test_historical_uniform_shift_report_remains_readable_but_requires_recheck():
+def test_historical_uniform_shift_report_remains_readable_but_requires_recheck(legacy_schedule_contract):
     context = context_for([("10:00", "12:00", 120), ("11:00", "12:00", 60)], [20])
     old = first_conflict(context).model_copy(update={"rule_version": "1.0.0",
         "input_values": {"shift_minutes": 80, "shift_stop_ids": ["stop-1"]}})
     view = public_checks(SimpleNamespace(findings=[old]), context.evidence_snapshot,
+        relative_only=False,
         check_tokens={old.finding_id: "historical-check-00000001"})
     assert view.items[0].basis_status == "NEEDS_RECHECK" and not view.items[0].can_preview
     assert old.rule_version == "1.0.0" and "shift_changes" not in old.input_values
@@ -138,7 +157,7 @@ async def scheduled_trip(repo, now, *, short_route_ttl=False):
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
 @pytest.mark.asyncio
-async def test_preview_is_read_only_and_adopts_one_atomic_variable_shift_then_undo(kind):
+async def test_preview_is_read_only_and_adopts_one_atomic_variable_shift_then_undo(kind, legacy_schedule_contract):
     async with repository_for(kind) as repo:
         now = datetime.now(timezone.utc)
         resource, before, service, check, routes = await scheduled_trip(repo, now)
@@ -177,7 +196,7 @@ async def test_preview_is_read_only_and_adopts_one_atomic_variable_shift_then_un
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
 @pytest.mark.asyncio
-async def test_route_expiry_rejects_preview_adoption_even_before_15min_preview_deadline(kind):
+async def test_route_expiry_rejects_preview_adoption_even_before_15min_preview_deadline(kind, legacy_schedule_contract):
     async with repository_for(kind) as repo:
         now = datetime.now(timezone.utc)
         resource, before, service, check, _routes = await scheduled_trip(repo, now, short_route_ttl=True)

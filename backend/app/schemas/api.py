@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.place import Coordinates, Place, PlaceCategory
 from app.schemas.itinerary import Itinerary, TransportLeg, WeatherInfo
@@ -41,11 +41,23 @@ class OptimizeRequest(BaseModel):
     planning_input_hash: Optional[str] = None
     workspace_id: Optional[str] = None
     persist_workspace: bool = False
+    relative_only: bool = False
+    base_room_route_version: Optional[int] = Field(default=None, ge=0, strict=True)
+    room_route_request_id: Optional[str] = Field(default=None, min_length=8, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
+
+    @model_validator(mode="after")
+    def room_publication_requires_relative_request(self):
+        publishing = self.base_room_route_version is not None
+        if publishing != (self.room_route_request_id is not None):
+            raise ValueError("房间路线版本和请求编号须同时提供")
+        if publishing and (not self.relative_only or not self.room_id):
+            raise ValueError("发布房间路线需要相对排线和房间")
+        return self
 
 
 class OptimizeResponse(BaseModel):
     itinerary: Itinerary
-    total_distance_km: float
+    total_distance_km: Optional[float]
     optimization_method: str = "kmeans_tsp"
     duration_ms: int
     backup_pool: list[Place] = []        # 因时间/体力不足被移出行程的备选地点（A7）
@@ -61,6 +73,7 @@ class OptimizeResponse(BaseModel):
     tips_status: Optional[str] = None
     tips_basis_revision: Optional[int] = None
     tips_basis_report_id: Optional[str] = None
+    room_route_version: Optional[int] = None
 
 
 class ExperiencePlaceView(BaseModel):
@@ -87,8 +100,8 @@ class ExperiencePlaceView(BaseModel):
 class ExperienceTimeSlotView(BaseModel):
     place_id: str
     place: ExperiencePlaceView
-    start_time: str
-    end_time: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     transport: Optional[TransportLeg] = None
     tips: list[str] = Field(default_factory=list)
 
@@ -112,6 +125,21 @@ class ExperienceOptimizeResponse(BaseModel):
 
     itinerary: ExperienceItineraryView
     backup_pool: list[ExperiencePlaceView] = Field(default_factory=list)
+    room_route_version: Optional[int] = None
+
+
+class RoomRouteSelectionSnapshot(BaseModel):
+    trip_days: int
+    place_ids: list[str]
+    places: list[dict]
+
+
+class RoomCurrentItineraryView(BaseModel):
+    room_id: str
+    version: int
+    itinerary_data: Optional[Itinerary] = None
+    selection_snapshot: Optional[RoomRouteSelectionSnapshot] = None
+    published_at: Optional[str] = None
 
 
 # ===== GET /api/room/{room_id}/state =====

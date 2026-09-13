@@ -1,0 +1,35 @@
+{
+  "schema_version": "city-knowledge-v1",
+  "cities": {
+    "北京": {
+      "active": "beijing/v2.jsonl",
+      "fallbacks": [
+        "beijing/v1.jsonl"
+      ]
+    },
+    "上海": {
+      "active": "shanghai/v2.jsonl",
+      "fallbacks": [
+        "shanghai/v1.jsonl"
+      ]
+    },
+    "广州": {
+      "active": "guangzhou/v2.jsonl",
+      "fallbacks": [
+        "guangzhou/v1.jsonl"
+      ]
+    },
+    "深圳": {
+      "active": "shenzhen/v2.jsonl",
+      "fallbacks": [
+        "shenzhen/v1.jsonl"
+      ]
+    },
+    "杭州": {
+      "active": "hangzhou/v2.jsonl",
+      "fallbacks": [
+        "hangzhou/v1.jsonl"
+      ]
+    }
+  }
+}

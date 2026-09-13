@@ -49,7 +49,23 @@ export interface KnowledgeSuggestionView {
   freshness: string
 }
 
-export interface ActivityCardView {
+export interface DiningAccessView {
+  status: 'DURING_VISIT' | 'NEEDS_REVIEW'
+  parent_name: string | null
+}
+
+export interface DiningContextView {
+  dining_access?: DiningAccessView | null
+  meal_evidence_status?: 'LIGHT_FOOD_ITEMS_ONLY' | 'UNSPECIFIED'
+}
+
+export interface ActivityCardView extends DiningContextView {
+  source_details?: Array<{name: string; optional: boolean}>
+  lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | 'VISIT_ONLY' | null
+  lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
+  lodging_role_uncertain?: boolean
+  lodging_excluded_nights?: number[]
+  meal_role?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK' | null
   city?: string | null
   photo_url?: string | null
   activity_token: string
@@ -73,7 +89,7 @@ export interface PlacePosition {
   latitude: number
   coordinate_system: 'GCJ02'
 }
-export interface PlaceCandidateView {
+export interface PlaceCandidateView extends DiningContextView {
   candidate_token: string
   name: string
   category: string
@@ -87,6 +103,8 @@ export interface PlaceCandidatesView {
 
 export interface PublicRouteModeView {
   status: 'AVAILABLE' | 'UNAVAILABLE'
+  connection_status?: 'VERIFIED' | 'UNVERIFIED'
+  geometry_break_indices?: number[] | null
   duration_minutes: number | null
   distance_meters: number | null
   transfer_count: number | null
@@ -96,6 +114,12 @@ export interface PublicRouteModeView {
 export interface MapRenderView {
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
   message: string
+  lodging_points?: Array<{
+    point_token: string
+    day_label: string
+    name: string
+    position: PlacePosition
+  }>
   points?: Array<{
     activity_token: string
     day_label: string
@@ -132,6 +156,15 @@ export interface StayCandidateView {
   reason: string
   available_actions: Array<'CHOOSE_STAY'>
   selected: boolean
+  brand_group?: string | null
+  brand_note?: string | null
+}
+
+export interface StaySegmentView {
+  segment_token: string; city?: string | null; overnight_days: string[]
+  status: StaySuggestionView['status']; message: string
+  candidates: StayCandidateView[]; preserved_hotels?: string[]
+  expected_boundary_count?: number; missing_boundary_count?: number
 }
 
 export interface StaySuggestionView {
@@ -141,17 +174,27 @@ export interface StaySuggestionView {
   searched_scopes: string[]
   candidates: StayCandidateView[]
   available_actions: Array<'CHOOSE_STAY'>
+  segments?: StaySegmentView[]
 }
 
 export interface UserFacingTripResult {
+  pending_lodgings?: PendingLodgingView[]
+  lodging_constraints?: LodgingConstraintView[]
+  coverage?: {recognized_place_count: number; confirmed_place_count: number; unresolved_place_count: number; unclassified_mention_count: number; unprocessed_count: number; complete: boolean} | null
   can_undo?: boolean
+  can_redo?: boolean
   ownership?: 'ANONYMOUS' | 'ACCOUNT'
   expires_at?: string | null
   updated_at?: string | null
   is_demo?: boolean
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
-  days: Array<{ label: string; activities: ActivityCardView[]; alternatives?: Array<{name: string; category: string; city?: string | null}> }>
+  days: Array<{ label: string; activities: ActivityCardView[]; unprocessed_count?: number;
+    meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK'|'UNSPECIFIED';after_activity_token?:string|null;before_activity_token?:string|null;
+      preference_text?:string|null;
+      selection_status?:'UNKNOWN'|'UNSELECTED'|'SELECTED';selected_activity_token?:string|null}>;
+    choice_selections?: Array<{choice_group_token:string;branch_token:string;activity_tokens:string[];status:'SELECTED'|'MODIFIED'}>;
+    alternatives?: Array<{name: string; category: string; city?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
   map: {
     status:
       | 'PREPARING'
@@ -163,6 +206,7 @@ export interface UserFacingTripResult {
     available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
   }
   stay: {
+    segments?: StaySegmentView[]
     status: StaySuggestionView['status']
     message: string
     area_summary: string | null
@@ -174,7 +218,11 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
-  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string }
+  | { command_type: 'ALTERNATIVE_INSERT'; day_index: number; alternative_token: string; position: number }
+  | { command_type: 'CHOICE_CLEAR'; day_index: number; choice_group_token: string; preserve_activities?: boolean }
+  | { command_type: 'CHOICE_SELECT'; day_index: number; choice_group_token: string; branch_token: string; position?: number }
+  | { command_type: 'LODGING_RECOVER'; pending_token: string; candidate_token: string; intent: LodgingRecoveryIntent }
+  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string; insert_before?:boolean; meal_role?:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK'; meal_slot?:SourceMealRef }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
       changes: Array<{
@@ -184,6 +232,7 @@ export type TripUnderstandingCommand =
       }>
     }
   | { command_type: 'UNDO' }
+  | { command_type: 'REDO' }
   | {
       command_type: 'PLACE_CONFIRM'
       activity_token: string
@@ -275,6 +324,14 @@ export interface ShareListItemView {
   status: 'ACTIVE' | 'REVOKED' | 'EXPIRED'
 }
 
+export interface SharedTripActivity {
+  name: string
+  area_or_address: string
+  time_hint: string | null
+  note: '可直接查看' | '地点待确认'
+  details?: Array<{name: string; optional: boolean}>
+}
+
 export interface ShareProjectionView {
   title: string
   destination: string
@@ -282,15 +339,18 @@ export interface ShareProjectionView {
   party_size: string
   days: Array<{
     label: string
-    activities: Array<{
-      name: string
-      area_or_address: string
-      time_hint: string | null
-      note: '可直接查看' | '地点待确认'
-    }>
+    activities: SharedTripActivity[]
+    pending_activities?: SharedTripActivity[]
+    alternatives?: Array<{name: string; category: string; branch_label: string | null; state: string; details?: Array<{name: string; optional: boolean}>}>
+    meal_arrangements?: string[]
+    pending_count?: number
+    unprocessed_count?: number
   }>
   accommodation: string | null
   message: string
+  warnings?: string[]
+  unassigned_alternatives?: string[]
+  lodging_arrangements?: string[]
 }
 
 export interface MaterializedTripView {
@@ -321,6 +381,9 @@ export interface MyTripListItem {
   updated_at: string
   expires_at: string
   is_demo: boolean
+  state?: 'PROCESSING' | 'READY' | 'PARTIAL' | 'FAILED' | 'CANCELLED'
+  has_result?: boolean
+  source_status?: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
 }
 
 export interface MyTripListView {
@@ -335,6 +398,12 @@ export interface TripSourceView {
 }
 
 export interface TripSupplementaryView {
+  pending_lodgings?: Array<{
+    pending_token: string
+    name: string
+    city: string | null
+    status: 'NEEDS_CONFIRMATION'
+  }>
   status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
   days: Array<{
     day_index: number | null
@@ -345,6 +414,24 @@ export interface TripSupplementaryView {
       role: 'OPTIONAL' | 'EXCLUDED'
     }>
   }>
+}
+
+export interface PendingLodgingView {
+  pending_token: string
+  status: 'NEEDS_CONFIRMATION'
+  unprocessed_count: number
+}
+
+export interface LodgingRecoveryIntent {
+  kind: 'WHOLE_TRIP' | 'NIGHTS' | 'VISIT_ONLY'
+  overnight_days?: number[]
+  day_index?: number | null
+  before_activity_token?: string | null
+}
+
+export interface LodgingConstraintView extends ActivityCardView {
+  scope: 'WHOLE_TRIP' | 'NIGHTS'
+  overnight_days: number[]
 }
 
 export interface PublicTripChecksView {
@@ -388,6 +475,22 @@ export interface PublicChangeAdopted {
   changed_days: string[]
   map_readiness: 'NEEDS_UPDATE'
   checks: PublicTripChecksView
+}
+
+export interface PublicComparedRouteEdge {
+  from_name:string; to_name:string; mode:'walking'|'transit'
+  duration_minutes:number; distance_meters:number
+}
+export interface PublicRelativeRoutePreview {
+  kind:'RELATIVE_ORDER'; change_token:string; title:string; summary:string; day_index:number
+  before:string[]; after:string[]; routes_before:PublicComparedRouteEdge[]; routes_after:PublicComparedRouteEdge[]
+  duration_minutes_before:number; duration_minutes_after:number; minutes_saved:number
+  distance_meters_before:number; distance_meters_after:number; comparison_scope:'CHANGED_EDGES_ONLY'
+  route_coverage_scope?: 'REQUESTED_POINTS' | 'RETURNED_SEGMENTS' | null
+}
+export interface PublicRelativeRouteOptions {
+  kind:'RELATIVE_ORDER'; status:'AVAILABLE'|'NO_IMPROVEMENT'|'NEEDS_CONFIRMATION'|'NEEDS_UPDATE'|'UNAVAILABLE'
+  message:string; day_index:number; options:PublicRelativeRoutePreview[]
 }
 
 function requestKey(): string {
@@ -535,6 +638,10 @@ export async function readTripUnderstandingResult(
       } | null
       if (failure?.detail?.code === 'UNDERSTANDING_FAILED')
         throw new Error('UNDERSTANDING_FAILED')
+      if (failure?.detail?.code === 'INPUT_CAPACITY_EXCEEDED')
+        throw new Error('INPUT_CAPACITY_EXCEEDED')
+      if (failure?.detail?.code === 'INPUT_DAY_CAPACITY_EXCEEDED')
+        throw new Error('INPUT_DAY_CAPACITY_EXCEEDED')
       if (failure?.detail?.code === 'UNDERSTANDING_CANCELLED')
         throw new Error('UNDERSTANDING_CANCELLED')
     }
@@ -746,11 +853,50 @@ export function readTripSource(
 export function readTripSupplementary(
   publicResourceId: string,
   signal?: AbortSignal,
+  includePendingLodgings = false,
 ): Promise<TripSupplementaryView> {
   return readPrivateTripJson<TripSupplementaryView>(
-    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/supplementary`,
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/supplementary${includePendingLodgings ? '?include_pending_lodgings=true' : ''}`,
     signal,
   )
+}
+
+export async function queryPendingLodgingCandidates(
+  publicResourceId: string,
+  pendingToken: string,
+  query: string,
+  intent: LodgingRecoveryIntent,
+  etag: string,
+  signal?: AbortSignal,
+  city?: string,
+): Promise<PlaceCandidatesView> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'If-Match': etag,
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ pending_token: pendingToken, query, intent, ...(city ? { city } : {}) }),
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    if (response.status === 410) throw new Error('TRIP_GONE')
+    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    if (response.status === 428) throw new Error('IF_MATCH_REQUIRED')
+    if (response.status === 422) {
+      const failure = (await response.json().catch(() => null)) as { detail?: { code?: string } } | null
+      if (failure?.detail?.code === 'CITY_REQUIRED') throw new Error('CITY_REQUIRED')
+    }
+    throw new Error('PLACE_SEARCH_UNAVAILABLE')
+  }
+  return response.json() as Promise<PlaceCandidatesView>
 }
 
 export async function queryTripPlaceCandidates(
@@ -781,6 +927,62 @@ export interface DiningCandidatesView {
   status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'NEEDS_CONFIRMATION'
   message: string
   candidates: Array<PlaceCandidateView & { reason: string }>
+}
+
+export interface SourceMealRef {day_index: number; slot_index: number}
+export interface DiningPOIInfo {
+  photo_url?: string | null; cuisine?: string | null; tags: string[]
+  rating?: number | null; cost?: number | null; source: 'AMAP_POI_V2'; observed_at: string
+}
+export interface SourceMealCandidatesView {
+  status: 'AVAILABLE'|'EMPTY'|'UNAVAILABLE'|'NEEDS_CONFIRMATION'|'POSITION_REQUIRED'|'EXISTING'|'NEEDS_REVIEW'
+  message: string; meal_slot: SourceMealRef; preference_text?: string | null
+  meal_role?: 'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK'|null
+  after_activity_token?:string|null; insert_before:boolean; anchor_name?:string|null
+  pending_activity_tokens:string[]
+  candidates:Array<PlaceCandidateView & {reason:string;dining_info?:DiningPOIInfo|null}>
+}
+export async function querySourceMealCandidates(resource: string, etag: string,
+  body: {meal_slot:SourceMealRef; query:string;position?:{activity_token:string;insert_before:boolean}}, signal:AbortSignal,
+): Promise<SourceMealCandidatesView> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/source-meal-candidates`, {
+    method:'POST', credentials:'include', cache:'no-store', signal,
+    headers:{...authorizationHeaders(),'Content-Type':'application/json','If-Match':etag}, body:JSON.stringify(body),
+  })
+  if (response.status === 409) throw new Error('SOURCE_MEAL_VERSION_CHANGED')
+  if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+  if (response.status === 404 || response.status === 410) throw new Error('TRIP_GONE')
+  if (!response.ok) throw new Error('SOURCE_MEAL_UNAVAILABLE')
+  if (response.headers.get('ETag') !== etag) throw new Error('SOURCE_MEAL_VERSION_CHANGED')
+  return response.json() as Promise<SourceMealCandidatesView>
+}
+
+export interface DailyMealView {
+  day_index: number; label: string; status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'EXISTING' | 'NEEDS_CONFIRMATION'
+  message: string; after_activity_token?: string | null; next_name?: string | null
+  insert_before?: boolean; meal_role?: 'LUNCH' | null
+  existing_activity_token?: string | null; area?: string | null
+  area_relation?: 'PROVIDER_AREA' | 'NEARBY' | null; area_distance_m?: number | null
+  candidates: Array<DiningContextView & {candidate_token: string; name: string; area_or_address: string; business_area?: string | null; reason: string; extra_minutes?: number | null; recommended: boolean; route_coverage_scope?: 'REQUESTED_POINTS' | 'RETURNED_SEGMENTS' | null}>
+}
+export interface DailyDiningView {
+  status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'UNAVAILABLE'
+  message: string; days: DailyMealView[]
+}
+export async function readDailyDining(resource: string, signal?: AbortSignal, refresh?: {etag: string; key: string}): Promise<{body: DailyDiningView; etag: string}> {
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  if (signal?.aborted) controller.abort()
+  else signal?.addEventListener('abort', abort, {once:true})
+  const timer = setTimeout(abort, 15000)
+  try {
+    const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/daily-dining`, {
+      credentials: 'include', cache:'no-store', signal:controller.signal, method: refresh ? 'POST' : 'GET',
+      headers: {...authorizationHeaders(), ...(refresh ? {'If-Match':refresh.etag, 'Idempotency-Key':refresh.key} : {})},
+    })
+    if (!response.ok) throw new Error('DAILY_DINING_UNAVAILABLE')
+    return {body: await response.json(), etag: response.headers.get('ETag') || ''}
+  } finally {clearTimeout(timer); signal?.removeEventListener('abort',abort)}
 }
 
 export async function queryTripDiningCandidates(resource: string, activity: string, signal?: AbortSignal): Promise<{body: DiningCandidatesView; etag: string}> {
@@ -839,6 +1041,15 @@ export async function readTripUnderstandingStay(
     },
   )
   if (!response.ok) throw new Error('STAY_UNAVAILABLE')
+  return response.json() as Promise<StaySuggestionView>
+}
+
+export async function refreshTripUnderstandingStay(publicResourceId: string, etag: string, key: string, signal?: AbortSignal): Promise<StaySuggestionView> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`, {
+    method:'POST', credentials:'include', cache:'no-store', signal,
+    headers:{...authorizationHeaders(), 'If-Match':etag, 'Idempotency-Key':key},
+  })
+  if (!response.ok) throw new Error(response.status === 409 ? 'REVISION_CONFLICT' : 'STAY_UNAVAILABLE')
   return response.json() as Promise<StaySuggestionView>
 }
 
@@ -955,6 +1166,25 @@ export async function previewTripUnderstandingChange(
     throw new Error('CHANGE_PREVIEW_FAILED')
   }
   return response.json() as Promise<PublicChangePreview>
+}
+
+export async function compareRelativeTripRoutes(resource:string, etag:string, dayIndex:number, key:string, signal:AbortSignal):Promise<PublicRelativeRouteOptions> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/changes/preview`, {
+    method:'POST', credentials:'include', cache:'no-store', signal,
+    headers:{...authorizationHeaders(),'Content-Type':'application/json','If-Match':etag,'Idempotency-Key':key},
+    body:JSON.stringify({day_index:dayIndex}),
+  })
+  if(response.status===409) {
+    const error=await response.json().catch(()=>null) as {detail?:{code?:string}}|null
+    throw new Error(error?.detail?.code==='REQUEST_IN_PROGRESS'?'ROUTE_COMPARISON_PENDING':'ROUTE_COMPARISON_STALE')
+  }
+  if(response.status===401)throw new Error('LOGIN_REQUIRED')
+  if(response.status===404||response.status===410)throw new Error('TRIP_GONE')
+  if(!response.ok)throw new Error('ROUTE_COMPARISON_UNAVAILABLE')
+  const body=await response.json() as PublicRelativeRouteOptions
+  if(response.headers.get('ETag')!==etag||body.kind!=='RELATIVE_ORDER'||body.day_index!==dayIndex
+    ||!Array.isArray(body.options)||body.options.length>3||body.options.some(option=>option.kind!=='RELATIVE_ORDER'||option.day_index!==dayIndex||option.comparison_scope!=='CHANGED_EDGES_ONLY'))throw new Error('ROUTE_COMPARISON_STALE')
+  return body
 }
 
 export async function adoptTripUnderstandingChange(

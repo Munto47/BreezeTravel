@@ -8,6 +8,10 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.trip_understanding.timing import ActivityTiming
+from app.trip_understanding.source_order import SourceOrderAssessment
+
+
+MAX_TRIP_ACTIVITIES = 160
 
 
 class StrictModel(BaseModel):
@@ -44,15 +48,48 @@ class ProposedMention(ActivityTiming):
     sequence_index: int = Field(ge=0)
     atomic_place_name: str | None = None
     category_hint: str | None = None
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP"] | None = None
+    lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
+    lodging_role_uncertain: bool = False
+    pending_lodging_scope: bool = False
+    pending_lodging_issue_count: int = Field(default=0, ge=0)
+    lodging_excluded_nights: list[Annotated[int, Field(ge=1, le=14)]] = Field(default_factory=list, max_length=14)
+    lodging_exclusion_evidence: str | None = None
+    lodging_exclusion_evidence_start: int | None = Field(default=None, ge=0)
+    lodging_exclusion_evidence_end: int | None = Field(default=None, ge=0)
+    lodging_evidence: str | None = None
+    lodging_evidence_start: int | None = Field(default=None, ge=0)
+    lodging_evidence_end: int | None = Field(default=None, ge=0)
     time_hint: str | None = None
     city_hint: str | None = None
     city_evidence: str | None = None
+    choice_group_id: str | None = None
+    choice_group_selectable: bool = False
+    branch_id: str | None = None
+    branch_label: str | None = None
+    parent_mention_id: str | None = None
+    relation_type: Literal["INTERNAL_DETAIL"] | None = None
+    detail_kind: Literal["VISIT", "ENTRY", "EXIT", "EXTERIOR_ONLY", "PICKUP_ONLY"] | None = None
+    role_evidence: str | None = None
+    role_evidence_start: int | None = Field(default=None, ge=0)
+    role_evidence_end: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def valid_span(self) -> "ProposedMention":
         if self.span_end <= self.span_start:
             raise ValueError("mention span must be non-empty")
         return self
+
+
+class SemanticDiagnostic(StrictModel):
+    """Private, source-bound recovery metadata; never a public error payload."""
+
+    category: str = Field(min_length=1, max_length=80)
+    field: str = Field(default="document", max_length=120)
+    span_start: int | None = Field(default=None, ge=0)
+    span_end: int | None = Field(default=None, ge=0)
+    retryable: bool = True
 
 
 class InferenceProposal(StrictModel):
@@ -65,6 +102,39 @@ class InferenceProposal(StrictModel):
     day_labels: dict[int, str] = Field(default_factory=dict)
     day_count: int = Field(default=0, ge=0, le=14)
     unprocessed_count: int = Field(default=0, ge=0)
+    # Only source-scoped processing may assign unfinished work to a day.
+    # Unknown attribution remains in the global count, never guessed from an empty day.
+    unprocessed_by_day: dict[Annotated[int, Field(ge=1, le=14)], Annotated[int, Field(ge=0)]] = Field(default_factory=dict)
+    diagnostics: list[SemanticDiagnostic] = Field(default_factory=list)
+    order_assessment: SourceOrderAssessment = Field(default_factory=SourceOrderAssessment)
+
+
+class SourceSemanticPlan(InferenceProposal):
+    """Source-validated meaning produced by every current model adapter.
+
+    Days, roles, branches, order and per-visit city evidence are authoritative
+    here. Downstream identity lookup may resolve a place or leave it pending;
+    it must not reinterpret those semantics. ``binding`` contains observations
+    only and cannot select a different processing contract.
+
+    Contract additions are optional fields with defaults for historical records;
+    the type itself requires no wire discriminator or public version change.
+    Readers replaying model drafts must explicitly construct this type rather
+    than infer it from diagnostic text.
+    """
+
+    # Explicit saved-route alternatives with no assigned day are exposed through
+    # the private supplementary view. Ordinary model plans retain their defaults.
+    unassigned_alternative_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def valid_unassigned_alternatives(self) -> "SourceSemanticPlan":
+        allowed = {item.mention_id for item in self.mentions
+                   if item.role == ActivityRole.OPTIONAL and item.day_index is None and item.atomic_place_name}
+        selected = set(self.unassigned_alternative_ids)
+        if len(selected) != len(self.unassigned_alternative_ids) or not selected <= allowed:
+            raise ValueError("unassigned alternatives must identify distinct undated optional mentions")
+        return self
 
 
 class CompiledActivity(StrictModel):
@@ -180,6 +250,17 @@ class KnowledgeSuggestionView(StrictModel):
         return value
 
 
+class SourceDetailView(StrictModel):
+    name: str = Field(min_length=1, max_length=120)
+    optional: bool = False
+
+
+class DiningAccessView(StrictModel):
+    # This describes a saved visit relationship, never a ticket or opening claim.
+    status: Literal["DURING_VISIT", "NEEDS_REVIEW"]
+    parent_name: str | None = Field(default=None, min_length=1, max_length=120)
+
+
 class ActivityCardView(ActivityTiming):
     photo_url: str | None = None
     city: str | None = None
@@ -192,6 +273,13 @@ class ActivityCardView(ActivityTiming):
     activity_token: str = Field(min_length=20, max_length=80)
     name: str
     category: str
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    dining_access: DiningAccessView | None = None
+    meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
+    lodging_event: Literal["OVERNIGHT", "CHECK_OUT", "DEPARTURE", "LUGGAGE_PICKUP", "VISIT_ONLY"] | None = None
+    lodging_scope: Literal["WHOLE_TRIP", "DAY"] | None = None
+    lodging_role_uncertain: bool = False
+    lodging_excluded_nights: list[Annotated[int, Field(ge=1, le=14)]] = Field(default_factory=list, max_length=14)
     area_or_address: str
     time_hint: str | None = None
     status: Literal["READY", "NEEDS_CONFIRMATION"]
@@ -200,18 +288,96 @@ class ActivityCardView(ActivityTiming):
         default_factory=list,
         max_length=3,
     )
+    source_details: list[SourceDetailView] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
 
 
-class ActivityAlternativeView(StrictModel):
+class ActivityAlternativeView(ActivityTiming):
     name: str = Field(min_length=1, max_length=40)
     category: str = Field(min_length=1, max_length=40)
     city: str | None = None
+    activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+    choice_group_token: str | None = Field(default=None, min_length=20, max_length=80)
+    choice_group_selectable: bool = False
+    branch_token: str | None = Field(default=None, min_length=20, max_length=80)
+    branch_label: str | None = Field(default=None, max_length=40)
+    insertion_position: int | None = Field(default=None, ge=0, le=MAX_TRIP_ACTIVITIES)
+    after_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+    before_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    source_details: list[SourceDetailView] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
+
+
+class ChoiceSelectionView(StrictModel):
+    choice_group_token: str = Field(min_length=20, max_length=80)
+    branch_token: str = Field(min_length=20, max_length=80)
+    activity_tokens: list[Annotated[str, Field(min_length=20, max_length=80)]] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
+    status: Literal["SELECTED", "MODIFIED"] = "SELECTED"
+
+
+class PendingLodgingRefView(StrictModel):
+    pending_token: str = Field(min_length=20, max_length=80)
+    status: Literal["NEEDS_CONFIRMATION"] = "NEEDS_CONFIRMATION"
+    unprocessed_count: int = Field(default=1, ge=1)
+
+
+class LodgingConstraintView(ActivityCardView):
+    scope: Literal["WHOLE_TRIP", "NIGHTS"]
+    overnight_days: list[Annotated[int, Field(ge=1, le=13)]] = Field(min_length=1, max_length=13)
+
+
+class MealSlotView(StrictModel):
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK", "UNSPECIFIED"]
+    preference_text: str | None = Field(default=None, min_length=1, max_length=1000)
+    after_activity_token: str | None = None
+    before_activity_token: str | None = None
+    selection_status: Literal["UNKNOWN", "UNSELECTED", "SELECTED"] = "UNKNOWN"
+    selected_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+
+    @model_validator(mode="after")
+    def selection_has_token(self):
+        if (self.selection_status == "SELECTED") != (self.selected_activity_token is not None):
+            raise ValueError("selected meal status and activity must agree")
+        return self
 
 
 class TripDayView(StrictModel):
     label: str
     activities: list[ActivityCardView]
     alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
+    choice_selections: list[ChoiceSelectionView] = Field(default_factory=list, max_length=80)
+    meal_slots: list[MealSlotView] = Field(default_factory=list)
+    unprocessed_count: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def selected_meals_belong_to_day(self):
+        cards = {card.activity_token: card for card in self.activities}
+        selected_tokens = set()
+        for slot in self.meal_slots:
+            if slot.selection_status != "SELECTED":
+                continue
+            selected = cards.get(slot.selected_activity_token)
+            if (selected is None or selected.category != "餐饮" or selected.meal_role != (None if slot.meal_role == "UNSPECIFIED" else slot.meal_role)
+                    or slot.selected_activity_token in selected_tokens):
+                raise ValueError("selected meal must reference this day's matching restaurant")
+            selected_tokens.add(slot.selected_activity_token)
+        return self
+
+    @model_validator(mode="after")
+    def selected_choices_belong_to_day(self):
+        groups = set()
+        cards = {card.activity_token for card in self.activities}
+        used = set()
+        for selection in self.choice_selections:
+            members = [item for item in self.alternatives if item.choice_group_token == selection.choice_group_token
+                       and item.branch_token == selection.branch_token]
+            tokens = set(selection.activity_tokens)
+            if (selection.choice_group_token in groups or not members or len(tokens) != len(selection.activity_tokens)
+                    or not tokens <= cards or used.intersection(tokens)
+                    or (selection.status == "SELECTED" and len(tokens) != len(members))):
+                raise ValueError("choice selection must reference its current day's branch and cards")
+            groups.add(selection.choice_group_token)
+            used.update(tokens)
+        return self
 
 
 class MapReadinessView(StrictModel):
@@ -232,6 +398,20 @@ class StayCandidateView(StrictModel):
     reason: str
     available_actions: list[Literal["CHOOSE_STAY"]]
     selected: bool = False
+    brand_group: str | None = None
+    brand_note: str | None = None
+
+
+class StaySegmentView(StrictModel):
+    segment_token: str
+    city: str | None = None
+    overnight_days: list[str] = Field(default_factory=list)
+    status: Literal["PREPARING", "AVAILABLE", "NEEDS_UPDATE", "LIMITED", "UNAVAILABLE"]
+    message: str
+    candidates: list[StayCandidateView] = Field(default_factory=list)
+    preserved_hotels: list[str] = Field(default_factory=list)
+    expected_boundary_count: int = Field(default=0, ge=0)
+    missing_boundary_count: int = Field(default=0, ge=0)
 
 
 class StaySuggestionView(StrictModel):
@@ -241,6 +421,7 @@ class StaySuggestionView(StrictModel):
     searched_scopes: list[str] = Field(default_factory=list)
     candidates: list[StayCandidateView] = Field(default_factory=list)
     available_actions: list[Literal["CHOOSE_STAY"]] = Field(default_factory=list)
+    segments: list[StaySegmentView] = Field(default_factory=list)
 
 
 class StaySelectionRequest(StrictModel):
@@ -260,6 +441,17 @@ class StaySelectionOutcome(StrictModel):
     replayed: bool = False
 
 
+class TripRecognitionCoverage(StrictModel):
+    """Counts, not source fragments or diagnostic codes, for incomplete results."""
+
+    recognized_place_count: int = Field(default=0, ge=0)
+    confirmed_place_count: int = Field(default=0, ge=0)
+    unresolved_place_count: int = Field(default=0, ge=0)
+    unclassified_mention_count: int = Field(default=0, ge=0)
+    unprocessed_count: int = Field(default=0, ge=0)
+    complete: bool = False
+
+
 class UserFacingTripResult(StrictModel):
     status: Literal["READY", "PARTIAL_RESULT", "BASIC_ONLY", "LIMITED"]
     assumptions: list[AssumptionChipView]
@@ -268,10 +460,14 @@ class UserFacingTripResult(StrictModel):
     stay: StaySuggestionView
     available_actions: list[Literal["EDIT_ASSUMPTIONS", "EDIT_CARDS"]]
     can_undo: bool = False
+    can_redo: bool = False
     ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
     expires_at: datetime | None = None
     is_demo: bool = False
     updated_at: datetime | None = None
+    coverage: TripRecognitionCoverage | None = None
+    pending_lodgings: list[PendingLodgingRefView] = Field(default_factory=list)
+    lodging_constraints: list[LodgingConstraintView] = Field(default_factory=list)
 
 
 class MaterializedTripView(StrictModel):
@@ -303,7 +499,14 @@ class PublicTripChecksView(StrictModel):
 
 
 class ChangePreviewRequest(StrictModel):
-    check_token: str = Field(min_length=20, max_length=100)
+    check_token: str | None = Field(default=None, min_length=20, max_length=100)
+    day_index: int | None = Field(default=None, ge=1, le=14, strict=True)
+
+    @model_validator(mode="after")
+    def one_preview_target(self):
+        if (self.check_token is None) == (self.day_index is None):
+            raise ValueError("Choose a check or a relative day")
+        return self
 
 
 class PublicTimingChange(StrictModel):
@@ -328,7 +531,13 @@ class PublicChangePreview(StrictModel):
 
 
 class ChangeAdoptRequest(StrictModel):
-    change_token: str = Field(min_length=20, max_length=100)
+    change_token: str = Field(min_length=20, max_length=24000)
+
+    @model_validator(mode="after")
+    def bounded_legacy_token(self):
+        if len(self.change_token) > 100 and not self.change_token.startswith("rr1_"):
+            raise ValueError("Unsupported change credential")
+        return self
 
 
 class PublicChangeAdopted(StrictModel):
@@ -519,6 +728,8 @@ class PublicEventPayload(StrictModel):
         "已停止整理，保留当前卡片",
         "已停止整理，没有可保留的卡片",
         "这次没有整理完成，可以重新尝试",
+        "这次整理的内容超过 160 项上限，请分成多份行程后再试。",
+        "这次整理的行程超过 14 天上限，请分成多份行程后再试。",
     ]
     phase: Literal["RECEIVED", "CARDS_AVAILABLE", "CHECKING_PLACES"] | None = None
     progress: TripUnderstandingProgressMetrics = Field(
@@ -540,6 +751,8 @@ class PublicResourceRecord(StrictModel):
     current_result_id: str | None = None
     ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
     expires_at: datetime | None = None
+    # Internal authorization/readback state, never part of the public result.
+    failure_category: str | None = Field(default=None, exclude=True)
 
 
 class StoredResult(StrictModel):
@@ -568,11 +781,33 @@ class ActivityInsertCommand(ActivityTiming):
     city: str | None = Field(default=None, max_length=40)
     command_type: Literal["ACTIVITY_INSERT"]
     day_index: int = Field(ge=1, le=14)
-    position: int = Field(ge=0, le=80)
+    position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
     name: str = Field(min_length=1, max_length=40)
     category: str = Field(default="地点", min_length=1, max_length=40)
     area_or_address: str = Field(default="地点待确认", min_length=1, max_length=120)
     time_hint: str | None = Field(default=None, max_length=80)
+
+
+class AlternativeInsertCommand(StrictModel):
+    command_type: Literal["ALTERNATIVE_INSERT"]
+    day_index: int = Field(strict=True, ge=1, le=14)
+    alternative_token: str = Field(min_length=20, max_length=80)
+    position: int = Field(strict=True, ge=0, le=MAX_TRIP_ACTIVITIES)
+
+
+class ChoiceSelectCommand(StrictModel):
+    command_type: Literal["CHOICE_SELECT"]
+    day_index: int = Field(ge=1, le=14)
+    choice_group_token: str = Field(min_length=20, max_length=80)
+    branch_token: str = Field(min_length=20, max_length=80)
+    position: int | None = Field(default=None, ge=0, le=MAX_TRIP_ACTIVITIES)
+
+
+class ChoiceClearCommand(StrictModel):
+    command_type: Literal["CHOICE_CLEAR"]
+    day_index: int = Field(ge=1, le=14)
+    choice_group_token: str = Field(min_length=20, max_length=80)
+    preserve_activities: bool = Field(default=False, strict=True)
 
 
 class ActivityDeleteCommand(StrictModel):
@@ -584,7 +819,10 @@ class ActivityMoveCommand(StrictModel):
     command_type: Literal["ACTIVITY_MOVE"]
     activity_token: str = Field(min_length=20, max_length=80)
     target_day_index: int = Field(ge=1, le=14)
-    target_position: int = Field(ge=0, le=80)
+    target_position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
+    # Only system route adoption supplies this; ordinary manual moves retain
+    # their existing behavior. Verified under the repository's current row lock.
+    route_preview_token: str | None = Field(default=None, min_length=40, max_length=24000)
 
 
 class ActivityTextEditCommand(StrictModel):
@@ -625,7 +863,7 @@ class ActivityTimeSetCommand(ActivityTiming):
 
 class ActivityTimesShiftCommand(StrictModel):
     command_type: Literal["ACTIVITY_TIMES_SHIFT"]
-    activity_tokens: list[str] = Field(min_length=1, max_length=80)
+    activity_tokens: list[str] = Field(min_length=1, max_length=MAX_TRIP_ACTIVITIES)
     minutes: int = Field(gt=0, le=1440)
 
 
@@ -637,7 +875,7 @@ class ActivityTimingUpdate(StrictModel):
 
 class ActivityTimesApplyCommand(StrictModel):
     command_type: Literal["ACTIVITY_TIMES_APPLY"]
-    changes: list[ActivityTimingUpdate] = Field(min_length=1, max_length=80)
+    changes: list[ActivityTimingUpdate] = Field(min_length=1, max_length=MAX_TRIP_ACTIVITIES)
 
 
 class PlaceConfirmCommand(StrictModel):
@@ -646,28 +884,73 @@ class PlaceConfirmCommand(StrictModel):
     candidate_token: str = Field(min_length=40, max_length=6000)
 
 
+class LodgingRecoveryIntent(StrictModel):
+    kind: Literal["WHOLE_TRIP", "NIGHTS", "VISIT_ONLY"]
+    overnight_days: list[Annotated[int, Field(ge=1, le=13)]] = Field(default_factory=list, max_length=13)
+    day_index: int | None = Field(default=None, ge=1, le=14)
+    before_activity_token: str | None = Field(default=None, min_length=20, max_length=80)
+
+    @model_validator(mode="after")
+    def consistent_scope(self):
+        if self.kind == "VISIT_ONLY":
+            if self.day_index is None or self.overnight_days:
+                raise ValueError("visit recovery requires a day and no overnight scope")
+        elif self.day_index is not None or self.before_activity_token is not None:
+            raise ValueError("overnight recovery cannot invent a visit position")
+        elif (self.kind == "NIGHTS") != bool(self.overnight_days):
+            raise ValueError("specific nights require an explicit night selection")
+        if len(set(self.overnight_days)) != len(self.overnight_days):
+            raise ValueError("night selection cannot contain duplicates")
+        self.overnight_days.sort()
+        return self
+
+
+class LodgingRecoverCommand(StrictModel):
+    command_type: Literal["LODGING_RECOVER"]
+    pending_token: str = Field(min_length=20, max_length=80)
+    candidate_token: str = Field(min_length=40, max_length=6000)
+    intent: LodgingRecoveryIntent
+
+
 class UndoCommand(StrictModel):
     command_type: Literal["UNDO"]
+
+
+class RedoCommand(StrictModel):
+    command_type: Literal["REDO"]
+
+
+class SourceMealRef(StrictModel):
+    day_index: int = Field(ge=1, le=14, strict=True)
+    slot_index: int = Field(ge=0, strict=True)
 
 
 class DiningInsertCommand(StrictModel):
     command_type: Literal["DINING_INSERT"]
     after_activity_token: str = Field(min_length=20, max_length=80)
-    candidate_token: str = Field(min_length=40, max_length=6000)
+    insert_before: bool = False
+    meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
+    meal_slot: SourceMealRef | None = None
+    candidate_token: str = Field(min_length=40, max_length=8192)
 
 
 TripUnderstandingCommand = Annotated[
     ActivityInsertCommand
+    | AlternativeInsertCommand
+    | ChoiceSelectCommand
+    | ChoiceClearCommand
     | DiningInsertCommand
     | ActivityDeleteCommand
     | ActivityMoveCommand
     | ActivityTextEditCommand
     | PlaceReplaceCommand
     | PlaceConfirmCommand
+    | LodgingRecoverCommand
     | ActivityTimeSetCommand
     | ActivityTimesShiftCommand
     | ActivityTimesApplyCommand
     | UndoCommand
+    | RedoCommand
     | AssumptionSetCommand,
     Field(discriminator="command_type"),
 ]
@@ -733,6 +1016,7 @@ class TripUnderstandingSourcePayload(StrictModel):
     requires_confirmation_spans: tuple[ConfirmationSourceSpan, ...] = ()
     partial_source: bool = False
     internal_binding: dict[str, object] = Field(default_factory=dict)
+    initial_plan: SourceSemanticPlan | None = None
 
 
 class PipelineOutput(StrictModel):

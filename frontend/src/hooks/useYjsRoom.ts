@@ -102,10 +102,13 @@ interface UseYjsRoomReturn {
   members: RoomMember[]
   phase: RoomPhase
   isConnected: boolean
+  isSynced: boolean
+  routeVersion: number
+  announceRouteVersion: (version: number) => void
   chatMessages: ChatMessage[]
 
   // 操作方法
-  addPlace: (place: Place) => void
+  addPlace: (place: Place) => boolean
   removePlace: (placeId: string) => void
   toggleVote: (placeId: string) => void
   updateNote: (placeId: string, note: string) => void
@@ -127,6 +130,8 @@ export function useYjsRoom(
   const [members, setMembers] = useState<RoomMember[]>([])
   const [phase, setPhaseState] = useState<RoomPhase>('exploring')
   const [isConnected, setIsConnected] = useState(false)
+  const [isSynced, setIsSynced] = useState(false)
+  const [routeVersion, setRouteVersion] = useState(0)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
   useEffect(() => {
@@ -134,6 +139,7 @@ export function useYjsRoom(
 
     // 初始化 YDoc
     const doc = new Y.Doc()
+    setRouteVersion(0)
     docRef.current = doc
 
     // 初始化 Yjs 共享数据结构
@@ -158,6 +164,7 @@ export function useYjsRoom(
       provider = null
       providerRef.current = null
       setIsConnected(false)
+      setIsSynced(false)
       setMembers([])
     }
     const scheduleRefresh = (delayMs: number) => {
@@ -224,6 +231,7 @@ export function useYjsRoom(
             connectionTimer = null
           }
         })
+        provider.on('sync', (synced: boolean) => setIsSynced(synced))
         // Awareness is intentionally connection-only; it cannot assert account identity.
         provider.awareness.setLocalStateField('connection', { active: true })
         setMembers([])
@@ -255,6 +263,8 @@ export function useYjsRoom(
     const updatePhase = () => {
       const p = roomMeta.get('phase') as RoomPhase | undefined
       if (p && ROOM_PHASES.has(p)) setPhaseState(p)
+      const version = roomMeta.get('routeVersion')
+      if (typeof version === 'number' && Number.isSafeInteger(version) && version >= 0) setRouteVersion(version)
     }
     roomMeta.observe(updatePhase)
     updatePhase()
@@ -297,8 +307,10 @@ export function useYjsRoom(
   /** 添加地点到协同工作台 */
   const addPlace = useCallback((place: Place) => {
     const doc = docRef.current
-    if (!doc) return
+    if (!doc) return false
     const placesMap = doc.getMap<YjsPlace>('places')
+    // Restoring an older DB snapshot must never clear a newer shared selection.
+    if (placesMap.has(place.placeId)) return false
     const yjsPlace: YjsPlace = {
       ...place,
       votedBy: [],      // AI 推荐进候选池，用户主动点心形才算"想去"
@@ -310,6 +322,7 @@ export function useYjsRoom(
     doc.transact(() => {
       placesMap.set(place.placeId, yjsPlace)
     })
+    return true
   }, [])
 
   /** 从协同工作台移除地点 */
@@ -363,11 +376,20 @@ export function useYjsRoom(
     // Chat remains a local device session until server-authored message identity exists.
   }, [])
 
+  const announceRouteVersion = useCallback((version: number) => {
+    if (!Number.isSafeInteger(version) || version < 1) return
+    // Notification only; no itinerary or selected-route snapshot belongs in Yjs.
+    docRef.current?.getMap('room').set('routeVersion', version)
+  }, [])
+
   return {
     places,
     members,
     phase,
     isConnected,
+    isSynced,
+    routeVersion,
+    announceRouteVersion,
     chatMessages,
     addPlace,
     removePlace,

@@ -81,6 +81,7 @@ def test_experience_runtime_exposes_only_text_account_and_collaboration_routes()
         ("POST", "/api/room/{room_id}/places/sync"),
         ("GET", "/api/room/{room_id}/itinerary"),
         ("POST", "/api/room/{room_id}/itinerary"),
+        ("GET", "/api/room/{room_id}/current-itinerary"),
         ("POST", "/api/chat"),
         ("POST", "/api/optimize"),
         ("POST", "/api/room/{room_id}/task/parse"),
@@ -197,6 +198,7 @@ def test_experience_optimize_response_excludes_internal_receipts(client, monkeyp
             itinerary_revision=9,
             audit_report_id="private-report-id",
             tips_basis_report_id="private-tips-report-id",
+            room_route_version=None,
         )
 
     monkeypatch.setattr(runtime.optimize, "optimize", fake_optimize)
@@ -207,7 +209,8 @@ def test_experience_optimize_response_excludes_internal_receipts(client, monkeyp
     })
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {"itinerary", "backup_pool"}
+    assert set(body) == {"itinerary", "backup_pool", "room_route_version"}
+    assert body["room_route_version"] is None
     assert set(body["itinerary"]) == {"city", "days", "generated_at"}
 
     def keys(value):
@@ -450,6 +453,7 @@ def test_runtime_ports_accept_valid_process_or_persisted_overrides(launcher, mon
     private_env = tmp_path / "experience.env"
     private_env.write_text('EXPERIENCE_API_PORT="18106"\n', encoding="utf-8")
     monkeypatch.setattr(launcher, "ENV_FILE", private_env)
+    monkeypatch.delenv("EXPERIENCE_API_PORT", raising=False)
     assert launcher.resolve_port("EXPERIENCE_API_PORT", 8006) == 18106
 
     monkeypatch.setenv("EXPERIENCE_API_PORT", "18116")

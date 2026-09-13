@@ -1,0 +1,26 @@
+.relative-route-suggestions {margin-top:12px;padding:14px;border:1px solid #d8e9ef;border-radius:16px;background:#f4fafc;color:#244855;font-size:13px;line-height:1.65;}
+.relative-route-suggestions h3 {font-weight:650;font-size:15px;margin:0 0 6px;}
+.relative-route-suggestions p {margin:8px 0;overflow-wrap:anywhere;}
+.relative-route-suggestions button {min-height:44px;padding:9px 12px;border:1px solid #bcd8e4;border-radius:11px;background:white;font-size:13px;font-weight:600;color:#17617b;}
+.relative-route-suggestions button:disabled {opacity:.45;cursor:not-allowed;}
+.relative-route-suggestions button:focus-visible,.relative-route-suggestions summary:focus-visible {outline:2px solid #087fa4;outline-offset:3px;}
+.relative-route-suggestions article {margin-top:14px;border-top:1px solid #cce2e9;padding-top:14px;}
+.relative-route-suggestions h4 {font-size:14px;font-weight:650;overflow-wrap:anywhere;}
+.relative-route-savings {display:grid;gap:3px;padding:12px;border-radius:12px;background:#e4f5eb;color:#165b41;font-size:12px;}
+.relative-route-savings strong {font-size:14px;}
+.relative-route-scope {font-size:12px;color:#6c7e89;}
+.relative-route-order {display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.relative-route-order > div {min-width:0;background:white;border-radius:10px;padding:10px;}
+.relative-route-order strong {font-size:12px;color:#537282;}
+.relative-route-order ol {list-style:decimal;padding-left:19px;margin:7px 0;}
+.relative-route-order li {overflow-wrap:anywhere;padding:3px 0;}
+.relative-route-suggestions summary {min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:12px;color:#16607b;}
+.relative-route-edges {margin:8px 0;font-size:12px;}
+.relative-route-edges li {padding:7px 0;border-bottom:1px solid #e5eef1;}
+.relative-route-edges li > span {overflow-wrap:anywhere;}
+.relative-route-edges svg {display:inline-block;width:13px;height:13px;vertical-align:middle;}
+.relative-route-edges small {display:block;color:#6b7b87;margin-top:2px;}
+.relative-route-confirm {padding:10px;border:1px solid #9fcbdc;border-radius:12px;background:white;}
+.relative-route-confirm > div {display:flex;gap:8px;flex-wrap:wrap;}
+.experience .relative-route-suggestions .relative-route-adopt {background:#087fa4;border-color:#087fa4;color:white;}
+.relative-route-notice {color:#875625;font-size:12px;}

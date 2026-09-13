@@ -900,6 +900,10 @@
   outline: 2px solid white;
   outline-offset: 2px;
 }
+.experience .e-map-lodging-marker {
+  border-radius: 12px;
+  background: #735039;
+}
 .experience .e-map-simulation-marker {
   display: block;
   width: 20px;
@@ -1879,7 +1883,7 @@
 .soft-workspace [data-testid^="day-lane-"] > div { grid-template-columns: 112px minmax(0,1fr); }
 .soft-workspace [data-testid^="day-lane-"] > div > div:first-child { padding:22px 14px; background:transparent; border:0; }
 .soft-workspace [data-testid^="day-lane-"] > div > div:first-child p { display:none; }
-.soft-workspace [data-testid^="day-lane-"] h2 { font-size:19px; }
+.soft-workspace [data-testid^="day-lane-"] h2 { font-size:19px; white-space:nowrap; }
 .soft-drop-slot { transition:width 180ms ease, background-color 180ms ease; }
 .soft-drag-trash { position:fixed; z-index:80; bottom:calc(28px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); min-width:200px; min-height:80px; display:flex; justify-content:center; align-items:center; gap:12px; border:2px dashed #a9bac4; border-radius:28px; background:#fff; box-shadow:0 12px 45px #213e4f22; }
 .soft-drag-trash:hover { background:#fff5e3; border-color:#bc831f; }
@@ -1897,11 +1901,13 @@
 @media(max-width:640px) {
  .experience .e-home-direct { padding:90px 18px 30px; }
  .experience .e-input-panel { padding:18px; border-radius:28px; }
- .soft-workspace [data-testid^="day-lane-"] > div { grid-template-columns:minmax(0,1fr); }
- .soft-workspace [data-testid^="day-lane-"] > div > div:first-child { padding:12px 20px 0; min-height:0; }
  .soft-generation-stages li { min-width:0; font-size:11px; }
  .soft-generation-stages { width:100%; }
  .soft-drag-trash { bottom:calc(80px + env(safe-area-inset-bottom)); }
+}
+@media(max-width:767px) {
+ .soft-workspace [data-testid^="day-lane-"] > div { grid-template-columns:minmax(0,1fr); }
+ .soft-workspace [data-testid^="day-lane-"] > div > div:first-child { padding:12px 20px 0; min-height:0; }
 }
 @media(prefers-reduced-motion:reduce) { .soft-drop-slot { transition:none; } }
 .experience .soft-connector > div > svg { width:100%; height:100%; }
@@ -1931,8 +1937,8 @@
 .fluid-day-legend { display:flex; overflow-x:auto; gap:6px; min-width:0; }
 .fluid-day-legend .e-button { white-space:nowrap; flex-shrink:0; font-size:12px; padding:8px 12px; }
 .fluid-day-dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
-.fluid-map-tools { display:flex; gap:12px; flex-shrink:0; }
-.fluid-map-popover { position:relative; font-size:13px; }
+.fluid-map-tools { position:relative; display:flex; gap:12px; flex-shrink:0; }
+.fluid-map-popover { position:static; font-size:13px; }
 .fluid-map-popover > summary { min-height:44px; display:flex; align-items:center; padding:0 14px; cursor:pointer; border-radius:999px; background:#ffffffaa; list-style:none; }
 .fluid-map-popover-content { position:absolute; bottom:54px; right:0; z-index:35; width:min(430px,calc(100vw - 40px)); max-height:min(460px,60dvh); overflow:auto; padding:18px; border-radius:24px; background:#fff; box-shadow:0 20px 70px #24465530; }
 .fluid-map-popover-content [aria-label="路线预演"] { margin-top:12px; }
@@ -2091,3 +2097,246 @@
  .experience.e-map-mode .e-save-status {display:none;}
 }
 .experience.e-map-mode .e-save-area .e-button { min-height:48px; }
+
+/* Four-page visual language. Shared navigation and text-entry surfaces only. */
+.four-site-header {
+  position:relative; z-index:30; display:flex; align-items:center; gap:30px;
+  width:100%; max-width:1660px; min-height:82px; margin:0 auto; padding:16px 4%;
+  color:#142d47;
+}
+.four-brand {display:inline-flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; color:#112a40;}
+.four-brand > svg {width:27px; height:35px; color:#0a93b1;}
+.four-brand strong {font-size:24px; font-weight:800; letter-spacing:-1px; white-space:nowrap;}
+.four-brand > span {padding-left:3px; color:#607a8c; font-size:10px; font-weight:700; letter-spacing:1.5px;}
+.four-site-nav {display:flex; align-items:center; justify-content:flex-end; gap:25px; margin-left:auto;}
+.four-site-nav a {display:inline-flex; align-items:center; justify-content:center; gap:3px; min-height:44px; color:#42576e; font-size:14px; white-space:nowrap; text-decoration:none; border-bottom:2px solid transparent;}
+.four-site-nav a:hover, .four-site-nav a[aria-current=page] {color:#057d9d;}
+.four-site-nav a[aria-current=page] {border-bottom-color:#38a7c1;}
+.four-site-nav .four-collaborate-link {font-size:12px; color:#6b7e90;}
+.four-site-header .four-account-link {display:inline-flex; align-items:center; justify-content:center; gap:7px; flex-shrink:0; min-height:44px; min-width:82px; padding:8px 16px; border:1px solid #dce7f2; border-radius:999px; background:#ffffffdd; font-size:13px; text-decoration:none; color:#284a65;}
+.four-site-header .four-account-link:hover {background:#fff; border-color:#8ec9d9;}
+.four-site-header a:focus-visible, .four-home a:focus-visible, .four-home button:focus-visible, .four-guide a:focus-visible {outline:3px solid #38a8c7; outline-offset:4px;}
+.four-primary, .four-secondary {display:inline-flex; align-items:center; justify-content:center; gap:12px; min-height:48px; padding:11px 23px; border:0; border-radius:999px; font-size:14px; font-weight:600; line-height:1.5; text-decoration:none; white-space:nowrap; transition:background .18s, box-shadow .18s;}
+.four-primary {background:linear-gradient(115deg,#078aad,#087c9e); color:white; box-shadow:0 5px 14px #118da519;}
+.four-primary:hover {background:linear-gradient(115deg,#087b9e,#086e8c); box-shadow:0 7px 20px #118da52b;}
+.four-secondary {border:1px solid #d4e5ed; background:#fff; color:#456375;}
+.four-primary:disabled, .four-secondary:disabled {opacity:.55; cursor:wait; box-shadow:none;}
+.four-home, .four-guide {
+  position:relative; isolation:isolate; min-height:100dvh; color:#163049;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; line-height:1.65; overflow-wrap:anywhere;
+  background:radial-gradient(ellipse 66% 48% at 10% 0%,#dcf5ff 0%,transparent 90%),radial-gradient(ellipse 68% 45% at 95% 0%,#e7e8ff 0%,transparent 85%),linear-gradient(180deg,#eef6ff 0%,#f6fbff 55%,#f9fcff 100%);
+}
+.four-home *, .four-guide * {box-sizing:border-box;}
+.four-home button, .four-guide button {font-family:inherit; cursor:pointer; touch-action:manipulation;}
+.four-home {overflow:hidden;}
+.four-home::after {position:absolute; content:''; bottom:-130px; right:-15%; width:80%; height:230px; border-radius:50%; transform:rotate(-10deg); background:#e5efff82; z-index:-1;}
+.four-home-main {position:relative; z-index:2; max-width:950px; margin:0 auto; padding:25px 30px 0;}
+.four-hero-copy {text-align:center; margin:0 -80px 32px;}
+.four-hero-copy h1 {margin:0; color:#0d253e; font-size:clamp(30px,3vw,44px); letter-spacing:-1.4px; line-height:1.45; font-weight:800; text-wrap:balance;}
+.four-hero-copy p {margin:12px 0 0; color:#58758b; font-size:16px; line-height:1.9; text-wrap:balance;}
+.four-input-panel {position:relative; padding:21px 22px 17px; border:1.5px solid #b9dce9; border-radius:25px; background:#fffffff2; box-shadow:0 14px 45px #548dac0d,0 1px 2px #528aaa0d; transition:border-color .18s, box-shadow .18s;}
+.four-input-panel:focus-within {border-color:#72b6ce; box-shadow:0 12px 42px #438ab919,0 0 0 3px #89d6ed20;}
+.four-input-panel textarea {display:block; width:100%; min-height:130px; max-height:350px; resize:vertical; border:0; border-radius:10px; background:transparent; padding:2px 0 10px; font-family:inherit; font-size:15px; line-height:1.85; color:#254056; outline:none;}
+.four-input-panel textarea::placeholder {color:#8b9ead; opacity:1;}
+.four-input-panel textarea:disabled {opacity:.7;}
+.four-input-footer {display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px;}
+.four-character-count {font-size:12px; color:#7b93a5; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.four-input-actions {display:flex; align-items:center; gap:12px;}
+.four-paste-button {display:inline-flex; align-items:center; justify-content:center; min-height:44px; gap:7px; padding:8px 5px; border:0; border-radius:10px; background:transparent; color:#50738b; font-size:13px; white-space:nowrap;}
+.four-paste-button:hover {color:#087d9d; background:#f0faff;}
+.four-paste-button:disabled {opacity:.5; cursor:wait;}
+.four-input-message {margin:10px 0 0; color:#557a8a; font-size:12px; line-height:1.7;}
+.four-input-message:empty {display:none;}
+.four-input-message.is-error {color:#876137; background:#fff8ea; padding:10px 12px; border-radius:12px;}
+.four-example-choices {display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px; margin:21px -15px 0;}
+.four-example-choices > span {font-size:13px; font-weight:500; color:#435f75; margin-right:4px;}
+.four-example-choices > button {display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:9px 15px; border:1px solid #dce8f3; border-radius:999px; background:#ffffffd9; color:#39556c; font-size:12px; white-space:nowrap; box-shadow:0 2px 3px #81a1b704; transition:background .15s, border-color .15s;}
+.four-example-choices > button svg {color:#258dd2;}
+.four-example-choices > button:hover {background:#fff; border-color:#9bcce2;}
+.four-example-choices > button:disabled {opacity:.5; cursor:wait;}
+.four-resume-entry {display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:12px; margin:18px 0 0; font-size:12px; color:#6d8192;}
+.four-resume-entry > span, .four-resume-entry a {display:inline-flex; align-items:center; gap:6px;}
+.four-resume-entry a {min-height:44px; color:#087f9e; text-decoration:none;}
+.four-how-it-works {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:34px; list-style:none; margin:43px -40px 34px; padding:0;}
+.four-how-it-works li {position:relative; display:flex; align-items:center; gap:15px;}
+.four-step-icon {display:flex; align-items:center; justify-content:center; flex-shrink:0; width:57px; height:57px; border-radius:50%; color:#208ed4; background:linear-gradient(135deg,#e2f1ff,#dfedff);}
+.four-step-icon svg {width:25px; height:25px; stroke-width:1.8;}
+.four-how-it-works h2 {font-size:15px; font-weight:700; margin:0 0 5px; color:#17334e;}
+.four-how-it-works p {font-size:11px; line-height:1.7; margin:0; color:#7b90a2;}
+.four-step-arrow {position:absolute; right:-25px; width:18px; color:#58b1e8;}
+.four-home-preview {position:relative; z-index:2; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr) minmax(140px,.6fr); gap:15px; max-width:1110px; margin:0 auto; padding:20px 22px 15px; border:1px solid #e0edfa; border-radius:23px; background:#ffffff87; box-shadow:0 10px 24px #487da208;}
+.four-preview-heading {display:flex; align-items:center; gap:10px; margin:0 0 15px;}
+.four-preview-heading h2 {display:inline-flex; align-items:center; gap:4px; margin:0; padding:5px 9px; border-radius:999px; background:#e3f1ff; color:#265c86; font-size:12px; font-weight:600;}
+.four-preview-heading > span {display:inline-flex; align-items:center; gap:3px; color:#7792a8; font-size:11px;}
+.four-preview-days {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;}
+.four-preview-day {min-width:0; padding:10px; background:#fff; border:1px solid #edf2f7; border-radius:13px; box-shadow:0 3px 8px #809cb50a;}
+.four-preview-day > strong {display:block; font-size:14px; font-weight:700; color:#264565;}
+.four-preview-day > small {display:block; margin:3px 0 8px; font-size:10px; color:#6b9fc1;}
+.four-preview-day img {width:100%; height:70px; object-fit:cover; border-radius:8px;}
+.four-preview-day p {margin:7px 0 0; font-size:9px; line-height:1.7; color:#7b8fa0;}
+.four-sketch-map {display:block; width:100%; height:100%; object-fit:cover;}
+.four-preview-map {position:relative; min-height:180px; border:1px solid #e9eef0; border-radius:14px; overflow:hidden; background:#f2f6f1;}
+.four-preview-map > .four-sketch-map {position:absolute; inset:0;}
+.four-preview-map > span {position:absolute; bottom:9px; left:50%; transform:translateX(-50%); padding:4px 8px; border-radius:999px; background:#ffffffed; color:#7b979b; font-size:9px; white-space:nowrap;}
+.four-preview-list {padding:14px 12px; border:1px solid #eaf0f7; border-radius:14px; background:#ffffffdf;}
+.four-preview-list h3 {font-size:11px; font-weight:700; margin:0 0 13px; color:#24415a;}
+.four-preview-list ol {margin:0; padding:0; list-style:none;}
+.four-preview-list li {display:flex; align-items:center; gap:8px; font-size:10px; margin-bottom:14px; color:#597286;}
+.four-preview-list li span {display:flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%; font-size:9px; color:white; background:#289dec;}
+.four-preview-list > div {display:flex; align-items:center; gap:7px; color:#88a0b3; font-size:9px; margin-top:20px;}
+.four-preview-disclaimer {grid-column:1/-1; margin:0; color:#879dad; font-size:10px; line-height:1.5;}
+.four-home-footer {position:relative; z-index:2; display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap; max-width:1110px; margin:0 auto; padding:26px 20px 22px; color:#8fa4b6; font-size:12px;}
+.four-home-footer > span::before, .four-home-footer > span::after {content:''; display:inline-block; width:65px; height:1px; background:#dce8f1; margin:0 15px; vertical-align:middle;}
+.four-home-footer > a {display:inline-flex; align-items:center; min-height:44px; font-size:11px; color:#7e99af; text-decoration:none;}
+.four-home-decor {position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden;}
+.four-photo-stack {position:absolute; top:337px; left:-34px; width:280px; height:250px;}
+.four-polaroid {position:absolute; width:180px; padding:8px 8px 0; border-radius:7px; background:white; box-shadow:0 12px 24px #53748f10;}
+.four-polaroid img {display:block; width:100%; height:138px; object-fit:cover; border-radius:2px;}
+.four-polaroid span {display:block; padding:7px 0 5px; text-align:center; font-size:7px; letter-spacing:1.6px; color:#a1aab3;}
+.four-polaroid-front {top:0; left:0; transform:rotate(-13deg);}
+.four-polaroid-back {top:57px; left:88px; transform:rotate(12deg);}
+.four-note {position:absolute; color:#5b8097; font-family:KaiTi,STKaiti,'Kaiti SC',serif; font-size:16px; letter-spacing:2px; line-height:1.85; transform:rotate(-6deg);}
+.four-note-left {top:184px; left:max(30px,calc(50% - 610px));}
+.four-note svg {display:block; width:78px; height:53px; margin:4px 0 0 65px; color:#479bb5;}
+.four-note-right {top:185px; right:max(38px,calc(50% - 600px)); transform:rotate(-7deg);}
+.four-note-right svg {margin-left:0;}
+.four-map-paper {position:absolute; top:339px; right:-80px; width:292px; height:208px; border:10px solid white; border-radius:17px; box-shadow:0 10px 24px #7892aa0c; transform:rotate(-23deg);}
+.four-map-paper .four-sketch-map {border-radius:9px; overflow:hidden;}
+.four-paper-pin {position:absolute; width:62px; height:76px; top:-47px; left:80px; color:#409feb; transform:rotate(23deg); filter:drop-shadow(0 7px 5px #4a91c020);}
+.four-category-note {position:absolute; top:464px; right:15px; display:grid; gap:19px; padding:18px 22px; transform:rotate(10deg); border-radius:14px; background:#ffffffeb; box-shadow:0 10px 24px #637e9b10;}
+.four-category-note span {display:flex; align-items:center; gap:11px; font-size:13px; color:#526c82;}
+.four-category-note svg {width:23px; height:23px; padding:4px; border-radius:50%; background:#e6f6ef; color:#40b689;}
+.four-category-note span:nth-child(2) svg {color:#e9a34e; background:#fff2df;}
+.four-category-note span:nth-child(3) svg {color:#469cea; background:#e8f3ff;}
+.four-cloud {position:absolute; width:160px; height:40px; border-radius:100px; background:#ffffff44;}
+.four-cloud::before,.four-cloud::after {content:''; position:absolute; bottom:0; width:77px; height:77px; border-radius:50%; background:inherit;}
+.four-cloud::before {left:22px;}.four-cloud::after {right:12px; width:60px; height:60px;}
+.four-cloud-left {top:220px; left:15%; transform:scale(1.2); opacity:.6;}
+.four-cloud-right {top:244px; right:0; width:200px; opacity:.65;}
+.four-spark {position:absolute; width:17px; color:#edc775; stroke-width:1.4;}
+.four-spark-one {top:279px; left:16%;}.four-spark-two {top:620px; right:10%;}
+.four-leaves {position:absolute; bottom:-70px; left:-68px; width:190px; height:330px; opacity:.55; filter:blur(5px); transform:rotate(8deg);}
+.four-guide-content {max-width:850px; margin:35px auto 0; padding:0 28px 30px;}
+.four-guide-intro {text-align:center; margin-bottom:42px;}
+.four-eyebrow {display:inline-block; padding:6px 12px; border-radius:999px; background:#e0f1fd; color:#2786aa; font-size:12px;}
+.four-guide-intro h1 {margin:18px 0 12px; color:#17344d; font-size:clamp(27px,4vw,39px); font-weight:800; letter-spacing:-1px;}
+.four-guide-intro > p {margin:0 0 22px; color:#728da0; font-size:14px; line-height:1.8;}
+.four-guide-steps {display:grid; gap:16px; margin:0; padding:0; list-style:none;}
+.four-guide-steps > li {display:flex; gap:22px; padding:27px; border:1px solid #e2edf5; border-radius:22px; background:#ffffffe0; box-shadow:0 10px 28px #5b84a007;}
+.four-guide-step-icon {position:relative; display:flex; align-items:center; justify-content:center; width:52px; height:52px; flex-shrink:0; border-radius:17px; background:#e8f5fe; color:#268db6;}
+.four-guide-step-icon > span {position:absolute; bottom:-6px; right:-6px; display:flex; align-items:center; justify-content:center; width:20px; height:20px; border:3px solid white; border-radius:50%; font-size:9px; background:#268fb4; color:white;}
+.four-guide-steps h2 {font-size:17px; font-weight:700; margin:0 0 9px; color:#28445e;}
+.four-guide-steps p {font-size:13px; line-height:1.9; color:#6b8395; margin:0;}
+.four-guide-steps p.four-guide-hint {display:flex; align-items:flex-start; gap:6px; margin-top:13px; padding:10px 13px; border-radius:11px; font-size:12px; color:#587d92; background:#f4f9fc;}
+.four-guide-hint svg {margin-top:4px; flex-shrink:0;}
+.four-guide-footer {display:flex; align-items:center; justify-content:space-between; gap:18px; margin:22px 0; padding:0 10px; font-size:12px; color:#7c91a4;}
+.four-guide-footer > a {display:inline-flex; align-items:center; gap:7px; min-height:44px; color:#228baa; white-space:nowrap;}
+@media(min-width:1600px) {
+  .four-home-main {padding-top:35px;}
+  .four-hero-copy {margin-bottom:36px;}
+  .four-input-panel textarea {min-height:145px;}
+  .four-how-it-works {margin-top:48px; margin-bottom:40px;}
+  .four-photo-stack {left:calc(50% - 850px);}
+  .four-map-paper {right:calc(50% - 850px);}
+  .four-category-note {right:calc(50% - 775px);}
+}
+@media(max-width:1250px) {
+  .four-home-main {max-width:850px;}
+  .four-hero-copy {margin-left:-30px; margin-right:-30px;}
+  .four-photo-stack {left:-86px; transform:scale(.83); transform-origin:left center;}
+  .four-map-paper {right:-174px;}
+  .four-category-note {right:-87px; transform:rotate(10deg) scale(.82);}
+  .four-note-left {left:20px; top:208px; font-size:13px;}
+  .four-note-right {right:13px; font-size:13px;}
+  .four-note svg {width:55px; margin-left:35px;}
+  .four-home-preview {margin-left:7%; margin-right:7%;}
+  .four-how-it-works {margin-left:0; margin-right:0; gap:24px;}
+  .four-step-arrow {right:-20px; width:14px;}
+}
+@media(max-width:1023px) {
+  .four-site-header {min-height:76px; gap:20px; padding:14px 25px;}
+  .four-brand > span {display:none;}
+  .four-site-nav {gap:18px;}
+  .four-site-nav a {font-size:13px;}
+  .four-home-main {max-width:790px; padding-top:35px;}
+  .four-home-decor .four-note, .four-photo-stack, .four-map-paper, .four-category-note {display:none;}
+  .four-hero-copy {margin-left:0; margin-right:0;}
+  .four-home-preview {grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); margin-left:30px; margin-right:30px;}
+  .four-preview-list {display:none;}
+  .four-example-choices {margin-left:0; margin-right:0; gap:8px;}
+  .four-example-choices > button {padding:8px 12px;}
+  .four-example-choices > span {font-size:12px;}
+  .four-leaves {opacity:.3; width:135px; left:-65px;}
+}
+@media(max-width:700px) {
+  .four-site-header {display:grid; grid-template-columns:1fr auto; gap:4px 12px; padding:12px 20px 0;}
+  .four-brand strong {font-size:22px;}
+  .four-brand > svg {width:23px; height:31px;}
+  .four-account-link {grid-column:2; grid-row:1; min-width:75px;}
+  .four-site-nav {grid-column:1/-1; grid-row:2; justify-content:flex-start; gap:23px; width:100%; margin:2px 0 0; overflow-x:auto; scrollbar-width:none;}
+  .four-site-nav a {flex-shrink:0; font-size:12px;}
+  .four-site-nav a:last-child {margin-left:auto;}
+  .four-home-main {padding:31px 20px 0;}
+  .four-hero-copy {margin-bottom:24px;}
+  .four-hero-copy h1 {font-size:31px; line-height:1.48; letter-spacing:-1px;}
+  .four-hero-copy h1 > span {display:block;}
+  .four-hero-copy p {font-size:13px; margin-top:11px; line-height:1.9;}
+  .four-input-panel {padding:17px; border-radius:22px;}
+  .four-input-panel textarea {min-height:156px; font-size:14px;}
+  .four-input-footer {flex-wrap:wrap; gap:7px;}
+  .four-input-actions {gap:9px; margin-left:auto;}
+  .four-input-actions .four-primary {min-height:46px; padding:10px 17px; font-size:13px; gap:9px;}
+  .four-paste-button {font-size:12px; gap:5px;}
+  .four-character-count {font-size:10px;}
+  .four-example-choices {justify-content:flex-start; margin-top:18px; gap:8px;}
+  .four-example-choices > span {width:100%; margin-bottom:2px; color:#6c889d;}
+  .four-example-choices > button {flex:1 0 calc(50% - 8px); font-size:12px; min-height:44px; padding:8px 11px;}
+  .four-how-it-works {gap:13px; margin:32px 0 27px;}
+  .four-how-it-works li {display:flex; flex-direction:column; text-align:center; gap:11px; align-items:center;}
+  .four-step-icon {width:45px; height:45px;}
+  .four-step-icon svg {width:22px; height:22px;}
+  .four-how-it-works h2 {font-size:12px; line-height:1.6; margin-bottom:5px;}
+  .four-how-it-works p {font-size:10px; line-height:1.75;}
+  .four-step-arrow {right:-15px; top:17px; width:16px;}
+  .four-home-preview {margin:0 20px; padding:16px; grid-template-columns:1fr; gap:14px; border-radius:20px;}
+  .four-preview-heading {margin-bottom:12px;}
+  .four-preview-day {padding:9px; border-radius:11px;}
+  .four-preview-day img {height:65px;}
+  .four-preview-days {gap:7px;}
+  .four-preview-day p {font-size:9px;}
+  .four-preview-map {min-height:165px;}
+  .four-preview-disclaimer {font-size:9px;}
+  .four-home-footer {gap:0 10px; padding:24px 20px 15px; font-size:11px;}
+  .four-home-footer > span {width:100%; text-align:center;}
+  .four-home-footer > span::before, .four-home-footer > span::after {width:22px; margin:0 10px;}
+  .four-cloud-left {left:-60px; top:200px;}
+  .four-cloud-right {top:165px; right:-100px;}
+  .four-spark-one {top:150px; left:7%; width:12px;}
+  .four-spark-two {top:270px; right:6%; width:12px;}
+  .four-guide-content {padding:0 20px 15px; margin-top:35px;}
+  .four-guide-intro {margin-bottom:30px;}
+  .four-guide-intro > p {font-size:13px;}
+  .four-guide-steps > li {padding:21px 17px; gap:15px;}
+  .four-guide-step-icon {width:39px; height:39px; border-radius:13px;}
+  .four-guide-step-icon > svg {width:20px;}
+  .four-guide-steps h2 {font-size:16px;}
+  .four-guide-footer {align-items:flex-start; flex-direction:column; gap:3px; margin-bottom:0;}
+}
+@media(max-width:374px) {
+  .four-site-header {padding-left:15px; padding-right:15px;}
+  .four-site-nav {gap:15px;}
+  .four-site-nav .four-collaborate-link {font-size:11px;}
+  .four-home-main {padding-left:15px; padding-right:15px;}
+  .four-hero-copy h1 {font-size:28px;}
+  .four-input-panel {padding:14px;}
+  .four-input-actions {width:100%; justify-content:space-between;}
+  .four-input-footer {gap:3px;}
+  .four-home-preview {margin-left:15px; margin-right:15px; padding:12px;}
+  .four-how-it-works {gap:11px;}
+  .four-step-arrow {right:-13px;}
+  .four-preview-day {padding:7px;}
+  .four-preview-day img {height:53px;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .four-primary, .four-secondary, .four-input-panel, .four-example-choices > button {transition:none;}
+}

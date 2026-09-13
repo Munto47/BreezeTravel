@@ -85,6 +85,7 @@ async function installFixture(page, baseURL, options = {}) {
     if (action === '/result') return fulfill(state.result)
     if (action === '/map-renders/latest') return fulfill({ ...state.result.map, points: [], days: [] })
     if (action === '/stay-suggestions') return fulfill(state.result.stay)
+    if (action === '/daily-dining' && request.method() === 'GET') return fulfill({status:'UNAVAILABLE',message:'固定用餐建议尚未准备',days:[]})
     if (action === '/supplementary') return fulfill({ status: 'AVAILABLE', days: [] })
     if (action === '/materialize') {
       if (!headers['idempotency-key'] || headers['if-match'] !== state.etag)

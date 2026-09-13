@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.config import get_settings
 from app.constraints.amap_types import classify_amap_type_signals
@@ -19,8 +19,9 @@ from app.trip_understanding.amap_place import (
     _visitor_type_compatible,
 )
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
-from app.trip_understanding.models import StrictModel
+from app.trip_understanding.models import StrictModel, LodgingRecoveryIntent, DiningAccessView, safe_poi_photo_url
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
+from app.trip_understanding.city_knowledge import get_city_knowledge
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
 
@@ -30,10 +31,32 @@ class CandidateSearchRequest(StrictModel):
     city: str | None = Field(default=None, min_length=2, max_length=20, pattern=r"^[\u4e00-\u9fff]+$")
 
 
+class PendingLodgingCandidateRequest(StrictModel):
+    pending_token: str = Field(min_length=20, max_length=80)
+    query: str = Field(min_length=1, max_length=40)
+    city: str | None = Field(default=None, min_length=2, max_length=20, pattern=r"^[\u4e00-\u9fff]+$")
+    intent: LodgingRecoveryIntent
+
+
 class GCJ02Position(StrictModel):
     longitude: float = Field(ge=73, le=136)
     latitude: float = Field(ge=18, le=54)
     coordinate_system: Literal["GCJ02"] = "GCJ02"
+
+
+class DiningPOIInfo(StrictModel):
+    photo_url: str | None = None
+    cuisine: str | None = Field(default=None, max_length=60)
+    tags: list[str] = Field(default_factory=list, max_length=12)
+    rating: float | None = Field(default=None, gt=0, le=5, allow_inf_nan=False)
+    cost: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    source: Literal["AMAP_POI_V2"] = "AMAP_POI_V2"
+    observed_at: datetime
+
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def safe_photo(cls, value):
+        return safe_poi_photo_url(value)
 
 
 class CandidatePlace(StrictModel):
@@ -43,11 +66,18 @@ class CandidatePlace(StrictModel):
     category: str
     area_or_address: str
     position: GCJ02Position
+    business_area: str | None = None
+    dining_info: DiningPOIInfo | None = None
+    provider_parent_place_id: str | None = None
+    dining_parent_activity_token: str | None = None
+    dining_access: DiningAccessView | None = None
+    meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
 
     def receipt(self) -> dict:
         return {"status": "USER_CONFIRMED", "provider": "AMAP_POI_V2",
                 "city": self.city, "coordinates": self.position.model_dump(),
-                "category": self.category, "area_or_address": self.area_or_address}
+                "category": self.category, "area_or_address": self.area_or_address,
+                **({"dining_parent_place_id": self.provider_parent_place_id} if self.provider_parent_place_id else {})}
 
 
 class PublicPlaceCandidate(StrictModel):
@@ -56,6 +86,10 @@ class PublicPlaceCandidate(StrictModel):
     category: str
     area_or_address: str
     position: GCJ02Position
+    business_area: str | None = None
+    dining_info: DiningPOIInfo | None = None
+    dining_access: DiningAccessView | None = None
+    meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
 
 
 class CandidateSearchView(StrictModel):
@@ -70,11 +104,15 @@ def _cipher() -> Fernet:
 
 
 def issue_candidate(place: CandidatePlace, *, public_resource_id: str, activity_token: str,
-                    expected_etag: str, now: datetime) -> PublicPlaceCandidate:
+                    expected_etag: str, now: datetime, expires_at: datetime | None = None) -> PublicPlaceCandidate:
+    expiry = now + timedelta(minutes=10)
+    if expires_at is not None:
+        expiry = min(expiry, expires_at)
     body = {"resource": public_resource_id, "activity": activity_token, "etag": expected_etag,
-            "expires": (now + timedelta(minutes=10)).timestamp(), "place": place.model_dump()}
+            "expires": expiry.timestamp(), "place": place.model_dump(mode="json")}
     token = _cipher().encrypt(json.dumps(body, ensure_ascii=False).encode()).decode()
-    return PublicPlaceCandidate(candidate_token=token, **place.model_dump(exclude={"canonical_place_id", "city"}))
+    return PublicPlaceCandidate(candidate_token=token, **place.model_dump(exclude={
+        "canonical_place_id", "city", "provider_parent_place_id", "dining_parent_activity_token"}))
 
 
 def verify_candidate(token: str, *, public_resource_id: str, activity_token: str,
@@ -98,12 +136,22 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
         return []
     expected = _expected_category(category_hint)
     hint = landmark_hint(city, query.strip()) if expected in {None, PlaceCategory.ATTRACTION} else None
+    reviewed = get_city_knowledge().query_lookup(city=city, name=query.strip())
+    entry = reviewed.unique
+    if entry is not None and (len(entry.canonical_name) > 40 or expected not in {None, PlaceCategory(entry.category)}):
+        entry = None
+    # A colliding alias stays the user's literal search, with ordinary candidate
+    # filtering. The name catalog cannot pick one physical place for the user.
+    if reviewed.matches:
+        hint = None
+    canonical = entry.canonical_name if entry else hint.name if hint else query.strip()
+    aliases = entry.aliases if entry else hint.aliases if hint else ()
     provider = AmapPlaceResolver(api_key=settings.amap_api_key)
     try:
         scope = await provider.city_scope(city) if city not in _CITY_BOUNDS else None
         if city not in _CITY_BOUNDS and scope is None:
             return []
-        rows, _receipt = await provider._query_provider(city=city, query_name=hint.name if hint else query.strip(),
+        rows, _receipt = await provider._query_provider(city=city, query_name=canonical,
             original_atomic=query.strip(), category_basis="USER_SEARCH", typecodes=[], lexicon_binding={})
     except PlaceProviderUnavailableError:
         return None
@@ -142,9 +190,10 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
             name=name, category=_CATEGORY_LABELS[category],
             area_or_address=str(address)[:120] if isinstance(address, str) and address else str(row.get("adname") or city),
             position=GCJ02Position(longitude=coordinates[0], latitude=coordinates[1]))
+        if category == PlaceCategory.FOOD:
+            from app.trip_understanding.dining import dining_metadata
+            places[poi_id] = dining_metadata(places[poi_id], row)
     # Rank before truncation; generic keyword search still offers related POIs.
-    canonical = hint.name if hint else query.strip()
-    aliases = hint.aliases if hint else ()
     tiers = {"CANONICAL_EXACT": 0, "SAFE_ALIAS_EXACT": 1, "VENUE_SUFFIX_EQUIVALENT": 2}
     return sorted(places.values(), key=lambda place: tiers.get(_name_match_tier(
         {"name": place.name}, canonical_name=canonical, safe_aliases=aliases, city=city), 3))[:6]

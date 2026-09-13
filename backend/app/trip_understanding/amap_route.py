@@ -92,23 +92,32 @@ def _parse_route(
     )
 
 
-def _polyline_points(value: object) -> list[RouteGeometryPoint]:
-    if not isinstance(value, str):
+def _polyline_pieces(value: object) -> list[list[RouteGeometryPoint] | None]:
+    if not isinstance(value, str) or not value:
         return []
-    result: list[RouteGeometryPoint] = []
+    result: list[list[RouteGeometryPoint] | None] = []
+    current: list[RouteGeometryPoint] = []
     for raw_point in value.split(";"):
         parts = raw_point.split(",")
-        if len(parts) != 2:
-            continue
         try:
+            if len(parts) != 2:
+                raise ValueError("invalid route coordinate")
             point = RouteGeometryPoint(
                 longitude=float(parts[0]),
                 latitude=float(parts[1]),
             )
         except (TypeError, ValueError):
+            # Invalid coordinates are a missing piece, not permission to join
+            # the valid coordinates on either side into a fictitious segment.
+            if current:
+                result.append(current)
+                current = []
+            result.append(None)
             continue
-        if not result or result[-1] != point:
-            result.append(point)
+        if not current or current[-1] != point:
+            current.append(point)
+    if current:
+        result.append(current)
     return result
 
 
@@ -119,39 +128,110 @@ def _append_geometry(target: list[RouteGeometryPoint], points: list[RouteGeometr
 
 
 def _walking_geometry(path: dict[str, Any]) -> list[RouteGeometryPoint]:
-    result: list[RouteGeometryPoint] = []
+    return _join_geometry_pieces(_walking_pieces(path))[0]
+
+
+def _has_travel(value: dict[str, Any]) -> bool:
+    for key in ("distance", "duration"):
+        try:
+            if float(value.get(key) or 0) > 0:
+                return True
+        except (TypeError, ValueError):
+            return True
+    return False
+
+
+def _walking_pieces(path: dict[str, Any]) -> list[list[RouteGeometryPoint] | None]:
+    pieces: list[list[RouteGeometryPoint] | None] = []
     steps = path.get("steps")
     if isinstance(steps, list):
         for step in steps:
             if isinstance(step, dict):
-                _append_geometry(result, _polyline_points(step.get("polyline")))
-    return result
+                parsed = _polyline_pieces(step.get("polyline"))
+                pieces.extend(parsed)
+                if sum(len(part) for part in parsed if part) < 2 and (_has_travel(step) or step.get("instruction")):
+                    pieces.append(None)
+            else:
+                pieces.append(None)
+    if not pieces and _has_travel(path):
+        pieces.append(None)
+    return pieces
+
+
+def _join_geometry_pieces(pieces: list[list[RouteGeometryPoint] | None]) -> tuple[list[RouteGeometryPoint], list[int] | None, bool]:
+    from app.trip_understanding.route_connection import coordinate_key
+    result: list[RouteGeometryPoint] = []
+    breaks: list[int] = []
+    unknown = not pieces or any(piece is None for piece in pieces)
+    missing_since_piece = False
+    for points in pieces:
+        if points is None:
+            missing_since_piece = True
+            continue
+        if not points:
+            continue
+        split = bool(result) and (missing_since_piece or coordinate_key((result[-1].longitude, result[-1].latitude)) != coordinate_key((points[0].longitude, points[0].latitude)))
+        if split:
+            breaks.append(len(result))
+            # Preserve both endpoints when a missing step begins and ends at
+            # the same coordinate; deduplication must not erase its boundary.
+            result.append(points[0])
+            _append_geometry(result, points[1:])
+        else:
+            _append_geometry(result, points)
+        missing_since_piece = False
+    return result, breaks if len(result) >= 2 else None, not unknown
 
 
 def _transit_geometry(transit: dict[str, Any]) -> list[RouteGeometryPoint]:
-    result: list[RouteGeometryPoint] = []
+    return _join_geometry_pieces(_transit_pieces(transit))[0]
+
+
+def _transit_pieces(transit: dict[str, Any]) -> list[list[RouteGeometryPoint] | None]:
+    pieces: list[list[RouteGeometryPoint] | None] = []
     segments = transit.get("segments")
     if not isinstance(segments, list):
-        return result
+        return [None]
     for segment in segments:
         if not isinstance(segment, dict):
+            pieces.append(None)
             continue
+        before_segment = len(pieces)
         walking = segment.get("walking")
         if isinstance(walking, dict):
-            _append_geometry(result, _walking_geometry(walking))
+            pieces.extend(_walking_pieces(walking))
         bus = segment.get("bus")
         buslines = bus.get("buslines") if isinstance(bus, dict) else None
         if isinstance(buslines, list):
             for busline in buslines:
                 if isinstance(busline, dict):
-                    _append_geometry(result, _polyline_points(busline.get("polyline")))
+                    parsed = _polyline_pieces(busline.get("polyline"))
+                    pieces.extend(parsed)
+                    if sum(len(part) for part in parsed if part) < 2 and (_has_travel(busline) or busline.get("name") or busline.get("id")):
+                        pieces.append(None)
         railway = segment.get("railway")
         if isinstance(railway, dict):
+            # Station endpoints are not a railway polyline. Retain the points,
+            # but never invent a straight rail segment between them.
             for key in ("departure_stop", "arrival_stop"):
                 stop = railway.get(key)
                 if isinstance(stop, dict):
-                    _append_geometry(result, _polyline_points(stop.get("location")))
-    return result
+                    pieces.extend(_polyline_pieces(stop.get("location")))
+            if railway:
+                pieces.append(None)
+        if _has_travel(segment) and len(pieces) == before_segment:
+            pieces.append(None)
+    return pieces
+
+
+def _geometry_structure(payload: dict[str, Any], mode: str) -> tuple[list[int] | None, bool]:
+    route = payload.get("route", {})
+    candidates = route.get("paths" if mode == "walking" else "transits", [])
+    if not candidates or not isinstance(candidates[0], dict):
+        return None, False
+    pieces = _walking_pieces(candidates[0]) if mode == "walking" else _transit_pieces(candidates[0])
+    _, breaks, complete = _join_geometry_pieces(pieces)
+    return breaks, complete
 
 
 class AmapRouteProvider:
@@ -320,6 +400,10 @@ class AmapRouteProvider:
                 external_call_count=1,
             )
         duration_minutes, distance_meters, transfer_count, geometry = parsed
+        from app.trip_understanding.route_connection import connection_evidence
+        breaks, complete = _geometry_structure(payload, mode)
+        binding["route_connection"] = connection_evidence(origin, destination, geometry,
+            geometry_break_indices=breaks, geometry_complete=complete)
         return InternalRouteModeFact(
             mode=mode,
             status="AVAILABLE",

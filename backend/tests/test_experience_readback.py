@@ -99,7 +99,7 @@ async def test_private_source_and_supplementary_follow_edits_and_cannot_return_a
             assert (await owner.get(base + "/supplementary")).json() == supplemental.json()
             assert (await owner.delete(base + "/source", headers={"Idempotency-Key": "erase-source"})).status_code == 204
             assert (await owner.get(base + "/source")).json() == {"status": "DELETED", "text": None, "activities": []}
-            assert (await owner.get(base + "/supplementary")).json() == {"status": "DELETED", "days": []}
+            assert (await owner.get(base + "/supplementary")).json() == {"status": "DELETED", "days": [], "pending_lodgings": []}
             after = await owner.get(base + "/result")
             assert after.json()["is_demo"] == (mode == "DEMO")
             undone = await owner.post(base + "/commands", json={"command_type": "UNDO"}, headers={"If-Match": after.headers["etag"], "Idempotency-Key": "undo-private-source"})
@@ -125,7 +125,7 @@ async def test_source_expiry_hides_text_and_optional_arrangements_before_cleanup
                 repository.source_expiries[job.job_id] = past
             assert (await client.get(base + "/result")).status_code == 200
             assert (await client.get(base + "/source")).json() == {"status": "UNAVAILABLE", "text": None, "activities": []}
-            assert (await client.get(base + "/supplementary")).json() == {"status": "UNAVAILABLE", "days": []}
+            assert (await client.get(base + "/supplementary")).json() == {"status": "UNAVAILABLE", "days": [], "pending_lodgings": []}
             # Saving extends the trip lifetime, but cannot revive an already expired import.
             client.headers["x-test-user"] = "experience-owner"
             claim = await client.post(base + "/claim", headers={"Idempotency-Key": "claim-expired-source"})
@@ -140,7 +140,7 @@ async def test_source_expiry_hides_text_and_optional_arrangements_before_cleanup
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
 @pytest.mark.asyncio
-async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_expired_deleted_unfinished(kind):
+async def test_account_trip_seek_pagination_is_private_reopenable_and_includes_unfinished_without_expired_deleted(kind):
     async with repository_for(kind) as repository:
         if kind == "postgres":
             await repository._pool.execute("INSERT INTO users(user_id,nickname) VALUES ('other-owner','Other')")
@@ -157,17 +157,31 @@ async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_ex
             claimed_id = claimed.json()["public_resource_id"]
             bases.append("/api/v3/trip-understandings/" + claimed_id)
             foreign, _ = await create_ready(other, repository, "foreign-trip")
-            old = datetime.now(timezone.utc) - timedelta(days=3)
+            created_at = datetime.now(timezone.utc)
             expired = await repository.create_full(owner_user_id="experience-owner", source_text=DEMO_SOURCE_TEXT, idempotency_key="old-trip",
-                request_hash=canonical_sha256("old-trip"), now=old, retention_days=1)
-            old_job = await repository.claim_next(worker_id="old-trip", now=old, lease_seconds=30)
-            await repository.complete_job(old_job, await build_demo_pipeline().run(DEMO_SOURCE_TEXT), now=old)
+                request_hash=canonical_sha256("old-trip"), now=created_at, retention_days=1)
+            old_job = await repository.claim_next(worker_id="old-trip", now=created_at, lease_seconds=30)
+            await repository.complete_job(old_job, await build_demo_pipeline().run(DEMO_SOURCE_TEXT), now=created_at)
             expired_base = "/api/v3/trip-understandings/" + expired.accepted.public_resource_id
+            assert (await owner.get(expired_base + "/result")).status_code == 200
+            # Simulate retention elapsing after a valid completion. An expired
+            # source must never be used to manufacture a historical result.
+            expired_at = datetime.now(timezone.utc) - timedelta(microseconds=1)
+            assert expired_at > created_at
+            if kind == "postgres":
+                await repository._pool.execute("UPDATE trip_understandings SET source_expires_at=$2 WHERE understanding_id=$1",
+                    old_job.understanding_id, expired_at)
+                await repository._pool.execute("UPDATE trip_understanding_sources SET retention_until=$2 WHERE understanding_id=$1",
+                    old_job.understanding_id, expired_at)
+            else:
+                repository.resources[expired.accepted.public_resource_id]["expires_at"] = expired_at
+                repository.source_expiries[old_job.job_id] = expired_at
             assert (await owner.get(expired_base + "/source")).status_code == 410
             deleted = bases.pop(0)
             assert (await owner.delete(deleted, headers={"Idempotency-Key": "delete-listed"})).status_code == 204
             pending = await owner.post("/api/v3/trip-understandings", json={"mode": "FULL", "source": {"type": "TEXT", "text": DEMO_SOURCE_TEXT}}, headers={"Idempotency-Key": "pending-list"})
             assert pending.status_code == 202
+            pending_id = pending.json()["public_resource_id"]
             # Equal timestamps exercise the deterministic second ordering key.
             same_time = datetime.now(timezone.utc) - timedelta(minutes=1)
             if kind == "postgres":
@@ -181,13 +195,16 @@ async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_ex
             first = response.json()
             assert len(first["items"]) == 2 and first["next_cursor"]
             second = (await owner.get("/api/v3/me/trips", params={"limit": 2, "cursor": first["next_cursor"]})).json()
-            assert len(second["items"]) == 1 and second["next_cursor"] is None
+            assert len(second["items"]) == 2 and second["next_cursor"] is None
             items = first["items"] + second["items"]
-            assert [item["public_resource_id"] for item in items] == sorted([base.rsplit("/", 1)[1] for base in bases], reverse=True)
+            assert [item["public_resource_id"] for item in items] == sorted([base.rsplit("/", 1)[1] for base in bases] + [pending_id], reverse=True)
             assert next(item for item in items if item["public_resource_id"] == claimed_id)["is_demo"]
             for item in items:
-                assert set(item) == {"public_resource_id", "title", "city", "day_count", "updated_at", "expires_at", "is_demo"}
-                assert item["city"] == "北京" and item["day_count"] == 3
+                assert set(item) == {"public_resource_id", "title", "city", "day_count", "updated_at", "expires_at", "is_demo", "state", "has_result", "source_status"}
+                if item["public_resource_id"] == pending_id:
+                    assert item["state"] == "PROCESSING" and item["has_result"] is False and item["day_count"] == 0
+                else:
+                    assert item["city"] == "北京" and item["day_count"] == 3
             assert (await other.get("/api/v3/me/trips", params={"cursor": first["next_cursor"]})).status_code == 400
             assert (await owner.get("/api/v3/me/trips", params={"cursor": first["next_cursor"][:-4] + "bad!"})).status_code == 400
             for limit in (0, 51):
@@ -197,6 +214,6 @@ async def test_account_trip_seek_pagination_is_private_reopenable_and_filters_ex
             async with AsyncClient(transport=transport, base_url="http://test", headers={"x-test-user": "experience-owner"}) as returning:
                 for item in items:
                     base = "/api/v3/trip-understandings/" + item["public_resource_id"]
-                    assert (await returning.get(base + "/result")).status_code == 200
+                    assert (await returning.get(base + "/result")).status_code == (202 if item["public_resource_id"] == pending_id else 200)
                     assert (await returning.get(base + "/source")).json()["status"] == "AVAILABLE"
                     assert (await other.get(base + "/source")).status_code == 404

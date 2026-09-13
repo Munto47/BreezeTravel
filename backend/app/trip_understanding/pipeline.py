@@ -17,6 +17,8 @@ from app.trip_understanding.errors import (
     PlaceProviderUnavailableError,
 )
 from app.trip_understanding.models import (
+    MAX_TRIP_ACTIVITIES,
+    PendingLodgingRefView,
     ActivityCardView,
     ActivityAlternativeView,
     ActivityRole,
@@ -25,6 +27,7 @@ from app.trip_understanding.models import (
     DestinationBasis,
     InferenceProposal,
     MapReadinessView,
+    MealSlotView,
     PipelineOutput,
     PipelineProgressUpdate,
     PlaceResolutionOutcome,
@@ -32,9 +35,13 @@ from app.trip_understanding.models import (
     ResolvedActivity,
     ResolvedPlace,
     SourceClaimRecord,
+    SourceDetailView,
+    SourceSemanticPlan,
+    SemanticDiagnostic,
     StaySuggestionView,
     TripUnderstandingProgressMetrics,
     TripDayView,
+    TripRecognitionCoverage,
     UserFacingTripResult,
 )
 
@@ -125,8 +132,11 @@ MULTI_CITY_HEADER_RE = re.compile(
 )
 BASIC_CITY_HEADER_RE = re.compile(
     rf"^\s*(?P<city>(?:{_DOMESTIC_CITY_PATTERN})(?:市)?|[\u4e00-\u9fff]{{2,6}}市)"
-    r"\s*[一二两三四五六七八九十0-9]+"
-    r"(?:日|天)(?:游|行程|攻略|旅行)"
+    r"\s*[一二两三四五六七八九十0-9]+\s*"
+    # A bare heading such as “上海一天。” also states the destination. Require
+    # its phrase boundary; “上海一天太短” remains comparison/narrative text.
+    r"(?:日|天)(?:[一二两三四五六七八九十0-9]+晚)?"
+    r"(?:(?:游|行程|攻略|旅行)|(?=[ \t]*(?:[。.!?！？；;：:，,\r\n]|$)))"
 )
 DESTINATION_CONTEXT_RE = re.compile(
     r"(?:围绕|一段|整理|关于)\s*"
@@ -274,10 +284,13 @@ def _reviewed_places_support_soft_city(source_text: str, proposal: InferenceProp
     if not lexicon.available:
         # Without the full dictionary, cross-city name ambiguity is unknown.
         return False
+    from app.trip_understanding.experience_inference import SourceAnchorIndex
+
+    source_index = SourceAnchorIndex(source_text)
     planned = [
         item
         for item in proposal.mentions
-        if is_atomic_planned_place(item)
+        if is_atomic_planned_place(item, source_index=source_index)
         and item.category_hint not in {"餐饮", "住宿"}
         and source_text[item.span_start:item.span_end] == item.raw_text
     ]
@@ -313,6 +326,8 @@ def _reviewed_places_support_soft_city(source_text: str, proposal: InferenceProp
 
 def _model_activity_cities(source_text: str, proposal: InferenceProposal, mention) -> tuple[str, ...]:
     """Use an activity's validated city; never search all cities and pick one."""
+    from app.trip_understanding.city_source_terms import city_word_has_local_feature_suffix
+
     if mention.city_hint:
         return (mention.city_hint,)
     if mention.city_evidence is not None:
@@ -323,9 +338,26 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
     # data before a city-limited POI query, including soft model destinations.
     if destination == "目的地待确认" or not re.fullmatch(r"[\u4e00-\u9fff]{2,20}", destination):
         return ("目的地待确认",)
+    from app.trip_understanding.experience_inference import SourceAnchorIndex
+
+    source_index = SourceAnchorIndex(source_text)
+    atomic_spans = []
+    for item in proposal.mentions:
+        if (not item.atomic_place_name or atomic_place_rejection_reason(item.atomic_place_name) is not None
+            or source_text[item.span_start:item.span_end] != item.raw_text):
+            continue
+        relative = source_index.place_span(item.span_start, item.span_end, item.atomic_place_name)
+        if relative is not None:
+            atomic_spans.append((item.span_start + relative[0], item.span_start + relative[1]))
+
+    def inside_atomic_name(match) -> bool:
+        # A quoted title or paragraph is not a place name. The complete city
+        # word must lie within this source-bound name, not merely its quote.
+        return any(left <= match.start() and match.end() <= right for left, right in atomic_spans)
+
     destination_mentions = list(re.finditer(re.escape(destination), source_text))
     if destination_mentions and all(
-        any(item.span_start <= match.start() < item.span_end for item in proposal.mentions)
+        inside_atomic_name(match)
         for match in destination_mentions
     ):
         if not _reviewed_places_support_soft_city(source_text, proposal, destination):
@@ -336,20 +368,7 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
         if city == destination:
             continue
         for match in re.finditer(re.escape(city), source_text):
-            # Travel descriptions often mention an internal street that is
-            # not a separate visit, e.g. 苏州街 or 乌鲁木齐中路. Such city
-            # prefixes do not establish a second destination.
-            road_suffix = re.match(
-                r"(?:[东南西北中]路|路(?:步行街)?|街)(?=$|[\s，,。；;：:、/／→+）)*]|逛|散步|吃饭|周边|附近|沿线)",
-                source_text[match.end():],
-            )
-            # A delimited lake name (e.g. 昆明湖 or 昆明湖游船) is also
-            # not a city visit. Keep concatenations such as 昆明湖州 ambiguous.
-            lake_suffix = re.match(
-                r"湖(?:游船)?(?=$|[\s，,。；;：:、/／→+（）()*！？!?])",
-                source_text[match.end():],
-            )
-            if not (road_suffix or lake_suffix) and not any(item.span_start <= match.start() < item.span_end for item in proposal.mentions):
+            if not city_word_has_local_feature_suffix(source_text, match.end()) and not inside_atomic_name(match):
                 return ("目的地待确认",)
     return (destination,)
 
@@ -666,16 +685,46 @@ def derive_visit_time_hint(source_text: str, span_start: int, span_end: int) -> 
     return None
 
 
-def is_atomic_planned_place(mention) -> bool:
-    if mention.role != ActivityRole.PLANNED or mention.day_index is None:
+def _is_internal_detail(mention) -> bool:
+    return bool(mention.parent_mention_id and mention.relation_type == "INTERNAL_DETAIL"
+                and mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL, ActivityRole.REFERENCE})
+
+
+def _public_source_detail(mention) -> SourceDetailView | None:
+    """One public rendering shared by projection and its preservation check."""
+    if not _is_internal_detail(mention) or not mention.atomic_place_name:
+        return None
+    kind = mention.detail_kind or "VISIT"
+    if kind == "VISIT":
+        if atomic_place_rejection_reason(mention.atomic_place_name) is not None:
+            return None
+        name = mention.atomic_place_name
+    elif kind in {"ENTRY", "EXIT"}:
+        name = ("入口：" if kind == "ENTRY" else "出口：") + mention.atomic_place_name
+    else:
+        name = "仅看外观，不入内部" if kind == "EXTERIOR_ONLY" else "仅取物，不参观"
+    return SourceDetailView(name=name, optional=mention.role == ActivityRole.OPTIONAL)
+
+
+def _source_detail_order(mention) -> tuple[int, int]:
+    # The raw response can list both gates together before its room names.
+    # A typed exit must follow visits, not become the second touring step.
+    rank = {"ENTRY": 0, "VISIT": 1, "EXIT": 2, "EXTERIOR_ONLY": 3, "PICKUP_ONLY": 3}
+    return rank[mention.detail_kind or "VISIT"], mention.sequence_index
+
+
+def is_atomic_planned_place(mention, *, source_index=None) -> bool:
+    if mention.role != ActivityRole.PLANNED or mention.day_index is None or _is_internal_detail(mention):
         return False
     candidate = (mention.atomic_place_name or "").strip()
     if atomic_place_rejection_reason(candidate) is not None:
         return False
     raw_candidate = re.sub(r"\r?\n[ \t]*", "", (mention.raw_text or "").strip())
-    if candidate != normalized_place_label(raw_candidate):
+    if candidate == normalized_place_label(raw_candidate):
+        return True
+    if source_index is None or source_index.source[mention.span_start:mention.span_end] != mention.raw_text:
         return False
-    return True
+    return source_index.place_span(mention.span_start, mention.span_end, candidate) == (0, len(mention.raw_text))
 
 
 def _apply_contextual_category_hints(
@@ -1028,6 +1077,27 @@ def _apply_terminal_cancellations(
     )
 
 
+def _adapt_legacy_proposal(
+    source_text: str, proposal: InferenceProposal,
+) -> tuple[InferenceProposal, frozenset[tuple[int, int]]]:
+    """Compatibility entrance for historical rule/fixture extraction only.
+
+    A current model's SourceSemanticPlan never passes through lexical role,
+    cancellation or destination recovery a second time.
+    """
+    if isinstance(proposal, SourceSemanticPlan):
+        raise TypeError("source semantic plans cannot use the legacy adapter")
+    proposal, pending_spans = _apply_terminal_cancellations(
+        source_text, _apply_contextual_category_hints(source_text, proposal),
+    )
+    destination = normalized_destination_name(source_text, proposal.destination_name)
+    if destination != proposal.destination_name:
+        binding = dict(proposal.binding)
+        binding["destination_source_recovery_count"] = int(binding.get("destination_source_recovery_count", 0)) + 1
+        proposal = proposal.model_copy(update={"destination_name": destination, "binding": binding})
+    return proposal, pending_spans
+
+
 class EvidenceCompiler:
     def compile(
         self,
@@ -1037,6 +1107,9 @@ class EvidenceCompiler:
         source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
         if proposal.source_hash != source_hash:
             raise ValueError("proposal source binding mismatch")
+        from app.trip_understanding.experience_inference import SourceAnchorIndex
+
+        source_index = SourceAnchorIndex(source_text)
         compiled: list[CompiledActivity] = []
         claims: list[SourceClaimRecord] = []
         mention_ids: set[str] = set()
@@ -1053,7 +1126,7 @@ class EvidenceCompiler:
                 activity_id=activity_id,
                 public_activity_token=secrets.token_urlsafe(24),
                 mention=mention,
-                eligible_for_place_search=is_atomic_planned_place(mention),
+                eligible_for_place_search=is_atomic_planned_place(mention, source_index=source_index),
             )
             compiled.append(compiled_activity)
             claim_type = "EXCLUSION" if mention.role == ActivityRole.EXCLUDED else "PLACE_MENTION"
@@ -1067,6 +1140,20 @@ class EvidenceCompiler:
                     quote=mention.raw_text,
                 )
             )
+            if mention.role_evidence is not None and mention.role_evidence_start is not None and mention.role_evidence_end is not None:
+                evidence = source_text[mention.role_evidence_start:mention.role_evidence_end]
+                # SourceAnchorIndex can account for Markdown presentation, so
+                # retain the literal original span in the encrypted claim.
+                claims.append(SourceClaimRecord(claim_id=str(uuid4()), activity_id=activity_id, claim_type="ROLE",
+                    span_start=mention.role_evidence_start, span_end=mention.role_evidence_end, quote=evidence))
+            if mention.lodging_evidence_start is not None and mention.lodging_evidence_end is not None:
+                claims.append(SourceClaimRecord(claim_id=str(uuid4()), activity_id=activity_id, claim_type="ROLE",
+                    span_start=mention.lodging_evidence_start, span_end=mention.lodging_evidence_end,
+                    quote=source_text[mention.lodging_evidence_start:mention.lodging_evidence_end]))
+            if mention.lodging_exclusion_evidence_start is not None and mention.lodging_exclusion_evidence_end is not None:
+                claims.append(SourceClaimRecord(claim_id=str(uuid4()), activity_id=activity_id, claim_type="ROLE",
+                    span_start=mention.lodging_exclusion_evidence_start, span_end=mention.lodging_exclusion_evidence_end,
+                    quote=source_text[mention.lodging_exclusion_evidence_start:mention.lodging_exclusion_evidence_end]))
         return compiled, claims, {
             "compiler": "trip-understanding-evidence-compiler-v1",
             "unicode_basis": "CODE_POINT_HALF_OPEN",
@@ -1101,33 +1188,114 @@ class PublicResultProjector:
         day_labels: dict[int, str] | None = None,
         day_count: int = 0,
         include_alternatives: bool = False,
+        unprocessed_by_day: dict[int, int] | None = None,
+        unassigned_alternative_ids: Sequence[str] = (),
+        source_text: str | None = None,
     ) -> UserFacingTripResult:
         planned = [
             activity
             for activity in activities
             if activity.compiled.mention.role == ActivityRole.PLANNED
+            and not _is_internal_detail(activity.compiled.mention)
+            and not ((activity.compiled.mention.meal_role or activity.compiled.mention.category_hint == "餐饮")
+                     and not activity.compiled.mention.atomic_place_name)
+            and not (activity.compiled.mention.category_hint in {"住宿", "交通节点"} and not activity.compiled.mention.atomic_place_name)
         ]
         activity_day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
             default=1,
         )
-        alternatives = [activity.compiled.mention for activity in activities
-                        if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL]
+        alternatives = [activity.compiled for activity in activities
+                        if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL
+                        and not _is_internal_detail(activity.compiled.mention)
+                        and activity.compiled.mention.mention_id not in unassigned_alternative_ids]
+        details_by_parent: dict[str, list[SourceDetailView]] = {}
+        for child in sorted((item.compiled.mention for item in activities), key=_source_detail_order):
+            detail = _public_source_detail(child)
+            if detail is not None:
+                details_by_parent.setdefault(child.parent_mention_id, []).append(detail)
         day_count = min(14, max(day_count, activity_day_count, max(day_labels or {}, default=0),
-                               max((mention.day_index or 1 for mention in alternatives), default=1)))
+                               max((item.mention.day_index or 1 for item in alternatives), default=1)))
         day_views: list[TripDayView] = []
         for day_index in range(1, day_count + 1):
             cards = []
+            meal_slots = []
+            anonymous_meal_occurrences: set[tuple] = set()
+            daily = sorted((activity for activity in activities
+                if activity.compiled.mention.role == ActivityRole.PLANNED
+                and not _is_internal_detail(activity.compiled.mention)
+                and activity.compiled.mention.day_index == day_index),
+                key=lambda activity: activity.compiled.mention.sequence_index)
             for item in sorted(
                 (
                     activity
                     for activity in activities
                     if activity.compiled.mention.role == ActivityRole.PLANNED
+                    and not _is_internal_detail(activity.compiled.mention)
                     and activity.compiled.mention.day_index == day_index
                 ),
                 key=lambda activity: activity.compiled.mention.sequence_index,
             ):
                 mention = item.compiled.mention
+                if mention.category_hint in {"住宿", "交通节点"} and not mention.atomic_place_name:
+                    # Unnamed lodging gaps and transport actions retain their
+                    # source semantics without inventing a place to confirm.
+                    continue
+                anonymous_meal = (mention.meal_role or mention.category_hint == "餐饮") and not mention.atomic_place_name
+                area_meal = bool(mention.meal_role and mention.atomic_place_name and mention.category_hint == "地点")
+                if anonymous_meal or area_meal:
+                    from app.trip_understanding.source_meal_context import source_meal_block
+
+                    preceding = [row for row in daily if row.compiled.mention.sequence_index <= mention.sequence_index
+                                 and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
+                    following = [row for row in daily if row.compiled.mention.sequence_index > mention.sequence_index
+                                 and (row.compiled.eligible_for_place_search or is_atomic_planned_place(row.compiled.mention))]
+                    preference = (source_meal_block(source_text, mention.span_start, mention.span_end)
+                        if source_text and source_text[mention.span_start:mention.span_end] == mention.raw_text else None) or mention.raw_text
+                    # A separately emitted anonymous preference may already
+                    # describe this very meal. Match its validated source item,
+                    # never deduplicate by a shared day, name or meal label.
+                    def same_meal_source(other):
+                        if not source_text or other.atomic_place_name or other.meal_role != mention.meal_role:
+                            return False
+                        if source_text[other.span_start:other.span_end] != other.raw_text:
+                            return False
+                        if other.span_start <= mention.span_start < mention.span_end <= other.span_end:
+                            return sum(bool(row.compiled.mention.atomic_place_name and row.compiled.mention.meal_role
+                                and other.span_start <= row.compiled.mention.span_start < row.compiled.mention.span_end <= other.span_end)
+                                for row in daily) == 1
+                        block = source_meal_block(source_text, mention.span_start, mention.span_end)
+                        line_start = source_text.rfind("\n", 0, mention.span_start)
+                        named_in_block = [row.compiled.mention for row in daily
+                            if row.compiled.mention.atomic_place_name and row.compiled.mention.meal_role
+                            and source_text.rfind("\n", 0, row.compiled.mention.span_start) == line_start]
+                        return bool(block and len(named_in_block) == 1
+                            and source_text.rfind("\n", 0, other.span_start) == line_start
+                            and source_meal_block(source_text, other.span_start, other.span_end) == block)
+
+                    anonymous_covers_area = area_meal and any(same_meal_source(row.compiled.mention) for row in daily)
+                    after_token = preceding[-1].compiled.public_activity_token if preceding else None
+                    before_token = following[0].compiled.public_activity_token if following else None
+                    repeated_anonymous_source = False
+                    if (anonymous_meal and mention.meal_role and source_text
+                            and 0 <= mention.span_start < mention.span_end <= len(source_text)
+                            and source_text[mention.span_start:mention.span_end] == mention.raw_text):
+                        block = source_meal_block(source_text, mention.span_start, mention.span_end)
+                        if block:
+                            # Literal spans with the same start are nested. A
+                            # shorter/longer quote of this single meal can share
+                            # one slot only with the same branch and anchors.
+                            # Retain both semantic mentions and diagnostics.
+                            occurrence = (day_index, mention.meal_role, mention.choice_group_id,
+                                mention.branch_id, mention.span_start, block, after_token, before_token)
+                            repeated_anonymous_source = occurrence in anonymous_meal_occurrences
+                            anonymous_meal_occurrences.add(occurrence)
+                    if not anonymous_covers_area and not repeated_anonymous_source:
+                        meal_slots.append(MealSlotView(meal_role=mention.meal_role or "UNSPECIFIED", selection_status="UNSELECTED",
+                            preference_text=" ".join(preference.split()) if len(preference) <= 1000 else None,
+                            after_activity_token=after_token, before_activity_token=before_token))
+                    if anonymous_meal:
+                        continue
                 place = item.place
                 source_confirmation_required = item.resolver_receipt.get("status") in {
                     "SOURCE_CONFIRMATION_REQUIRED",
@@ -1142,7 +1310,7 @@ class PublicResultProjector:
                             else (
                                 "地点待确认"
                                 if source_confirmation_required
-                                else (mention.atomic_place_name if is_atomic_planned_place(mention) else "地点待确认")
+                                else (mention.atomic_place_name if item.compiled.eligible_for_place_search or is_atomic_planned_place(mention) else "地点待确认")
                             )
                         ),
                         category=(
@@ -1158,25 +1326,51 @@ class PublicResultProjector:
                         photo_url=place.photo_url if place else None,
                         city=_public_activity_city(item),
                         time_hint=mention.time_hint,
+                        meal_role=mention.meal_role,
+                        lodging_event=mention.lodging_event, lodging_scope=mention.lodging_scope,
+                        lodging_role_uncertain=mention.lodging_role_uncertain,
+                        lodging_excluded_nights=mention.lodging_excluded_nights,
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
+                        source_details=details_by_parent.get(mention.mention_id, []),
                     )
                 )
             choices = []
-            seen_choices: set[tuple[str, str | None]] = set()
-            for mention in alternatives:
+            seen_choices: set[tuple] = set()
+            sequence_by_token = {item.compiled.public_activity_token: item.compiled.mention.sequence_index for item in daily}
+            for alternative in alternatives:
+                mention = alternative.mention
                 name = mention.atomic_place_name
                 if ((mention.day_index or 1) != day_index or not name
                     or atomic_place_rejection_reason(name) is not None):
                     continue
-                identity = (name, mention.city_hint)
+                identity = (mention.span_start, mention.span_end, mention.day_index, mention.branch_id)
                 if identity in seen_choices:
                     continue
                 seen_choices.add(identity)
-                choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint))
+                def group_token(value: str | None) -> str | None:
+                    if not value:
+                        return None
+                    return hashlib.sha256(f"{destination_name}|{value}".encode()).hexdigest()[:32]
+
+                first_sequence = min((item.mention.sequence_index for item in alternatives
+                    if mention.choice_group_id and item.mention.choice_group_id == mention.choice_group_id
+                    and item.mention.day_index == day_index), default=mention.sequence_index)
+                insertion_position = sum(sequence_by_token[card.activity_token] < first_sequence for card in cards)
+
+                choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint,
+                    activity_token=alternative.public_activity_token, branch_label=mention.branch_label,
+                    choice_group_selectable=mention.choice_group_selectable,
+                    insertion_position=insertion_position,
+                    after_activity_token=cards[insertion_position - 1].activity_token if insertion_position else None,
+                    before_activity_token=cards[insertion_position].activity_token if insertion_position < len(cards) else None,
+                    meal_role=mention.meal_role, source_details=details_by_parent.get(mention.mention_id, []),
+                    **timing_values(mention),
+                    choice_group_token=group_token(mention.choice_group_id), branch_token=group_token(mention.branch_id)))
             day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
-                                        activities=cards, alternatives=choices))
+                                        activities=cards, alternatives=choices, meal_slots=meal_slots,
+                                        unprocessed_count=(unprocessed_by_day or {}).get(day_index, 0)))
         resolved_count = sum(item.place is not None for item in planned)
         if planned and resolved_count == len(planned):
             result_status = "READY"
@@ -1215,6 +1409,9 @@ class PublicResultProjector:
                 ),
             ],
             days=day_views,
+            pending_lodgings=[PendingLodgingRefView(pending_token=item.compiled.public_activity_token,
+                unprocessed_count=max(1, item.compiled.mention.pending_lodging_issue_count))
+                for item in activities if item.compiled.mention.pending_lodging_scope],
             map=MapReadinessView(
                 status="UNAVAILABLE",
                 message="路线地图暂不可用，不影响查看和编辑卡片",
@@ -1227,6 +1424,58 @@ class PublicResultProjector:
         )
 
 
+def _projection_omissions(
+    plan: SourceSemanticPlan, compiled: list[CompiledActivity], result: UserFacingTripResult,
+) -> list[SemanticDiagnostic]:
+    """A public result cannot certify source items that its views dropped.
+
+    Identity lookup can leave cards pending, but an identified visit/alternative
+    still needs a visible destination in its original day and role. Anonymous
+    meals and lodging actions intentionally use separate context projections.
+    """
+    public = {
+        (day_index, role, item.activity_token)
+        for day_index, day in enumerate(result.days, 1)
+        for role, items in ((ActivityRole.PLANNED, day.activities), (ActivityRole.OPTIONAL, day.alternatives))
+        for item in items
+    }
+    parent_tokens = {item.mention.mention_id: item.public_activity_token for item in compiled}
+    visible_details = Counter((card.activity_token, detail.name, detail.optional)
+        for day in result.days for card in (*day.activities, *day.alternatives) for detail in card.source_details)
+    issues = []
+    missing_days = set(range(len(result.days) + 1, plan.day_count + 1))
+    for item in compiled:
+        mention = item.mention
+        if _is_internal_detail(mention) and mention.atomic_place_name:
+            view = _public_source_detail(mention)
+            detail = (parent_tokens.get(mention.parent_mention_id), view.name, view.optional) if view else None
+            if detail and visible_details[detail]:
+                visible_details[detail] -= 1
+            else:
+                issues.append(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field="source_details",
+                    span_start=mention.span_start, span_end=mention.span_end))
+            continue
+        if mention.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or not mention.atomic_place_name:
+            continue
+        if atomic_place_rejection_reason(mention.atomic_place_name) is not None:
+            continue
+        # Undated source hotels are retained by the lodging-recovery projection.
+        if mention.pending_lodging_scope:
+            continue
+        if mention.mention_id in plan.unassigned_alternative_ids:
+            # Preserved as an undated OPTIONAL activity and read by supplementary;
+            # assigning it to Day 1 would change the saved collaboration route.
+            continue
+        day_index = mention.day_index or 1
+        if (day_index, mention.role, item.public_activity_token) not in public:
+            missing_days.discard(day_index)
+            issues.append(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field=f"days[{day_index}]",
+                span_start=mention.span_start, span_end=mention.span_end))
+    issues.extend(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field=f"days[{day}]")
+                  for day in sorted(missing_days))
+    return issues
+
+
 class TripUnderstandingPipeline:
     def __init__(
         self,
@@ -1234,8 +1483,9 @@ class TripUnderstandingPipeline:
         place_resolver: PlaceResolver,
         compiler: EvidenceCompiler | None = None,
         projector: PublicResultProjector | None = None,
-        max_executable_activities: int = 80,
+        max_executable_activities: int = MAX_TRIP_ACTIVITIES,
         max_place_concurrency: int = 4,
+        relative_only: bool = False,
     ) -> None:
         if max_place_concurrency < 1 or max_place_concurrency > 8:
             raise ValueError("place concurrency must be between 1 and 8")
@@ -1245,6 +1495,7 @@ class TripUnderstandingPipeline:
         self.projector = projector or PublicResultProjector()
         self.max_executable_activities = max_executable_activities
         self.max_place_concurrency = max_place_concurrency
+        self.relative_only = relative_only
 
     async def aclose(self) -> None:
         await _close_async_resources(self.inference_provider, self.place_resolver)
@@ -1424,6 +1675,7 @@ class TripUnderstandingPipeline:
         progress_callback: Callable[[PipelineProgressUpdate], Awaitable[None]] | None = None,
         collaboration_guard_tokens: Sequence[str] | None = None,
         collaboration_city_guard_token: str | None = None,
+        prepared_plan: SourceSemanticPlan | None = None,
     ) -> PipelineOutput:
         confirmation_spans = tuple(requires_confirmation_spans)
         if any(
@@ -1431,33 +1683,42 @@ class TripUnderstandingPipeline:
             for start, end in confirmation_spans
         ):
             raise ValueError("confirmation spans must be valid source code-point ranges")
-        proposal = await self.inference_provider.propose(source_text)
-        model_meaning = proposal.binding.get("semantic_policy") == "MODEL_MEANING_SOURCE_VALIDATED_V1"
+        if prepared_plan is not None:
+            proposal = SourceSemanticPlan.model_validate(prepared_plan.model_dump(mode="json"))
+            if proposal.source_hash != hashlib.sha256(source_text.encode("utf-8")).hexdigest():
+                raise ValueError("prepared plan does not match its retained source")
+        else:
+            proposal = await self.inference_provider.propose(source_text)
+        if self.relative_only:
+            # Prepared source plans can come from historical saved imports.
+            # Build a new relative projection without mutating that stored plan.
+            proposal = proposal.model_copy(update={
+                "mentions": [mention.model_copy(update={
+                    "start_time": None, "end_time": None, "visit_duration_minutes": None,
+                    "time_hint": None, "timing_source": "UNSPECIFIED", "locked": False, "fixed_commitment": False,
+                }) for mention in proposal.mentions],
+                "day_labels": {},
+                "day_count": min(14, max(proposal.day_count,
+                    max(proposal.day_labels, default=0), max(proposal.unprocessed_by_day, default=0),
+                    max((mention.day_index or 0 for mention in proposal.mentions), default=0))),
+            })
+        model_meaning = isinstance(proposal, SourceSemanticPlan)
         cancellation_pending_spans: set[tuple[int, int]] = set()
         if not model_meaning:
-            # Historical rule-based experiments keep their original behavior.
-            # The live experience adapter supplies day/order/roles directly;
-            # lexical recovery must not rewrite those meanings a second time.
-            proposal, cancellation_pending_spans = _apply_terminal_cancellations(
-                source_text, _apply_contextual_category_hints(source_text, proposal),
-            )
-        destination_name = (
-            proposal.destination_name if model_meaning else normalized_destination_name(
-                source_text, proposal.destination_name,
-            )
-        )
-        if destination_name != proposal.destination_name:
-            binding = dict(proposal.binding)
-            binding["destination_source_recovery_count"] = int(
-                binding.get("destination_source_recovery_count", 0)
-            ) + 1
-            proposal = proposal.model_copy(
-                update={"destination_name": destination_name, "binding": binding}
-            )
+            proposal, cancellation_pending_spans = _adapt_legacy_proposal(source_text, proposal)
         search_cities = ((proposal.destination_name.removesuffix("市"),) if model_meaning
                          else resolution_cities(source_text, proposal.destination_name))
         projection_options = ({"day_labels": proposal.day_labels, "day_count": proposal.day_count,
-                               "include_alternatives": True} if model_meaning else {})
+                               "include_alternatives": True, "unprocessed_by_day": proposal.unprocessed_by_day,
+                               "unassigned_alternative_ids": proposal.unassigned_alternative_ids,
+                               "source_text": source_text}
+                              if model_meaning else {})
+        from app.trip_understanding.source_order import retain_source_order_assessment
+
+        # Keep the private semantic assessment attached to the same root visits
+        # after preparation/legacy adaptation, without adding public fields.
+        proposal = proposal.model_copy(update={"order_assessment": retain_source_order_assessment(
+            proposal.order_assessment, proposal.mentions)})
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()
         cancellation_pending_activity_ids: set[str] = set()
@@ -1822,6 +2083,13 @@ class TripUnderstandingPipeline:
             resolved,
             **projection_options,
         )
+        if isinstance(proposal, SourceSemanticPlan):
+            projection_issues = _projection_omissions(proposal, compiled, public_result)
+            if projection_issues:
+                proposal = proposal.model_copy(update={
+                    "diagnostics": [*proposal.diagnostics, *projection_issues],
+                    "unprocessed_count": proposal.unprocessed_count + len(projection_issues),
+                })
         if proposal.day_labels:
             days = [day.model_copy(update={"label": proposal.day_labels.get(index, day.label)})
                     for index, day in enumerate(public_result.days, 1)]
@@ -1838,6 +2106,24 @@ class TripUnderstandingPipeline:
             public_result = public_result.model_copy(update={"status": "LIMITED"})
         elif (fallback_used or unavailable_count) and public_result.status != "PARTIAL_RESULT":
             public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
+        recognized = [item for item in resolved if item.compiled.mention.role == ActivityRole.PLANNED
+                      and not _is_internal_detail(item.compiled.mention)
+                      and item.compiled.mention.atomic_place_name]
+        confirmed = sum(item.place is not None for item in recognized)
+        pending_semantics = {
+            (issue.span_start, issue.span_end) if issue.span_start is not None else (issue.field, issue.category)
+            for issue in proposal.diagnostics
+            if issue.category not in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE",
+                "UNSUPPORTED_TIMING_REMOVED", "UNSUPPORTED_CITY_REMOVED", "UNSUPPORTED_DAY_LABEL_REMOVED", "UNSUPPORTED_DAY_COUNT",
+                "REDUNDANT_CITY_HINT_REMOVED", "LODGING_EVIDENCE_SCOPE_MISMATCH", "LODGING_EXCLUSION_SCOPE_MISMATCH",
+                "LODGING_EXCLUSION_EVIDENCE_MISSING", "PENDING_LODGING_SCOPE"}
+        }
+        public_result = public_result.model_copy(update={"coverage": TripRecognitionCoverage(
+            recognized_place_count=len(recognized), confirmed_place_count=confirmed,
+            unresolved_place_count=len(recognized) - confirmed,
+            unclassified_mention_count=len(pending_semantics), unprocessed_count=proposal.unprocessed_count,
+            complete=public_result.status == "READY" and not pending_semantics and not proposal.unprocessed_count,
+        )})
         resolution_receipt = {
             "policy": "atomic-planned-place-resolution-v1",
             "eligible_count": sum(item.eligible_for_place_search for item in compiled),
@@ -1864,6 +2150,15 @@ class TripUnderstandingPipeline:
             ),
             "partial_source": partial_source,
             "unprocessed_count": proposal.unprocessed_count,
+            "semantic_diagnostic_counts": dict(Counter(issue.category for issue in proposal.diagnostics)),
+            "place_failure_counts": dict(Counter(
+                "SERVICE_UNAVAILABLE" if item.resolver_receipt.get("status") == "UNAVAILABLE"
+                else "CITY_UNRESOLVED" if item.resolver_receipt.get("status") in {"CITY_SCOPE_NOT_FOUND", "CITY_SCOPE_UNAVAILABLE"}
+                else "AMBIGUOUS_IDENTITY" if "AMBIGUOUS" in str(item.resolver_receipt.get("selection_tier", ""))
+                    or item.resolver_receipt.get("status") in {"AMBIGUOUS", "LEXICON_AMBIGUOUS"}
+                else "CATEGORY_CONFLICT" if item.resolver_receipt.get("status") == "LEXICON_CATEGORY_CONFLICT"
+                else "NO_MATCH"
+                for item in resolved if item.compiled.eligible_for_place_search and item.place is None)),
             "provider_failures_exposed_publicly": 0,
         }
         internal_content = {

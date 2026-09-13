@@ -21,6 +21,7 @@ from app.trip_understanding.map_render import (
     PlanRevisionRef,
 )
 from app.trip_understanding.map_worker import build_configured_renderer
+from app.trip_understanding.map_repository import InMemoryMapRenderRepositoryMixin
 from app.trip_understanding.pipeline import canonical_sha256
 
 
@@ -95,7 +96,12 @@ async def test_live_route_provider_runs_walking_and_transit_concurrently() -> No
             observed_at=datetime(2026, 8, 29, tzinfo=timezone.utc),
         )
 
+    # This transport/concurrency fixture supplies no geometry. Preserve its
+    # real numbers. Internal READY retains its database meaning (all returned),
+    # while the public view cannot claim complete routing without geometry.
     assert output.status == "READY"
+    assert InMemoryMapRenderRepositoryMixin()._memory_snapshot_view(output).status == "LIMITED"
+    assert output.edges[0].walking.connection_status == "UNVERIFIED"
     assert len(output.edges) == 1
     edge = output.edges[0]
     assert edge.walking.duration_minutes == 12

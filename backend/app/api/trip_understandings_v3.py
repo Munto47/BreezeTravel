@@ -6,16 +6,25 @@ import logging
 from datetime import datetime, timezone
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import get_settings
 from app.trip_understanding.anonymous import AnonymousDailyLimitError
-from app.trip_understanding.candidates import CandidateSearchRequest, CandidateSearchView, issue_candidate, search_candidates
+from app.trip_understanding.failures import (
+    INPUT_CAPACITY_EXCEEDED, INPUT_DAY_CAPACITY_EXCEEDED, public_failure_message,
+)
+from app.trip_understanding.candidates import CandidateSearchRequest, PendingLodgingCandidateRequest, CandidateSearchView, issue_candidate, search_candidates
+from app.trip_understanding.lodging_recovery import confirmed_single_destination, recovery_binding, result_cards, validate_recovery_target
 from app.trip_understanding.dining import (
     DiningSearchRequest, DiningCandidatesView, DiningCandidateView, dining_binding, search_dining, valid_anchor,
+    SourceMealSearchRequest, SourceMealCandidatesView, source_meal_context, source_meal_binding, bind_dining_access,
 )
+from app.trip_understanding.daily_dining import DailyDiningView
+from app.trip_understanding.dining_jobs import read_daily_dining
+from app.trip_understanding.relative_route_previews import PublicRelativeRouteOptions
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
@@ -40,6 +49,7 @@ from app.trip_understanding.models import (
     ChangeAdoptRequest,
     ChangePreviewRequest,
     ClaimedTripView,
+    CreateOutcome,
     CommandAppliedView,
     CreateTripUnderstandingRequest,
     MaterializedTripView,
@@ -63,6 +73,7 @@ from app.trip_understanding.repository import (
 )
 from app.trip_understanding.service import TripUnderstandingApplicationService
 from app.trip_understanding.collaboration_import import (
+    CollaborationImportReplay,
     CollaborationRouteUnavailableError,
     load_collaboration_import,
 )
@@ -109,6 +120,18 @@ def get_place_candidate_search():
 
 def get_dining_candidate_search():
     return search_dining
+
+
+async def get_relative_route_provider():
+    settings = get_settings()
+    if settings.trip_understanding_provider_mode != "live" or not settings.amap_api_key:
+        yield None
+        return
+    from app.trip_understanding.amap_route import AmapRouteProvider
+    # The adapter doesn't own a long-lived client or expose aclose. This request
+    # owns one client, shared across its bounded comparisons and always closed.
+    async with httpx.AsyncClient(timeout=6.0) as client:
+        yield AmapRouteProvider(api_key=settings.amap_api_key, client=client)
 
 
 OptionalUserDep = Annotated[str | None, Depends(get_optional_user)]
@@ -307,6 +330,7 @@ class FromCollaborationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     room_id: str = Field(min_length=1, max_length=128)
+    room_route_version: int | None = Field(default=None, ge=1, strict=True)
 
 
 @router.post(
@@ -332,18 +356,22 @@ async def create_trip_understanding_from_collaboration(
             user_id=current_user,
             room_id=body.room_id,
             idempotency_key=key,
+            **({"room_route_version": body.room_route_version} if body.room_route_version is not None else {}),
         )
-        outcome = await TripUnderstandingApplicationService(
-            repository,
-            ttl_hours=settings.trip_understanding_demo_ttl_hours,
-            full_retention_days=settings.trip_understanding_full_retention_days,
-        ).create_from_collaboration(source, owner_user_id=current_user)
+        if isinstance(source, CollaborationImportReplay):
+            outcome = CreateOutcome(accepted=source.accepted, replayed=True)
+        else:
+            outcome = await TripUnderstandingApplicationService(
+                repository,
+                ttl_hours=settings.trip_understanding_demo_ttl_hours,
+                full_retention_days=settings.trip_understanding_full_retention_days,
+            ).create_from_collaboration(source, owner_user_id=current_user)
     except CollaborationRouteUnavailableError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "code": "COLLABORATION_ROUTE_UNAVAILABLE",
-                "message": "请先在协同规划中保存一条可用路线",
+                "code": exc.code,
+                "message": exc.public_message,
             },
         ) from exc
     except IdempotencyConflictError as exc:
@@ -370,7 +398,7 @@ async def create_trip_understanding_from_collaboration(
 
 @router.post("/{public_resource_id}/place-candidates", response_model=CandidateSearchView)
 async def find_place_candidates(
-    public_resource_id: str, body: CandidateSearchRequest, request: Request,
+    public_resource_id: str, body: CandidateSearchRequest | PendingLodgingCandidateRequest, request: Request,
     response: Response, repository: RepositoryDep, current_user: OptionalUserDep,
     search=Depends(get_place_candidate_search),
 ):
@@ -380,17 +408,43 @@ async def find_place_candidates(
     stored = await repository.get_result(resource)
     if stored is None:
         raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"})
-    card = next((card for day in stored.result.days for card in day.activities if card.activity_token == body.activity_token), None)
-    if card is None:
-        raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "卡片已调整，请刷新后重试"})
-    city = body.city or card.city or next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
-    places = await search(city=city, query=body.query, category_hint=card.category)
+    if isinstance(body, PendingLodgingCandidateRequest):
+        expected = _require_if_match(request.headers.get("If-Match"))
+        if expected != stored.opaque_etag:
+            raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已变化，请刷新后重试"})
+        try:
+            validate_recovery_target(stored.result, body.pending_token, body.intent)
+        except CommandTargetChangedError:
+            raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "待确认住宿已调整，请刷新后重试"}) from None
+        supplementary = await repository.get_supplementary_view(resource, now=datetime.now(timezone.utc), include_pending_lodgings=True)
+        pending = next((item for item in supplementary.pending_lodgings if item.pending_token == body.pending_token), None)
+        if supplementary.status != "AVAILABLE" or pending is None:
+            raise HTTPException(status_code=409, detail={"code": "SOURCE_UNAVAILABLE", "message": "原文已不可用，无法恢复此住宿"})
+        city = body.city or pending.city or confirmed_single_destination(stored.result)
+        if not city:
+            raise HTTPException(status_code=422, detail={"code": "CITY_REQUIRED", "message": "请先选择酒店所在城市"},
+                headers={"Cache-Control": "no-store"})
+        category = "住宿"
+        binding = recovery_binding(body.pending_token, body.intent)
+    else:
+        card = next((card for card in result_cards(stored.result) if card.activity_token == body.activity_token), None)
+        if card is None:
+            raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "卡片已调整，请刷新后重试"})
+        city = body.city or card.city or next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
+        category, binding = card.category, body.activity_token
+    places = await search(city=city, query=body.query, category_hint=category)
     response.headers["Cache-Control"] = "no-store"
     if places is None:
         return CandidateSearchView(status="UNAVAILABLE")
+    if not isinstance(body, PendingLodgingCandidateRequest) and any(place.category == "餐饮" for place in places):
+        plan, etag = await repository.get_current_place_plan(resource)
+        if etag != stored.opaque_etag:
+            raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已变化，请刷新后重试"})
+        places = [bind_dining_access(place, stops=plan.stops, activity_token=body.activity_token, before=True)
+            if place.category == "餐饮" else place for place in places]
     now = datetime.now(timezone.utc)
     candidates = [issue_candidate(place, public_resource_id=public_resource_id,
-        activity_token=body.activity_token, expected_etag=stored.opaque_etag, now=now) for place in places]
+        activity_token=binding, expected_etag=stored.opaque_etag, now=now, expires_at=resource.expires_at) for place in places]
     return CandidateSearchView(status="AVAILABLE" if candidates else "EMPTY", candidates=candidates)
 
 
@@ -419,9 +473,94 @@ async def find_dining_candidates(
     now = datetime.now(timezone.utc)
     candidates = [DiningCandidateView(**issue_candidate(place, public_resource_id=public_resource_id,
         activity_token=dining_binding(body.activity_token), expected_etag=etag, now=now).model_dump(),
-        reason=f"在{anchor.name}附近；营业情况请到店前确认。") for place in places[:3]]
+        reason=f"在{anchor.name}附近；营业情况请到店前确认。") for place in
+        [bind_dining_access(place, stops=plan.stops, activity_token=body.activity_token) for place in places[:3]]]
     return DiningCandidatesView(status="AVAILABLE" if candidates else "EMPTY",
         message="附近餐饮" if candidates else "暂未找到合适的附近餐饮，可换一站再看看。", candidates=candidates)
+
+
+@router.post("/{public_resource_id}/source-meal-candidates", response_model=SourceMealCandidatesView)
+async def find_source_meal_candidates(public_resource_id: str, body: SourceMealSearchRequest,
+    request: Request, response: Response, repository: RepositoryDep, current_user: OptionalUserDep,
+    search=Depends(get_dining_candidate_search)):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    expected = _require_if_match(request.headers.get("If-Match"))
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        plan, etag = await repository.get_current_place_plan(resource)
+        if etag != expected:
+            raise RevisionConflictError("source meal version changed")
+        trip = await repository.load_recommendation_trip_view(resource.understanding_id, plan.plan_ref.revision)
+        if trip.etag != expected:
+            raise RevisionConflictError("source meal version changed")
+        view = source_meal_context(trip.result, trip.plan, body.meal_slot, body.position)
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
+    except RevisionConflictError:
+        raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后重新查找。"}) from None
+    except CommandTargetChangedError:
+        raise HTTPException(status_code=422, detail={"code": "MEAL_TARGET_CHANGED", "message": "这餐的位置已变化，请重新打开餐位。"}) from None
+    response.headers["ETag"] = f'"{etag}"'
+    if view.status != "AVAILABLE":
+        return view
+    selected = next(stop for stop in plan.stops if stop.activity_token == view.after_activity_token)
+    excluded = {stop.canonical_place_id for stop in plan.stops if stop.day_index == body.meal_slot.day_index and stop.canonical_place_id}
+    places = await search(anchor=selected, excluded_ids=excluded, meal_only=view.meal_role != "SNACK", query=body.query.strip())
+    if places is None:
+        return view.model_copy(update={"status": "UNAVAILABLE", "message": "餐厅暂时无法查询，原文安排已保留，可以稍后重试。"})
+    now = datetime.now(timezone.utc)
+    view.candidates = [DiningCandidateView(**issue_candidate(place, public_resource_id=public_resource_id,
+        activity_token=source_meal_binding(view.after_activity_token, before=view.insert_before,
+            meal_slot=body.meal_slot, meal_role=view.meal_role), expected_etag=etag, now=now,
+        expires_at=resource.expires_at).model_dump(), reason="按你的手动搜索词找到的附近门店；菜品供应、营业与绕路情况仍需确认。") for place in
+        [bind_dining_access(place, stops=plan.stops, activity_token=view.after_activity_token,
+            before=view.insert_before) for place in places[:3]]]
+    if not view.candidates:
+        view.status, view.message = "EMPTY", "附近未找到名称或供应商标签与搜索词对应的门店，可以换一个词；没有改选其他餐厅。"
+    return view
+
+
+@router.get("/{public_resource_id}/daily-dining", response_model=DailyDiningView)
+async def get_daily_dining(public_resource_id: str, request: Request, response: Response,
+                           repository: RepositoryDep, current_user: OptionalUserDep):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    try:
+        view, etag = await read_daily_dining(repository, resource)
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "no-store"
+    return view
+
+
+@router.post("/{public_resource_id}/daily-dining", response_model=DailyDiningView)
+async def refresh_daily_dining(public_resource_id: str, request: Request, response: Response,
+                               repository: RepositoryDep, current_user: OptionalUserDep):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    expected = _require_if_match(request.headers.get("If-Match"))
+    key = request.headers.get("Idempotency-Key", "")
+    if not key or len(key) > 200:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_IDEMPOTENCY_KEY", "message": "请重新更新建议"})
+    replay_info = {}
+    try:
+        view, etag = await read_daily_dining(repository, resource, request_key=key, expected_etag=expected, replay_info=replay_info)
+    except IdempotencyConflictError:
+        raise HTTPException(status_code=409, detail={"code":"IDEMPOTENCY_CONFLICT", "message":"这次更新请求已用于其他版本，请重新更新"}) from None
+    except RevisionConflictError:
+        raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后重试"}) from None
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "no-store"
+    if replay_info.get("replayed"):
+        response.headers["Idempotency-Replayed"] = "true"
+    return view
 
 
 @router.get(
@@ -460,6 +599,9 @@ async def get_trip_understanding_result(
         stored = await repository.get_result(resource)
     response.headers["Cache-Control"] = "no-store"
     if resource.state == "FAILED":
+        if resource.failure_category in {INPUT_CAPACITY_EXCEEDED, INPUT_DAY_CAPACITY_EXCEEDED}:
+            raise HTTPException(status_code=409, detail={"code": resource.failure_category,
+                "message": public_failure_message(resource.failure_category)})
         raise HTTPException(status_code=409, detail={"code": "UNDERSTANDING_FAILED", "message": "这次没有整理完成，可以重新尝试"})
     if resource.state == "CANCELLED":
         raise HTTPException(
@@ -653,6 +795,37 @@ async def get_stay_suggestions(
 
 
 @router.post(
+    "/{public_resource_id}/stay-suggestions", response_model=StaySuggestionView,
+)
+async def refresh_stay_suggestions(public_resource_id: str, request: Request, response: Response,
+    repository: RepositoryDep, current_user: OptionalUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
+    expected, key = _require_if_match(if_match), _require_idempotency_key(idempotency_key)
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    try:
+        view, etag, replayed = await repository.refresh_stay_suggestions(resource, expected_etag=expected,
+            idempotency_key=key, now=datetime.now(timezone.utc))
+    except RevisionConflictError:
+        raise HTTPException(status_code=409, detail={"code": "REVISION_CONFLICT", "message": "行程已调整，请刷新后再试"}) from None
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "STAY_NOT_READY", "message": "行程地点尚未准备好"}) from None
+    except IdempotencyConflictError:
+        raise HTTPException(status_code=409, detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新更新住宿建议"}) from None
+    except IdempotencyInProgressError:
+        raise HTTPException(status_code=409, detail={"code": "REQUEST_IN_PROGRESS", "message": "住宿建议正在更新"}) from None
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        raise _resource_error(exc) from exc
+    response.headers["ETag"] = f'"{etag}"'
+    response.headers["Cache-Control"] = "no-store"
+    if replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return view
+
+
+@router.post(
     "/{public_resource_id}/stay-selection",
     response_model=StaySelectionAppliedView,
 )
@@ -796,7 +969,7 @@ async def get_trip_understanding_checks(
 
 @router.post(
     "/{public_resource_id}/changes/preview",
-    response_model=PublicChangePreview,
+    response_model=PublicChangePreview | PublicRelativeRouteOptions,
 )
 async def preview_trip_understanding_change(
     public_resource_id: str,
@@ -806,6 +979,7 @@ async def preview_trip_understanding_change(
     repository: RepositoryDep,
     current_user: OptionalUserDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    route_provider=Depends(get_relative_route_provider),
 ):
     key = _require_idempotency_key(idempotency_key)
     resource = await _authorize(
@@ -815,14 +989,24 @@ async def preview_trip_understanding_change(
         repository=repository,
     )
     try:
-        outcome = await TripUnderstandingApplicationService(
-            repository
-        ).preview_trip_change(
+        if body.day_index is not None:
+            from app.trip_understanding.pipeline import canonical_sha256
+            expected = _require_if_match(request.headers.get("If-Match"))
+            view, replayed = await repository.preview_relative_routes(resource,
+                expected_etag=expected, day_index=body.day_index, idempotency_key=key,
+                request_hash=canonical_sha256({"kind":"RELATIVE_ORDER","day":body.day_index,"etag":expected}),
+                provider=route_provider)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["ETag"] = f'"{expected}"'
+            if replayed:
+                response.headers["Idempotency-Replayed"] = "true"
+            return view
+        outcome = await TripUnderstandingApplicationService(repository).preview_trip_change(
             resource,
             check_token=body.check_token,
             idempotency_key=key,
         )
-    except ResourceNotReadyError as exc:
+    except (ResourceNotReadyError, RevisionConflictError, CommandTargetChangedError) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "CHECK_CHANGED", "message": "这项检查已经变化，请刷新后再试"},
@@ -879,7 +1063,7 @@ async def adopt_trip_understanding_change(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "TRIP_UPDATED", "message": "行程已经更新，请刷新后再试"},
         ) from exc
-    except ResourceNotReadyError as exc:
+    except (ResourceNotReadyError, CommandTargetChangedError) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "CHANGE_CHANGED", "message": "这次改动已经变化，请重新预览"},
@@ -923,6 +1107,17 @@ async def apply_trip_understanding_command(
         user_id=current_user,
         repository=repository,
     )
+    # Retain historical DTOs and stored records, but do not accept new calendar
+    # or clock edits through the current relative-order product entry point.
+    values = body.model_dump(exclude_unset=True)
+    timing_edit = body.command_type in {
+        "ACTIVITY_TIME_SET", "ACTIVITY_TIMES_SHIFT", "ACTIVITY_TIMES_APPLY",
+    } or (body.command_type == "ASSUMPTION_SET" and values.get("key") == "calendar")
+    timing_edit = timing_edit or any(values.get(field) not in (None, "", False, "UNSPECIFIED")
+        for field in ("start_time", "end_time", "visit_duration_minutes", "time_hint", "locked", "fixed_commitment"))
+    if timing_edit:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "TIMING_EDIT_UNSUPPORTED", "message": "当前行程只安排第几天和地点先后，不设置日期、时刻或游玩时长。"})
     try:
         outcome = await TripUnderstandingApplicationService(repository).apply_command(
             resource,
@@ -1021,13 +1216,14 @@ async def claim_trip_understanding(
     return outcome.claimed
 
 
-async def _private_import_view(public_resource_id, request, repository, current_user, *, supplementary=False):
+async def _private_import_view(public_resource_id, request, repository, current_user, *, supplementary=False, include_pending_lodgings=False):
     try:
         resource = await _authorize(public_resource_id,
             cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
             user_id=current_user, repository=repository)
         reader = repository.get_supplementary_view if supplementary else repository.get_source_view
-        return await reader(resource, now=datetime.now(timezone.utc))
+        options = {"include_pending_lodgings": True} if supplementary and include_pending_lodgings else {}
+        return await reader(resource, now=datetime.now(timezone.utc), **options)
     except HTTPException as exc:
         exc.headers = {**(exc.headers or {}), "Cache-Control": "no-store"}
         raise
@@ -1046,9 +1242,10 @@ async def read_trip_understanding_source(public_resource_id: str, request: Reque
 
 @router.get("/{public_resource_id}/supplementary", response_model=SupplementaryView)
 async def read_trip_understanding_supplementary(public_resource_id: str, request: Request,
-    response: Response, repository: RepositoryDep, current_user: OptionalUserDep):
+    response: Response, repository: RepositoryDep, current_user: OptionalUserDep, include_pending_lodgings: bool = False):
     response.headers["Cache-Control"] = "no-store"
-    return await _private_import_view(public_resource_id, request, repository, current_user, supplementary=True)
+    return await _private_import_view(public_resource_id, request, repository, current_user, supplementary=True,
+        include_pending_lodgings=include_pending_lodgings)
 
 
 @router.delete("/{public_resource_id}/source", status_code=status.HTTP_204_NO_CONTENT)

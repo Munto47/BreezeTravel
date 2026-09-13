@@ -1,0 +1,81 @@
+{
+  "observed_at": "2026-09-08T07:53:19.215382+00:00",
+  "source": "https://restapi.amap.com/v5/place/text",
+  "official_source": "https://www.bjp.org.cn/cgzn/pwxx/index.shtml",
+  "official_address": "北京市西城区西直门外大街138号",
+  "note": "Public POI fields from the recorded untyped query. Coordinates and IDs are a fixed test response, not a live identity cache.",
+  "pois": [
+    {
+      "id": "B000A88EDQ",
+      "name": "北京天文馆",
+      "type": "科教文化服务;天文馆;天文馆",
+      "typecode": "140700",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "西城区",
+      "adcode": "110102",
+      "address": "西直门外大街138号",
+      "location": "116.336833,39.937306"
+    },
+    {
+      "id": "B0FFFE4I06",
+      "name": "北京天文馆-A馆展区",
+      "type": "科教文化服务;天文馆;天文馆",
+      "typecode": "140700",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "西城区",
+      "adcode": "110102",
+      "address": "动物园地铁站出入口步行80米",
+      "location": "116.336498,39.937535"
+    },
+    {
+      "id": "B0MUF7HHNY",
+      "name": "北京天文馆-黄色球体(打卡点)",
+      "type": "风景名胜;风景名胜;观景点",
+      "typecode": "110209",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "西城区",
+      "adcode": "110102",
+      "address": "西直门外大街138号北京天文馆",
+      "location": "116.337287,39.937253"
+    },
+    {
+      "id": "B000A8486U",
+      "name": "北京天文馆光学天象厅",
+      "type": "科教文化服务;天文馆;天文馆",
+      "typecode": "140700",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "西城区",
+      "adcode": "110102",
+      "address": "西直门外大街138号",
+      "location": "116.33649,39.937385"
+    },
+    {
+      "id": "B0MUF7GXBK",
+      "name": "北京天文馆-银色球体(打卡点)",
+      "type": "风景名胜;风景名胜;观景点",
+      "typecode": "110209",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "西城区",
+      "adcode": "110102",
+      "address": "西直门外大街138号北京天文馆(动物园地铁站D西南口旁)",
+      "location": "116.337726,39.937812"
+    },
+    {
+      "id": "B000A87752",
+      "name": "北京天文馆怀柔科普基地",
+      "type": "科教文化服务;天文馆;天文馆",
+      "typecode": "140700",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "怀柔区",
+      "adcode": "110116",
+      "address": "北大街43号",
+      "location": "116.638946,40.336066"
+    }
+  ]
+}

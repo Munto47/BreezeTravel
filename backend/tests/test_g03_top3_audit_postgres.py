@@ -62,7 +62,9 @@ async def test_g03_postgres_old_db_upgrade_materialize_concurrent_adopt_and_post
                 """
             )
             for migration in migrations:
-                if migration.name >= "031_day_index_trip_bridge.sql":
+                # Exercise the legacy bridge upgrade independently while keeping
+                # the current worker's additive dining/stay schema available.
+                if migration.name == "031_day_index_trip_bridge.sql":
                     continue
                 await migration_connection.execute(
                     migration.read_text(encoding="utf-8")
@@ -374,7 +376,9 @@ async def test_g03_postgres_old_db_upgrade_materialize_concurrent_adopt_and_post
             idempotency_key="g03-materialize-absolute-dates",
             now=now,
         )
-        assert dated.view.calendar == "2026-09-01 至 2026-09-03"
+        # The current product uses relative days. Legacy calendar metadata stays
+        # readable, but must not reactivate dated scheduling when materialized.
+        assert dated.view.calendar == "按 Day 编号安排"
         assert dated.view.party_size == 4
         absolute_revision = await pool.fetchrow(
             """
@@ -387,13 +391,29 @@ async def test_g03_postgres_old_db_upgrade_materialize_concurrent_adopt_and_post
             LIMIT 1
             """
         )
-        assert absolute_revision["calendar_mode"] == "ABSOLUTE_DATES"
-        assert absolute_revision["trip_start_date"].isoformat() == "2026-09-01"
-        assert absolute_revision["trip_end_date"].isoformat() == "2026-09-03"
+        assert absolute_revision["calendar_mode"] == "DAY_INDEX_ONLY"
+        assert absolute_revision["trip_start_date"] is None
+        assert absolute_revision["trip_end_date"] is None
         assert absolute_revision["party_size"] == 4
         assert absolute_revision["party_size_source"] == "USER_PROVIDED"
-        assert absolute_revision["first_day"] == "2026-09-01"
-        assert absolute_revision["last_day"] == "2026-09-03"
+        assert absolute_revision["first_day"] is None
+        assert absolute_revision["last_day"] is None
+        assert await pool.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM trip_understanding_revisions r,
+                     jsonb_array_elements(r.assumptions_json) a
+                WHERE r.understanding_id = $1
+                  AND r.revision = (
+                    SELECT MAX(revision) FROM trip_understanding_revisions
+                    WHERE understanding_id = $1
+                  )
+                  AND a->>'key' = 'calendar'
+                  AND a->>'value' = '2026-09-01 至 2026-09-03'
+            )
+            """,
+            dated_resource.understanding_id,
+        )
         assert await pool.fetchval(
             "SELECT COUNT(*) FROM trip_materialization_lineage"
         ) == 4

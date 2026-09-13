@@ -144,7 +144,12 @@ def test_missing_city_evidence_does_not_poison_a_safe_single_city_assumption(evi
     mention = proposal.mentions[0]
     assert mention.city_hint is None and mention.city_evidence is None
     assert _model_activity_cities(source, proposal, mention) == ("北京",)
-    assert proposal.unprocessed_count == 1
+    # Existing city contract (59337d54), unrelated to weak route modality:
+    # a redundant, unsupported soft hint is removed without an open failure.
+    assert proposal.unprocessed_count == 0
+    assert [(issue.category, issue.retryable) for issue in proposal.diagnostics] == [
+        ("REDUNDANT_CITY_HINT_REMOVED", False),
+    ]
 
 
 @pytest.mark.parametrize("source,name", [
@@ -215,7 +220,19 @@ def test_invalid_repeat_of_soft_destination_is_not_hard_city_evidence(evidence):
     source = "Day1：颐和园，里面有苏州街，晚上尝老北京风味。"
     proposal = draft(source, "颐和园", evidence=evidence)
     assert proposal.mentions[0].city_hint is None
-    assert _model_activity_cities(source, proposal, proposal.mentions[0]) == ("北京",)
+    # Existing city contract (59337d54), not the weak route policy change:
+    # nonempty invalid evidence stays pending until an explicit metadata repair.
+    assert proposal.mentions[0].city_evidence == evidence
+    assert _model_activity_cities(source, proposal, proposal.mentions[0]) == ("目的地待确认",)
+    assert proposal.unprocessed_count == 1
+    assert [(issue.category, issue.retryable) for issue in proposal.diagnostics] == [
+        ("UNSUPPORTED_CITY_REMOVED", True),
+    ]
+    repaired = draft(source, "颐和园", city=None, evidence=None)
+    assert repaired.mentions[0].city_hint is None and repaired.mentions[0].city_evidence is None
+    assert repaired.mentions[0].atomic_place_name == proposal.mentions[0].atomic_place_name == "颐和园"
+    assert _model_activity_cities(source, repaired, repaired.mentions[0]) == ("北京",)
+    assert repaired.unprocessed_count == 0
 
 
 def test_discarded_evidence_still_cannot_resolve_unassigned_multiple_cities():

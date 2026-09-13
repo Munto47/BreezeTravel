@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import re
@@ -27,6 +28,7 @@ from app.trip_understanding._three_city_place_lexicon import (
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
 from app.trip_understanding.city_scope import CityScope, CityScopeLookup
+from app.trip_understanding.city_knowledge import get_city_knowledge
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace, safe_poi_photo_url
 from app.trip_understanding.pipeline import atomic_place_rejection_reason, canonical_sha256
@@ -45,7 +47,7 @@ _PROVIDER_MATCH_TIERS = (
     "VENUE_SUFFIX_EQUIVALENT",
 )
 _STRICT_PROVIDER_TYPE_VENUE_KINDS = frozenset(
-    {"博物馆", "美术馆", "纪念馆", "科技馆", "图书馆", "展览馆", "艺术馆"}
+    {"博物馆", "美术馆", "纪念馆", "科技馆", "天文馆", "图书馆", "展览馆", "艺术馆"}
 )
 _CITY_ADMIN_RULES = {
     "北京": {"province": "北京", "adcode_prefix": "11", "municipality": True},
@@ -139,6 +141,7 @@ _LEXICAL_CATEGORY_MARKERS = (
             "美术馆",
             "纪念馆",
             "科技馆",
+            "天文馆",
             "图书馆",
             "水族馆",
             "公园",
@@ -305,6 +308,7 @@ def _identity_qualified(value: str) -> bool:
         or re.search(r"(?:东|西|南|北|新|旧|老|总)馆|(?:东|西|南|北)门|.+店$", value)
         or re.search(r"(?:博物馆|博物院|美术馆|科技馆|酒店|饭店|公园|景区).+(?:馆|楼|厅|门|店|中心|区|堂)$",
                      re.sub(r"(?:风景区|景区)$", "", value))
+        or re.search(r"天文馆.+(?:馆|厅|基地|观测站)$", value)
     )
 
 
@@ -315,7 +319,7 @@ def _place_venue_kind(value: str) -> str | None:
         return direct
     value = _PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip()
     campus = re.fullmatch(
-        r"(?P<base>.+(?:博物院|博物馆|美术馆|科技馆|纪念馆|图书馆|展览馆|艺术馆))"
+        r"(?P<base>.+(?:博物院|博物馆|美术馆|科技馆|天文馆|纪念馆|图书馆|展览馆|艺术馆))"
         r"[（(·— -]?[A-Za-z0-9\u4e00-\u9fff·]{0,16}(?:馆区|院区|校区|分馆|馆)[）)]?",
         value,
     )
@@ -367,6 +371,17 @@ def _name_match_tier(
     # Untrusted provider aliases cannot erase a campus, branch or child POI.
     # Source-backed explicit aliases above still need full city/type validation.
     if _identity_qualified(primary) or _identity_qualified(canonical_name) or "广场" in primary:
+        return None
+
+    # A reviewed alias identifies a particular subject. A provider's unrelated
+    # primary name cannot inherit that identity just by repeating the short
+    # alias (for example 沙面公园 labelled 沙面 when the subject is 沙面岛).
+    # Exact attributed names above remain eligible; unknown names need choice.
+    if safe_aliases:
+        if any(_explicit_venue_suffix_equivalent(primary_value, expected_value)
+               for primary_value in primary_values
+               for expected_value in canonical_values | safe_alias_values):
+            return "VENUE_SUFFIX_EQUIVALENT"
         return None
 
     provider_alias_values = {
@@ -531,6 +546,14 @@ def _visitor_type_compatible(raw: dict[str, Any], atomic: str) -> bool:
     code, label = raw.get("typecode"), raw.get("type")
     if not isinstance(code, str) or not isinstance(label, str):
         return False
+    visitor_pairs = {
+        ("060100", "购物服务;商场;商场"),
+        ("060101", "购物服务;商场;购物中心"),
+        ("060102", "购物服务;商场;普通商场"),
+        ("080501", "体育休闲服务;休闲场所;游乐场"),
+    }
+    if (code, label) in visitor_pairs:
+        return True
     if re.fullmatch(r"0610\d{2}", code) and label in {
         "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
     }:
@@ -546,6 +569,8 @@ def _visitor_type_compatible(raw: dict[str, Any], atomic: str) -> bool:
     for item_code, item_label in zip(codes, labels, strict=True):
         signal = classify_amap_type_signals(item_code, item_label)
         if signal.complete and not signal.conflict and signal.category == PlaceCategory.ATTRACTION:
+            attraction = True
+        elif (item_code, item_label) in visitor_pairs:
             attraction = True
         elif re.fullmatch(r"0610\d{2}", item_code) and item_label in {
             "购物服务;特色商业街;特色商业街", "购物服务;特色商业街;步行街",
@@ -595,6 +620,34 @@ def _same_visitor_street(candidates: tuple[_MatchedCandidate, ...], atomic: str)
     return True
 
 
+def _reviewed_visitor_street(candidates: tuple[_MatchedCandidate, ...], *, city: str, name: str) -> bool:
+    """Prefer one reviewed tourist street identity, within one bounded district.
+
+    A generic road/attraction name alone cannot activate this rule. The visitor
+    POI must carry both commercial-street and tourism signals; distant namesakes
+    and multiple visitor identities still require a choice.
+    """
+    entry = get_city_knowledge().query_lookup(city=city, name=name).unique
+    visitors = [c for c in candidates if c.raw.get("typecode") != "190301"]
+    if (entry is None or entry.category != "attraction" or not entry.district
+            or len(visitors) != 1 or len(candidates) < 2
+            or len({(c.raw.get("name"), c.raw.get("adcode")) for c in candidates}) != 1
+            or any(c.raw.get("adname") != entry.district for c in candidates)):
+        return False
+    codes = str(visitors[0].raw.get("typecode")).split("|")
+    if not (any(code in {"061000", "061001"} for code in codes)
+            and any(code.startswith("11") for code in codes)):
+        return False
+    for left in candidates:
+        for right in candidates:
+            lon1, lat1 = map(math.radians, left.coordinates)
+            lon2, lat2 = map(math.radians, right.coordinates)
+            hav = math.sin((lat2-lat1)/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2
+            if 12742000 * math.asin(min(1, math.sqrt(hav))) > 1000:
+                return False
+    return True
+
+
 def _evaluate_candidates(
     pois: list[dict[str, Any]],
     *,
@@ -609,8 +662,16 @@ def _evaluate_candidates(
     name_matches: list[tuple[dict[str, Any], str]] = []
     alias_match_ids: set[str] = set()
     hint = landmark_hint(city, canonical_name)
+    technical_hint = get_city_knowledge().technical_landmark(city=city, name=canonical_name)
     for item in pois:
         if hint and not hint.matches(str(item.get("name") or "")):
+            continue
+        if technical_hint and _normalized_name(str(item.get("name") or "")) not in {
+            _normalized_name(name) for name in (technical_hint.canonical_name, *technical_hint.aliases)
+        }:
+            # A building's official identity cannot be replaced by a tenant or
+            # observation deck merely because the provider advertises its parent
+            # as an alias. Apply the same boundary as legacy landmark hints.
             continue
         tier = _name_match_tier(
             item,
@@ -691,7 +752,10 @@ def _evaluate_candidates(
         if signals.conflict and not visitor_type:
             category_conflict_ids.add(provider_id)
             continue
-        if expected_category == PlaceCategory.ATTRACTION and verified_technical_landmark(item, city=city, name=canonical_name):
+        if expected_category == PlaceCategory.ATTRACTION and (
+            verified_technical_landmark(item, city=city, name=canonical_name)
+            or get_city_knowledge().technical_type_matches(item, city=city, name=canonical_name)
+        ):
             category = PlaceCategory.ATTRACTION
             compatibility_basis = "REVIEWED_LANDMARK_EXACT_TECHNICAL_TYPE"
         elif visitor_type:
@@ -749,7 +813,15 @@ def _evaluate_candidates(
         if not candidates:
             continue
         selection_tier = tier if len(candidates) == 1 else f"AMBIGUOUS_{tier}"
-        if _same_visitor_street(candidates, atomic):
+        visitor_pois = tuple(c for c in candidates if c.raw.get("typecode") != "190301")
+        if (expected_category == PlaceCategory.ATTRACTION and atomic.endswith(("路", "街", "巷", "胡同"))
+                and len(visitor_pois) == 1 and len(visitor_pois) < len(candidates)
+                and _reviewed_visitor_street(candidates, city=city, name=canonical_name)):
+            # A unique visitor POI is a stronger semantic identity than road
+            # segment coordinates. Distinct visitor POIs remain ambiguous.
+            selected = visitor_pois[0]
+            selection_tier = f"{tier}_VISITOR_POI_OVER_ROAD_SEGMENTS"
+        elif _same_visitor_street(candidates, atomic):
             selected = next(c for c in candidates if c.raw.get("typecode") != "190301") if any(c.raw.get("typecode") != "190301" for c in candidates) else candidates[0]
             selection_tier = f"{tier}_SAME_VISITOR_STREET"
         elif len(candidates) == 1 or _same_road_segments(candidates):
@@ -772,7 +844,7 @@ def _evaluate_candidates(
         "primary_exact_candidate_count": len(by_tier["CANONICAL_EXACT"]),
         "provider_type_conflict_candidate_count": len(category_conflict_ids),
         "provider_type_incomplete_candidate_count": len(category_incomplete_ids),
-        "name_match_policy": "HIGHEST_TIER_UNIQUE_OR_SAME_ROAD_V6",
+        "name_match_policy": "HIGHEST_TIER_VISITOR_IDENTITY_V7",
         "selection_tier": selection_tier,
     }
     return _CandidateDecision(selected=selected, metrics=metrics)
@@ -803,6 +875,9 @@ def _minimal_call_receipt(
         "latency_ms": receipt.get("latency_ms", 0.0),
         "observed_at": receipt.get("observed_at", "NOT_COMPLETED"),
         "typecodes": receipt.get("typecodes", []),
+        "external_calls": receipt.get("external_calls", 1),
+        "retry_count": receipt.get("retry_count", 0),
+        "retry_events": receipt.get("retry_events", []),
         "raw_provider_response_retained": False,
     }
 
@@ -833,7 +908,8 @@ def _combine_rewrite_receipts(
             sum(float(call["latency_ms"]) for call in calls),
             3,
         ),
-        "external_calls": 2,
+        "external_calls": int(primary.get("external_calls", 1)) + int(rewrite.get("external_calls", 1)),
+        "retry_count": int(primary.get("retry_count", 0)) + int(rewrite.get("retry_count", 0)),
         "rewrite_count": 1,
         "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
         "primary_typecodes": primary.get("typecodes", []),
@@ -853,6 +929,8 @@ class AmapPlaceResolver:
         endpoint: str = AMAP_POI_V2_ENDPOINT,
         deadline_seconds: float = 3.0,
         client: httpx.AsyncClient | None = None,
+        success_cache_seconds: float = 900.0,
+        success_cache_size: int = 256,
     ) -> None:
         if not api_key:
             raise ValueError("Amap API key is required")
@@ -866,6 +944,10 @@ class AmapPlaceResolver:
         self.client = client
         self._owned_client: httpx.AsyncClient | None = None
         self._city_scopes = CityScopeLookup()
+        self._success_cache_seconds = max(0.0, min(success_cache_seconds, 3600.0))
+        self._success_cache_size = max(0, min(success_cache_size, 1024))
+        self._success_cache: dict[tuple, tuple[float, PlaceResolutionOutcome]] = {}
+        self._inflight: dict[tuple, asyncio.Task] = {}
 
     async def city_scope(self, city: str, receipt: dict | None = None) -> CityScope | None:
         return await self._city_scopes.get(city, client=self._http_client(), api_key=self.api_key, timeout=self.deadline_seconds, receipt=receipt)
@@ -878,6 +960,13 @@ class AmapPlaceResolver:
         return self._owned_client
 
     async def aclose(self) -> None:
+        pending = list(self._inflight.values())
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        self._inflight.clear()
+        self._success_cache.clear()
         if self._owned_client is not None:
             await self._owned_client.aclose()
             self._owned_client = None
@@ -951,12 +1040,33 @@ class AmapPlaceResolver:
         }
         started = time.perf_counter()
         observed_at = datetime.now(UTC)
+        attempts = 0
+        retry_events = []
         try:
-            response = await self._http_client().get(
-                self.endpoint,
-                params=params,
-                timeout=self.deadline_seconds,
-            )
+            for attempt in range(2):
+                remaining = self.deadline_seconds - (time.perf_counter() - started)
+                if remaining <= 0:
+                    raise httpx.ReadTimeout("POI query deadline exhausted")
+                attempts += 1
+                try:
+                    try:
+                        response = await asyncio.wait_for(self._http_client().get(
+                            self.endpoint, params=params, timeout=remaining), timeout=remaining)
+                    except TimeoutError as error:
+                        raise httpx.ReadTimeout("POI query deadline exhausted") from error
+                    # Retry transport and temporary upstream failures once inside
+                    # the original deadline. Quota/auth/invalid data are not retried.
+                    if attempt == 0 and response.status_code in {502, 503, 504}:
+                        retry_events.append({"attempt": attempts, "reason": "TEMPORARY_HTTP", "http_status": response.status_code})
+                        budget_left = self.deadline_seconds - (time.perf_counter() - started)
+                        await asyncio.sleep(min(0.05, max(0, budget_left / 10)))
+                        continue
+                    break
+                except httpx.TransportError as error:
+                    if attempt or time.perf_counter() - started >= self.deadline_seconds:
+                        raise
+                    retry_events.append({"attempt": attempts, "reason": type(error).__name__})
+                    await asyncio.sleep(0)
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as exc:
@@ -965,8 +1075,11 @@ class AmapPlaceResolver:
                 provider_binding={
                     **request_binding,
                     "latency_ms": round((time.perf_counter() - started) * 1000, 3),
+                    "retry_events": retry_events,
+                    "retry_count": max(0, attempts - 1),
+                    "external_calls": attempts,
                 },
-                external_call_count=1,
+                external_call_count=attempts,
             ) from exc
         except (httpx.HTTPError, ValueError) as exc:
             raise PlaceProviderUnavailableError(
@@ -974,8 +1087,11 @@ class AmapPlaceResolver:
                 provider_binding={
                     **request_binding,
                     "latency_ms": round((time.perf_counter() - started) * 1000, 3),
+                    "retry_events": retry_events,
+                    "retry_count": max(0, attempts - 1),
+                    "external_calls": attempts,
                 },
-                external_call_count=1,
+                external_call_count=attempts,
             ) from exc
 
         latency_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -983,7 +1099,7 @@ class AmapPlaceResolver:
             raise PlaceProviderUnavailableError(
                 "INVALID_PROVIDER_RESPONSE",
                 provider_binding={**request_binding, "latency_ms": latency_ms},
-                external_call_count=1,
+                external_call_count=attempts,
             )
         base_receipt: dict[str, object] = {
             **request_binding,
@@ -992,7 +1108,9 @@ class AmapPlaceResolver:
             "http_status": response.status_code,
             "latency_ms": latency_ms,
             "observed_at": observed_at.isoformat().replace("+00:00", "Z"),
-            "external_calls": 1,
+            "external_calls": attempts,
+            "retry_events": retry_events,
+            "retry_count": max(0, attempts - 1),
         }
         if payload.get("status") != "1" or payload.get("infocode") not in {None, "10000"}:
             raise PlaceProviderUnavailableError(
@@ -1001,10 +1119,13 @@ class AmapPlaceResolver:
                     **base_receipt,
                     "infocode": str(payload.get("infocode") or "NOT_EXPOSED_BY_PROVIDER"),
                 },
-                external_call_count=1,
+                external_call_count=attempts,
             )
         raw_pois = payload.get("pois")
-        pois = [item for item in raw_pois if isinstance(item, dict)] if isinstance(raw_pois, list) else []
+        if not isinstance(raw_pois, list) or any(not isinstance(item, dict) for item in raw_pois):
+            raise PlaceProviderUnavailableError("INVALID_PROVIDER_RESPONSE", provider_binding=base_receipt,
+                external_call_count=attempts)
+        pois = raw_pois
         return pois, base_receipt
 
     @staticmethod
@@ -1023,7 +1144,7 @@ class AmapPlaceResolver:
         provider_binding = {
             **receipt,
             "status": "AUTO_MATCHED",
-            "selection_tier": candidate.tier,
+            "selection_tier": receipt.get("selection_tier", candidate.tier),
             "resolved_category": _CATEGORY_LABELS[candidate.category],
             "category_compatibility_basis": candidate.category_compatibility_basis,
             "adcode": str(raw.get("adcode") or "NOT_EXPOSED_BY_PROVIDER"),
@@ -1044,7 +1165,65 @@ class AmapPlaceResolver:
         )
         return PlaceResolutionOutcome(place=place, receipt=provider_binding)
 
+    @staticmethod
+    def _reused(outcome: PlaceResolutionOutcome, mode: str) -> PlaceResolutionOutcome:
+        copy = outcome.model_copy(deep=True)
+        receipt = {**copy.receipt, "external_calls": 0, "cache_reuse": mode,
+            "source_external_calls": copy.receipt.get("external_calls", 0)}
+        if "calls" in receipt:
+            receipt["source_calls"] = receipt.pop("calls")
+        if "retry_events" in receipt:
+            receipt["source_retry_events"] = receipt.pop("retry_events")
+            receipt["retry_count"] = 0
+        if isinstance(receipt.get("city_scope"), dict):
+            scope_receipt = dict(receipt["city_scope"])
+            receipt["city_scope"] = {**scope_receipt, "external_calls": 0, "cache_hit": True,
+                "calls": [], "source_calls": scope_receipt.get("calls", [])}
+        place = copy.place.model_copy(update={"provider_binding": receipt}) if copy.place else None
+        return copy.model_copy(update={"receipt": receipt, "place": place})
+
     async def resolve(
+        self, *, city: str, atomic_place_name: str, category_hint: str | None = None,
+        _allow_lexical_category: bool = True,
+    ) -> PlaceResolutionOutcome:
+        key = (_normalized_city(city), atomic_place_name.strip(), category_hint, _allow_lexical_category)
+        cached = self._success_cache.get(key)
+        if cached is not None:
+            if time.monotonic() - cached[0] < self._success_cache_seconds:
+                return self._reused(cached[1], "SUCCESS_CACHE")
+            self._success_cache.pop(key, None)
+        task = self._inflight.get(key)
+        if task is not None:
+            try:
+                outcome = await asyncio.shield(task)
+            except PlaceProviderUnavailableError as error:
+                reused = self._reused(PlaceResolutionOutcome(receipt={**error.provider_binding,
+                    "external_calls": error.external_call_count}), "INFLIGHT_COALESCED")
+                raise PlaceProviderUnavailableError(error.category, provider_binding=reused.receipt,
+                    external_call_count=0) from None
+            return self._reused(outcome, "INFLIGHT_COALESCED")
+
+        async def run():
+            try:
+                outcome = await self._resolve_uncached(city=city, atomic_place_name=atomic_place_name,
+                    category_hint=category_hint, _allow_lexical_category=_allow_lexical_category)
+                # Missing/ambiguous/unavailable outcomes never poison later retry.
+                if outcome.place is not None and self._success_cache_seconds and self._success_cache_size:
+                    if len(self._success_cache) >= self._success_cache_size:
+                        self._success_cache.pop(next(iter(self._success_cache)))
+                    self._success_cache[key] = (time.monotonic(), outcome.model_copy(deep=True))
+                return outcome
+            finally:
+                self._inflight.pop(key, None)
+
+        task = asyncio.create_task(run())
+        self._inflight[key] = task
+        # If the initiating waiter disconnects, consume eventual exceptions while
+        # keeping a concurrent waiter's shared provider operation alive.
+        task.add_done_callback(lambda finished: finished.exception() if not finished.cancelled() else None)
+        return await asyncio.shield(task)
+
+    async def _resolve_uncached(
         self,
         *,
         city: str,
@@ -1081,6 +1260,10 @@ class AmapPlaceResolver:
 
         lexicon = get_three_city_place_lexicon()
         lookup = lexicon.lookup(city=normalized_city, name=atomic) if lexicon.available else None
+        knowledge = get_city_knowledge()
+        reviewed_lookup = knowledge.query_lookup(city=normalized_city, name=atomic)
+        if reviewed_lookup.matches:
+            lookup = reviewed_lookup
         if lookup is not None and lookup.tier is LexiconMatchTier.VENUE_SUFFIX_EQUIVALENT:
             # The query lexicon also offers stem-only suggestions. They cannot
             # supply a missing venue identity before provider confirmation.
@@ -1095,6 +1278,8 @@ class AmapPlaceResolver:
             "lexicon_status": "UNAVAILABLE" if not lexicon.available else "MISS",
             "lexicon_match_tier": LexiconMatchTier.NONE.value,
             "lexicon_rewrite_applied": False,
+            "lexicon_provenance": "OFFICIAL_NAME_ONLY" if reviewed_lookup.matches else "LEGACY_LEAD",
+            "knowledge_version": knowledge.versions.get(normalized_city),
             **({"city_scope": city_receipt} if city_receipt else {}),
         }
         query_name = atomic
@@ -1172,6 +1357,9 @@ class AmapPlaceResolver:
             typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
             if hint is not None:
                 typecodes = [hint.typecode]
+            technical = knowledge.technical_landmark(city=normalized_city, name=query_name)
+            if technical is not None:
+                typecodes = [pair["typecode"] for pair in technical.provider_type_pairs]
 
         pois, primary_base = await self._query_provider(
             city=city,
@@ -1214,12 +1402,12 @@ class AmapPlaceResolver:
                         **failure,
                         "primary_request_sha256": primary_receipt["request_sha256"],
                         "primary_response_sha256": primary_receipt["response_sha256"],
-                        "external_calls": 1 + exc.external_call_count,
+                        "external_calls": int(primary_receipt.get("external_calls", 1)) + exc.external_call_count,
                         "rewrite_count": 1,
                         "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
                         "raw_provider_response_retained": False,
                     },
-                    external_call_count=1 + exc.external_call_count,
+                    external_call_count=int(primary_receipt.get("external_calls", 1)) + exc.external_call_count,
                 ) from exc
             rewrite_decision = _evaluate_candidates(
                 rewrite_pois,

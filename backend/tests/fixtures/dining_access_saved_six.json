@@ -1,0 +1,265 @@
+{
+  "provenance": "Six original AMap rows from collaboration-common-import-live-v1 recognition-trace.json background_calls[2,16]. No additional POI calls. Parent relation and tags are supplier facts; current admission and opening are not verified.",
+  "anchors": [
+    {
+      "day_index": 1,
+      "name": "故宫博物院",
+      "canonical_place_id": "B000A8UIN8",
+      "coordinates": {
+        "latitude": 39.917839,
+        "longitude": 116.397029
+      }
+    },
+    {
+      "day_index": 2,
+      "name": "天坛公园",
+      "canonical_place_id": "B000A81CB2",
+      "coordinates": {
+        "latitude": 39.881913,
+        "longitude": 116.410829
+      }
+    }
+  ],
+  "rows": [
+    {
+      "name": "景运门故宫餐厅",
+      "id": "B0FFFTCGNX",
+      "location": "116.398455,39.918509",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "typecode": "050100",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "address": "故宫博物院内(保和殿东侧景运门外、钟表馆对面)",
+      "pcode": "110000",
+      "citycode": "010",
+      "adcode": "110101",
+      "business": {
+        "tel": "010-65285179",
+        "tag": "牛肉,炸酱面,炸酱面,三明治",
+        "rectag": "中餐",
+        "keytag": "中餐",
+        "rating": "3.9",
+        "cost": "63.00",
+        "opentime_today": "08:30-15:30",
+        "opentime_week": "周二至周日 08:30-15:30"
+      },
+      "photos": [
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFFTCGNX/comment/D7E9CF11_EC09_419A_9D9C_8674D4CC28B7_L0_001_2000_170_1765257909768_77732275.jpg"
+        },
+        {
+          "title": "",
+          "url": "https://store.is.autonavi.com/showpic/a2f8db77f2dcc1c80000003115688352?type=pic"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFFTCGNX/comment/e8593835f5826ff2dff5df9d87f7ecda_2048_2048_80.jpg"
+        }
+      ],
+      "distance": "142",
+      "parent": "B000A8UIN8"
+    },
+    {
+      "name": "冰窖餐厅",
+      "id": "B0FFI2XH20",
+      "location": "116.395284,39.917514",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "typecode": "050100",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "address": "景山前街4号故宫博物院",
+      "pcode": "110000",
+      "citycode": "010",
+      "adcode": "110101",
+      "business": {
+        "tel": "010-65214285",
+        "tag": "炸酱面,牛肉,鸡肉,沙拉,烤鸭,老北京炸酱面,点心,牛肉面,面食",
+        "rectag": "中餐",
+        "keytag": "中餐",
+        "rating": "3.9",
+        "cost": "49.00",
+        "opentime_today": "10:30-15:00",
+        "opentime_week": "周二至周日 10:30-15:00"
+      },
+      "photos": [
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFI2XH20/comment/0866232ffa1bee8b95109e5d16140ff9_2048_2048_80.jpg"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFI2XH20/comment/dc7a7ead455c41f336d794a95f4c6eec_2048_2048_80.jpg"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFI2XH20/comment/content_media_external_file_1000008437_ss__1771562357801_00729225.jpg"
+        }
+      ],
+      "distance": "153",
+      "parent": "B000A8UIN8"
+    },
+    {
+      "name": "坤宁宫东院餐厅",
+      "id": "B0FFI1BA2H",
+      "location": "116.397327,39.921089",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "typecode": "050100",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "address": "坤宁宫",
+      "pcode": "110000",
+      "citycode": "010",
+      "adcode": "110101",
+      "business": {
+        "tel": "010-65214141",
+        "tag": "下午茶,点心",
+        "rectag": "中餐",
+        "keytag": "中餐",
+        "rating": "4.4",
+        "opentime_today": "08:00-16:30",
+        "opentime_week": "周一至周日 08:00-16:30"
+      },
+      "photos": [
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFI1BA2H/comment/2f5155d3-9f74-44cd-b1a0-427694477026.png"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFI1BA2H/comment/87937c77fa745c0a6764baf7cd268980_2048_2048_80.jpg"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B0FFI1BA2H/comment/content_media_external_file_1000103694_ss__1766199615360_93454797.jpg"
+        }
+      ],
+      "distance": "362",
+      "parent": "B000A8UIN8"
+    },
+    {
+      "name": "祈谷·天坛味道",
+      "id": "B0H6PDPYEH",
+      "location": "116.412405,39.878352",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "typecode": "050100",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "address": "天坛公园回音壁西侧",
+      "pcode": "110000",
+      "citycode": "010",
+      "adcode": "110101",
+      "business": {
+        "tel": "15501139385",
+        "tag": "卤汁,葱油拌面",
+        "rectag": "小吃快餐",
+        "keytag": "小吃快餐",
+        "rating": "4.1",
+        "cost": "49.00",
+        "opentime_today": "09:00-17:30",
+        "opentime_week": "周一至周日 09:00-17:30"
+      },
+      "photos": [
+        {
+          "title": "",
+          "url": "https://store.is.autonavi.com/showpic/593096f94643fac34e797e85b1373801"
+        },
+        {
+          "title": "",
+          "url": "http://store.is.autonavi.com/showpic/6d8c05f2de4ef4173ece6b46eb9d4167"
+        },
+        {
+          "title": "",
+          "url": "http://store.is.autonavi.com/showpic/659012139d22036035381e99fa4f44a0"
+        }
+      ],
+      "distance": "418",
+      "parent": "B000A81CB2"
+    },
+    {
+      "name": "天坛福宴",
+      "id": "B000AA21FM",
+      "location": "116.404993,39.881659",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "typecode": "050100",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "address": "天坛公园西门",
+      "pcode": "110000",
+      "citycode": "010",
+      "adcode": "110101",
+      "business": {
+        "tel": "010-67053820;010-67053920",
+        "tag": "下午茶,干炸丸子,艾窝窝,芸豆卷",
+        "rectag": "茶点",
+        "keytag": "茶点",
+        "rating": "4.6",
+        "cost": "113.00",
+        "opentime_today": "11:00-21:00",
+        "opentime_week": "周一 11:00-14:30,16:30-21:00；周二至周日 11:00-21:00"
+      },
+      "photos": [
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B000AA21FM/comment/content_media_external_images_media_1000040696_ss__1770376228032_66931763.jpg"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B000AA21FM/comment/0656EED7_A5CC_41F8_BE0A_541DD2E74D73_L0_001_1500_200_1766932977645_67492034.jpg"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B000AA21FM/comment/content_media_external_images_media_1000017060_ss__1740916842374_09851064.jpg"
+        }
+      ],
+      "distance": "499",
+      "parent": "B000A81CB2"
+    },
+    {
+      "name": "锦馨豆汁(天坛路店)",
+      "id": "B000A9Z1NZ",
+      "location": "116.409996,39.888440",
+      "type": "餐饮服务;中餐厅;中餐厅",
+      "typecode": "050100",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "address": "北京城区天坛路87号(近天坛工美大楼)",
+      "pcode": "110000",
+      "citycode": "010",
+      "adcode": "110101",
+      "business": {
+        "business_area": "珠市口",
+        "tel": "010-67018054",
+        "tag": "豆汁,焦圈,烧饼夹肉,面茶,驴打滚,门钉肉饼,豆汁儿,豆泡汤,油饼,一品烧饼,青团,奶油炸糕,糖火烧,糖耳朵,碗儿糕,冷面,炸酱面,牛肉面,羊肉,刀削面,豆腐脑,鸭锁骨,元宵,点心,盖饭,艾窝窝,门钉肉饼,面茶,驴打滚,豆汁儿,糖耳朵,豌豆黄,糖火烧",
+        "rectag": "小吃快餐",
+        "keytag": "小吃快餐",
+        "rating": "4.6",
+        "cost": "16.00",
+        "opentime_today": "06:00-20:00",
+        "opentime_week": "周一至周日 06:00-20:00"
+      },
+      "photos": [
+        {
+          "title": "",
+          "url": "https://store.is.autonavi.com/showpic/c4fd7542842bc54c0000003510870472?type=pic"
+        },
+        {
+          "title": "",
+          "url": "https://aos-comment.amap.com/B000A9Z1NZ/comment/bec5fd6209eba327ed5cb61aa4ae8962_2048_2048_80.jpg"
+        },
+        {
+          "title": "",
+          "url": "https://store.is.autonavi.com/showpic/98c51dd0986283550000002986866374?type=pic"
+        }
+      ],
+      "distance": "730",
+      "parent": ""
+    }
+  ]
+}

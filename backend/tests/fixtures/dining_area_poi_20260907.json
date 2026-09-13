@@ -1,0 +1,53 @@
+{
+  "provenance": "LIVE_AMAP_PUBLIC_AREA_IDENTITIES_2026-09-07",
+  "pois": [
+    {
+      "id": "B000A48169",
+      "name": "王府井步行街",
+      "location": "116.412007,39.913479",
+      "address": "王府井大街256号(金鱼胡同地铁站B东口步行80米)",
+      "adcode": "110101",
+      "adname": "东城区",
+      "cityname": "北京市",
+      "pname": "北京市",
+      "typecode": "061001",
+      "type": "购物服务;特色商业街;步行街"
+    },
+    {
+      "id": "B0L2U9FKU9",
+      "name": "北京隆福寺街区",
+      "location": "116.413951,39.925975",
+      "address": "隆福寺街95号(东四地铁站E西北口步行210米)",
+      "adcode": "110101",
+      "adname": "东城区",
+      "cityname": "北京市",
+      "pname": "北京市",
+      "typecode": "061000",
+      "type": "购物服务;特色商业街;特色商业街"
+    },
+    {
+      "id": "B0KGZC6NX2",
+      "name": "亚太盛汇A.P.PLAZA",
+      "location": "121.542444,31.219831",
+      "address": "花木街道世纪大道2002号",
+      "adcode": "310115",
+      "adname": "浦东新区",
+      "cityname": "上海市",
+      "pname": "上海市",
+      "typecode": "060102",
+      "type": "购物服务;商场;普通商场"
+    },
+    {
+      "id": "B0JG2HBC0O",
+      "name": "深圳湾睿印RAIL IN",
+      "location": "113.970078,22.524077",
+      "address": "白石三道与深湾二路交汇处深铁睿云中心",
+      "adcode": "440305",
+      "adname": "南山区",
+      "cityname": "深圳市",
+      "pname": "广东省",
+      "typecode": "060100",
+      "type": "购物服务;商场;商场"
+    }
+  ]
+}

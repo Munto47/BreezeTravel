@@ -11,10 +11,16 @@ from uuid import uuid4
 
 from app.config import get_settings
 from app.db.connection import get_pool
-from app.trip_understanding.failures import safe_failure_binding
+from app.trip_understanding.failures import safe_failure_binding, public_failure_message
 from app.trip_understanding.dining import verify_command_candidate
+from app.trip_understanding.dining_jobs import DailyDiningJob, RecommendationTripView
 from app.trip_understanding.anonymous import AnonymousDailyLimitError, anonymous_day_start
 from app.trip_understanding.commands import apply_public_command
+from app.trip_understanding.edit_history import advance_edit_history
+from app.trip_understanding.relative_route_repository import (
+    PostgresRelativeRouteRepositoryMixin, InMemoryRelativeRouteRepositoryMixin,
+)
+from app.trip_understanding.lodging_recovery import result_cards
 from app.trip_understanding.demo import DEMO_SOURCE_SHA256, DEMO_SOURCE_TEXT
 from app.trip_understanding.errors import (
     CommandTargetChangedError,
@@ -59,7 +65,9 @@ from app.trip_understanding.models import (
     ActivityTextEditCommand,
     PlaceConfirmCommand,
     DiningInsertCommand,
+    LodgingRecoverCommand,
     UndoCommand,
+    RedoCommand,
     ClaimOutcome,
     ClaimedTripView,
     CommandAppliedView,
@@ -68,6 +76,7 @@ from app.trip_understanding.models import (
     DeletionOutcome,
     PipelineOutput,
     PipelineProgressUpdate,
+    SourceSemanticPlan,
     PublicEventPayload,
     PublicEventRecord,
     PublicResourceRecord,
@@ -117,6 +126,23 @@ def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _checked_initial_plan(plan: SourceSemanticPlan | None, source_text: str) -> SourceSemanticPlan | None:
+    if plan is None:
+        return None
+    checked = SourceSemanticPlan.model_validate(plan.model_dump(mode="json"))
+    if checked.source_hash != _sha256_text(source_text):
+        raise ValueError("initial collaboration plan does not match its source")
+    if any(source_text[item.span_start:item.span_end] != item.raw_text for item in checked.mentions):
+        raise ValueError("initial collaboration plan has invalid source anchors")
+    return checked
+
+
+def _initial_plan_purpose(source_envelope: bytes) -> str:
+    # The immutable plan ciphertext also becomes unreadable when privacy deletion
+    # removes this source envelope's random nonce; do not persist a second copy.
+    return "collaboration-initial-plan:" + base64.b64encode(source_envelope[:13]).decode("ascii")
+
+
 def _account_subject_hash(user_id: str) -> str:
     """Return a stable, non-reversible lookup key for account deletion state."""
     settings = get_settings()
@@ -162,6 +188,7 @@ def _cancelled_snapshot_semantics(
 
 async def _delete_understanding_business_rows(conn: Any, understanding_id: str) -> None:
     """Delete one v3 aggregate in FK-safe order inside the caller transaction."""
+    await conn.execute("DELETE FROM trip_daily_dining_jobs WHERE understanding_id=$1", understanding_id)
     internal_room_id = await conn.fetchval(
         """
         SELECT tw.room_id
@@ -394,13 +421,41 @@ async def _insert_screenshot_cleanup_receipts(
 
 
 def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
-    """Persist structural semantics without duplicating verbatim source quotes."""
+    """Persist structure without source-bearing fields in immutable revisions.
+
+    Source deletion erases encrypted source claims, not this immutable row.
+    Never put quote text, source offsets or position-derived branch IDs here.
+    """
+    def opaque_group(value: str | None) -> str | None:
+        return canonical_sha256({"source_hash": output.source_hash, "group": value})[:32] if value else None
+
+    from app.trip_understanding.relative_route_context import seed_order_for_output
     return {
+        "source_order": seed_order_for_output(output),
         "schema_version": output.proposal.schema_version,
         "source_hash": output.proposal.source_hash,
         "destination_name": output.proposal.destination_name,
         "mention_count": len(output.proposal.mentions),
         "binding": output.proposal.binding,
+        "structure": [{
+            "mention_id": mention.mention_id,
+            "role": mention.role.value,
+            "day_index": mention.day_index,
+            "sequence_index": mention.sequence_index,
+            "meal_role": mention.meal_role,
+            "lodging_event": mention.lodging_event,
+            "lodging_scope": mention.lodging_scope,
+            "lodging_role_uncertain": mention.lodging_role_uncertain,
+            "pending_lodging_scope": mention.pending_lodging_scope,
+            "pending_lodging_issue_count": mention.pending_lodging_issue_count,
+            "lodging_excluded_nights": mention.lodging_excluded_nights,
+            "choice_group_token": opaque_group(mention.choice_group_id),
+            "branch_token": opaque_group(mention.branch_id),
+            "branch_label": mention.branch_label,
+            "parent_mention_id": mention.parent_mention_id,
+            "relation_type": mention.relation_type,
+        } for mention in output.proposal.mentions],
+        "diagnostics": [issue.model_dump(exclude={"span_start", "span_end"}) for issue in output.proposal.diagnostics],
         "verbatim_quotes": "ENCRYPTED_IN_SOURCE_CLAIMS",
     }
 
@@ -433,8 +488,7 @@ async def _erase_activity_source_quotes(conn: Any, understanding_id: str, *, sou
     results = await conn.fetch("SELECT revision, public_json FROM trip_understanding_results WHERE understanding_id=$1", understanding_id)
     cards = {(int(row["revision"]), card.activity_token): card
              for row in results
-             for day in UserFacingTripResult.model_validate(_json_value(row["public_json"])).days
-             for card in day.activities}
+             for card in result_cards(UserFacingTripResult.model_validate(_json_value(row["public_json"]))) }
     activities = await conn.fetch("""SELECT * FROM trip_understanding_activities
         WHERE understanding_id=$1 AND ($2::text IS NULL OR revision IN
           (SELECT revision FROM trip_understanding_revisions WHERE understanding_id=$1 AND source_id=$2))""", understanding_id, source_id)
@@ -466,6 +520,19 @@ class TripUnderstandingRepository(
     MemoryShareRepository,
     Protocol,
 ):
+    async def load_recommendation_trip_view(self, understanding_id: str, revision: int) -> RecommendationTripView: ...
+
+    async def preview_relative_routes(self, resource: PublicResourceRecord, *, expected_etag: str,
+                                      day_index: int, idempotency_key: str, request_hash: str, provider): ...
+
+    async def read_daily_dining(self, resource: PublicResourceRecord, *, request_key: str | None = None,
+                               expected_etag: str | None = None, replay_info: dict | None = None): ...
+
+    async def claim_daily_dining(self, worker_id: str) -> DailyDiningJob | None: ...
+
+    async def complete_daily_dining(self, job: DailyDiningJob, *, worker_id: str, status: str,
+                                    payload: list, stats: dict, now: datetime) -> None: ...
+
     async def create_demo(
         self,
         *,
@@ -487,6 +554,7 @@ class TripUnderstandingRepository(
         now: datetime,
         retention_days: int,
         initial_inference_binding: dict[str, Any] | None = None,
+        initial_plan: SourceSemanticPlan | None = None,
     ) -> CreateOutcome: ...
 
     async def preflight_screenshot_batch(
@@ -568,7 +636,7 @@ class TripUnderstandingRepository(
 
     async def get_source_view(self, resource: PublicResourceRecord, *, now: datetime): ...
 
-    async def get_supplementary_view(self, resource: PublicResourceRecord, *, now: datetime): ...
+    async def get_supplementary_view(self, resource: PublicResourceRecord, *, now: datetime, include_pending_lodgings: bool = False): ...
 
     async def apply_command(
         self,
@@ -709,6 +777,7 @@ class TripUnderstandingRepository(
 
 
 class PostgresTripUnderstandingRepository(
+    PostgresRelativeRouteRepositoryMixin,
     PostgresReadbackMixin,
     PostgresG03RepositoryMixin,
     PostgresStayRecommendationRepositoryMixin,
@@ -749,6 +818,116 @@ class PostgresTripUnderstandingRepository(
                 JOIN trip_understanding_revisions r ON r.understanding_id=u.understanding_id AND r.revision=u.current_revision
                 JOIN trip_understanding_sources s ON s.source_id=r.source_id WHERE u.understanding_id=$1""", understanding_id)
         return str(value or "TEXT")
+
+    async def _read_recommendation_trip_view(self, conn, understanding_id: str, revision: int) -> RecommendationTripView:
+        from app.trip_understanding.daily_dining import source_lunch_gaps
+        row = await conn.fetchrow("""SELECT result.public_json,result.opaque_etag,source.source_type
+            FROM trip_understanding_results result
+            JOIN trip_understanding_revisions revision ON revision.understanding_id=result.understanding_id
+                AND revision.revision=result.revision
+            LEFT JOIN trip_understanding_sources source ON source.source_id=revision.source_id
+            WHERE result.understanding_id=$1 AND result.revision=$2""", understanding_id, revision)
+        if row is None:
+            raise ResourceNotReadyError("recommendation trip version is unavailable")
+        plan = await self._read_map_plan(conn, understanding_id, revision)
+        result = UserFacingTripResult.model_validate(_json_value(row["public_json"]))
+        meal_rows = await conn.fetch("""SELECT public_activity_token,mention_text,atomic_place_name,resolver_receipt_json
+            FROM trip_understanding_activities WHERE understanding_id=$1 AND revision=$2 AND category_hint='餐饮'""",
+            understanding_id, revision)
+        gaps = source_lunch_gaps(result, [{**dict(item), "resolver_receipt": _json_value(item["resolver_receipt_json"])} for item in meal_rows])
+        return RecommendationTripView(revision=revision, etag=row["opaque_etag"],
+            result=result, plan=plan, source_type=str(row["source_type"] or "TEXT"), source_lunch_gaps=gaps)
+
+    async def load_recommendation_trip_view(self, understanding_id: str, revision: int) -> RecommendationTripView:
+        """Read one immutable revision; source excerpts stay inside the repository."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction(isolation="repeatable_read", readonly=True):
+            return await self._read_recommendation_trip_view(conn, understanding_id, revision)
+
+    async def read_daily_dining(self, resource: PublicResourceRecord, *, request_key: str | None = None,
+                               expected_etag: str | None = None, replay_info: dict | None = None):
+        from app.trip_understanding.daily_dining import DailyDiningView
+        from app.trip_understanding.dining_jobs import _project_daily_row, dining_context_changed, enqueue_initial_dining
+
+        if replay_info is not None:
+            replay_info["replayed"] = False
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            aggregate = await conn.fetchrow("""SELECT current_revision,state FROM trip_understandings
+                WHERE understanding_id=$1 AND public_resource_id=$2 FOR UPDATE""",
+                resource.understanding_id, resource.public_resource_id)
+            if aggregate is None or aggregate["state"] == "DELETED":
+                raise ResourceNotReadyError("trip cards are not available")
+            scope = f"understanding:{resource.understanding_id}:dining-refresh"
+            key_hash = _sha256_text(request_key) if request_key is not None else None
+            request_hash = _sha256_text(json.dumps({"expected_etag": expected_etag}, sort_keys=True))
+            if key_hash is not None:
+                previous = await conn.fetchrow("SELECT * FROM trip_understanding_idempotency_records WHERE scope=$1 AND key_hash=$2",
+                                               scope, key_hash)
+                if previous is not None:
+                    if previous["request_hash"].strip() != request_hash:
+                        raise IdempotencyConflictError("dining refresh idempotency key was reused")
+                    if replay_info is not None:
+                        replay_info["replayed"] = True
+                    return (DailyDiningView.model_validate(_json_value(previous["response_json"])["view"]),
+                            _json_value(previous["response_headers_json"])["ETag"])
+            revision = int(aggregate["current_revision"])
+            trip = await self._read_recommendation_trip_view(conn, resource.understanding_id, revision)
+            if expected_etag is not None and expected_etag != trip.etag:
+                raise RevisionConflictError()
+            if request_key is not None:
+                await enqueue_initial_dining(conn, resource.understanding_id, revision, request_key)
+                await conn.execute("""UPDATE trip_daily_dining_jobs SET status='QUEUED',request_key=$3,
+                    attempts=CASE WHEN finished_at<NOW()-INTERVAL '15 minutes' THEN 0 ELSE attempts END
+                    WHERE understanding_id=$1 AND revision=$2 AND request_key<>$3
+                    AND ((status='UNAVAILABLE' AND finished_at<NOW()-INTERVAL '30 seconds'
+                          AND (attempts<3 OR finished_at<NOW()-INTERVAL '15 minutes'))
+                        OR (status='READY' AND finished_at<NOW()-INTERVAL '15 minutes'))""",
+                    resource.understanding_id, revision, request_key)
+            row = await conn.fetchrow("SELECT * FROM trip_daily_dining_jobs WHERE understanding_id=$1 AND revision=$2",
+                                      resource.understanding_id, revision)
+            if request_key is not None and dining_context_changed(row, trip):
+                row = await conn.fetchrow("""UPDATE trip_daily_dining_jobs SET status='QUEUED',request_key=$3
+                    WHERE understanding_id=$1 AND revision=$2 RETURNING *""", resource.understanding_id, revision, request_key)
+            view = _project_daily_row(row, resource=resource, etag=trip.etag, trip=trip)
+            if key_hash is not None:
+                await conn.execute("""INSERT INTO trip_understanding_idempotency_records
+                    (scope,key_hash,request_hash,state,response_status,response_json,response_headers_json,created_at,completed_at)
+                    VALUES($1,$2,$3,'COMPLETED',200,$4::jsonb,$5::jsonb,NOW(),NOW())""", scope, key_hash, request_hash,
+                    json.dumps({"view": view.model_dump(mode="json"), "public_resource_id": resource.public_resource_id}, ensure_ascii=False),
+                    json.dumps({"ETag": trip.etag}))
+            return view, trip.etag
+
+    async def claim_daily_dining(self, worker_id: str) -> DailyDiningJob | None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            # Expired dispatched jobs keep their unknown external effects; no automatic retry.
+            await conn.execute("""UPDATE trip_daily_dining_jobs SET status='UNAVAILABLE',
+                lease_owner=NULL,lease_until=NULL,finished_at=NOW() WHERE status='BUILDING' AND lease_until<NOW()""")
+            row = await conn.fetchrow("""SELECT j.* FROM trip_daily_dining_jobs j
+                JOIN trip_understandings u ON u.understanding_id=j.understanding_id
+                WHERE j.status='QUEUED' AND u.state NOT IN ('DELETED','FAILED') AND u.current_revision=j.revision
+                ORDER BY j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1""")
+            if row is None:
+                return None
+            await conn.execute("""UPDATE trip_daily_dining_jobs SET status='BUILDING',
+                lease_owner=$3,lease_until=NOW()+INTERVAL '120 seconds',attempts=attempts+1
+                WHERE understanding_id=$1 AND revision=$2""", row["understanding_id"], row["revision"], worker_id)
+            trip = await self._read_recommendation_trip_view(conn, row["understanding_id"], row["revision"])
+            return DailyDiningJob(understanding_id=row["understanding_id"], revision=row["revision"],
+                                  attempt=row["attempts"] + 1, trip=trip)
+
+    async def complete_daily_dining(self, job: DailyDiningJob, *, worker_id: str, status: str,
+                                    payload: list, stats: dict, now: datetime) -> None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            # The revision, lease and attempt prevent stale results or deletion from being undone.
+            await conn.execute("""UPDATE trip_daily_dining_jobs SET status=$4,payload_json=$5::jsonb,metrics_json=$7::jsonb,
+                finished_at=$6,lease_owner=NULL,lease_until=NULL
+                WHERE understanding_id=$1 AND revision=$2 AND lease_owner=$3
+                    AND status='BUILDING' AND lease_until>$6 AND attempts=$8""",
+                job.understanding_id, job.revision, worker_id, status,
+                json.dumps(payload, ensure_ascii=False), now, json.dumps(stats), job.attempt)
 
     async def create_demo(
         self,
@@ -982,11 +1161,13 @@ class PostgresTripUnderstandingRepository(
         now: datetime,
         retention_days: int,
         initial_inference_binding: dict[str, Any] | None = None,
+        initial_plan: SourceSemanticPlan | None = None,
     ) -> CreateOutcome:
         if len(idempotency_key) > 200:
             raise ValueError("idempotency key is too long")
         if not source_text.strip() or len(source_text) > 50_000:
             raise ValueError("text source is outside the supported size")
+        initial_plan = _checked_initial_plan(initial_plan, source_text)
         expires_at = now + timedelta(days=retention_days)
         content_hash = _sha256_text(source_text)
         pool = await self._get_pool()
@@ -1058,11 +1239,14 @@ class PostgresTripUnderstandingRepository(
                 source_id=source_id,
                 content_hash=content_hash,
             )
+            initial_proposal = ({"initial_plan": base64.b64encode(cipher.encrypt(
+                initial_plan.model_dump_json(), source_id=source_id, content_hash=content_hash,
+                purpose=_initial_plan_purpose(encrypted_content))).decode("ascii")} if initial_plan else {})
             draft_payload = {
                 "source_hash": content_hash,
                 "destination": {"status": "PENDING"},
                 "assumptions": [],
-                "proposal": {},
+                "proposal": initial_proposal,
                 "inference_binding": dict(initial_inference_binding or {"status": "NOT_RUN"}),
                 "compiler_receipt": {"status": "NOT_RUN"},
             }
@@ -2368,6 +2552,11 @@ class PostgresTripUnderstandingRepository(
                     batch_count += 1
                     continue
 
+                locked_owner = await conn.fetchval("""SELECT understanding_id FROM trip_understandings
+                    WHERE understanding_id=(SELECT understanding_id FROM trip_understanding_sources WHERE source_id=$1)
+                    FOR UPDATE SKIP LOCKED""", candidate["private_id"])
+                if locked_owner is None:
+                    continue
                 row = await conn.fetchrow(
                     """
                     SELECT source_id, understanding_id
@@ -2467,7 +2656,13 @@ class PostgresTripUnderstandingRepository(
                 raise ResourceGoneError("trip resource is no longer available")
             row = await conn.fetchrow(
                 """
-                SELECT u.*, s.capability_hash, s.expires_at, s.revoked_at
+                SELECT u.*, s.capability_hash, s.expires_at, s.revoked_at,
+                       CASE WHEN u.state = 'FAILED' THEN (
+                           SELECT j.last_error_category FROM trip_understanding_jobs j
+                           WHERE j.understanding_id = u.understanding_id
+                             AND j.revision = u.current_revision - 1 AND j.status = 'FAILED'
+                           ORDER BY j.finished_at DESC NULLS LAST LIMIT 1
+                       ) END AS failure_category
                 FROM trip_understandings u
                 LEFT JOIN trip_understanding_anonymous_sessions s
                   ON s.session_id = u.anonymous_session_id
@@ -2499,6 +2694,7 @@ class PostgresTripUnderstandingRepository(
             current_result_id=row["current_result_id"],
             ownership="ACCOUNT" if row["owner_user_id"] else "ANONYMOUS",
             expires_at=row["source_expires_at"],
+            failure_category=row.get("failure_category"),
         )
 
     async def get_result(self, resource: PublicResourceRecord) -> StoredResult | None:
@@ -2595,7 +2791,7 @@ class PostgresTripUnderstandingRepository(
 
             current = await conn.fetchrow(
                 """
-                SELECT r.source_id, r.destination_json, r.assumptions_json,
+                SELECT r.source_id, r.destination_json, r.assumptions_json, r.proposal_json,
                        result.public_json, result.opaque_etag
                 FROM trip_understanding_revisions r
                 JOIN trip_understanding_results result
@@ -2612,23 +2808,48 @@ class PostgresTripUnderstandingRepository(
                 raise RevisionConflictError("command precondition does not match current result")
 
             current_result = UserFacingTripResult.model_validate(_json_value(current["public_json"]))
-            source_revision = int(aggregate["current_revision"])
-            undo_result = None
-            if isinstance(command, UndoCommand):
-                if not current_result.can_undo:
-                    raise CommandTargetChangedError("no edit is available to undo")
-                source_revision -= 1
-                previous = await conn.fetchrow("""SELECT r.source_id, r.destination_json, r.assumptions_json, result.public_json
+            from app.trip_understanding.relative_route_previews import verify_route_move
+            route_now = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
+            map_job_id = await self._current_map_job_id(conn, resource.understanding_id, int(aggregate["current_revision"])) if getattr(command, "route_preview_token", None) else ""
+            verify_route_move(command, current_result, public_resource_id=resource.public_resource_id,
+                expected_etag=expected_etag, now=route_now, current_map_job_id=map_job_id)
+            source_revision, history = advance_edit_history(
+                int(aggregate["current_revision"]), _json_value(current["proposal_json"]),
+                can_undo=current_result.can_undo, command_type=command.command_type)
+            restore_result = None
+            if isinstance(command, (UndoCommand, RedoCommand)):
+                previous = await conn.fetchrow("""SELECT r.source_id, r.destination_json, r.assumptions_json, r.proposal_json, result.public_json
                     FROM trip_understanding_revisions r JOIN trip_understanding_results result
                     ON result.understanding_id=r.understanding_id AND result.revision=r.revision
                     WHERE r.understanding_id=$1 AND r.revision=$2""", resource.understanding_id, source_revision)
                 if previous is None:
                     raise CommandTargetChangedError("previous cards are unavailable")
-                undo_result = UserFacingTripResult.model_validate(_json_value(previous["public_json"]))
+                restore_result = UserFacingTripResult.model_validate(_json_value(previous["public_json"]))
                 current = previous
+            source_available = await conn.fetchval("""SELECT 1 FROM trip_understanding_sources
+                WHERE source_id=$1 AND deleted_at IS NULL AND retention_until>GREATEST($2::timestamptz,clock_timestamp())""",
+                current["source_id"], now)
+            if isinstance(command, LodgingRecoverCommand) and not source_available:
+                raise CommandTargetChangedError("source hotel is no longer recoverable")
+            candidate_now = now
+            if isinstance(command, (LodgingRecoverCommand, DiningInsertCommand)):
+                candidate_now = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
             confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
-                expected_etag=expected_etag, now=now)
-            mutation = apply_public_command(current_result, command, undo_result=undo_result, confirmed_place=confirmed_place)
+                expected_etag=expected_etag, now=candidate_now)
+            meal_trip = await self._read_recommendation_trip_view(conn, resource.understanding_id, source_revision)
+            current_place_id = (await conn.fetchval("""SELECT canonical_place_id FROM trip_understanding_activities
+                WHERE understanding_id=$1 AND revision=$2 AND public_activity_token=$3""",
+                resource.understanding_id, source_revision, command.activity_token) if isinstance(command, PlaceConfirmCommand) else None)
+            mutation = apply_public_command(current_result, command,
+                undo_result=restore_result if isinstance(command, UndoCommand) else None,
+                redo_result=restore_result if isinstance(command, RedoCommand) else None, confirmed_place=confirmed_place,
+                current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
+            mutation.result.can_undo = bool(history["undo"])
+            mutation.result.can_redo = bool(history["redo"])
+            from app.trip_understanding.relative_route_context import carry_source_order
+            source_order = carry_source_order(_json_value(current["proposal_json"]),
+                restore_result or current_result, mutation.result, mutation.token_map, command=command,
+                confirmed_place=confirmed_place, current_place_id=current_place_id)
             public_payload = mutation.result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
             parent_revision = int(aggregate["current_revision"])
@@ -2672,6 +2893,8 @@ class PostgresTripUnderstandingRepository(
                         "kind": "USER_EDIT",
                         "command_type": command.command_type,
                         "source_quotes": "PARENT_REVISION_ONLY",
+                        "edit_history": history,
+                        "source_order": source_order,
                     },
                     ensure_ascii=False,
                 ),
@@ -2702,8 +2925,10 @@ class PostgresTripUnderstandingRepository(
                 invalidated_token = command.activity_token
             elif isinstance(command, ActivityTextEditCommand) and command.name is not None:
                 invalidated_token = command.activity_token
-            for day_index, day in enumerate(mutation.result.days, start=1):
-                for sequence_index, card in enumerate(day.activities):
+            place_groups = [(index, day.activities) for index, day in enumerate(mutation.result.days, start=1)]
+            place_groups.append((None, mutation.result.lodging_constraints))
+            for day_index, cards in place_groups:
+                for sequence_index, card in enumerate(cards):
                     old_token = old_token_by_new.get(card.activity_token)
                     old = old_by_token.get(old_token) if old_token else None
                     preserve_resolution = old is not None and old_token != invalidated_token and not (command.command_type == "ASSUMPTION_SET" and command.key == "destination")
@@ -2719,9 +2944,11 @@ class PostgresTripUnderstandingRepository(
                     )
                     is_confirmed = confirmed_place is not None and (
                         isinstance(command, PlaceConfirmCommand) and old_token == command.activity_token
-                        or isinstance(command, DiningInsertCommand) and card.activity_token == mutation.inserted_token)
+                        or isinstance(command, (DiningInsertCommand, LodgingRecoverCommand)) and card.activity_token == mutation.inserted_token)
                     if is_confirmed:
                         resolver_receipt = confirmed_place.receipt()
+                    elif old_token in meal_trip.source_lunch_gaps:
+                        resolver_receipt = {**resolver_receipt, "source_lunch_gap": meal_trip.source_lunch_gaps[old_token]}
                     await conn.execute(
                         """
                         INSERT INTO trip_understanding_activities (
@@ -2743,14 +2970,28 @@ class PostgresTripUnderstandingRepository(
                         card.name,
                         card.category,
                         card.time_hint,
-                        bool(old["eligible_for_place_search"]) if preserve_resolution else False,
+                        bool(old["eligible_for_place_search"]) if preserve_resolution and day_index is not None else False,
                         "AUTO_MATCHED" if is_confirmed else (old["resolution_status"] if preserve_resolution else "NEEDS_CONFIRMATION"),
                         confirmed_place.canonical_place_id if is_confirmed else (old["canonical_place_id"] if preserve_resolution else None),
                         json.dumps(resolver_receipt, ensure_ascii=False),
                         now,
                     )
+            for pending in mutation.result.pending_lodgings:
+                old = old_by_token.get(old_token_by_new.get(pending.pending_token))
+                if old is None or not source_available:
+                    # Source deletion removed the recoverable source row.
+                    # Keep only the opaque historical pending reference.
+                    continue
+                await conn.execute("""INSERT INTO trip_understanding_activities (
+                    activity_id,understanding_id,revision,public_activity_token,day_index,sequence_index,role,
+                    mention_text,atomic_place_name,category_hint,time_hint,eligible_for_place_search,
+                    resolution_status,canonical_place_id,resolver_receipt_json,created_at)
+                    VALUES ($1,$2,$3,$4,NULL,$5,'PLANNED',$6,$7,'住宿',NULL,false,'NOT_ELIGIBLE',NULL,$8::jsonb,$9)""",
+                    str(uuid4()), resource.understanding_id, result_revision, pending.pending_token, old["sequence_index"],
+                    old["mention_text"], old["atomic_place_name"], json.dumps({"status": "PENDING_LODGING_SCOPE",
+                        "pending_city_hint": _json_value(old["resolver_receipt_json"]).get("pending_city_hint")}), now)
             for old in current_activities:
-                if old["role"] == "PLANNED":
+                if old["role"] == "PLANNED" or not source_available:
                     continue
                 await conn.execute(
                     """
@@ -3266,7 +3507,8 @@ class PostgresTripUnderstandingRepository(
                 DELETE FROM trip_understanding_idempotency_records
                 WHERE scope <> $1
                   AND (
-                    scope IN ($2, $3)
+                    (split_part(scope, ':', 1) = 'understanding' AND split_part(scope, ':', 2) = $2)
+                    OR scope = $3
                     OR response_json ->> 'public_resource_id' = $4
                     OR response_json ->> 'public_resource_id' IN (
                       SELECT public_resource_id
@@ -3277,7 +3519,7 @@ class PostgresTripUnderstandingRepository(
                   )
                 """,
                 scope,
-                f"understanding:{resource.understanding_id}:command",
+                resource.understanding_id,
                 f"understanding:{resource.understanding_id}:delete-source",
                 resource.public_resource_id,
             )
@@ -3572,6 +3814,13 @@ class PostgresTripUnderstandingRepository(
             await conn.execute("DELETE FROM memory_audit_log WHERE user_id = $1", user_id)
             await conn.execute("DELETE FROM user_preferences WHERE user_id = $1", user_id)
             await conn.execute("DELETE FROM user_memory_settings WHERE user_id = $1", user_id)
+            # A shared published route belongs to the room's remaining members.
+            # Clear personal request copies and authorship, without deleting their route.
+            await conn.execute("DELETE FROM room_itinerary_requests WHERE user_id = $1", user_id)
+            await conn.execute(
+                "UPDATE room_itinerary_revisions SET published_by_user_id = NULL WHERE published_by_user_id = $1",
+                user_id,
+            )
             owned_ids = await conn.fetch(
                 """
                 SELECT understanding_id
@@ -3648,10 +3897,11 @@ class PostgresTripUnderstandingRepository(
                 await conn.execute(
                     """
                     DELETE FROM trip_understanding_idempotency_records
-                    WHERE scope IN ($1, $2)
+                    WHERE (split_part(scope, ':', 1) = 'understanding' AND split_part(scope, ':', 2) = $1)
+                       OR scope = $2
                        OR response_json ->> 'public_resource_id' = $3
                     """,
-                    f"understanding:{row['understanding_id']}:command",
+                    row["understanding_id"],
                     f"understanding:{row['understanding_id']}:delete-source",
                     row["public_resource_id"],
                 )
@@ -4260,7 +4510,7 @@ class PostgresTripUnderstandingRepository(
                 """
                 SELECT s.source_id, s.source_type, s.content_hash, s.encrypted_content,
                        s.encryption_key_ref, s.retention_until, s.deleted_at,
-                       r.inference_binding_json
+                       r.inference_binding_json, r.proposal_json
                 FROM trip_understanding_jobs j
                 JOIN trip_understanding_revisions r
                   ON r.understanding_id = j.understanding_id AND r.revision = j.revision
@@ -4297,10 +4547,19 @@ class PostgresTripUnderstandingRepository(
         if row["source_type"] == "TEXT":
             if _sha256_text(text) != content_hash:
                 raise ValueError("decrypted source hash mismatch")
+            raw_initial_plan = _json_value(row["proposal_json"]).get("initial_plan")
+            initial_plan = None
+            if raw_initial_plan is not None:
+                if not isinstance(raw_initial_plan, str):
+                    raise ValueError("invalid encrypted initial collaboration plan")
+                initial_plan = _checked_initial_plan(SourceSemanticPlan.model_validate_json(cipher.decrypt(
+                    base64.b64decode(raw_initial_plan, validate=True), source_id=row["source_id"],
+                    content_hash=content_hash, purpose=_initial_plan_purpose(bytes(row["encrypted_content"])))), text)
             return TripUnderstandingSourcePayload(
                 source_type="TEXT",
                 text=text,
                 internal_binding=_json_value(row["inference_binding_json"]),
+                initial_plan=initial_plan,
             )
         document = ScreenshotSourceDocumentV1.model_validate_json(text)
         if _sha256_text(document.semantic_text) != content_hash:
@@ -4433,9 +4692,10 @@ class PostgresTripUnderstandingRepository(
             source_id = source_row["source_id"]
             source_type = source_row["source_type"]
             source_hash = source_row["content_hash"].strip()
+            source_check_at = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
             if (
                 source_row["deleted_at"] is not None
-                or source_row["retention_until"] <= now
+                or source_row["retention_until"] <= source_check_at
                 or (
                     source_type in {"TEXT", "SCREENSHOT_OCR"}
                     and source_row["encrypted_content"] is None
@@ -4486,6 +4746,8 @@ class PostgresTripUnderstandingRepository(
                         "external_calls": 0,
                     }
                 )
+                if mention.pending_lodging_scope:
+                    resolver_receipt = {**resolver_receipt, "pending_city_hint": mention.city_hint}
                 await conn.execute(
                     """
                     INSERT INTO trip_understanding_activities (
@@ -4620,6 +4882,8 @@ class PostgresTripUnderstandingRepository(
                 result_revision,
                 now=now,
             )
+            from app.trip_understanding.dining_jobs import enqueue_initial_dining
+            await enqueue_initial_dining(conn, job.understanding_id, result_revision)
             event_payload = PublicEventPayload(
                 status=terminal_state,
                 message="卡片已可用",
@@ -4690,7 +4954,7 @@ class PostgresTripUnderstandingRepository(
                     FROM trip_understanding_revisions WHERE understanding_id=$1 AND revision=$2
                     ON CONFLICT (understanding_id,revision) DO NOTHING""", job.understanding_id,
                     job.revision, canonical_sha256(binding), json.dumps(binding), now)
-                payload = PublicEventPayload(status="FAILED", message="这次没有整理完成，可以重新尝试")
+                payload = PublicEventPayload(status="FAILED", message=public_failure_message(category))
                 await conn.execute("""INSERT INTO trip_understanding_events (understanding_id,event_key,event_type,public_payload_json,created_at)
                     VALUES ($1,$2,'progress',$3::jsonb,$4) ON CONFLICT (understanding_id,event_key) DO NOTHING""",
                     job.understanding_id, f"job:{job.job_id}:failed", json.dumps(payload.model_dump(),ensure_ascii=False), now)
@@ -4706,6 +4970,7 @@ class PostgresTripUnderstandingRepository(
 
 
 class InMemoryTripUnderstandingRepository(
+    InMemoryRelativeRouteRepositoryMixin,
     InMemoryReadbackMixin,
     InMemoryG03RepositoryMixin,
     InMemoryStayRecommendationRepositoryMixin,
@@ -4758,6 +5023,41 @@ class InMemoryTripUnderstandingRepository(
             if job["understanding_id"] == understanding_id and job_id in self.sources:
                 return self.sources[job_id].source_type
         return "TEXT"
+
+    async def load_recommendation_trip_view(self, understanding_id: str, revision: int) -> RecommendationTripView:
+        from app.trip_understanding.daily_dining import source_lunch_gaps
+
+        result_id = next((key for key, owner in self.result_owners.items()
+            if owner == understanding_id and self.result_revisions.get(key) == revision), None)
+        stored = self.results.get(result_id or "")
+        if stored is None:
+            raise ResourceNotReadyError("recommendation trip version is unavailable")
+        records = {row["public_activity_token"]: dict(row) for row in self.source_readback_mentions.get(understanding_id, [])}
+        for token, binding in self.g03_pipeline_inputs.get((understanding_id, revision), {}).get("bindings", {}).items():
+            records.setdefault(token, {"public_activity_token": token})["resolver_receipt"] = binding.get("resolver_receipt") or {}
+        return RecommendationTripView(revision=revision, etag=stored.opaque_etag,
+            result=stored.result.model_copy(deep=True), plan=self._memory_plan(understanding_id, revision),
+            source_type=await self.get_map_source_type(understanding_id), source_lunch_gaps=source_lunch_gaps(stored.result, records.values()))
+
+    async def read_daily_dining(self, resource: PublicResourceRecord, *, request_key: str | None = None,
+                               expected_etag: str | None = None, replay_info: dict | None = None):
+        from app.trip_understanding.dining_jobs import _project_daily_row
+
+        if replay_info is not None:
+            replay_info["replayed"] = False
+        plan, etag = await self.get_current_place_plan(resource)
+        if expected_etag is not None and expected_etag != etag:
+            raise RevisionConflictError()
+        trip = await self.load_recommendation_trip_view(resource.understanding_id, plan.plan_ref.revision)
+        return _project_daily_row({"status": "UNAVAILABLE"}, resource=resource, etag=etag, trip=trip), etag
+
+    async def claim_daily_dining(self, worker_id: str) -> DailyDiningJob | None:
+        # This fixture repository does not dispatch external restaurant jobs.
+        return None
+
+    async def complete_daily_dining(self, job: DailyDiningJob, *, worker_id: str, status: str,
+                                    payload: list, stats: dict, now: datetime) -> None:
+        raise ResourceNotReadyError("durable daily dining jobs require PostgreSQL")
 
     async def create_demo(
         self,
@@ -4860,9 +5160,11 @@ class InMemoryTripUnderstandingRepository(
         now: datetime,
         retention_days: int,
         initial_inference_binding: dict[str, Any] | None = None,
+        initial_plan: SourceSemanticPlan | None = None,
     ) -> CreateOutcome:
         if not source_text.strip() or len(source_text) > 50_000:
             raise ValueError("text source is outside the supported size")
+        initial_plan = _checked_initial_plan(initial_plan, source_text)
         scope = f"user:{owner_user_id}:create"
         key = (scope, _sha256_text(idempotency_key))
         existing = self.idempotency.get(key)
@@ -4912,6 +5214,7 @@ class InMemoryTripUnderstandingRepository(
             source_type="TEXT",
             text=source_text,
             internal_binding=dict(initial_inference_binding or {}),
+            initial_plan=initial_plan,
         )
         self.source_expiries[job_id] = now + timedelta(days=retention_days)
         self.events[understanding_id] = [
@@ -5657,8 +5960,12 @@ class InMemoryTripUnderstandingRepository(
             raise ResourceAccessDeniedError("trip resource is not available to this session")
         if row["expires_at"] <= now:
             raise ResourceGoneError("trip resource has expired")
+        failure_category = next((job.get("last_error_category") for job in self.jobs.values()
+            if row["state"] == "FAILED" and job["understanding_id"] == row["understanding_id"]
+            and job["revision"] == row.get("current_revision", 0) - 1 and job["status"] == "FAILED"), None)
         return PublicResourceRecord.model_validate(
-            {**{key: row[key] for key in PublicResourceRecord.model_fields if key in row}, "ownership": "ACCOUNT" if row.get("owner_user_id") else "ANONYMOUS"}
+            {**{key: row[key] for key in PublicResourceRecord.model_fields if key in row},
+             "failure_category": failure_category, "ownership": "ACCOUNT" if row.get("owner_user_id") else "ANONYMOUS"}
         )
 
     async def get_result(self, resource: PublicResourceRecord) -> StoredResult | None:
@@ -5706,15 +6013,40 @@ class InMemoryTripUnderstandingRepository(
             raise ResourceNotReadyError("trip cards are not ready for editing")
         if not hmac.compare_digest(stored.opaque_etag, expected_etag):
             raise RevisionConflictError("command precondition does not match current result")
-        source_revision = int(aggregate["current_revision"])
-        undo_result = None
-        if isinstance(command, UndoCommand):
-            source_revision -= 1
-            undo_result = next((value.result for key, value in self.results.items()
+        source_revision, history = advance_edit_history(
+            int(aggregate["current_revision"]),
+            self.g03_pipeline_inputs.get((resource.understanding_id, int(aggregate["current_revision"])), {}),
+            can_undo=stored.result.can_undo, command_type=command.command_type)
+        restore_result = None
+        if isinstance(command, (UndoCommand, RedoCommand)):
+            restore_result = next((value.result for key, value in self.results.items()
                 if self.result_owners.get(key) == resource.understanding_id and self.result_revisions.get(key) == source_revision), None)
+        effective_now = max(now, datetime.now(timezone.utc))
+        source_available = any(job["understanding_id"] == resource.understanding_id and job_id in self.sources
+            and self.source_expiries.get(job_id, now) > effective_now for job_id, job in self.jobs.items())
+        if isinstance(command, LodgingRecoverCommand) and not source_available:
+            raise CommandTargetChangedError("source hotel is no longer recoverable")
+        from app.trip_understanding.relative_route_previews import verify_route_move
+        verify_route_move(command, stored.result, public_resource_id=resource.public_resource_id,
+            expected_etag=expected_etag, now=effective_now,
+            current_map_job_id=self._current_map_job_id_memory(resource.understanding_id, int(aggregate["current_revision"])))
         confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
-            expected_etag=expected_etag, now=now)
-        mutation = apply_public_command(stored.result, command, undo_result=undo_result, confirmed_place=confirmed_place)
+            expected_etag=expected_etag, now=effective_now if isinstance(command, (LodgingRecoverCommand, DiningInsertCommand)) else now)
+        meal_trip = await self.load_recommendation_trip_view(resource.understanding_id, source_revision)
+        previous_input = self.g03_pipeline_inputs.get((resource.understanding_id, source_revision), {})
+        previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(restore_result or stored.result)
+        current_place_id = (previous_bindings.get(command.activity_token, {}).get("canonical_place_id")
+            if isinstance(command, PlaceConfirmCommand) else None)
+        mutation = apply_public_command(stored.result, command,
+            undo_result=restore_result if isinstance(command, UndoCommand) else None,
+            redo_result=restore_result if isinstance(command, RedoCommand) else None, confirmed_place=confirmed_place,
+            current_place_id=current_place_id, source_lunch_gaps=meal_trip.source_lunch_gaps, dining_plan=meal_trip.plan)
+        mutation.result.can_undo = bool(history["undo"])
+        mutation.result.can_redo = bool(history["redo"])
+        from app.trip_understanding.relative_route_context import carry_source_order
+        source_order = carry_source_order(previous_input, restore_result or stored.result,
+            mutation.result, mutation.token_map, command=command,
+            confirmed_place=confirmed_place, current_place_id=current_place_id)
         result_id = str(uuid4())
         opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
         self.results[result_id] = StoredResult(
@@ -5731,12 +6063,12 @@ class InMemoryTripUnderstandingRepository(
                 "updated_at": now,
             }
         )
-        previous_input = self.g03_pipeline_inputs.get(
-            (resource.understanding_id, source_revision), {}
-        )
-        previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(undo_result or stored.result)
         bindings = {new: dict(previous_bindings.get(old) or {}) for old, new in mutation.token_map.items()}
-        if isinstance(command, DiningInsertCommand) and confirmed_place is not None:
+        for old, new in mutation.token_map.items():
+            if old in meal_trip.source_lunch_gaps:
+                bindings[new]["resolver_receipt"] = {**(bindings[new].get("resolver_receipt") or {}),
+                    "source_lunch_gap": meal_trip.source_lunch_gaps[old]}
+        if isinstance(command, (DiningInsertCommand, LodgingRecoverCommand)) and confirmed_place is not None:
             bindings[mutation.inserted_token] = {"canonical_place_id": confirmed_place.canonical_place_id,
                 "resolution_status": "AUTO_MATCHED", "resolver_receipt": confirmed_place.receipt()}
         if command.command_type == "ASSUMPTION_SET" and command.key == "destination":
@@ -5755,8 +6087,13 @@ class InMemoryTripUnderstandingRepository(
         self.g03_pipeline_inputs[
             (resource.understanding_id, int(aggregate["current_revision"]))
         ] = {
+            "edit_history": history,
+            "source_order": source_order,
             "destination": ({"name": command.value, "status": "USER_EDITED"} if command.command_type == "ASSUMPTION_SET" and command.key == "destination" else dict(previous_input.get("destination") or {})),
             "bindings": bindings,
+            "pending_lodgings": {new: {**old_row, "public_activity_token": new}
+                for old, new in mutation.token_map.items()
+                if source_available and (old_row := previous_input.get("pending_lodgings", {}).get(old)) is not None},
             "assumptions": [
                 {
                     **prior_assumptions.get(item.key, {}),
@@ -5852,6 +6189,7 @@ class InMemoryTripUnderstandingRepository(
                 self.sources.pop(job_id, None)
         for (owner, _revision), data in self.g03_pipeline_inputs.items():
             if owner == understanding_id:
+                data.pop("pending_lodgings", None)
                 for binding in data.get("bindings", {}).values():
                     binding["resolver_receipt"] = _retained_place_receipt(binding.get("resolver_receipt") or {})
 
@@ -6448,6 +6786,7 @@ class InMemoryTripUnderstandingRepository(
             or _sha256_text(source.text) != job.input_hash
         ):
             raise SourceUnavailableError("understanding source is unavailable")
+        _checked_initial_plan(source.initial_plan, source.text)
         return source
 
     async def renew_lease(
@@ -6480,10 +6819,11 @@ class InMemoryTripUnderstandingRepository(
         item = self.jobs[job.job_id]
         source = self.sources.get(job.job_id)
         source_expiry = self.source_expiries.get(job.job_id)
+        source_check_at = max(now, datetime.now(timezone.utc))
         if (
             source is None
             or source_expiry is None
-            or source_expiry <= now
+            or source_expiry <= source_check_at
             or _sha256_text(source.text) != job.input_hash
             or output.source_hash != job.input_hash
         ):
@@ -6533,13 +6873,20 @@ class InMemoryTripUnderstandingRepository(
              "day_index": item.compiled.mention.day_index,
              "sequence_index": item.compiled.mention.sequence_index,
              "role": item.compiled.mention.role.value,
+             "parent_mention_id": item.compiled.mention.parent_mention_id,
+             "relation_type": item.compiled.mention.relation_type,
              "time_hint": item.compiled.mention.time_hint,
              "canonical_place_id": item.place.canonical_place_id if item.place else None}
             for item in output.activities
         ]
         self.g03_pipeline_inputs[(job.understanding_id, 2)] = {
+            "source_order": _persisted_proposal(output)["source_order"],
             "destination": dict(output.destination),
             "assumptions": [dict(item) for item in output.assumptions],
+            "pending_lodgings": {item.compiled.public_activity_token: {
+                "public_activity_token": item.compiled.public_activity_token,
+                "atomic_place_name": item.compiled.mention.atomic_place_name, "city": item.compiled.mention.city_hint}
+                for item in output.activities if item.compiled.mention.pending_lodging_scope},
             "bindings": {
                 activity.compiled.public_activity_token: {
                     "canonical_place_id": (
@@ -6626,7 +6973,7 @@ class InMemoryTripUnderstandingRepository(
                 self._release_failed_anonymous_allowance(self.resources[public_id])
             events = self.events.setdefault(job.understanding_id, [])
             events.append(PublicEventRecord(event_id=len(events)+1, event_type="progress",
-                payload=PublicEventPayload(status="FAILED", message="这次没有整理完成，可以重新尝试")))
+                payload=PublicEventPayload(status="FAILED", message=public_failure_message(category))))
 
     @property
     def side_effect_count(self) -> int:

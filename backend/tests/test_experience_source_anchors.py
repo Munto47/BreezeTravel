@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -37,10 +38,10 @@ class CapturedClient:
         )
 
 
-def provider(client):
+def provider(client, *, relative_only=True):
     return ExperienceQwenProvider(
         api_key="test-only", base_url="https://example.invalid/v1",
-        model="controlled-model", client=client,
+        model="controlled-model", client=client, relative_only=relative_only,
     )
 
 
@@ -58,6 +59,98 @@ def test_markdown_decoration_maps_back_to_exact_unicode_source_offsets(decoratio
     assert mention.span_start == source.index("西湖")
     assert source[mention.span_start:mention.span_end] == mention.raw_text == "西湖"
     assert proposal.unprocessed_count == 0
+
+
+@pytest.mark.parametrize("decoration", ["**", "__", "***", "___", "*", "_", "`"])
+def test_formatted_base_and_literal_branch_keep_full_original_source_span(decoration):
+    source = f"杭州\nDay1：去 {decoration}浙江省博物馆{decoration}（武林馆区）。"
+    name = "浙江省博物馆（武林馆区）"
+    proposal = proposal_from_draft(source, SemanticDraft(destination="杭州", activities=[activity(name, name)]))
+    assert proposal.unprocessed_count == 0
+    mention = proposal.mentions[0]
+    assert mention.atomic_place_name == name and mention.day_index == 1 and mention.role.value == "PLANNED"
+    assert mention.raw_text == source[mention.span_start:mention.span_end] == f"浙江省博物馆{decoration}（武林馆区）"
+
+
+@pytest.mark.parametrize("source", [
+    "去浙江省博物馆**（武林馆区）。",  # Unpaired markup cannot be deleted.
+    "去**浙江省博物馆**，另去（武林馆区）。",  # Prose cannot be bridged.
+    "去**浙江省博物馆**（孤山馆区）。",  # A different branch is not an alias.
+    "去浙江省博**物馆**（武林馆区）。",  # Do not splice a base name together.
+    "去**浙江省博物馆**（武**林馆**区）。",  # Nor splice the qualifier.
+])
+def test_formatted_qualifier_mapping_cannot_rewrite_literal_name_components(source):
+    name = "浙江省博物馆（武林馆区）"
+    with pytest.raises(SourceAnchorValidationError):
+        proposal_from_draft(source, SemanticDraft(destination="杭州", activities=[activity(name, name)]))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("relative_only", [True, False], ids=["relative", "legacy-clock"])
+@pytest.mark.parametrize(("corrected_second_response", "identity_confirmed"), [(False, True), (True, True), (True, False)])
+async def test_saved_shenzhen_qualified_repair_has_a_public_destination(corrected_second_response, identity_confirmed, relative_only):
+    # The first response is actual raw from a contaminated prompt measurement;
+    # this tests adapter behavior only. The second response is a controlled
+    # repair, and all place identities below are fixed test identities.
+    sample = json.loads((Path(__file__).parent / "fixtures/live_shenzhen_qualifier_omission.json").read_text(encoding="utf-8"))
+    second = json.loads(json.dumps(sample["model_response"]))
+    expected = [("深圳博物馆（历史民俗馆）", "PLANNED"), ("炳胜品味（华强北店）", "OPTIONAL")]
+    if corrected_second_response:
+        for index, (name, _role) in zip((1, 5), expected, strict=True):
+            second["activities"][index].update(source_quote=name, place_name=name, occurrence=1)
+    client = CapturedClient(sample["model_response"], second)
+    live = provider(client, relative_only=relative_only)
+    live.enable_day_sections = False  # The saved measurement has no structure response.
+    from tests.test_semantic_day_sections import RecordingPlaces
+
+    class FixedPlaces(RecordingPlaces):
+        async def resolve(self, **kwargs):
+            result = await super().resolve(**kwargs)
+            return result if identity_confirmed else None
+
+    places = FixedPlaces()
+    output = await TripUnderstandingPipeline(live, places).run(sample["source"])
+    assert len(client.calls) == 2
+    assert output.public_result.coverage.complete is False  # Other real raw defects remain.
+    # Four saved rows have durations without evidence. Only the explicit old
+    # clock contract counts those as defects; the relative contract must still
+    # repair names and retain every remaining source/identity failure.
+    timing_issues = [issue for issue in output.inference_binding["calls"][0]["validation_errors"]
+                     if issue["category"] == "TIME_EVIDENCE_NOT_IN_SOURCE"]
+    assert len(timing_issues) == (0 if relative_only else 4)
+    if not relative_only:
+        assert [issue["field"] for issue in timing_issues] == [
+            f"activities[{index}].time_evidence" for index in (0, 6, 7, 12)]
+    assert not any(item.start_time or item.end_time or item.visit_duration_minutes
+                   for item in output.proposal.mentions)
+    assert all(sample["source"][item.span_start:item.span_end] == item.raw_text
+               for item in output.proposal.mentions)
+    categories = {issue["category"] for issue in output.inference_binding["calls"][0]["validation_errors"]}
+    assert "PLACE_QUALIFIER_OMITTED" in categories
+    assert ("TIME_EVIDENCE_NOT_IN_SOURCE" in categories) == (not relative_only)
+    for name, role in expected:
+        matching = [item for item in output.proposal.mentions if item.atomic_place_name == name]
+        assert len(matching) == int(corrected_second_response)
+        assert not any(query in {"深圳博物馆", "炳胜品味"} for _city, query in places.calls)
+        if matching:
+            item = matching[0]
+            assert (item.role.value, item.day_index) == (role, 1)
+            assert item.raw_text == sample["source"][item.span_start:item.span_end]
+            assert "**（" in item.raw_text
+    if corrected_second_response:
+        assert len(output.proposal.mentions) == 21
+        assert output.public_result.coverage.unprocessed_count == 2 + len(timing_issues)
+        assert [card.name for card in output.public_result.days[0].activities] == [
+            "莲花山公园", "深圳博物馆（历史民俗馆）", "华强北美食街区", "东门老街", "国贸食街"]
+        museum = output.public_result.days[0].activities[1]
+        assert museum.status == ("READY" if identity_confirmed else "NEEDS_CONFIRMATION")
+        assert "炳胜品味（华强北店）" in [item.name for item in output.public_result.days[0].alternatives]
+        assert ("深圳", "深圳博物馆（历史民俗馆）") in places.calls
+        assert not any(query == "炳胜品味（华强北店）" for _city, query in places.calls)
+    else:
+        assert len(output.proposal.mentions) == 19
+        assert output.public_result.coverage.unprocessed_count == 4 + len(timing_issues)
+        assert sum(issue.category == "PLACE_QUALIFIER_OMITTED" for issue in output.proposal.diagnostics) == 2
 
 
 def test_occurrence_counts_visible_repeated_quotes_without_losing_original_offsets():

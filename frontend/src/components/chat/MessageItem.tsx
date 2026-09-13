@@ -48,7 +48,7 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div data-testid="chat-assistant-message" data-status={message.status} className="flex flex-col gap-2.5">
       {/* AI 推荐的地点卡片 */}
       {message.placesGenerated && message.placesGenerated.length > 0 && (
         <div className="space-y-2">
@@ -56,7 +56,8 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
             <MapPin className="w-3 h-3" />
             {message.status === 'streaming'
               ? `已在地图预览 ${message.placesGenerated.length} 个地点 · AI 正在完善说明`
-              : `推荐了 ${message.placesGenerated.length} 个地点 · 已加入右侧候选区`}
+              : message.status === 'done' ? `推荐了 ${message.placesGenerated.length} 个地点 · 已加入右侧候选区`
+                : `临时预览 ${message.placesGenerated.length} 个地点 · 回答未完成，未加入候选区`}
           </p>
           {message.placesGenerated.map((place, i) => {
             return (
@@ -128,7 +129,7 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
 
       {/* AI 文字回复 */}
       {message.content && (
-        <div className="bg-white/70 text-gray-800 text-sm rounded-2xl rounded-tl-md px-4 py-3 max-w-[95%] leading-relaxed border border-gray-100/60 shadow-sm">
+        <div className="bg-white/70 text-gray-800 text-sm whitespace-pre-wrap break-words rounded-2xl rounded-tl-md px-4 py-3 max-w-[95%] leading-relaxed border border-gray-100/60 shadow-sm">
           {message.content}
           {message.status === 'streaming' && (
             <span className="inline-flex gap-0.5 ml-1 align-middle">
@@ -147,10 +148,10 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
       )}
 
       {/* 错误状态 */}
-      {message.status === 'error' && !message.content && (
+      {message.status === 'error' && (
         <div className="flex items-center gap-2 text-red-500 text-xs bg-red-50/80 rounded-lg px-3 py-2.5 border border-red-100">
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-          请求失败，请重试
+          {message.notice || '请求失败，请重试'}
         </div>
       )}
     </div>

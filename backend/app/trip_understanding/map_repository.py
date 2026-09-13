@@ -28,10 +28,12 @@ from app.trip_understanding.map_render import (
     MapRenderRequestOutcome,
     MapRenderView,
     MapStop,
+    MapLodgingConstraint,
     PlanRevisionRef,
     PublicMapDayView,
     PublicMapEdgeView,
     PublicMapPoint,
+    PublicLodgingMapPoint,
     PublicMapPosition,
     PublicRouteModeView,
     RouteGeometryPoint,
@@ -43,6 +45,7 @@ from app.trip_understanding.models import (
 )
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
+from app.trip_understanding.route_connection import connection_status, geometry_break_indices
 
 
 _CONTROLLED_PLACE_PATH = Path(__file__).resolve().parents[1] / "data" / "amap_mock_places.json"
@@ -102,6 +105,7 @@ def _plan_for_result(
     city: str | None = None,
 ) -> MapRenderPlan:
     stops: list[MapStop] = []
+    lodging_constraints: list[MapStop | MapLodgingConstraint] = []
     for day_index, day in enumerate(result.days, start=1):
         for sequence_index, card in enumerate(day.activities):
             canonical_place_id, stored_status, resolver_receipt = activity_bindings.get(
@@ -122,6 +126,15 @@ def _plan_for_result(
                     day_label=day.label,
                     sequence_index=sequence_index,
                     name=card.name,
+                    category=card.category,
+                    lodging_event=getattr(card, "lodging_event", None),
+                    lodging_scope=getattr(card, "lodging_scope", None),
+                    lodging_role_uncertain=getattr(card, "lodging_role_uncertain", False),
+                    lodging_excluded_nights=getattr(card, "lodging_excluded_nights", []),
+                    # PublicResultProjector uses this exact reserved label for
+                    # mentions without a concrete atomic place. An unmatched
+                    # hotel with its own name must keep its lodging constraint.
+                    source_place_is_placeholder=not canonical_place_id and card.name == "地点待确认",
                     canonical_place_id=canonical_place_id,
                     resolution_status=resolution_status,
                     city=str(resolver_receipt.get("city") or card.city or city or "") or None,
@@ -129,6 +142,17 @@ def _plan_for_result(
                     latitude=latitude,
                 )
             )
+            if card.category == "住宿" and getattr(card, "lodging_scope", None) == "WHOLE_TRIP" and getattr(card, "lodging_event", None) == "OVERNIGHT":
+                lodging_constraints.append(stops.pop())
+    for card in result.lodging_constraints:
+        place_id, stored_status, receipt = activity_bindings.get(card.activity_token, (None, "NEEDS_CONFIRMATION", {}))
+        longitude, latitude = _coordinates_from_receipt(receipt)
+        lodging_constraints.append(MapLodgingConstraint(activity_token=card.activity_token,
+            name=card.name, category="住宿", lodging_event="OVERNIGHT", lodging_scope=card.lodging_scope,
+            overnight_days=card.overnight_days, lodging_excluded_nights=card.lodging_excluded_nights,
+            canonical_place_id=place_id,
+            resolution_status="AUTO_MATCHED" if stored_status == "AUTO_MATCHED" and place_id else "NEEDS_CONFIRMATION",
+            city=card.city or receipt.get("city"), longitude=longitude, latitude=latitude))
     stop_set_hash = canonical_sha256(
         [
             {
@@ -144,8 +168,9 @@ def _plan_for_result(
             for stop in stops
         ]
     )
-    return MapRenderPlan(
+    plan = MapRenderPlan(
         understanding_id=understanding_id,
+        day_count=len(result.days) or None,
         plan_ref=PlanRevisionRef(
             kind="UNDERSTANDING",
             aggregate_id=understanding_id,
@@ -154,11 +179,48 @@ def _plan_for_result(
         ),
         route_config_hash=ROUTE_CONFIG_SHA256,
         stops=stops,
+        lodging_constraints=lodging_constraints,
     )
+    return plan_with_source_lodging(plan)
+
+
+def plan_with_source_lodging(plan: MapRenderPlan) -> MapRenderPlan:
+    """Source-backed nights add endpoints without inventing arrival visits."""
+    from app.trip_understanding.overnight_context import confirmed, hotel_identity, is_hotel, overnight_segments
+
+    source_hotels = [*plan.lodging_constraints, *[stop for stop in plan.stops
+        if not stop.is_stay_anchor and is_hotel(stop) and stop.lodging_event in {"OVERNIGHT", "CHECK_OUT", "DEPARTURE"}]]
+    seen = set()
+    for hotel in source_hotels:
+        identity = hotel_identity(hotel.canonical_place_id)
+        if not confirmed(hotel) or not hotel.city or hotel.lodging_role_uncertain or identity in seen:
+            continue
+        seen.add(identity)
+        nights = [night for segment in overnight_segments(plan) if segment.preserved_place_ids == [identity]
+                  and not segment.uncertain for night in segment.overnight_days]
+        plan = plan_with_stay_anchor(plan, selected_place_id=hotel.canonical_place_id, selected_name=hotel.name,
+            selected_city=hotel.city, longitude=hotel.longitude, latitude=hotel.latitude,
+            overnight_days=nights, source_constraint=True)
+    return plan
 
 
 def map_view_with_points(view: MapRenderView, plan: MapRenderPlan) -> MapRenderView:
     view = view.model_copy(deep=True)
+    # Only source-backed or explicitly selected nightly anchors are present in
+    # the plan. Recommendations alone never create markers. Scope identity to
+    # this private aggregate and revision rather than exposing a provider ID.
+    lodging = {}
+    for stop in plan.stops:
+        if (not stop.is_stay_anchor or stop.resolution_status != "AUTO_MATCHED" or not stop.canonical_place_id
+                or stop.longitude is None or stop.latitude is None or stop.lodging_role_uncertain):
+            continue
+        identity = (stop.day_index, stop.canonical_place_id)
+        if identity not in lodging:
+            token = "lodging_" + canonical_sha256({"aggregate": plan.understanding_id,
+                "revision": plan.plan_ref.revision, "day": stop.day_index, "place": stop.canonical_place_id})[:40]
+            lodging[identity] = PublicLodgingMapPoint(point_token=token, day_label=stop.day_label,
+                name=stop.name, position=PublicMapPosition(longitude=stop.longitude, latitude=stop.latitude))
+    view.lodging_points = list(lodging.values())
     view.points = [PublicMapPoint(activity_token=stop.activity_token, day_label=stop.day_label,
         sequence_index=stop.sequence_index, name=stop.name,
         position=PublicMapPosition(longitude=stop.longitude, latitude=stop.latitude)
@@ -188,40 +250,61 @@ def plan_with_stay_anchor(
     longitude: float,
     latitude: float,
     overnight_days: list[int],
+    source_constraint: bool = False,
 ) -> MapRenderPlan:
-    cities = {stop.city.strip().removesuffix("市") for stop in plan.stops if stop.city}
-    if len(cities) != 1 or selected_city.strip().removesuffix("市") not in cities:
-        return plan
+    from app.trip_understanding.overnight_context import excludes_hotel, hotel_identity, is_hotel, is_overnight_hotel, is_boundary_visit, normalized_city, overnight_segments
+
     by_day: dict[int, list[MapStop]] = defaultdict(list)
     for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
         by_day[stop.day_index].append(stop)
     expanded: list[MapStop] = []
-    overnight = set(overnight_days)
+    allowed = {night for segment in overnight_segments(plan)
+        if segment.city == normalized_city(selected_city) and not segment.uncertain
+        and not excludes_hotel(segment, selected_place_id)
+        and (not segment.preserved_hotels or source_constraint and segment.preserved_place_ids == [hotel_identity(selected_place_id)])
+        for night in segment.overnight_days}
+    overnight = set(overnight_days) & allowed
     for day_index in sorted(by_day):
         day_stops = by_day[day_index]
-        if day_index in overnight and day_stops:
+        starts_here = day_index - 1 in overnight
+        ends_here = day_index in overnight
+        # Preserve the user's original hotel and never connect across cities.
+        original_hotels = [stop for stop in day_stops if is_overnight_hotel(stop) and not stop.is_stay_anchor]
+        visits = [stop for stop in day_stops if is_boundary_visit(stop)]
+        starts_here = bool(starts_here and visits and normalized_city(visits[0].city) == normalized_city(selected_city))
+        ends_here = bool(ends_here and visits and normalized_city(visits[-1].city) == normalized_city(selected_city) and not original_hotels)
+        if (starts_here or ends_here) and day_stops:
             hotel = MapStop(
                 day_index=day_index,
                 day_label=day_stops[0].day_label,
                 sequence_index=0,
                 name=selected_name,
+                category="住宿",
+                is_stay_anchor=True,
                 canonical_place_id=selected_place_id,
                 resolution_status="AUTO_MATCHED",
                 city=selected_city,
                 longitude=longitude,
                 latitude=latitude,
             )
-            expanded.append(hotel)
+            if starts_here and not (is_hotel(day_stops[0]) and hotel_identity(day_stops[0].canonical_place_id) == hotel_identity(selected_place_id)):
+                expanded.append(hotel)
             expanded.extend(
                 stop.model_copy(update={"sequence_index": index})
                 for index, stop in enumerate(day_stops, start=1)
             )
-            expanded.append(hotel.model_copy(update={"sequence_index": len(day_stops) + 1}))
+            if ends_here and not (is_hotel(day_stops[-1]) and hotel_identity(day_stops[-1].canonical_place_id) == hotel_identity(selected_place_id)):
+                expanded.append(hotel.model_copy(update={"sequence_index": len(day_stops) + 1}))
         else:
             expanded.extend(
                 stop.model_copy(update={"sequence_index": index})
                 for index, stop in enumerate(day_stops)
             )
+    # Multiple selected segments can touch the same day. Reindex only that day.
+    counters: dict[int, int] = defaultdict(int)
+    for index, stop in enumerate(expanded):
+        expanded[index] = stop.model_copy(update={"sequence_index": counters[stop.day_index]})
+        counters[stop.day_index] += 1
     stop_set_hash = canonical_sha256(
         [
             {
@@ -245,7 +328,7 @@ def plan_with_stay_anchor(
     )
 
 
-def _logical_key(plan: MapRenderPlan) -> str:
+def _logical_key(plan: MapRenderPlan, render_generation: int = 0) -> str:
     return canonical_sha256(
         {
             "understanding_id": plan.understanding_id,
@@ -254,6 +337,7 @@ def _logical_key(plan: MapRenderPlan) -> str:
             "revision": plan.plan_ref.revision,
             "stop_set_hash": plan.plan_ref.stop_set_hash,
             "route_config_hash": plan.route_config_hash,
+            **({"render_generation": render_generation} if render_generation else {}),
         }
     )
 
@@ -281,10 +365,31 @@ def _mode_view_from_row(
         distance_meters=row["distance_meters"],
         transfer_count=row["transfer_count"],
         geometry=geometry or [],
+        connection_status=_row_connection_status(row),
+        geometry_break_indices=geometry_break_indices(_row_route_binding(row)),
     )
 
 
+def _row_route_binding(row: Any) -> dict:
+    receipt = row.get("provider_receipt_json") or {}
+    if isinstance(receipt, str):
+        try:
+            receipt = json.loads(receipt)
+        except (ValueError, TypeError):
+            receipt = {}
+    return receipt
+
+
+def _row_connection_status(row: Any) -> str:
+    return connection_status(_row_route_binding(row))
+
+
 def _edge_message(selected_mode: str | None, walking: Any | None, transit: Any | None) -> str:
+    selected = walking if selected_mode == "walking" else transit if selected_mode == "transit" else None
+    if selected is not None and geometry_break_indices(_row_route_binding(selected)) is None:
+        return f"已返回路段约 {selected['duration_minutes']} 分钟；原路线分段尚未核实，请更新路线"
+    if selected is not None and _row_connection_status(selected) != "VERIFIED":
+        return f"已返回路段约 {selected['duration_minutes']} 分钟；起终点衔接未核实"
     if selected_mode == "walking" and walking is not None:
         return f"建议步行约 {walking['duration_minutes']} 分钟"
     if selected_mode == "transit" and transit is not None:
@@ -426,7 +531,7 @@ class PostgresMapRenderRepositoryMixin:
             bindings,
             city=city if isinstance(city, str) else None,
         )
-        selection = await conn.fetchrow(
+        selections = await conn.fetch(
             """
             SELECT s.* FROM trip_stay_selections s
             JOIN trip_plan_revision_refs p ON p.plan_ref_id = s.target_plan_ref_id
@@ -436,17 +541,12 @@ class PostgresMapRenderRepositoryMixin:
             understanding_id,
             revision,
         )
-        if selection is None:
-            return plan
-        return plan_with_stay_anchor(
-            plan,
-            selected_place_id=selection["selected_place_id"],
-            selected_name=selection["selected_name"],
-            selected_city=selection["selected_city"],
-            longitude=float(selection["longitude"]),
-            latitude=float(selection["latitude"]),
-            overnight_days=list(selection["overnight_days"]),
-        )
+        for selection in selections:
+            plan = plan_with_stay_anchor(plan, selected_place_id=selection["selected_place_id"],
+                selected_name=selection["selected_name"], selected_city=selection["selected_city"],
+                longitude=float(selection["longitude"]), latitude=float(selection["latitude"]),
+                overnight_days=list(selection["overnight_days"]))
+        return plan
 
     async def _ensure_map_job(
         self,
@@ -479,22 +579,32 @@ class PostgresMapRenderRepositoryMixin:
             SELECT plan_ref_id, stop_set_hash FROM trip_plan_revision_refs
             WHERE understanding_id = $1 AND revision_kind = 'UNDERSTANDING'
               AND aggregate_id = $1 AND revision = $2
+            FOR UPDATE
             """,
             understanding_id,
             revision,
         )
         if plan_ref is None or plan_ref["stop_set_hash"].strip() != plan.plan_ref.stop_set_hash:
             raise IdempotencyConflictError("plan revision stop binding changed")
+        latest = await conn.fetchrow(
+            """SELECT * FROM trip_map_render_jobs
+            WHERE plan_ref_id = $1 AND route_config_hash = $2
+            ORDER BY render_generation DESC LIMIT 1""",
+            plan_ref["plan_ref_id"], plan.route_config_hash,
+        )
+        if latest is not None and (request_origin == "INITIAL" or latest["status"] in {"QUEUED", "BUILDING"}):
+            return latest
+        generation = int(latest["render_generation"]) + 1 if latest is not None else 0
         map_job_id = str(uuid4())
-        logical_key_hash = _logical_key(plan)
+        logical_key_hash = _logical_key(plan, generation)
         await conn.execute(
             """
             INSERT INTO trip_map_render_jobs (
                 map_job_id, plan_ref_id, understanding_id, route_config_hash,
                 logical_key_hash, request_origin, status, available_at,
-                created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'QUEUED', $7, $7, $7)
-            ON CONFLICT (plan_ref_id, route_config_hash) DO NOTHING
+                created_at, updated_at, render_generation
+            ) VALUES ($1, $2, $3, $4, $5, $6, 'QUEUED', $7, $7, $7, $8)
+            ON CONFLICT (plan_ref_id, route_config_hash, render_generation) DO NOTHING
             """,
             map_job_id,
             plan_ref["plan_ref_id"],
@@ -503,14 +613,16 @@ class PostgresMapRenderRepositoryMixin:
             logical_key_hash,
             request_origin,
             now,
+            generation,
         )
         job = await conn.fetchrow(
             """
             SELECT * FROM trip_map_render_jobs
-            WHERE plan_ref_id = $1 AND route_config_hash = $2
+            WHERE plan_ref_id = $1 AND route_config_hash = $2 AND render_generation = $3
             """,
             plan_ref["plan_ref_id"],
             plan.route_config_hash,
+            generation,
         )
         await conn.execute(
             """
@@ -543,7 +655,7 @@ class PostgresMapRenderRepositoryMixin:
         edge_rows = await conn.fetch(
             """
             SELECT e.*, f.mode, f.status AS mode_status, f.duration_minutes,
-                   f.distance_meters, f.transfer_count, f.geometry_ref
+                   f.distance_meters, f.transfer_count, f.geometry_ref, f.provider_receipt_json
             FROM trip_map_route_edges e
             LEFT JOIN trip_map_route_mode_facts f ON f.edge_id = e.edge_id
             WHERE e.snapshot_id = $1
@@ -571,9 +683,11 @@ class PostgresMapRenderRepositoryMixin:
                     "distance_meters": row["distance_meters"],
                     "transfer_count": row["transfer_count"],
                     "geometry_ref": row["geometry_ref"],
+                    "provider_receipt_json": row["provider_receipt_json"],
                 }
         by_day: dict[int, list[PublicMapEdgeView]] = defaultdict(list)
         geometry_limited = False
+        connection_limited = False
         for item in sorted(
             grouped.values(), key=lambda value: (value["day_index"], value["sequence_index"])
         ):
@@ -582,6 +696,8 @@ class PostgresMapRenderRepositoryMixin:
             walking_view, walking_missing = await self._mode_view_with_geometry(walking)
             transit_view, transit_missing = await self._mode_view_with_geometry(transit)
             geometry_limited = geometry_limited or walking_missing or transit_missing
+            selected_view = walking_view if item["selected_mode"] == "walking" else transit_view if item["selected_mode"] == "transit" else None
+            connection_limited = connection_limited or bool(selected_view and selected_view.connection_status != "VERIFIED")
             by_day[item["day_index"]].append(
                 PublicMapEdgeView(
                     from_name=item["origin_name"],
@@ -596,6 +712,9 @@ class PostgresMapRenderRepositoryMixin:
             PublicMapDayView(day_index=day_index, label=f"Day {day_index}", routes=by_day[day_index])
             for day_index in sorted(by_day)
         ]
+        if connection_limited:
+            return MapRenderView(status="LIMITED", message="已返回部分路段，起终点衔接未核实；不能视为完整路程" + ("；地图线条需更新" if geometry_limited else ""), days=days,
+                available_actions=["VIEW_MAP", "RENDER_MAP"])
         if snapshot["status"] == "READY" and not geometry_limited:
             return MapRenderView(
                 status="AVAILABLE",
@@ -640,7 +759,7 @@ class PostgresMapRenderRepositoryMixin:
             WHERE p.understanding_id = $1 AND p.revision_kind = 'UNDERSTANDING'
               AND p.aggregate_id = $1 AND p.revision = $2
               AND j.route_config_hash = $3
-            ORDER BY j.created_at DESC LIMIT 1
+            ORDER BY j.render_generation DESC LIMIT 1
             """,
             understanding_id,
             current_revision,
@@ -685,6 +804,16 @@ class PostgresMapRenderRepositoryMixin:
             now=now or datetime.now(timezone.utc),
         )
         return view.readiness()
+
+    async def _current_map_job_id(self, conn: Any, understanding_id: str, revision: int) -> str:
+        return await conn.fetchval(
+            """SELECT j.map_job_id FROM trip_plan_revision_refs p
+            JOIN trip_map_render_jobs j ON j.plan_ref_id = p.plan_ref_id
+            WHERE p.understanding_id = $1 AND p.revision_kind = 'UNDERSTANDING'
+              AND p.aggregate_id = $1 AND p.revision = $2 AND j.route_config_hash = $3
+            ORDER BY j.render_generation DESC LIMIT 1""",
+            understanding_id, revision, ROUTE_CONFIG_SHA256,
+        ) or ""
 
     async def get_map_view(
         self,
@@ -1025,7 +1154,7 @@ class PostgresMapRenderRepositoryMixin:
                         fact.expires_at,
                     )
                     effect_key = (
-                        f"map:{_logical_key(MapRenderPlan(understanding_id=job.understanding_id, plan_ref=job.plan_ref, route_config_hash=job.route_config_hash, stops=[]))}:"
+                        f"map:{current['logical_key_hash'].strip()}:"
                         f"d{edge.day_index}:e{edge.sequence_index}:{fact.mode}"
                     )
                     await conn.execute(
@@ -1130,7 +1259,7 @@ class PostgresMapRenderRepositoryMixin:
                 job.map_job_id,
                 job.plan_ref_id,
                 snapshot_hash,
-                json.dumps({"execution_mode": "controlled_fixture", "external_calls": 0}),
+                json.dumps({"execution_mode": "UNKNOWN", "external_calls": None, "metrics_complete": False}),
                 json.dumps({"category": category}),
                 job.started_at,
                 now,
@@ -1212,6 +1341,10 @@ class InMemoryMapRenderRepositoryMixin:
                     )
                 else:
                     bindings[card.activity_token] = (None, "NEEDS_CONFIRMATION", {})
+        for card in stored.result.lodging_constraints:
+            record = saved.get(card.activity_token) or {}
+            bindings[card.activity_token] = (record.get("canonical_place_id"),
+                record.get("resolution_status", "NEEDS_CONFIRMATION"), record.get("resolver_receipt") or {})
         plan = _plan_for_result(
             understanding_id,
             revision,
@@ -1222,16 +1355,11 @@ class InMemoryMapRenderRepositoryMixin:
         selection = getattr(self, "stay_selections", {}).get((understanding_id, revision))
         if selection is None:
             return plan
-        view = selection["view"]
-        return plan_with_stay_anchor(
-            plan,
-            selected_place_id=selection["selected_place_id"],
-            selected_name=view.name,
-            selected_city=selection["selected_city"],
-            longitude=selection["longitude"],
-            latitude=selection["latitude"],
-            overnight_days=selection["overnight_days"],
-        )
+        for item in [selection, *selection.get("additional_selections", [])]:
+            plan = plan_with_stay_anchor(plan, selected_place_id=item["selected_place_id"],
+                selected_name=item["selected_name"], selected_city=item["selected_city"],
+                longitude=item["longitude"], latitude=item["latitude"], overnight_days=item["overnight_days"])
+        return plan
 
     def _ensure_memory_map_job(
         self,
@@ -1245,7 +1373,12 @@ class InMemoryMapRenderRepositoryMixin:
         logical_key = _logical_key(plan)
         existing_id = self.map_jobs_by_logical_key.get(logical_key)
         if existing_id is not None:
-            return self.map_jobs[existing_id]
+            latest = self.map_jobs[existing_id]
+            if request_origin == "INITIAL" or latest["status"] in {"QUEUED", "BUILDING"}:
+                return latest
+            generation = latest.get("render_generation", 0) + 1
+        else:
+            generation = 0
         map_job_id = str(uuid4())
         item = {
             "map_job_id": map_job_id,
@@ -1253,6 +1386,8 @@ class InMemoryMapRenderRepositoryMixin:
             "plan_ref_id": str(uuid4()),
             "plan": plan,
             "route_config_hash": plan.route_config_hash,
+            "render_generation": generation,
+            "logical_key_hash": _logical_key(plan, generation),
             "request_origin": request_origin,
             "status": "QUEUED",
             "lease_owner": None,
@@ -1282,18 +1417,22 @@ class InMemoryMapRenderRepositoryMixin:
 
     def _memory_snapshot_view(self, output: MapRenderOutput) -> MapRenderView:
         by_day: dict[int, list[PublicMapEdgeView]] = defaultdict(list)
+        connection_limited = False
         for edge in output.edges:
+            connection_limited = connection_limited or bool(edge.selected_mode and getattr(edge, edge.selected_mode).connection_status != "VERIFIED")
             walking = {
                 "status": edge.walking.status,
                 "duration_minutes": edge.walking.duration_minutes,
                 "distance_meters": edge.walking.distance_meters,
                 "transfer_count": edge.walking.transfer_count,
+                "provider_receipt_json": edge.walking.provider_binding,
             }
             transit = {
                 "status": edge.transit.status,
                 "duration_minutes": edge.transit.duration_minutes,
                 "distance_meters": edge.transit.distance_meters,
                 "transfer_count": edge.transit.transfer_count,
+                "provider_receipt_json": edge.transit.provider_binding,
             }
             by_day[edge.day_index].append(
                 PublicMapEdgeView(
@@ -1309,6 +1448,9 @@ class InMemoryMapRenderRepositoryMixin:
             PublicMapDayView(day_index=day_index, label=f"Day {day_index}", routes=by_day[day_index])
             for day_index in sorted(by_day)
         ]
+        if connection_limited:
+            return MapRenderView(status="LIMITED", message="已返回部分路段，起终点衔接未核实；不能视为完整路程", days=days,
+                available_actions=["VIEW_MAP", "RENDER_MAP"])
         if output.status == "READY":
             return MapRenderView(
                 status="AVAILABLE",
@@ -1344,7 +1486,7 @@ class InMemoryMapRenderRepositoryMixin:
             and item["route_config_hash"] == ROUTE_CONFIG_SHA256
         ]
         if matching:
-            job = matching[-1]
+            job = max(matching, key=lambda item: item.get("render_generation", 0))
             if job["status"] in {"QUEUED", "BUILDING"}:
                 return MapRenderView(
                     status="PREPARING",
@@ -1366,6 +1508,13 @@ class InMemoryMapRenderRepositoryMixin:
             message="路线暂不可用，不影响查看和调整卡片",
             available_actions=["RENDER_MAP"],
         )
+
+    def _current_map_job_id_memory(self, understanding_id: str, revision: int) -> str:
+        jobs = [item for item in self.map_jobs.values()
+            if item["understanding_id"] == understanding_id and item["plan"].plan_ref.revision == revision
+            and item["route_config_hash"] == ROUTE_CONFIG_SHA256]
+        latest = max(jobs, key=lambda item: item.get("render_generation", 0), default=None)
+        return latest["map_job_id"] if latest else ""
 
     def _project_map_readiness_memory(
         self,
@@ -1534,7 +1683,7 @@ class InMemoryMapRenderRepositoryMixin:
         if output.plan_ref != job.plan_ref or output.route_config_hash != job.route_config_hash:
             raise ValueError("map output is not bound to the claimed plan")
         self.map_snapshots[job.map_job_id] = output
-        logical_key = _logical_key(item["plan"])
+        logical_key = item.get("logical_key_hash") or _logical_key(item["plan"])
         for edge in output.edges:
             for fact in (edge.walking, edge.transit):
                 self.map_provider_effects.add(
@@ -1590,7 +1739,7 @@ class InMemoryMapRenderRepositoryMixin:
                     "category": category,
                 }
             ),
-            provider_binding={"execution_mode": "controlled_fixture", "external_calls": 0},
+            provider_binding={"execution_mode": "UNKNOWN", "external_calls": None, "metrics_complete": False},
             failure={"category": category},
             started_at=item["started_at"],
             finished_at=now,
@@ -1624,7 +1773,7 @@ class InMemoryMapRenderRepositoryMixin:
             if key[0] == prefix:
                 self.map_request_idempotency.pop(key, None)
         active_keys = {
-            _logical_key(item["plan"])
+            item.get("logical_key_hash") or _logical_key(item["plan"])
             for item in self.map_jobs.values()
         }
         self.map_provider_effects = {

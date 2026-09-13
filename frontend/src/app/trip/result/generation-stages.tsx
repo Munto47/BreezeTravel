@@ -26,7 +26,7 @@ export default function GenerationStages({ phase, progress, complete = false }: 
   }, [reading, complete])
   const current = complete ? 4 : phase === 'RECEIVED' ? 1 : phase === 'CARDS_AVAILABLE' ? 2
     : progress.places_total > 0 && progress.places_checked >= progress.places_total ? 3 : 2
-  const labels = ['收到攻略', '整理每天安排', '核对地点', '生成完毕']
+  const labels = ['接收文字', '整理逐日安排', '核验地点', '生成行程']
   return (
     <div className="fluid-generation" data-phase={current}>
       <div className="fluid-generation-scene" aria-hidden="true">

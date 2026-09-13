@@ -9,15 +9,20 @@ import {
   useState,
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import {sourceMeals} from './source-meals'
 import {
   ArrowRight,
   BedDouble,
   BusFront,
+  Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Footprints,
   GripVertical,
   List,
   MapPin,
+  MoreHorizontal,
   Plus,
   Sparkles,
   Trash2,
@@ -35,7 +40,10 @@ import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import PlacePhoto, { PlacePhotoProvider } from './place-photo'
 import AccessibleDialog from './accessible-dialog'
-import { DAY_ACCENTS, DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
+import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, connectorPresentation, dayRouteSummary, relativeDayLabel } from './result-presentation'
+import './itinerary-workspace.css'
+import SourceMealSlots from './source-meal-slots'
+import {diningAccessBadge} from './dining-access'
 
 
 type DayView = UserFacingTripResult['days'][number]
@@ -64,6 +72,10 @@ export type WorkspaceCommandResult =
 type ItineraryWorkspaceProps = {
   toolbar?: ReactNode
   days: UserFacingTripResult['days']
+  sourceMealDescriptions?: string[][]
+  pendingCounts?: number[]
+  unresolvedDays?: UserFacingTripResult['days']
+  etag?: string
   disabled: boolean
   routesPending: boolean
   mapView: MapRenderView
@@ -73,12 +85,17 @@ type ItineraryWorkspaceProps = {
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdd: (dayIndex: number, position: number) => void
   onAlternatives?: (dayIndex: number, trigger: HTMLButtonElement) => void
+  renderDaySuggestion?: (dayIndex: number) => ReactNode
 }
 
 
 
 export default function ItineraryWorkspace({
   days,
+  sourceMealDescriptions,
+  pendingCounts,
+  unresolvedDays,
+  etag,
   toolbar,
   resource,
   onRender,
@@ -88,6 +105,7 @@ export default function ItineraryWorkspace({
   onCommand,
   onAdd,
   onAlternatives,
+  renderDaySuggestion,
 }: ItineraryWorkspaceProps) {
   const reduceMotion = useReducedMotion()
   const [localDays, setLocalDays] = useState(days)
@@ -97,6 +115,8 @@ export default function ItineraryWorkspace({
   const [touchPoint, setTouchPoint] = useState<{x:number;y:number} | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const [pendingPlace, setPendingPlace] = useState<CardLocation | null>(null)
+  const [cardMenu, setCardMenu] = useState<CardLocation | null>(null)
+  const [collapsedDays, setCollapsedDays] = useState<Set<number>>(() => new Set())
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [keyboardMove, setKeyboardMove] = useState<{item:CardLocation;dayIndex:number;position:number}|null>(null)
   const [operationPending, setOperationPending] = useState(false)
@@ -107,24 +127,47 @@ export default function ItineraryWorkspace({
   const dragCompletedRef = useRef(false)
   const laneScrollers = useRef(new Map<number, HTMLDivElement>())
   const [laneWidths, setLaneWidths] = useState<Record<number, number>>({})
+  const [cardHeights, setCardHeights] = useState<Record<number, number>>({})
+  const [rowGaps, setRowGaps] = useState<Record<number, number>>({})
   const dragGeometry = useRef(new Map<number, ReturnType<typeof serpentineLayout>>())
   const pointerDropTarget = useRef<DropTarget | null>(null)
   useLayoutEffect(() => {
     const measure = () => {
       const widths: Record<number, number> = {}
-      laneScrollers.current.forEach((lane, day) => { widths[day] = lane.clientWidth })
-      setLaneWidths(widths)
+      const heights: Record<number, number> = {}
+      const gaps: Record<number, number> = {}
+      laneScrollers.current.forEach((lane, day) => {
+        if (!lane.clientWidth) return
+        widths[day] = lane.clientWidth
+        // Use rendered text height: names wrap naturally, and drag geometry
+        // receives the same height as the visible cards and connectors.
+        heights[day] = Math.ceil(Math.max(0, ...Array.from(lane.querySelectorAll<HTMLElement>('[data-testid="activity-card"]')).map(card =>
+          (card.querySelector<HTMLElement>('.four-card-photo')?.offsetHeight || 0) +
+          (card.querySelector<HTMLElement>('.four-card-copy')?.scrollHeight || 0) + 2)))
+        const labels = Array.from(lane.querySelectorAll<HTMLElement>('.serpentine-route-label'))
+        // During drag the connectors are hidden; keep the measured gap so
+        // the drop geometry cannot collapse while the pointer is moving.
+        if (labels.length && lane.clientWidth >= 600) gaps[day] = Math.ceil(Math.max(...labels.map(label => label.offsetHeight))) + 8
+      })
+      const merge = (previous: Record<number, number>, next: Record<number, number>) =>
+        Object.entries(next).some(([day, value]) => previous[Number(day)] !== value) ? {...previous, ...next} : previous
+      setLaneWidths(previous => merge(previous, widths))
+      setCardHeights(previous => merge(previous, heights))
+      setRowGaps(previous => merge(previous, gaps))
     }
     measure()
     const observer = new ResizeObserver(measure)
-    laneScrollers.current.forEach(lane => observer.observe(lane))
+    laneScrollers.current.forEach(lane => {
+      observer.observe(lane)
+      lane.querySelectorAll('.four-card-copy,.four-card-photo,.serpentine-route-label').forEach(element => observer.observe(element))
+    })
     return () => observer.disconnect()
-  }, [localDays.length, layoutMode])
+  }, [localDays, layoutMode, collapsedDays, mapView, routesPending, operationPending])
   const captureDropGeometry = () => {
     pointerDropTarget.current = null
     dragGeometry.current.clear()
     laneScrollers.current.forEach((lane, dayIndex) => {
-      dragGeometry.current.set(dayIndex, serpentineLayout(lane.clientWidth, localDays[dayIndex-1].activities.length))
+      if (lane.clientWidth) dragGeometry.current.set(dayIndex, serpentineLayout(lane.clientWidth, localDays[dayIndex-1].activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0))
     })
   }
   const targetAt = (x: number, y: number): DropTarget | null => {
@@ -179,6 +222,31 @@ export default function ItineraryWorkspace({
   const locked = disabled || operationPending
 
   useEffect(() => {
+    if (!cardMenu) return
+    const close = (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest('.four-card-menu')) setCardMenu(null)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setCardMenu(null); lastTriggerRef.current?.focus({preventScroll:true}) }
+    }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', escape)
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', escape) }
+  }, [cardMenu])
+
+  const toggleDay = (dayIndex: number) => {
+    if (locked || dragged) return
+    setPendingPlace(null)
+    setCardMenu(null)
+    setCollapsedDays(previous => {
+      const next = new Set(previous)
+      if (next.has(dayIndex)) next.delete(dayIndex)
+      else next.add(dayIndex)
+      return next
+    })
+  }
+
+  useEffect(() => {
     setLocalDays(days)
   }, [days])
 
@@ -205,7 +273,10 @@ export default function ItineraryWorkspace({
       else document.querySelector<HTMLElement>(`[data-day-heading="${pendingPlace?.dayIndex||1}"]`)?.focus({preventScroll:true})
     })
   }
-  useEffect(()=>{if(pendingPlace && !days.some(day=>day.activities.some(card=>card.activity_token===pendingPlace.card.activity_token)))setPendingPlace(null)},[days,pendingPlace])
+  useEffect(()=>{
+    if(pendingPlace && !days.some(day=>day.activities.some(card=>card.activity_token===pendingPlace.card.activity_token)))setPendingPlace(null)
+    if(cardMenu && !days.some(day=>day.activities.some(card=>card.activity_token===cardMenu.card.activity_token)))setCardMenu(null)
+  },[days,pendingPlace,cardMenu])
 
   const openMove = (item: CardLocation, element?: HTMLElement) => {
     if(element)rememberTrigger(element)
@@ -315,7 +386,7 @@ export default function ItineraryWorkspace({
       })
       if (outcome.status === 'APPLIED') {
         if (outcome.days) setLocalDays(outcome.days)
-        finishOperation(`${item.card.name} 已删除，${localDays[item.dayIndex - 1]?.label || '当天'}仍然保留。`, item.dayIndex)
+        finishOperation(`${item.card.name} 已删除，${relativeDayLabel(item.dayIndex - 1)}仍然保留。`, item.dayIndex)
       } else if (outcome.status === 'SYNCED') {
         setLocalDays(outcome.days || before)
         restoreOperationFocus(
@@ -373,10 +444,14 @@ export default function ItineraryWorkspace({
       let dayIndex=keyboardMove.dayIndex,position=keyboardMove.position
       if(event.key==='ArrowUp'||event.key==='ArrowDown')dayIndex=Math.max(1,Math.min(localDays.length,dayIndex+(event.key==='ArrowDown'?1:-1)))
       else position+=event.key==='ArrowRight'?1:-1
+      setCollapsedDays(previous => {
+        if (!previous.has(dayIndex)) return previous
+        const next = new Set(previous); next.delete(dayIndex); return next
+      })
       position=Math.max(0,Math.min(localDays[dayIndex-1].activities.length-(dayIndex===item.dayIndex?1:0),position))
       setKeyboardMove({item,dayIndex,position})
       setDropTarget({dayIndex,position:position+(dayIndex===item.dayIndex&&position>item.position?1:0)})
-      setAnnouncement(`${localDays[dayIndex-1].label}，第 ${position+1} 站。Enter 放下。`)
+      setAnnouncement(`${relativeDayLabel(dayIndex-1)}，第 ${position+1} 站。Enter 放下。`)
     }
     document.addEventListener('keydown',key,true)
     return ()=>document.removeEventListener('keydown',key,true)
@@ -388,7 +463,7 @@ export default function ItineraryWorkspace({
     <div
       data-testid="itinerary-workspace"
       data-reduced-motion={reduceMotion ? 'true' : 'false'}
-      className="soft-workspace serpentine-workspace mt-2"
+      className="soft-workspace serpentine-workspace four-itinerary mt-2"
     >
       <div className="min-w-0">
         <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
@@ -405,11 +480,16 @@ export default function ItineraryWorkspace({
           {localDays.map((day, dayOffset) => {
             const dayIndex = dayOffset + 1
             const accent = DAY_ACCENTS[dayOffset % DAY_ACCENTS.length]
+            const collapsed = collapsedDays.has(dayIndex)
+            const pendingCount = Math.max(0, pendingCounts?.[dayOffset] || 0)
+            const cities = [...new Set([...day.activities, ...(day.alternatives || [])].map(card => card.city).filter(Boolean))]
+            const mealDescriptions = sourceMealDescriptions?.[dayOffset] ?? sourceMeals(day)
+            const routeSummary = dayRouteSummary(day, mapView, operationPending || routesPending)
             const sourceIndex = dragged && dropTarget ? day.activities.findIndex(card => card.activity_token === dragged.card.activity_token) : -1
             const rawInsertion = dragged && dropTarget?.dayIndex === dayIndex ? dropTarget.position : null
             const insertion = rawInsertion === null ? null : rawInsertion - (sourceIndex >= 0 && sourceIndex < rawInsertion ? 1 : 0)
-            const originalLayout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length)
-            const layout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length - (sourceIndex >= 0 ? 1 : 0) + (insertion !== null ? 1 : 0))
+            const originalLayout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0)
+            const layout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length - (sourceIndex >= 0 ? 1 : 0) + (insertion !== null ? 1 : 0), cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0)
             // A dragged card vacates its slot; retain the day height so later dates do not jump.
             if (dragged) layout.height = Math.max(layout.height, originalLayout.height)
             const previewPosition = (position: number) => {
@@ -422,48 +502,62 @@ export default function ItineraryWorkspace({
                 key={`${day.label}-${dayIndex}`}
                 data-testid={`day-lane-${dayIndex}`}
                 data-day-index={dayOffset}
-                style={{position:'relative',zIndex:pendingPlace?.dayIndex===dayIndex?30:undefined}}
-                className="overflow-visible rounded-[1.75rem] border border-emerald-950/10 bg-white shadow-[0_18px_45px_-32px_rgba(15,23,42,0.45)]"
+                style={{position:'relative',zIndex:pendingPlace?.dayIndex===dayIndex || cardMenu?.dayIndex===dayIndex?30:undefined}}
+                className="four-day-panel"
                 aria-labelledby={`day-heading-${dayIndex}`}
               >
-                <div className="grid min-w-0 md:grid-cols-[9.5rem_minmax(0,1fr)]">
-                  <div className={`bg-gradient-to-br ${accent[0]} ${accent[1]} px-5 py-5 md:min-h-[18rem] md:border-r md:border-emerald-950/10`}>
-                    <div className="flex items-center justify-between md:block">
-                      <div>
-                        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-                          <span data-testid="itinerary-day-color" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length] }} aria-hidden="true" />
-                          行程日
-                        </p>
-                        <h2
-                          id={`day-heading-${dayIndex}`}
-                          data-day-heading={dayIndex}
-                          tabIndex={-1}
-                          className={`mt-1 text-2xl font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${accent[2]}`}
-                        >
-                          {day.label}
-                        </h2>
+                <div className="four-day-frame">
+                  <header className="four-day-header">
+                    <div className="four-day-title">
+                      <span data-testid="itinerary-day-color" style={{backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length]}} aria-hidden="true" />
+                      <div><h2 id={`day-heading-${dayIndex}`} data-day-heading={dayIndex} tabIndex={-1}
+                        style={{color: DAY_COLORS[dayOffset % DAY_COLORS.length]}}>{relativeDayLabel(dayOffset)}</h2>
+                        {cities.length > 0 && <p>{cities.join(' · ')}</p>}
                       </div>
-                      <div className="flex flex-wrap items-center justify-end gap-2 md:mt-4 md:justify-start">
-                      <span className="rounded-full bg-white/75 px-3 py-1.5 text-xs font-semibold text-slate-600">
-                        {day.activities.length} 个地点
-                      </span>
+                    </div>
+                    <div className="four-day-statistics" aria-label={`${relativeDayLabel(dayOffset)}状态统计`}>
+                      <span className="four-day-count"><MapPin aria-hidden="true"/>{day.activities.length} 个地点</span>
+                      <span className="four-day-confirmed"><Check aria-hidden="true"/>已确认 {day.activities.length}</span>
+                      {pendingCount > 0 && <span className="four-day-pending">待确认 {pendingCount}</span>}
+                      {!!day.unprocessed_count && <span className="four-day-pending">未整理 {day.unprocessed_count}</span>}
+                      {routeSummary && <span className="four-day-route-summary">{routeSummary}</span>}
+                    </div>
+                    <div className="four-day-actions">
                       {onAlternatives && !!day.alternatives?.length && <button
-                        type="button" className="min-h-11 whitespace-nowrap rounded-full bg-white/80 px-3 text-xs font-semibold text-sky-800 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+                        type="button" className="four-day-alternatives"
                         data-testid={`day-alternatives-${dayIndex}`}
-                        aria-label={`${day.label}的备选地点`}
+                        aria-label={`${relativeDayLabel(dayOffset)}的备选地点`}
                         aria-controls="journey-suggestions"
                         onClick={event => onAlternatives(dayIndex, event.currentTarget)}
                       >备选 · {day.alternatives.length}</button>}
-                      </div>
+                      <button type="button" className="four-day-collapse" data-testid={`toggle-day-${dayIndex}`}
+                        aria-label={`${collapsed ? '展开' : '收起'} ${relativeDayLabel(dayOffset)}`} aria-expanded={!collapsed}
+                        aria-controls={`day-content-${dayIndex}`} disabled={locked || !!dragged} onClick={() => toggleDay(dayIndex)}>
+                        {collapsed ? '展开' : '收起'}{collapsed ? <ChevronDown aria-hidden="true"/> : <ChevronUp aria-hidden="true"/>}
+                      </button>
                     </div>
+                  </header>
+                  {collapsed && <div className="four-day-overview" data-testid={`day-overview-${dayIndex}`}>
+                    {day.activities.length > 0 ? <ol className="four-mini-chain" aria-label={`${relativeDayLabel(dayOffset)}折叠地点顺序`}>
+                      {day.activities.map((activity, position) => <li key={activity.activity_token}>
+                        <div className="four-mini-image"><PlacePhoto card={activity}/><span style={{backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length]}}>{position + 1}</span></div>
+                        <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}{diningAccessBadge(activity) ? ` · ${diningAccessBadge(activity)}` : ''}</small></div>
+                        {position < day.activities.length - 1 && <ChevronRight className="four-mini-arrow" aria-hidden="true"/>}
+                      </li>)}
+                    </ol> : <p className="four-overview-note">当天尚无已确认的主线地点。</p>}
+                    {mealDescriptions.length > 0 && <ul className="four-overview-meals" aria-label={`${relativeDayLabel(dayOffset)}折叠原文用餐安排`}>{mealDescriptions.map((text, index) => <li key={index}><UtensilsCrossed aria-hidden="true"/>{text}</li>)}</ul>}
+                    {(pendingCount > 0 || !!day.unprocessed_count || !!day.alternatives?.length) && <p className="four-overview-note">{pendingCount > 0 ? `${pendingCount} 个地点待确认。` : ''}{day.unprocessed_count ? `${day.unprocessed_count} 处原文尚未整理。` : ''}{day.alternatives?.length ? `${day.alternatives.length} 个备选地点及方案状态可展开查看。` : ''}</p>}
+                  </div>}
 
-                  </div>
-
-                  <div className="min-w-0 px-4 py-4 sm:px-5">
-                    {!day.activities.length && <p className="py-4 text-sm text-slate-500">这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。</p>}
+                  <div id={`day-content-${dayIndex}`} className="four-day-content" hidden={collapsed}>
+                    <SourceMealSlots day={day} dayIndex={dayIndex} unresolvedActivities={unresolvedDays?.[dayOffset]?.activities} descriptions={mealDescriptions}
+                      resource={resource} etag={etag} disabled={locked} onCommand={onCommand}/>
+                    {renderDaySuggestion?.(dayIndex)}
+                    {!!day.unprocessed_count && <p className="py-4 text-sm text-amber-800" data-testid={`day-unprocessed-${dayIndex}`}>这一天尚有 {day.unprocessed_count} 处原文内容尚未整理完成，请对照原文补全。已确认的安排可以继续使用。</p>}
+                    {!day.activities.length && (pendingCount > 0 || !day.unprocessed_count) && <p className="py-4 text-sm text-slate-500">{pendingCount > 0 ? `这一天已安排 ${pendingCount} 个地点，待确认后显示卡片。` : day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
 
                     {layoutMode === 'LIST' ? (
-                      <ol className="mt-3 grid gap-3" aria-label={`${day.label} 地点列表`}>
+                      <ol className="mt-3 grid gap-3" aria-label={`${relativeDayLabel(dayOffset)} 地点列表`}>
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
@@ -471,7 +565,9 @@ export default function ItineraryWorkspace({
                               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0c789d] text-xs font-bold text-white">{position + 1}</span>
                               <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
-                                <span className="text-xs text-slate-500">已确认 · 可更改</span>
+                                {!!activity.source_details?.length && <span className="block text-xs text-[#0c789d]">原文安排 · {activity.source_details.length} 项</span>}
+                                {diningAccessBadge(activity) && <span className="block text-xs text-amber-800">{diningAccessBadge(activity)}</span>}
+                                <span className="text-xs text-slate-500">{activityCategoryLabel(activity)} · 已确认 · 可更改</span>
                               </button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
@@ -507,7 +603,7 @@ export default function ItineraryWorkspace({
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
-                            <motion.div key={activity.activity_token} className="serpentine-cell" initial={false} data-reverse={layout.point(previewPosition(position)).reverse} style={{...placeStyle(position),zIndex:pendingPlace?.card.activity_token===activity.activity_token?40:undefined,visibility:position === sourceIndex ? 'hidden' : 'visible'}} animate={{x:layout.point(previewPosition(position)).x-layout.point(position).x,y:layout.point(previewPosition(position)).y-layout.point(position).y}} transition={reduceMotion ? {duration:0} : {type:"spring",stiffness:390,damping:32}}>
+                            <motion.div key={activity.activity_token} className="serpentine-cell" initial={false} data-reverse={layout.point(previewPosition(position)).reverse} style={{...placeStyle(position),zIndex:pendingPlace?.card.activity_token===activity.activity_token || cardMenu?.card.activity_token===activity.activity_token?40:undefined,visibility:position === sourceIndex ? 'hidden' : 'visible'}} animate={{x:layout.point(previewPosition(position)).x-layout.point(position).x,y:layout.point(previewPosition(position)).y-layout.point(position).y}} transition={reduceMotion ? {duration:0} : {type:"spring",stiffness:390,damping:32}}>
                               <DropSlot
                                 dayIndex={dayIndex}
                                 rawPosition={position}
@@ -533,7 +629,7 @@ export default function ItineraryWorkspace({
                                 className="soft-activity-card overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_28px_-20px_rgba(15,23,42,0.6)]"
                                 transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 36 }}
                               >
-                                <div data-testid={`card-grab-${dayIndex}-${position}`} className={`fluid-card-grab relative h-20 overflow-hidden bg-gradient-to-br ${accent[0]} ${accent[1]}`}
+                                <div data-testid={`card-grab-${dayIndex}-${position}`} className={`fluid-card-grab four-card-photo relative h-20 overflow-hidden bg-gradient-to-br ${accent[0]} ${accent[1]}`}
                                     onPointerDown={(event) => {
                                       if (locked || event.button !== 0) return
                                       event.preventDefault()
@@ -627,23 +723,25 @@ export default function ItineraryWorkspace({
                                 <button
                                   type="button"
                                   onClick={(event) => openDetails(item, event.currentTarget)}
-                                  className="block w-full px-4 py-3 text-left outline-none transition motion-reduce:transition-none hover:bg-emerald-50/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-700"
+                                  className="four-card-copy block w-full px-4 py-3 text-left outline-none transition motion-reduce:transition-none hover:bg-emerald-50/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-700"
                                 >
                                   <span className="flex items-start justify-between gap-2">
                                     <span className="min-w-0">
-                                      <h3 className="truncate text-sm font-semibold text-slate-800">{activity.name}</h3>
+                                      <h3 className="four-card-name text-sm font-semibold text-slate-800">{activity.name}</h3>
 
                                     </span>
                                     <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" aria-hidden="true" />
                                   </span>
                                   <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{activity.category}</span>
+                                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{activityCategoryLabel(activity)}</span>
                                     <span className={activity.status === 'READY'
                                       ? 'rounded-full bg-emerald-50 px-2 py-1 text-emerald-700'
                                       : 'rounded-full bg-amber-50 px-2 py-1 text-amber-800'}
                                     >
                                       已确认
                                     </span>
+                                    {!!activity.source_details?.length && <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">原文安排 · {activity.source_details.length} 项</span>}
+                                    {diningAccessBadge(activity) && <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800">{diningAccessBadge(activity)}</span>}
                                     {(activity.knowledge_suggestions?.length || 0) > 0 && (
                                       <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
                                         有来源建议 {activity.knowledge_suggestions?.length}
@@ -655,6 +753,16 @@ export default function ItineraryWorkspace({
 
 
                               </motion.article>
+                              <div className="four-card-menu">
+                                <button type="button" className="four-card-more" aria-label={`${activity.name}更多操作`}
+                                  aria-expanded={cardMenu?.card.activity_token === activity.activity_token} disabled={locked || !!dragged}
+                                  onClick={event => { rememberTrigger(event.currentTarget); setPendingPlace(null); setCardMenu(current => current?.card.activity_token === activity.activity_token ? null : item) }}><MoreHorizontal aria-hidden="true"/></button>
+                                {cardMenu?.card.activity_token === activity.activity_token && <div className="four-card-menu-options" role="group" aria-label={`${activity.name}操作`}>
+                                  <button type="button" onClick={() => { setCardMenu(null); openDetails(item, lastTriggerRef.current!) }}>查看详情</button>
+                                  <button type="button" onClick={() => { setCardMenu(null); openMove(item, lastTriggerRef.current || undefined) }}>移动地点</button>
+                                  <button type="button" onClick={() => { setCardMenu(null); openDelete(item, lastTriggerRef.current || undefined) }}>删除地点</button>
+                                </div>}
+                              </div>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div style={{position:'absolute',top:layout.cardHeight+8,...(layout.point(position).x+290>layout.width?{right:0}:{left:0})}}><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </motion.div>
                           )
@@ -674,7 +782,7 @@ export default function ItineraryWorkspace({
                           type="button"
                           data-testid={`day-${dayIndex}-add`}
                           data-day-add={dayIndex}
-                          aria-label={`新增地点到 ${day.label}`}
+                          aria-label={`新增地点到 ${relativeDayLabel(dayOffset)}`}
                           disabled={locked}
                           onClick={() => onAdd(dayIndex, day.activities.length)}
                           style={{right:8,bottom:4,position:"absolute"}}
@@ -726,7 +834,7 @@ export default function ItineraryWorkspace({
               </div>
               <DialogCloseButton onClick={() => closeDialog()} label="关闭删除确认" />
             </div>
-            <p id="delete-activity-description" className="mt-4 text-sm leading-6 text-slate-600">只会删除这张地点卡片。即使它是当天最后一个地点，{localDays[dialog.item.dayIndex - 1]?.label || '当天'}也会保留。</p>
+            <p id="delete-activity-description" className="mt-4 text-sm leading-6 text-slate-600">只会删除这张地点卡片。即使它是当天最后一个地点，{relativeDayLabel(dialog.item.dayIndex - 1)}也会保留。</p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button data-dialog-initial-focus type="button" onClick={() => closeDialog()} className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">取消</button>
               <button data-testid="confirm-delete" type="button" disabled={locked} onClick={() => void applyDelete(dialog.item)} className="min-h-12 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50">{locked ? '正在删除…' : '确认删除'}</button>
@@ -786,13 +894,13 @@ function SerpentineConnectors({day,layout,mapView,pending}: {day:DayView;layout:
       const connector=transportConnectorFor(day,card,day.activities[index+1],mapView,pending)
       const available=connector.status==='AVAILABLE'
       const Icon=available ? connector.mode==='walking' ? Footprints : BusFront : ArrowRight
-      const label=available ? `${connector.mode==='walking'?'步行':'公交'} · ${connector.durationMinutes} 分钟${connector.distanceMeters===null?'':` · ${distanceLabel(connector.distanceMeters)}`}` : connector.status==='NEEDS_UPDATE' ? '路线需要更新' : connector.status==='UNAVAILABLE' ? '路线暂不可用' : '路线准备中'
-      return <div key={index} data-testid="transport-connector" data-connector-status={connector.status} data-turn={edge.turn} aria-label={label}>
+      const {label,warning}=connectorPresentation(connector)
+      return <div key={index} data-testid="transport-connector" data-connector-status={connector.status} data-connection-status={available?connector.connectionStatus:undefined} data-turn={edge.turn} aria-label={`${label}${warning?` · ${warning}`:''}`}>
         <svg className="serpentine-edge" width={layout.width} height={layout.height} aria-hidden="true">
           <path data-testid="order-arc" d={edge.path} fill="none" stroke="currentColor" strokeWidth="1.4"/>
           <path d={`M ${edge.arrowX-3} ${edge.arrowY-edge.arrowDirection*7} l 3 ${edge.arrowDirection*5} l 3 ${-edge.arrowDirection*5}`} fill="none" stroke="currentColor" strokeWidth="1.4"/>
         </svg>
-        <span className={`serpentine-route-label ${available?'is-available':''}`} style={{left:edge.x,top:edge.y}}><Icon aria-hidden="true"/>{label}</span>
+        <span className={`serpentine-route-label ${available?'is-available':''} ${warning?'is-unverified':''}`} style={{left:edge.x,top:edge.y}}><Icon aria-hidden="true"/><span>{label}</span>{warning&&<small className="route-connection-warning">{warning}</small>}</span>
       </div>
     })}
   </div>

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -46,6 +46,7 @@ from app.trip_understanding.timing import ActivityTiming, clock_minutes, shift_c
 G03_EVIDENCE_POLICY_VERSION = "g03-evidence-v1"
 G03_SYSTEM_USER_ID = "__breezetravel_materializer__"
 _DATE_PATTERN = re.compile(r"(20\d{2}-\d{2}-\d{2})")
+_TEMPORAL_RULES = {"experience.schedule_feasibility", "g03.calendar_evidence"}
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def calendar_profile(
     assumptions: list[dict[str, Any]],
     *,
     day_count: int,
+    relative_only: bool = False,
 ) -> CalendarProfile:
     by_key = {
         str(item.get("key")): item
@@ -77,7 +79,7 @@ def calendar_profile(
     }
     calendar = by_key.get("calendar", {})
     raw_calendar = str(calendar.get("value", "")).strip()
-    dates = _DATE_PATTERN.findall(raw_calendar)
+    dates = [] if relative_only else _DATE_PATTERN.findall(raw_calendar)
     start: date | None = None
     end: date | None = None
     if dates:
@@ -169,8 +171,9 @@ def build_itinerary_revision(
     parent_revision: int | None,
     source_type: RevisionSource,
     created_at: datetime | None = None,
+    relative_only: bool = True,
 ) -> tuple[ItineraryRevision, CalendarProfile]:
-    profile = calendar_profile(assumptions, day_count=len(result.days))
+    profile = calendar_profile(assumptions, day_count=len(result.days), relative_only=relative_only)
     days: list[ItineraryDay] = []
     for day_offset, public_day in enumerate(result.days):
         stops: list[ItineraryStop] = []
@@ -179,8 +182,8 @@ def build_itinerary_revision(
             canonical_place_id = binding.get("canonical_place_id")
             raw_status = str(binding.get("resolution_status", "UNRESOLVED"))
             resolved = raw_status == "AUTO_MATCHED" or card.category == "用餐安排"
-            start_time, end_time = card.start_time, card.end_time
-            if start_time is None and card.timing_source != "SUGGESTED":
+            start_time, end_time = (None, None) if relative_only else (card.start_time, card.end_time)
+            if not relative_only and start_time is None and card.timing_source != "SUGGESTED":
                 exact = re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", card.time_hint or "")
                 start_time = exact.group() if exact else None
             stops.append(
@@ -195,9 +198,9 @@ def build_itinerary_revision(
                     order_index=order_index,
                     start_time=start_time,
                     end_time=end_time,
-                    visit_duration_minutes=card.visit_duration_minutes,
-                    locked=card.locked,
-                    fixed_commitment=card.fixed_commitment,
+                    visit_duration_minutes=None if relative_only else card.visit_duration_minutes,
+                    locked=False if relative_only else card.locked,
+                    fixed_commitment=False if relative_only else card.fixed_commitment,
                     raw_name=card.name,
                     source_raw_stop_id=None,
                     resolution_status=(
@@ -223,7 +226,9 @@ def build_itinerary_revision(
         change_summary={
             "kind": "G03_MATERIALIZATION" if revision == 1 else "G03_USER_CHANGE",
             "route_provider_calls": 0,
-            "timing_sources": {_stable_internal_id("stop", card.activity_token): card.timing_source for day in result.days for card in day.activities},
+            "timing_sources": {} if relative_only else {_stable_internal_id("stop", card.activity_token): card.timing_source for day in result.days for card in day.activities},
+            "meal_roles": {_stable_internal_id("stop", card.activity_token): card.meal_role for day in result.days for card in day.activities},
+            "source_meal_slots": {str(index): [slot.meal_role for slot in day.meal_slots] for index, day in enumerate(result.days)},
         },
         created_by=G03_SYSTEM_USER_ID,
         created_at=created_at or datetime.now(timezone.utc),
@@ -244,11 +249,7 @@ def build_task_spec(
         city=revision.city,
         date_range=DateRange(start=profile.start, days=len(revision.days)),
         travelers=Travelers(adults=profile.party_size),
-        assumptions=(
-            ["未提供真实日历日期，按 Day 编号核验"]
-            if profile.mode == "DAY_INDEX_ONLY"
-            else []
-        ),
+        assumptions=[],
     )
 
 
@@ -299,19 +300,27 @@ class MealBreakRule:
     rule_version = "1.1.0"
     dependencies = (AuditDependency.DAY_ORDER,)
 
+    def __init__(self, *, relative_only: bool = True):
+        self.relative_only = relative_only
+
     def evaluate(self, context: AuditRuleContext) -> list[AuditFinding]:
         findings: list[AuditFinding] = []
         for day in context.revision.days:
             if len(day.stops) < 2:
                 continue
             # A breakfast or coffee does not cover a later full day of visits.
-            known_ends = [clock_minutes(stop.end_time) for stop in day.stops]
-            if all(value is not None and value <= 11 * 60 + 30 for value in known_ends):
+            known_ends = [] if self.relative_only else [clock_minutes(stop.end_time) for stop in day.stops]
+            if known_ends and all(value is not None and value <= 11 * 60 + 30 for value in known_ends):
                 continue
-            has_meal = any(
+            summary = context.revision.change_summary
+            meal_roles = summary.get("meal_roles", {})
+            has_slot = self.relative_only and any(role in {"LUNCH", "DINNER", "UNSPECIFIED"}
+                for role in summary.get("source_meal_slots", {}).get(str(day.day_index), []))
+            has_meal = has_slot or any(
                 stop.category in {"meal_break", "dining"}
+                and meal_roles.get(stop.stop_id) not in {"BREAKFAST", "SNACK"}
                 and not re.search(r"早餐|早饭|早點|早点|咖啡|下午茶|奶茶", stop.raw_name or "")
-                and (stop.start_time is None or clock_minutes(stop.start_time) >= 11 * 60)
+                and (self.relative_only or stop.start_time is None or clock_minutes(stop.start_time) >= 11 * 60)
                 for stop in day.stops
             )
             if not has_meal:
@@ -575,16 +584,20 @@ def run_g03_audit(
     snapshot: EvidenceSnapshot,
     supersedes_report_id: str | None = None,
     now: datetime | None = None,
+    relative_only: bool = True,
 ) -> AuditReport:
+    # Rechecking a stored materialization may supply its historical calendar.
+    # Keep that record intact while giving the current rules a relative task.
+    if relative_only:
+        profile = replace(profile, mode="DAY_INDEX_ONLY", start=None, end=None)
     task = build_task_spec(revision, profile, room_id=room_id)
     registry = AuditRuleRegistry(
         [
             PlaceReadinessRule(),
-            MealBreakRule(),
+            MealBreakRule(relative_only=relative_only),
             RouteAvailabilityRule(),
-            ScheduleFeasibilityRule(),
+            *([] if relative_only else [ScheduleFeasibilityRule(), CalendarEvidenceRule()]),
             RepeatVisitRule(),
-            CalendarEvidenceRule(),
             StayCommuteRule(),
             ProviderFailureRule(),
         ]
@@ -676,7 +689,10 @@ def _label(finding: AuditFinding) -> str:
 
 
 def check_route_basis(finding: AuditFinding, snapshot: EvidenceSnapshot, *, routes_current: bool = True,
-                      now: datetime | None = None) -> tuple[bool, bool]:
+                      now: datetime | None = None, relative_only: bool = True) -> tuple[bool, bool]:
+    if relative_only and finding.rule_id in _TEMPORAL_RULES:
+        # Old reports remain stored, but cannot authorize a new clock edit.
+        return True, False
     facts = [fact for fact in snapshot.facts if fact.fact_id in finding.evidence_fact_ids
              and fact.fact_type in {"ROUTE_MODE_SET", "STAY_COMMUTE"}]
     depends = bool(facts) or finding.reason_code in {
@@ -715,9 +731,10 @@ def public_checks(
     result: UserFacingTripResult | None = None,
     routes_current: bool = True,
     now: datetime | None = None,
+    relative_only: bool = True,
 ) -> PublicTripChecksView:
     freshness = {fact.fact_id: fact.freshness_status for fact in snapshot.facts}
-    bases = {finding.finding_id: check_route_basis(finding, snapshot, routes_current=routes_current, now=now)
+    bases = {finding.finding_id: check_route_basis(finding, snapshot, routes_current=routes_current, now=now, relative_only=relative_only)
              for finding in report.findings}
 
     def sort_key(finding: AuditFinding) -> tuple[Any, ...]:
@@ -744,6 +761,7 @@ def public_checks(
             finding
             for finding in report.findings
             if finding.status in {AuditStatus.VIOLATED, AuditStatus.UNKNOWN}
+            and (not relative_only or finding.rule_id not in _TEMPORAL_RULES)
         ),
         key=sort_key,
     )
@@ -758,7 +776,7 @@ def public_checks(
         title, message = _friendly(finding)
         depends, basis_current = bases[finding.finding_id]
         if not basis_current:
-            title, message = "这段交通需要重新核对", "交通依据需要更新；更新路线后重新检查，暂时不能据此判断是否来得及。"
+            title, message = "这段交通需要重新核对", "交通依据需要更新；更新路线后重新检查，暂时不能据此比较交通。"
         items.append(
             PublicTripCheckItem(
                 check_token=token,
@@ -807,7 +825,9 @@ def public_checks(
     )
 
 
-def command_for_finding(finding: AuditFinding, result: UserFacingTripResult | None = None):
+def command_for_finding(finding: AuditFinding, result: UserFacingTripResult | None = None, *, relative_only: bool = True):
+    if relative_only and finding.rule_id in _TEMPORAL_RULES:
+        raise ValueError("absolute timing is outside the current trip-check scope")
     if finding.reason_code == "SCHEDULE_CONFLICT" and finding.repairable and result:
         if "shift_changes" in finding.input_values:
             by_id = {_stable_internal_id("stop", card.activity_token): card.activity_token

@@ -1,28 +1,1266 @@
 {
-  "schema_version": "hotel-brand-registry-v1",
-  "source_policy": "versioned-product-curation-no-price-or-quality-claims",
+  "schema_version": "hotel-brand-registry-v3",
+  "source_policy": "official-brand-and-property-identity-no-price-availability-or-quality-guarantee",
   "brands": [
-    {"brand": "亚朵", "aliases": ["亚朵"]},
-    {"brand": "桔子", "aliases": ["桔子水晶", "桔子酒店"]},
-    {"brand": "汉庭", "aliases": ["汉庭"]},
-    {"brand": "全季", "aliases": ["全季"]},
-    {"brand": "如家", "aliases": ["如家"]},
-    {"brand": "和颐", "aliases": ["和颐"]},
-    {"brand": "宜必思", "aliases": ["宜必思"]},
-    {"brand": "城市便捷", "aliases": ["城市便捷"]},
-    {"brand": "洲际", "aliases": ["洲际"]},
-    {"brand": "万豪", "aliases": ["万豪"]},
-    {"brand": "希尔顿", "aliases": ["希尔顿"]},
-    {"brand": "开元", "aliases": ["开元"]},
-    {"brand": "维景", "aliases": ["维景"]},
-    {"brand": "华尔道夫", "aliases": ["华尔道夫"]},
-    {"brand": "瑰丽", "aliases": ["瑰丽"]},
-    {"brand": "瑜舍", "aliases": ["瑜舍"]},
-    {"brand": "W酒店", "aliases": ["W酒店", "万象城W"]},
-    {"brand": "瑞吉", "aliases": ["瑞吉"]},
-    {"brand": "香格里拉", "aliases": ["香格里拉"]},
-    {"brand": "君悦", "aliases": ["君悦"]},
-    {"brand": "北京饭店", "aliases": ["北京饭店"]},
-    {"brand": "西湖国宾馆", "aliases": ["西湖国宾馆"]}
-  ]
+    {
+      "brand": "亚朵",
+      "aliases": [
+        "亚朵"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "桔子",
+      "aliases": [
+        "桔子"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://docs.huazhu.com/b2b/api/docking/",
+      "checked_at": "2026-09-07",
+      "official_brand_ids": [
+        "0017",
+        "0018"
+      ]
+    },
+    {
+      "brand": "汉庭",
+      "aliases": [
+        "汉庭"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://hrewards.huazhu.com/hotel/brand",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "全季",
+      "aliases": [
+        "全季"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://hrewards.huazhu.com/hotel/brand",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "如家",
+      "aliases": [
+        "如家"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "和颐",
+      "aliases": [
+        "和颐"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "宜必思",
+      "aliases": [
+        "宜必思"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "城市便捷",
+      "aliases": [
+        "城市便捷"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "洲际",
+      "aliases": [
+        "洲际"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "万豪",
+      "aliases": [
+        "万豪"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "希尔顿",
+      "aliases": [
+        "希尔顿"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "开元",
+      "aliases": [
+        "开元"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "维景",
+      "aliases": [
+        "维景"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "华尔道夫",
+      "aliases": [
+        "华尔道夫"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "瑰丽",
+      "aliases": [
+        "瑰丽"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "瑜舍",
+      "aliases": [
+        "瑜舍"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "W酒店",
+      "aliases": [
+        "W酒店",
+        "万象城W"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "瑞吉",
+      "aliases": [
+        "瑞吉"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "香格里拉",
+      "aliases": [
+        "香格里拉"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "君悦",
+      "aliases": [
+        "君悦"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "北京饭店",
+      "aliases": [
+        "北京饭店"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "西湖国宾馆",
+      "aliases": [
+        "西湖国宾馆"
+      ],
+      "priority": 1
+    },
+    {
+      "brand": "如家商旅",
+      "aliases": [
+        "如家商旅"
+      ],
+      "group": "首旅如家",
+      "priority": 1,
+      "source_url": "https://www.bthhotels.com/hotel/T21004",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "如家·neo",
+      "aliases": [
+        "如家·neo"
+      ],
+      "group": "首旅如家",
+      "priority": 1,
+      "source_url": "https://www.bthhotels.com/hotel/0100T6",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "如家精选",
+      "aliases": [
+        "如家精选"
+      ],
+      "group": "首旅如家",
+      "priority": 1,
+      "source_url": "https://www.bthhotels.com/hotel/J75502",
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "桔子水晶",
+      "aliases": [
+        "桔子水晶"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://docs.huazhu.com/b2b/api/docking/",
+      "official_brand_ids": [
+        "0015"
+      ],
+      "checked_at": "2026-09-07"
+    },
+    {
+      "brand": "汉庭优佳",
+      "aliases": [
+        "汉庭优佳"
+      ],
+      "priority": 0,
+      "group": "华住",
+      "source_url": "https://docs.huazhu.com/b2b/api/docking/",
+      "official_brand_ids": [
+        "0016"
+      ],
+      "checked_at": "2026-09-07"
+    }
+  ],
+  "properties": [
+    {
+      "city": "北京",
+      "brand": "汉庭",
+      "name": "汉庭北京前门大街酒店",
+      "name_tokens": [
+        "汉庭",
+        "前门大街"
+      ],
+      "address": "北京市西城区西经路1号",
+      "address_tokens": [
+        "西经路1号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/1000501",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "map_match_status": "NOT_FOUND_IN_BOUNDED_SEARCH",
+      "map_checked_at": "2026-09-07T11:04:54.167531+00:00"
+    },
+    {
+      "city": "上海",
+      "brand": "汉庭",
+      "name": "汉庭上海南京路步行街中心酒店",
+      "name_tokens": [
+        "汉庭",
+        "南京路步行街",
+        "中心"
+      ],
+      "address": "上海市黄浦区浙江中路400号",
+      "address_tokens": [
+        "浙江中路400号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000048",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0MB7SORK9",
+          "name": "汉庭酒店(上海南京东路步行街中心店)",
+          "address": "浙江中路400号",
+          "city": "上海",
+          "adcode": "310101",
+          "location": "121.478180,31.236248",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:54.172790+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "广州",
+      "brand": "全季",
+      "name": "全季广州北京路步行街大德路酒店",
+      "name_tokens": [
+        "全季",
+        "北京路",
+        "大德路"
+      ],
+      "address": "广州市越秀区大德路318号",
+      "address_tokens": [
+        "大德路318号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9019752",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0JA1ZRA0M",
+          "name": "全季酒店(广州北京路步行街圣心大教堂店)",
+          "address": "大德路318号",
+          "city": "广州",
+          "adcode": "440104",
+          "location": "113.261894,23.117835",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:54.951860+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "深圳",
+      "brand": "全季",
+      "name": "全季深圳华强北体育中心酒店",
+      "name_tokens": [
+        "全季",
+        "华强北",
+        "体育中心"
+      ],
+      "address": "华强北路4014号",
+      "address_tokens": [
+        "华强北路4014号"
+      ],
+      "source_url": "https://m.huazhu.com/list/shenzhen-SZHQBSYQ-quanji",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0LD3DCJ9Y",
+          "name": "全季酒店(深圳华强北华新地铁站店)",
+          "address": "华强北路4014号(华新地铁站C出口)",
+          "city": "深圳",
+          "adcode": "440304",
+          "location": "114.087394,22.550806",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:55.153789+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "杭州",
+      "brand": "全季",
+      "name": "全季杭州西湖湖滨步行街酒店",
+      "name_tokens": [
+        "全季",
+        "西湖",
+        "湖滨步行街"
+      ],
+      "address": "杭州市上城区延安路303号",
+      "address_tokens": [
+        "延安路303号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9001570",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFM0U20O",
+          "name": "全季酒店(杭州西湖湖滨步行街店)",
+          "address": "延安路303号(凤起路地铁站C6口步行290米)",
+          "city": "杭州",
+          "adcode": "330102",
+          "location": "120.163300,30.257982",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:55.480694+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "杭州",
+      "brand": "全季",
+      "name": "全季杭州西湖湖滨酒店",
+      "name_tokens": [
+        "全季",
+        "西湖湖滨"
+      ],
+      "address": "杭州市上城区开元路66号",
+      "address_tokens": [
+        "开元路66号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000118",
+      "checked_at": "2026-09-07",
+      "status": "SUSPENDED"
+    },
+    {
+      "city": "北京",
+      "brand": "汉庭",
+      "name": "汉庭北京天安门广场前门酒店",
+      "name_tokens": [
+        "汉庭",
+        "天安门广场",
+        "前门"
+      ],
+      "address": "北京市西城区门框胡同30号",
+      "address_tokens": [
+        "门框胡同30号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9004505",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFIKXDS6",
+          "name": "汉庭酒店(北京天安门广场前门店)",
+          "address": "门框胡同30号(近大栅栏步行街,同仁堂斜对面)",
+          "city": "北京",
+          "adcode": "110102",
+          "location": "116.396148,39.896348",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:54.482423+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "北京",
+      "brand": "汉庭",
+      "name": "汉庭北京前门天坛西门酒店",
+      "name_tokens": [
+        "汉庭",
+        "前门",
+        "天坛西门"
+      ],
+      "address": "北京市西城区留学路73号",
+      "address_tokens": [
+        "留学路73号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9011187",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0IBCDG1FX",
+          "name": "汉庭酒店(北京前门天坛西门店)",
+          "address": "留学路73号(珠市口地铁站G西南口步行490米)",
+          "city": "北京",
+          "adcode": "110102",
+          "location": "116.394197,39.887708",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:54.431310+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "北京",
+      "brand": "汉庭",
+      "name": "汉庭北京天安门广场酒店",
+      "name_tokens": [
+        "汉庭",
+        "天安门广场"
+      ],
+      "address": "北京市西城区前门杨梅竹斜街118号",
+      "address_tokens": [
+        "杨梅竹斜街118号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000062",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFGLH1LI",
+          "name": "汉庭酒店(北京天安门广场店)",
+          "address": "杨梅竹斜街118号",
+          "city": "北京",
+          "adcode": "110102",
+          "location": "116.390651,39.895122",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:54.408823+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "北京",
+      "brand": "汉庭优佳",
+      "name": "汉庭优佳北京国贸劲松地铁站酒店",
+      "name_tokens": [
+        "汉庭优佳",
+        "国贸",
+        "劲松"
+      ],
+      "address": "北京市朝阳区农光里117号",
+      "address_tokens": [
+        "农光里117号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9000009",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B000A84Y2I",
+          "name": "汉庭优佳酒店(北京劲松地铁站店)",
+          "address": "农光里117号劲松大厦A座8-16层",
+          "city": "北京",
+          "adcode": "110105",
+          "location": "116.462417,39.883843",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:54.628780+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK",
+      "previous_official_urls": [
+        "https://m.huazhu.com/Hotel/Detail/1000211"
+      ]
+    },
+    {
+      "city": "上海",
+      "brand": "全季",
+      "name": "全季上海人民广场酒店",
+      "name_tokens": [
+        "全季",
+        "人民广场"
+      ],
+      "address": "西藏中路500号思源商厦2-9楼（靠近凤阳路）",
+      "address_tokens": [
+        "西藏中路500号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000461",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFKGW7A6",
+          "name": "全季酒店(上海人民广场店)",
+          "address": "西藏中路500号思源商厦2-9楼(凤阳路)",
+          "city": "上海",
+          "adcode": "310101",
+          "location": "121.474404,31.236368",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:54.799753+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "上海",
+      "brand": "全季",
+      "name": "全季上海人民广场福州路酒店",
+      "name_tokens": [
+        "全季",
+        "人民广场",
+        "福州路"
+      ],
+      "address": "浙江中路142号",
+      "address_tokens": [
+        "浙江中路142号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000488",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFK1Q7OU",
+          "name": "全季酒店(上海人民广场福州路店)",
+          "address": "浙江中路142号(人民广场地铁站15号口步行460米)",
+          "city": "上海",
+          "adcode": "310101",
+          "location": "121.479841,31.232545",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:54.799753+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "上海",
+      "brand": "全季",
+      "name": "全季上海人民广场南京路酒店",
+      "name_tokens": [
+        "全季",
+        "人民广场",
+        "南京路"
+      ],
+      "address": "重庆北路212号靠近威海路",
+      "address_tokens": [
+        "重庆北路212号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9006693",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "map_match_status": "NOT_FOUND_IN_BOUNDED_SEARCH",
+      "map_checked_at": "2026-09-07T11:04:54.167531+00:00"
+    },
+    {
+      "city": "广州",
+      "brand": "全季",
+      "name": "全季广州越秀公园酒店",
+      "name_tokens": [
+        "全季",
+        "越秀公园"
+      ],
+      "address": "广州市越秀区解放北路960号",
+      "address_tokens": [
+        "解放北路960号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/5101801",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFF01Q35",
+          "name": "全季酒店(广州北京路步行街越秀公园店)",
+          "address": "解放北路960号广州越天大厦",
+          "city": "广州",
+          "adcode": "440104",
+          "location": "113.262156,23.136744",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:54.951860+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "广州",
+      "brand": "全季",
+      "name": "全季广州北京路团一大广场酒店",
+      "name_tokens": [
+        "全季",
+        "北京路",
+        "团一大广场"
+      ],
+      "address": "东华西路永安东街29、31号",
+      "address_tokens": [
+        "永安东街29号",
+        "31号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9014572",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "address_evidence": "官方详情列明永安东街29、31号；地图完整地址分别列29号首层/2层和31号3-4层。未将其他街号视为等价。",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0IUDUIA3J",
+          "name": "全季(广州北京路步行街团一大广场地铁站店)",
+          "address": "东华西路永安东街29号首层西侧自编2号29号2层31号3-4层",
+          "city": "广州",
+          "adcode": "440104",
+          "location": "113.278766,23.120663",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:54.951860+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "深圳",
+      "brand": "全季",
+      "name": "全季深圳福田会展中心酒店",
+      "name_tokens": [
+        "全季",
+        "福田",
+        "会展中心"
+      ],
+      "address": "深圳市福田区福中路17号国际人才大厦",
+      "address_tokens": [
+        "福中路17号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/5180381",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B02F38JR27",
+          "name": "全季酒店(深圳福田会展中心店)",
+          "address": "福中路17号国际人才大厦1层",
+          "city": "深圳",
+          "adcode": "440304",
+          "location": "114.070983,22.544579",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:55.153789+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "深圳",
+      "brand": "全季",
+      "name": "全季深圳华强北电子大厦酒店",
+      "name_tokens": [
+        "全季",
+        "华强北",
+        "电子大厦"
+      ],
+      "address": "深南中路2072号",
+      "address_tokens": [
+        "深南中路2072号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9015925",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0I1U7ZK5H",
+          "name": "全季酒店(深圳华强北华强路地铁站店)",
+          "address": "华强北街道深南中路2072号电子大厦(科技旁)",
+          "city": "深圳",
+          "adcode": "440304",
+          "location": "114.088389,22.540963",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:55.153789+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "深圳",
+      "brand": "全季",
+      "name": "全季深圳南山地铁站酒店",
+      "name_tokens": [
+        "全季",
+        "南山",
+        "地铁站"
+      ],
+      "address": "深圳市南山区常兴路13号",
+      "address_tokens": [
+        "常兴路13号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9002685",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0GRBSEOQ3",
+          "name": "全季酒店(深圳南山地铁站店)",
+          "address": "常兴路13号(南山地铁站H口步行330米)",
+          "city": "深圳",
+          "adcode": "440305",
+          "location": "113.921068,22.526719",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:55.230479+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "深圳",
+      "brand": "全季",
+      "name": "全季深圳南山科技园酒店",
+      "name_tokens": [
+        "全季",
+        "南山",
+        "科技园"
+      ],
+      "address": "科发路2号30区3栋文峥鑫大厦3楼全季酒店",
+      "address_tokens": [
+        "科发路2号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9008278",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0HD1S3PIW",
+          "name": "全季酒店(深圳南山科技园店)",
+          "address": "科发路2号30区3栋文峥鑫大厦",
+          "city": "深圳",
+          "adcode": "440305",
+          "location": "113.950236,22.544233",
+          "typecode": "100000",
+          "checked_at": "2026-09-07T11:04:55.230479+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "杭州",
+      "brand": "全季",
+      "name": "全季杭州西湖湖滨二轻大厦酒店",
+      "name_tokens": [
+        "全季",
+        "西湖",
+        "湖滨",
+        "二轻大厦"
+      ],
+      "address": "延安路398-408号（双号）二轻大厦B座",
+      "address_tokens": [
+        "延安路398-408号",
+        "二轻大厦B座"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9002063",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFM10EDA",
+          "name": "全季酒店(杭州西湖湖滨二轻大厦店)",
+          "address": "延安路398-408号二轻大厦B座",
+          "city": "杭州",
+          "adcode": "330105",
+          "location": "120.164365,30.262517",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:55.480694+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "杭州",
+      "brand": "全季",
+      "name": "全季杭州西湖凤起路酒店",
+      "name_tokens": [
+        "全季",
+        "西湖",
+        "凤起路"
+      ],
+      "address": "凤起路380号",
+      "address_tokens": [
+        "凤起路380号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/3100037",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFFWZ6R4",
+          "name": "全季酒店(杭州西湖凤起路店)",
+          "address": "凤起路380号(凤起路地铁站D3口步行390米)",
+          "city": "杭州",
+          "adcode": "330105",
+          "location": "120.166846,30.265098",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:04:55.480694+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "杭州",
+      "brand": "全季",
+      "name": "全季杭州西湖中山北路酒店",
+      "name_tokens": [
+        "全季",
+        "西湖",
+        "中山北路"
+      ],
+      "address": "浙江省杭州市下城区中山北路288号",
+      "address_tokens": [
+        "中山北路288号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/8000590",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFL3PNJU",
+          "name": "全季酒店(杭州西湖中山北路店)",
+          "address": "中山北路288号(中河北路地铁站B2口步行280米)",
+          "city": "杭州",
+          "adcode": "330105",
+          "location": "120.169215,30.264351",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:55.480694+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "上海",
+      "brand": "全季",
+      "name": "全季上海人民广场福建中路酒店",
+      "name_tokens": [
+        "全季",
+        "人民广场",
+        "福建中路"
+      ],
+      "address": "福建中路225号",
+      "address_tokens": [
+        "福建中路225号"
+      ],
+      "source_url": "https://m.huazhu.com/Hotel/Detail/9000930",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFKP09JL",
+          "name": "全季酒店(上海人民广场南京路步行街酒店)",
+          "address": "外滩街道福建中路225号1层",
+          "city": "上海",
+          "adcode": "310101",
+          "location": "121.481083,31.234392",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:04:54.799753+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "官方门店品牌、城市与具体街道门牌和地图完整门店名称、地址、唯一POI编号交叉核对；名称差异仅登记给此POI，不推广为通用别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "北京",
+      "brand": "如家商旅",
+      "name": "如家商旅(金标)-北京前门地铁站北京坊店",
+      "name_tokens": [
+        "如家",
+        "前门",
+        "北京坊"
+      ],
+      "address": "北京市西城区前门西河沿街114号",
+      "address_tokens": [
+        "西河沿街114号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/Z10026",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0IBUZV44L",
+          "name": "如家商旅酒店(北京天安门广场北京坊店)",
+          "address": "西河沿街114号(前门地铁站C西南口步行390米)",
+          "city": "北京",
+          "adcode": "110102",
+          "location": "116.393483,39.898871",
+          "typecode": "100000",
+          "checked_at": "2026-09-07T11:20:05.871775+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "北京",
+      "brand": "如家·neo",
+      "name": "如家·neo-北京什刹海鼓楼大街地铁站店",
+      "name_tokens": [
+        "如家",
+        "什刹海",
+        "鼓楼大街"
+      ],
+      "address": "北京市西城区六铺炕南小街甲1号",
+      "address_tokens": [
+        "六铺炕南小街甲1号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/0100T6",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "map_match_status": "NOT_FOUND_IN_BOUNDED_SEARCH",
+      "map_checked_at": "2026-09-07T11:20:05.875776+00:00"
+    },
+    {
+      "city": "上海",
+      "brand": "如家商旅",
+      "name": "如家商旅-上海南京路步行街店",
+      "name_tokens": [
+        "如家商旅",
+        "南京路步行街"
+      ],
+      "address": "上海市黄浦区天津路479号",
+      "address_tokens": [
+        "天津路479号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/T21004",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFH9538O",
+          "name": "如家商旅酒店(上海南京路步行街店)",
+          "address": "天津路479号",
+          "city": "上海",
+          "adcode": "310101",
+          "location": "121.477699,31.236055",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:20:05.876776+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "上海",
+      "brand": "如家·neo",
+      "name": "如家·neo-上海外滩南京路步行街店",
+      "name_tokens": [
+        "如家",
+        "外滩",
+        "南京路步行街"
+      ],
+      "address": "上海市黄浦区河南中路558号",
+      "address_tokens": [
+        "河南中路558号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/0210T0",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0015748NJ",
+          "name": "如家·neo(上海外滩南京路步行街店)",
+          "address": "河南中路558号(南京东路地铁站6号口步行90米)",
+          "city": "上海",
+          "adcode": "310101",
+          "location": "121.484295,31.239770",
+          "typecode": "100104",
+          "checked_at": "2026-09-07T11:20:05.876776+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "广州",
+      "brand": "如家·neo",
+      "name": "如家·neo-广州北京路步行街公园前地铁站店",
+      "name_tokens": [
+        "如家",
+        "北京路",
+        "公园前"
+      ],
+      "address": "广州市越秀区解放中路410号",
+      "address_tokens": [
+        "解放中路410号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/020026",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B00141L0BR",
+          "name": "如家酒店·neo(广州北京路步行街公园前地铁站店)",
+          "address": "解放中路410号4-5层",
+          "city": "广州",
+          "adcode": "440104",
+          "location": "113.262551,23.123512",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:20:06.074161+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "广州",
+      "brand": "如家·neo",
+      "name": "如家·neo-广州琶洲会展中心琶洲地铁站店",
+      "name_tokens": [
+        "如家",
+        "琶洲",
+        "会展中心"
+      ],
+      "address": "广州市海珠区新港东路1066号",
+      "address_tokens": [
+        "新港东路1066号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/020050",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFK4WNC8",
+          "name": "如家·NEO酒店(广州会展中心琶洲地铁站店)",
+          "address": "新港东路1066号(琶洲地铁站D口步行320米)",
+          "city": "广州",
+          "adcode": "440105",
+          "location": "113.368842,23.097159",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:20:06.074674+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "深圳",
+      "brand": "如家精选",
+      "name": "如家精选-深圳南山科技园店",
+      "name_tokens": [
+        "如家精选",
+        "南山",
+        "科技园"
+      ],
+      "address": "深圳市南山区深南大道10118号",
+      "address_tokens": [
+        "深南大道10118号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/J75502",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFI9PAR6",
+          "name": "深圳南山科技园如家精选PLUS酒店",
+          "address": "深南大道10118号南山工商物价大厦",
+          "city": "深圳",
+          "adcode": "440305",
+          "location": "113.929933,22.540632",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:20:06.074674+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "深圳",
+      "brand": "如家·neo",
+      "name": "如家·neo-深圳南山海岸城南油地铁站店",
+      "name_tokens": [
+        "如家",
+        "南山",
+        "海岸城",
+        "南油"
+      ],
+      "address": "深圳市南山区南商路84-6号",
+      "address_tokens": [
+        "南商路84-6号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/075538",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0FFJWA5UO",
+          "name": "如家酒店·neo(深圳南山海岸城南油地铁站店)",
+          "address": "南商路84-6号(南油地铁站C2口步行430米)",
+          "city": "深圳",
+          "adcode": "440305",
+          "location": "113.929248,22.513503",
+          "typecode": "100105",
+          "checked_at": "2026-09-07T11:20:06.120828+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "杭州",
+      "brand": "如家商旅",
+      "name": "如家商旅(金标)-杭州西湖湖滨青年路店",
+      "name_tokens": [
+        "如家商旅",
+        "西湖",
+        "青年路"
+      ],
+      "address": "浙江省杭州市上城区青年路32号",
+      "address_tokens": [
+        "青年路32号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/Z57132",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0L6SS37Q7",
+          "name": "如家商旅酒店(杭州西湖湖滨青年路店)",
+          "address": "青年路32号(紧邻房产档案馆)",
+          "city": "杭州",
+          "adcode": "330102",
+          "location": "120.168769,30.248133",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:20:06.249835+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    },
+    {
+      "city": "杭州",
+      "brand": "如家商旅",
+      "name": "如家商旅(金标)-杭州西湖湖滨龙翔桥地铁站店",
+      "name_tokens": [
+        "如家商旅",
+        "西湖",
+        "龙翔桥"
+      ],
+      "address": "杭州市上城区庆春路235号西湖国贸中心北门二楼",
+      "address_tokens": [
+        "庆春路235号"
+      ],
+      "source_url": "https://www.bthhotels.com/hotel/Z57118",
+      "checked_at": "2026-09-07",
+      "status": "LISTED",
+      "provider_matches": [
+        {
+          "provider": "AMAP",
+          "poi_id": "B0L2FA1D0L",
+          "name": "如家商旅酒店(杭州西湖湖滨龙翔桥地铁站店)",
+          "address": "庆春路235号(西湖国贸中心北1门2楼)",
+          "city": "杭州",
+          "adcode": "330102",
+          "location": "120.160055,30.257918",
+          "typecode": "100100",
+          "checked_at": "2026-09-07T11:20:06.266122+00:00",
+          "source": "https://restapi.amap.com/v5/place/text",
+          "identity_evidence": "首旅如家官方具体门店品牌、城市、街道门牌，与地图唯一POI编号、完整名称和完整地址交叉核对。neo/商旅/精选以官方品牌单列；仅此POI的记录名称可作明确别名。"
+        }
+      ],
+      "map_match_status": "VERIFIED_BRANCH_CROSSCHECK"
+    }
+  ],
+  "property_evidence_policy": "Official brand and branch street address are separate from live map identity. Explicit map aliases require POI ID, full recorded map name and address, matching city, branch street number and brand. Listing is not a room availability or current operations guarantee."
 }

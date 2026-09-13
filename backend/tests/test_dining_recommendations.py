@@ -49,6 +49,22 @@ def test_dining_deduplicates_and_excludes_existing_places_before_top_three():
     assert select_dining_rows(rows, anchor=anchor().model_copy(update={"resolution_status":"NEEDS_CONFIRMATION"}), excluded_ids=set()) == []
 
 
+@pytest.mark.parametrize("meal_only", [False, True])
+@pytest.mark.parametrize("name", [
+    "岳庙管理处食堂(内部专用)", "景区内部食堂", "食堂（仅限职工）", "宾馆餐厅（不对外开放）",
+])
+def test_dining_does_not_recommend_explicitly_private_canteens(name, meal_only):
+    assert select_dining_rows([{**row(), "name": name}], anchor=anchor(),
+        excluded_ids=set(), meal_only=meal_only) == []
+
+
+@pytest.mark.parametrize("name", ["人民食堂", "外婆家", "西湖宾馆中餐厅", "职工食堂（对外开放）"])
+def test_dining_keeps_public_restaurants_and_canteen_brand_names(name):
+    values = select_dining_rows([{**row(), "name": name}], anchor=anchor(),
+        excluded_ids=set(), meal_only=True)
+    assert [place.name for place in values] == [name]
+
+
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
 @pytest.mark.asyncio
 async def test_dining_adoption_is_atomic_replayable_undoable_and_preserves_real_coordinates(kind):

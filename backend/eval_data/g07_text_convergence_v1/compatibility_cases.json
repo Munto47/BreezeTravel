@@ -336,10 +336,10 @@
     {
       "case_id": "BT-COMPAT-034",
       "group": "REVISION_MAP_PROVIDER",
-      "input_text": "步行与公交差值不超过10分钟时优先步行；默认路线不使用驾车。",
+      "input_text": "步行不超过30分钟优先步行，超过30分钟选择真实公交；默认路线不使用驾车。",
       "lane": "MAP_REVISION_PROVIDER",
-      "safe_expectation": {"summary": "只比较步行公交且十分钟规则稳定", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["TEN_MINUTE_WALKING_RULE", "NO_DEFAULT_DRIVING"], "allowed_degradations": []},
-      "exact_expectation": {"summary": "选路规则精确通过", "ordered_cards": [], "mentions": [], "required_facts": ["TEN_MINUTE_WALKING_RULE", "NO_DEFAULT_DRIVING"]},
+      "safe_expectation": {"summary": "只比较步行公交且30分钟边界稳定", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["THIRTY_MINUTE_WALKING_LIMIT", "NO_DEFAULT_DRIVING"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "选路规则精确通过", "ordered_cards": [], "mentions": [], "required_facts": ["THIRTY_MINUTE_WALKING_LIMIT", "NO_DEFAULT_DRIVING"]},
       "severity": "P0",
       "probe": {"kind": "MAP_REVISION_PROVIDER", "variant": "ROUTE_MODE_SELECTION"}
     },

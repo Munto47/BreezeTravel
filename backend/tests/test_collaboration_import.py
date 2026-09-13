@@ -62,7 +62,7 @@ def _guard_args(prepared) -> dict:
     }
 
 
-def test_saved_collaboration_route_becomes_text_only_source() -> None:
+def test_saved_collaboration_route_keeps_readable_source_and_relative_order() -> None:
     prepared = prepare_collaboration_import(
         user_id="account-owner",
         room_id="low-entropy-room-code",
@@ -73,9 +73,9 @@ def test_saved_collaboration_route_becomes_text_only_source() -> None:
     )
     assert prepared.source_text == (
         "北京1日行程。\n"
-        "Day 1｜2026-09-06\n"
-        "09:00 去故宫博物院（景点）。\n"
-        "13:30 去景山公园（景点）。"
+        "Day 1\n"
+        "去故宫博物院（景点）。\n"
+        "去景山公园（景点）。"
     )
     serialized = json.dumps(
         {
@@ -111,7 +111,7 @@ def test_saved_collaboration_route_becomes_text_only_source() -> None:
 
 
 @pytest.mark.asyncio
-async def test_normalized_start_times_remain_visit_times_through_full_pipeline() -> None:
+async def test_legacy_start_times_are_not_adopted_by_new_relative_import() -> None:
     prepared = prepare_collaboration_import(
         user_id="account-owner",
         room_id="room",
@@ -123,14 +123,16 @@ async def test_normalized_start_times_remain_visit_times_through_full_pipeline()
 
     output = await build_full_text_pipeline().run(
         prepared.source_text,
+        prepared_plan=prepared.initial_plan,
         **_guard_args(prepared),
     )
     cards = [card for day in output.public_result.days for card in day.activities]
 
     assert [(card.name, card.time_hint) for card in cards] == [
-        ("故宫博物院", "09:00"),
-        ("景山公园", "13:30"),
+        ("故宫博物院", None),
+        ("景山公园", None),
     ]
+    assert [(card.start_time, card.end_time) for card in cards] == [(None, None), (None, None)]
 
 
 @pytest.mark.asyncio
@@ -249,7 +251,9 @@ async def test_worker_carries_collaboration_guard_from_private_binding() -> None
         for day in stored.result.days
         for card in day.activities
     ]
-    assert len(cards) == 2
+    # The saved slot now reaches the pipeline as one authoritative mention;
+    # an unavailable exact identity stays pending without a parser splitting it.
+    assert len(cards) == 1
     assert all(card.status == "NEEDS_CONFIRMATION" for card in cards)
     assert all(card.name == "地点待确认" for card in cards)
 

@@ -35,7 +35,7 @@ from app.trip_understanding.stay import (
     stay_plan_from_map,
 )
 from app.trip_understanding.stay_repository import _candidate_view
-from tests.test_g02_map_stay import OneHotelProvider, _map_plan
+from tests.test_g02_map_stay import OneHotelProvider, _map_plan, _test_registry
 from tests.test_experience_text_fidelity import DraftProvider, RecordingResolver, activity
 from tests.test_experience_v3_journey import create, finish, repository_for
 
@@ -230,7 +230,7 @@ async def test_partial_hotel_score_keeps_missing_leg_penalty_out_of_actual_minut
             return fact.model_copy(update={"status": "UNAVAILABLE", "duration_minutes": None})
 
     plan = stay_plan_from_map(_map_plan())
-    engine = StayRecommendationEngine(OneHotelProvider(), PartialRoutes())
+    engine = StayRecommendationEngine(OneHotelProvider(), PartialRoutes(), brand_registry=_test_registry())
     output = await engine.recommend(plan, observed_at=NOW)
     assert output.status == "PARTIAL" and output.candidates
     scored = output.candidates[0]
@@ -254,7 +254,7 @@ async def test_stay_route_response_clock_accepts_network_elapsed_but_rejects_fut
             fact = await ControlledStayRouteProvider().route(origin, destination, mode, observed_at=response_at)
             return fact.model_copy(update={"expires_at": response_at - timedelta(seconds=1)}) if clock_status == "expired" else fact
 
-    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes()).recommend(
+    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes(), brand_registry=_test_registry()).recommend(
         stay_plan_from_map(_map_plan()), observed_at=logical_start)
     if clock_status != "current":
         assert output.status == "UNAVAILABLE" and output.candidates == []
@@ -276,7 +276,7 @@ async def test_concurrent_stay_recommendations_keep_their_own_logical_clocks():
             return await ControlledStayRouteProvider().route(origin, destination, mode,
                 observed_at=observed_at + timedelta(seconds=time.perf_counter() - requested))
 
-    engine = StayRecommendationEngine(OneHotelProvider(), LogicalResponseRoutes())
+    engine = StayRecommendationEngine(OneHotelProvider(), LogicalResponseRoutes(), brand_registry=_test_registry())
     starts = [datetime(year, 1, 1, tzinfo=timezone.utc) for year in (2020, 2040)]
     outputs = await asyncio.gather(*(engine.recommend(stay_plan_from_map(_map_plan()), observed_at=started) for started in starts))
     for output, started in zip(outputs, starts, strict=True):
@@ -302,7 +302,7 @@ async def test_real_stay_clock_reads_wall_time_after_response_when_counters_dive
             return await ControlledStayRouteProvider().route(origin, destination, mode, observed_at=wall.now)
 
     monkeypatch.setattr(stay_module, "datetime", WallClock)
-    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes()).recommend(stay_plan_from_map(_map_plan()))
+    output = await StayRecommendationEngine(OneHotelProvider(), ResponseClockRoutes(), brand_registry=_test_registry()).recommend(stay_plan_from_map(_map_plan()))
     assert output.candidates and output.candidates[0].missing_leg_count == 0
     assert output.started_at == NOW and output.finished_at == wall.now
     assert all(fact.status == "AVAILABLE" and output.started_at < fact.observed_at <= output.finished_at
@@ -310,7 +310,7 @@ async def test_real_stay_clock_reads_wall_time_after_response_when_counters_dive
 
 
 def hotel_poi():
-    return {"id": "synthetic-hotel", "name": "汉庭酒店（合成店）", "cityname": "北京市", "pname": "北京市",
+    return {"id": "synthetic-hotel", "name": "汉庭酒店（合成店）", "cityname": "北京市", "pname": "北京市", "adcode": "110101", "adname": "东城区",
         "typecode": "100100", "type": "住宿服务;宾馆酒店", "location": "116.397,39.917", "address": ["合成路", "1号"]}
 
 
@@ -353,7 +353,7 @@ async def test_stay_query_keyword_does_not_override_identity_category_or_coordin
 
 
 @pytest.mark.asyncio
-async def test_chain_keyword_is_not_brand_evidence_and_never_expands_search_count():
+async def test_chain_keyword_is_not_brand_evidence_and_area_search_is_bounded():
     requests = []
     def respond(request):
         requests.append(request)
@@ -363,10 +363,14 @@ async def test_chain_keyword_is_not_brand_evidence_and_never_expands_search_coun
         output = await StayRecommendationEngine(
             AmapStayCandidateProvider(api_key="synthetic-unused-key", client=client), ControlledStayRouteProvider(),
         ).recommend(stay_plan_from_map(_map_plan()), observed_at=NOW)
-    assert len(requests) == 4
-    assert [request.url.params.get("radius") for request in requests] == ["2000", "4000", "8000", None]
-    assert [item.candidate.name for item in output.candidates] == ["汉庭酒店（合成店）"]
-    assert output.candidates[0].candidate.brand == "汉庭"
+    assert len(requests) == output.provider_binding["candidate_provider_calls"] == 8
+    assert [request.url.params.get("radius") for request in requests[:4]] == ["2000", "4000", "8000", None]
+    assert all(request.url.path.endswith("/text") and request.url.params["keywords"].endswith(" 酒店")
+        and request.url.params["city_limit"] == "true" for request in requests[4:6])
+    assert requests[6].url.params["keywords"] == "汉庭酒店(北京前门天坛西门店)"
+    assert requests[7].url.params["keywords"] == "如家商旅酒店(北京天安门广场北京坊店)"
+    assert output.candidates == [] and output.status == "UNAVAILABLE"
+    assert output.provider_binding["route_attempts"] == 0
 
 
 @pytest.mark.asyncio
@@ -396,7 +400,7 @@ def multicity_plan(plan):
 def test_single_hotel_plan_and_map_anchor_require_one_matching_city():
     plan = _map_plan()
     assert stay_plan_from_map(plan) is not None
-    assert stay_plan_from_map(multicity_plan(plan)) is None
+    assert all(segment.uncertain for segment in stay_plan_from_map(multicity_plan(plan)).segments)
     normalized = plan.model_copy(update={"stops": [stop.model_copy(update={"city": "北京市"})
         if index == 0 else stop for index, stop in enumerate(plan.stops)]})
     assert stay_plan_from_map(normalized) is not None
@@ -413,17 +417,17 @@ async def test_legacy_multicity_stay_plan_cannot_call_hotel_or_route_providers()
     plan = stay_plan_from_map(_map_plan())
     anchors = [anchor.model_copy(update={"stop": anchor.stop.model_copy(update={"city": "上海"})})
         if anchor.day_index == 2 else anchor for anchor in plan.anchors]
-    with pytest.raises(ValueError, match="cannot span cities"):
-        await StayRecommendationEngine(provider).recommend(plan.model_copy(update={"anchors": anchors}), observed_at=NOW)
+    with pytest.raises(ValueError, match="city"):
+        await StayRecommendationEngine(provider).recommend(plan.model_copy(update={"anchors": anchors, "segments": []}), observed_at=NOW)
     assert provider.scopes == []
 
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
 @pytest.mark.asyncio
-async def test_multicity_stay_is_explicitly_limited_and_never_enqueues_hotel_search(kind):
-    source = "上海、杭州三日行程\nDay 1 上海\n外滩\nDay 2 杭州\n西湖\nDay 3 杭州\n灵隐寺"
+async def test_multicity_stay_preserves_uncertain_night_and_prepares_same_city_segment(kind):
+    source = "上海、杭州三日行程\nDay 1 上海\n外滩\nDay 2 杭州\n西湖风景名胜区\nDay 3 杭州\n灵隐寺"
     rows = [activity("外滩", city="上海", city_evidence="Day 1 上海"),
-        activity("西湖", 2, city="杭州", city_evidence="Day 2 杭州"),
+        activity("西湖风景名胜区", 2, city="杭州", city_evidence="Day 2 杭州"),
         activity("灵隐寺", 3, city="杭州", city_evidence="Day 3 杭州")]
     provider = DraftProvider(rows)
     provider.draft = provider.draft.model_copy(update={"destination": "上海、杭州"})
@@ -437,12 +441,15 @@ async def test_multicity_stay_is_explicitly_limited_and_never_enqueues_hotel_sea
         await repo.complete_job(job, output, now=now)
         resource = await repo.authorize(created.accepted.public_resource_id, capability_hash="a" * 64, now=now)
         view = await repo.get_stay_view(resource)
-        assert view.status == "LIMITED" and view.message == "跨城行程请按过夜城市分别选择住宿"
+        assert view.status == "PREPARING"
         assert not view.candidates and not view.available_actions
         assert (await repo.get_result(resource)).result.stay == view
-        assert await repo.claim_next_stay(worker_id="no-hotel-search", now=now, lease_seconds=60) is None
-        job_count = len(repo.stay_jobs) if kind == "memory" else await repo._pool.fetchval("SELECT COUNT(*) FROM trip_stay_recommendation_jobs")
-        assert job_count == 0
+        job = await repo.claim_next_stay(worker_id="segmented-stay", now=now, lease_seconds=60)
+        assert job is not None
+        plan = await repo.load_stay_plan(job)
+        assert plan.segments[0].uncertain and plan.segments[0].overnight_days == [1]
+        assert plan.segments[1].city == "杭州" and plan.segments[1].overnight_days == [2]
+        assert {a.day_index for a in plan.segments[1].anchors} == {2, 3}
 
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
@@ -472,10 +479,12 @@ async def test_persisted_hotel_candidates_and_selection_cannot_bypass_multicity_
                 return multicity_plan(await original(*args))
             monkeypatch.setattr(repo, "_read_map_plan", cross_city)
         view = await repo.get_stay_view(resource)
-        assert view.status == "LIMITED" and "按过夜城市分别选择住宿" in view.message
-        assert view.candidates == [] and (await repo.get_result(resource)).result.stay == view
-        for key in ("legacy-selection", "new-attempt"):
-            with pytest.raises((ResourceNotReadyError, ResourceNotFoundError)):
-                await service.select_stay(resource, candidate_token=candidate.candidate_token,
-                    expected_etag=selected.opaque_etag, idempotency_key=key, now=now)
+        assert view.status == "NEEDS_UPDATE"
+        assert not view.available_actions and (await repo.get_result(resource)).result.stay == view
+        replay = await service.select_stay(resource, candidate_token=candidate.candidate_token,
+            expected_etag=stored.opaque_etag, idempotency_key="legacy-selection", now=now)
+        assert replay.replayed
+        with pytest.raises((ResourceNotReadyError, ResourceNotFoundError)):
+            await service.select_stay(resource, candidate_token=candidate.candidate_token,
+                expected_etag=selected.opaque_etag, idempotency_key="new-attempt", now=now)
         assert (await repo.get_result(resource)).opaque_etag == selected.opaque_etag

@@ -21,8 +21,15 @@ from app.db.connection import get_pool
 from app.utils.auth import get_current_user, get_optional_user
 from app.services.room_access import require_room_member
 from app.config import get_settings
+from app.schemas.api import RoomCurrentItineraryView
+from app.services.room_current_itinerary import get_current_itinerary
 
 router = APIRouter()
+
+
+@router.get("/room/{room_id}/current-itinerary", response_model=RoomCurrentItineraryView)
+async def read_room_current_itinerary(room_id: str, current_user: str = Depends(get_current_user)):
+    return await get_current_itinerary(room_id, current_user)
 
 
 # =============================================

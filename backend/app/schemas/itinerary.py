@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel
 
 
@@ -6,6 +6,7 @@ class TransportLeg(BaseModel):
     mode: str = "driving"  # "driving" | "walking" | "transit"
     duration_mins: int
     distance_km: float
+    status: Optional[Literal["AVAILABLE"]] = None
 
 
 class WeatherInfo(BaseModel):
@@ -19,8 +20,8 @@ class WeatherInfo(BaseModel):
 class TimeSlot(BaseModel):
     place_id: str
     place: dict         # Place 对象（避免循环引用，用 dict）
-    start_time: str     # "09:00"
-    end_time: str       # "11:30"
+    start_time: Optional[str] = None  # Historical schedules remain readable.
+    end_time: Optional[str] = None
     transport: Optional[TransportLeg] = None  # 与下一地点的交通（最后一个为 None）
     tips: list[str] = []  # 温馨提示（TipsGenerator 写入）
 

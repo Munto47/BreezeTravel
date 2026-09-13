@@ -461,6 +461,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/daily-dining": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Daily Dining */
+        get: operations["get_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_get"];
+        put?: never;
+        /** Refresh Daily Dining */
+        post: operations["refresh_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}/dining-candidates": {
         parameters: {
             query?: never;
@@ -659,7 +677,8 @@ export interface paths {
         /** Get Stay Suggestions */
         get: operations["get_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_get"];
         put?: never;
-        post?: never;
+        /** Refresh Stay Suggestions */
+        post: operations["refresh_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -749,8 +768,16 @@ export interface components {
         };
         /** ActivityAlternativeView */
         ActivityAlternativeView: {
+            /** Activity Token */
+            activity_token?: string | null;
+            /** Branch Label */
+            branch_label?: string | null;
+            /** Branch Token */
+            branch_token?: string | null;
             /** Category */
             category: string;
+            /** Choice Group Token */
+            choice_group_token?: string | null;
             /** City */
             city?: string | null;
             /** Name */
@@ -782,6 +809,19 @@ export interface components {
              * @default false
              */
             locked: boolean;
+            /** Lodging Event */
+            lodging_event?: ("OVERNIGHT" | "CHECK_OUT" | "DEPARTURE" | "LUGGAGE_PICKUP" | "VISIT_ONLY") | null;
+            /** Lodging Excluded Nights */
+            lodging_excluded_nights?: number[];
+            /**
+             * Lodging Role Uncertain
+             * @default false
+             */
+            lodging_role_uncertain: boolean;
+            /** Lodging Scope */
+            lodging_scope?: ("WHOLE_TRIP" | "DAY") | null;
+            /** Meal Role */
+            meal_role?: ("BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") | null;
             /** Name */
             name: string;
             /** Photo Url */
@@ -1023,7 +1063,7 @@ export interface components {
             /** Activity Token */
             activity_token: string;
             /** City */
-            city?: ("北京" | "上海" | "杭州") | null;
+            city?: string | null;
             /** Query */
             query: string;
         };
@@ -1097,6 +1137,73 @@ export interface components {
             mode: "FULL";
             source: components["schemas"]["TextSourceRequest"];
         };
+        /** DailyDiningView */
+        DailyDiningView: {
+            /** Days */
+            days?: components["schemas"]["DailyMealView"][];
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "UNAVAILABLE";
+        };
+        /** DailyMealCandidate */
+        DailyMealCandidate: {
+            /** Area Or Address */
+            area_or_address: string;
+            /** Business Area */
+            business_area?: string | null;
+            /** Candidate Token */
+            candidate_token: string;
+            /** Extra Minutes */
+            extra_minutes?: number | null;
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Recommended
+             * @default false
+             */
+            recommended: boolean;
+        };
+        /** DailyMealView */
+        DailyMealView: {
+            /** After Activity Token */
+            after_activity_token?: string | null;
+            /** Area */
+            area?: string | null;
+            /** Area Distance M */
+            area_distance_m?: number | null;
+            /** Area Relation */
+            area_relation?: ("PROVIDER_AREA" | "NEARBY") | null;
+            /** Candidates */
+            candidates?: components["schemas"]["DailyMealCandidate"][];
+            /** Day Index */
+            day_index: number;
+            /** Existing Activity Token */
+            existing_activity_token?: string | null;
+            /**
+             * Insert Before
+             * @default false
+             */
+            insert_before: boolean;
+            /** Label */
+            label: string;
+            /** Meal Role */
+            meal_role?: "LUNCH" | null;
+            /** Message */
+            message: string;
+            /** Next Name */
+            next_name?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "EMPTY" | "UNAVAILABLE" | "EXISTING" | "NEEDS_CONFIRMATION";
+        };
         /** DataConsentView */
         DataConsentView: {
             /**
@@ -1119,6 +1226,8 @@ export interface components {
         DiningCandidateView: {
             /** Area Or Address */
             area_or_address: string;
+            /** Business Area */
+            business_area?: string | null;
             /** Candidate Token */
             candidate_token: string;
             /** Category */
@@ -1152,6 +1261,13 @@ export interface components {
              * @enum {string}
              */
             command_type: "DINING_INSERT";
+            /**
+             * Insert Before
+             * @default false
+             */
+            insert_before: boolean;
+            /** Meal Role */
+            meal_role?: ("BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") | null;
         };
         /** DiningSearchRequest */
         DiningSearchRequest: {
@@ -1237,6 +1353,101 @@ export interface components {
              */
             type: "TYPICAL_DURATION" | "SUITABLE_TIME" | "NIGHT_VIEW" | "SEASON" | "RESERVATION_ADVICE";
         };
+        /** LodgingConstraintView */
+        LodgingConstraintView: {
+            /** Activity Token */
+            activity_token: string;
+            /** Area Or Address */
+            area_or_address: string;
+            /** Available Actions */
+            available_actions: ("VIEW_DETAILS" | "REPLACE" | "DELETE" | "MOVE")[];
+            /** Category */
+            category: string;
+            /** City */
+            city?: string | null;
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Fixed Commitment
+             * @default false
+             */
+            fixed_commitment: boolean;
+            /** Knowledge Suggestions */
+            knowledge_suggestions?: components["schemas"]["KnowledgeSuggestionView"][];
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
+            /** Lodging Event */
+            lodging_event?: ("OVERNIGHT" | "CHECK_OUT" | "DEPARTURE" | "LUGGAGE_PICKUP" | "VISIT_ONLY") | null;
+            /** Lodging Excluded Nights */
+            lodging_excluded_nights?: number[];
+            /**
+             * Lodging Role Uncertain
+             * @default false
+             */
+            lodging_role_uncertain: boolean;
+            /** Lodging Scope */
+            lodging_scope?: ("WHOLE_TRIP" | "DAY") | null;
+            /** Meal Role */
+            meal_role?: ("BREAKFAST" | "LUNCH" | "DINNER" | "SNACK") | null;
+            /** Name */
+            name: string;
+            /** Overnight Days */
+            overnight_days: number[];
+            /** Photo Url */
+            photo_url?: string | null;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "WHOLE_TRIP" | "NIGHTS";
+            /** Start Time */
+            start_time?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "NEEDS_CONFIRMATION";
+            /** Time Hint */
+            time_hint?: string | null;
+            /**
+             * Timing Source
+             * @default UNSPECIFIED
+             * @enum {string}
+             */
+            timing_source: "TEXT" | "USER" | "SUGGESTED" | "UNSPECIFIED";
+            /** Visit Duration Minutes */
+            visit_duration_minutes?: number | null;
+        };
+        /** LodgingRecoverCommand */
+        LodgingRecoverCommand: {
+            /** Candidate Token */
+            candidate_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "LODGING_RECOVER";
+            intent: components["schemas"]["LodgingRecoveryIntent"];
+            /** Pending Token */
+            pending_token: string;
+        };
+        /** LodgingRecoveryIntent */
+        LodgingRecoveryIntent: {
+            /** Before Activity Token */
+            before_activity_token?: string | null;
+            /** Day Index */
+            day_index?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "WHOLE_TRIP" | "NIGHTS" | "VISIT_ONLY";
+            /** Overnight Days */
+            overnight_days?: number[];
+        };
         /** MapReadinessView */
         MapReadinessView: {
             /** Available Actions */
@@ -1265,6 +1476,8 @@ export interface components {
             available_actions?: ("VIEW_MAP" | "RENDER_MAP")[];
             /** Days */
             days?: components["schemas"]["PublicMapDayView"][];
+            /** Lodging Points */
+            lodging_points?: components["schemas"]["PublicLodgingMapPoint"][];
             /** Message */
             message: string;
             /** Points */
@@ -1294,6 +1507,59 @@ export interface components {
              * @constant
              */
             status: "READY";
+        };
+        /** MealSlotView */
+        MealSlotView: {
+            /** After Activity Token */
+            after_activity_token?: string | null;
+            /** Before Activity Token */
+            before_activity_token?: string | null;
+            /**
+             * Meal Role
+             * @enum {string}
+             */
+            meal_role: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+        };
+        /** PendingLodgingCandidateRequest */
+        PendingLodgingCandidateRequest: {
+            /** City */
+            city?: string | null;
+            intent: components["schemas"]["LodgingRecoveryIntent"];
+            /** Pending Token */
+            pending_token: string;
+            /** Query */
+            query: string;
+        };
+        /** PendingLodgingRefView */
+        PendingLodgingRefView: {
+            /** Pending Token */
+            pending_token: string;
+            /**
+             * Status
+             * @default NEEDS_CONFIRMATION
+             * @constant
+             */
+            status: "NEEDS_CONFIRMATION";
+            /**
+             * Unprocessed Count
+             * @default 1
+             */
+            unprocessed_count: number;
+        };
+        /** PendingLodgingView */
+        PendingLodgingView: {
+            /** City */
+            city?: string | null;
+            /** Name */
+            name: string;
+            /** Pending Token */
+            pending_token: string;
+            /**
+             * Status
+             * @default NEEDS_CONFIRMATION
+             * @constant
+             */
+            status: "NEEDS_CONFIRMATION";
         };
         /** PlaceConfirmCommand */
         PlaceConfirmCommand: {
@@ -1387,6 +1653,16 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** PublicLodgingMapPoint */
+        PublicLodgingMapPoint: {
+            /** Day Label */
+            day_label: string;
+            /** Name */
+            name: string;
+            /** Point Token */
+            point_token: string;
+            position: components["schemas"]["PublicMapPosition"];
+        };
         /** PublicMapDayView */
         PublicMapDayView: {
             /** Day Index */
@@ -1442,6 +1718,8 @@ export interface components {
         PublicPlaceCandidate: {
             /** Area Or Address */
             area_or_address: string;
+            /** Business Area */
+            business_area?: string | null;
             /** Candidate Token */
             candidate_token: string;
             /** Category */
@@ -1638,6 +1916,10 @@ export interface components {
             available_actions: "CHOOSE_STAY"[];
             /** Brand */
             brand: string;
+            /** Brand Group */
+            brand_group?: string | null;
+            /** Brand Note */
+            brand_note?: string | null;
             /** Candidate Token */
             candidate_token: string;
             /** Category */
@@ -1657,6 +1939,36 @@ export interface components {
             selected: boolean;
             /** Transfer Count */
             transfer_count: number;
+        };
+        /** StaySegmentView */
+        StaySegmentView: {
+            /** Candidates */
+            candidates?: components["schemas"]["StayCandidateView"][];
+            /** City */
+            city?: string | null;
+            /**
+             * Expected Boundary Count
+             * @default 0
+             */
+            expected_boundary_count: number;
+            /** Message */
+            message: string;
+            /**
+             * Missing Boundary Count
+             * @default 0
+             */
+            missing_boundary_count: number;
+            /** Overnight Days */
+            overnight_days?: string[];
+            /** Preserved Hotels */
+            preserved_hotels?: string[];
+            /** Segment Token */
+            segment_token: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
         };
         /** StaySelectionAppliedView */
         StaySelectionAppliedView: {
@@ -1683,7 +1995,7 @@ export interface components {
             candidate_token: string;
         };
         /** StaySuggestionView */
-        StaySuggestionView: {
+        "StaySuggestionView-Input": {
             /** Area Summary */
             area_summary?: string | null;
             /** Available Actions */
@@ -1694,6 +2006,28 @@ export interface components {
             message: string;
             /** Searched Scopes */
             searched_scopes?: string[];
+            /** Segments */
+            segments?: components["schemas"]["StaySegmentView"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
+        };
+        /** StaySuggestionView */
+        "StaySuggestionView-Output": {
+            /** Area Summary */
+            area_summary?: string | null;
+            /** Available Actions */
+            available_actions?: "CHOOSE_STAY"[];
+            /** Candidates */
+            candidates?: components["schemas"]["StayCandidateView"][];
+            /** Message */
+            message: string;
+            /** Searched Scopes */
+            searched_scopes?: string[];
+            /** Segments */
+            segments?: components["schemas"]["StaySegmentView"][];
             /**
              * Status
              * @enum {string}
@@ -1725,6 +2059,8 @@ export interface components {
         SupplementaryView: {
             /** Days */
             days?: components["schemas"]["SupplementaryDay"][];
+            /** Pending Lodgings */
+            pending_lodgings?: components["schemas"]["PendingLodgingView"][];
             /**
              * Status
              * @enum {string}
@@ -1764,6 +2100,44 @@ export interface components {
             alternatives?: components["schemas"]["ActivityAlternativeView"][];
             /** Label */
             label: string;
+            /** Meal Slots */
+            meal_slots?: components["schemas"]["MealSlotView"][];
+        };
+        /**
+         * TripRecognitionCoverage
+         * @description Counts, not source fragments or diagnostic codes, for incomplete results.
+         */
+        TripRecognitionCoverage: {
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /**
+             * Confirmed Place Count
+             * @default 0
+             */
+            confirmed_place_count: number;
+            /**
+             * Recognized Place Count
+             * @default 0
+             */
+            recognized_place_count: number;
+            /**
+             * Unclassified Mention Count
+             * @default 0
+             */
+            unclassified_mention_count: number;
+            /**
+             * Unprocessed Count
+             * @default 0
+             */
+            unprocessed_count: number;
+            /**
+             * Unresolved Place Count
+             * @default 0
+             */
+            unresolved_place_count: number;
         };
         /** TripUnderstandingAcceptedView */
         TripUnderstandingAcceptedView: {
@@ -1868,6 +2242,7 @@ export interface components {
              * @default false
              */
             can_undo: boolean;
+            coverage?: components["schemas"]["TripRecognitionCoverage"] | null;
             /** Days */
             days: components["schemas"]["TripDayView"][];
             /** Expires At */
@@ -1877,6 +2252,8 @@ export interface components {
              * @default false
              */
             is_demo: boolean;
+            /** Lodging Constraints */
+            lodging_constraints?: components["schemas"]["LodgingConstraintView"][];
             map: components["schemas"]["MapReadinessView"];
             /**
              * Ownership
@@ -1884,12 +2261,14 @@ export interface components {
              * @enum {string}
              */
             ownership: "ANONYMOUS" | "ACCOUNT";
+            /** Pending Lodgings */
+            pending_lodgings?: components["schemas"]["PendingLodgingRefView"][];
             /**
              * Status
              * @enum {string}
              */
             status: "READY" | "PARTIAL_RESULT" | "BASIC_ONLY" | "LIMITED";
-            stay: components["schemas"]["StaySuggestionView"];
+            stay: components["schemas"]["StaySuggestionView-Input"];
             /** Updated At */
             updated_at?: string | null;
         };
@@ -2856,7 +3235,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ActivityInsertCommand"] | components["schemas"]["DiningInsertCommand"] | components["schemas"]["ActivityDeleteCommand"] | components["schemas"]["ActivityMoveCommand"] | components["schemas"]["ActivityTextEditCommand"] | components["schemas"]["PlaceReplaceCommand"] | components["schemas"]["PlaceConfirmCommand"] | components["schemas"]["ActivityTimeSetCommand"] | components["schemas"]["ActivityTimesShiftCommand"] | components["schemas"]["ActivityTimesApplyCommand"] | components["schemas"]["UndoCommand"] | components["schemas"]["AssumptionSetCommand"];
+                "application/json": components["schemas"]["ActivityInsertCommand"] | components["schemas"]["DiningInsertCommand"] | components["schemas"]["ActivityDeleteCommand"] | components["schemas"]["ActivityMoveCommand"] | components["schemas"]["ActivityTextEditCommand"] | components["schemas"]["PlaceReplaceCommand"] | components["schemas"]["PlaceConfirmCommand"] | components["schemas"]["LodgingRecoverCommand"] | components["schemas"]["ActivityTimeSetCommand"] | components["schemas"]["ActivityTimesShiftCommand"] | components["schemas"]["ActivityTimesApplyCommand"] | components["schemas"]["UndoCommand"] | components["schemas"]["AssumptionSetCommand"];
             };
         };
         responses: {
@@ -2867,6 +3246,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommandAppliedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyDiningView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_daily_dining_api_v3_trip_understandings__public_resource_id__daily_dining_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyDiningView"];
                 };
             };
             /** @description Validation Error */
@@ -3105,7 +3550,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CandidateSearchRequest"];
+                "application/json": components["schemas"]["CandidateSearchRequest"] | components["schemas"]["PendingLodgingCandidateRequest"];
             };
         };
         responses: {
@@ -3332,7 +3777,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StaySuggestionView"];
+                    "application/json": components["schemas"]["StaySuggestionView-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySuggestionView-Output"];
                 };
             };
             /** @description Validation Error */
@@ -3348,7 +3828,9 @@ export interface operations {
     };
     read_trip_understanding_supplementary_api_v3_trip_understandings__public_resource_id__supplementary_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_pending_lodgings?: boolean;
+            };
             header?: {
                 authorization?: string;
             };

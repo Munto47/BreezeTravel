@@ -127,9 +127,10 @@ def test_binary_heading_rejects_decided_quoted_nested_or_ambiguous_clauses(sourc
 @pytest.mark.parametrize("source,name", [
     ("时间充裕可以去云岭古镇逛街。", "云岭古镇"),
     ("下午有空可去望星屯散步。", "望星屯"),
-    ("星河咖啡可以打卡特调。", "星河咖啡"),
-    ("闲逛拍照，XYZ 咖啡可以打卡特调。", "XYZ 咖啡"),
-    ("傍晚：青溪会址可顺路参观；之后返回。", "青溪会址"),
+    # Owner rule 2026-09-08: optional-offset fixtures need a real condition.
+    ("如果有空，星河咖啡可以打卡特调。", "星河咖啡"),
+    ("闲逛拍照，若有余力，XYZ 咖啡可以打卡特调。", "XYZ 咖啡"),
+    ("傍晚如果有空：青溪会址可顺路参观；之后返回。", "青溪会址"),
     ("时间充裕可以去**云岭古镇**逛街。", "云岭古镇"),
 ])
 def test_explicit_optional_noun_offsets_preserve_only_the_literal_name(source, name):
@@ -156,7 +157,7 @@ def test_optional_noun_check_does_not_promote_negation_description_dishes_or_ref
 
 
 def test_optional_noun_check_returns_separate_source_spans_without_cross_sentence_joining():
-    source = "第1天先去澄湖公园。时间充裕可以去云岭古镇逛街。第2天：青溪会址可顺路参观。"
+    source = "第1天先去澄湖公园。时间充裕可以去云岭古镇逛街。第2天：如果有空，青溪会址可顺路参观。"
     assert [source[start:end] for start, end in explicit_optional_labels(source)] == ["云岭古镇", "青溪会址"]
 
 

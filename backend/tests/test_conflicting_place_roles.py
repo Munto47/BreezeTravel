@@ -114,7 +114,8 @@ def test_same_role_duplicates_still_collapse_to_one_mention(role):
 
 
 @pytest.mark.parametrize("source,name,expected_role", [
-    ("Day1\n星河公园可以打卡。", "星河公园", "OPTIONAL"),
+    # Explicit condition keeps this a role-conflict test under the owner rule.
+    ("Day1\n如果有空，星河公园可以打卡。", "星河公园", "OPTIONAL"),
     ("Day1\n枫林坊简单逛一圈即可。", "枫林坊", "PLANNED"),
 ])
 def test_explicit_source_role_normalization_precedes_conflict_detection(source, name, expected_role):

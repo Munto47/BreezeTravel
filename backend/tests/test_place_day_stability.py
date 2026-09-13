@@ -105,6 +105,8 @@ async def test_relative_day_does_not_become_successful_previous_day_after_two_fa
         for name, fields in [("豫园", {"day_index": 1}), ("外滩", {}), ("上海博物馆", {"day_index": 3})]
     ]}, ensure_ascii=False)
     client = Client(payload, payload)
-    with pytest.raises(InferenceProviderUnavailableError):
-        await provider(client).propose(source)
+    result = await provider(client).propose(source)
+    assert [(mention.atomic_place_name, mention.day_index) for mention in result.mentions] == [("豫园", 1), ("上海博物馆", 3)]
+    assert result.binding["outcome"] == "PARTIAL_RESULT"
+    assert any(issue.category == "MISSING_EXPLICIT_DAY" for issue in result.diagnostics)
     assert len(client.calls) == 2

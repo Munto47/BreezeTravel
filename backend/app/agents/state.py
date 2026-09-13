@@ -111,6 +111,9 @@ class AgentState(TypedDict):
     # ── Synthesizer 输出 ──────────────────────────────────────────────────
     synthesized_places: list[Place]
     final_response: Optional[str]
+    conversation_places: list[Place]   # Previously delivered room candidates; not fresh search results.
+    answer_only: bool                 # A contextual answer does not need to create new place cards.
+    room_relative_route: list[dict]   # Authorized current route: relative day and ordered names only.
     recommendations: list[PlaceRecommendation]  # Phase B：结构化推荐（reason/alternatives）
 
     # ── Optimizer 输出（独立 /api/optimize 触发） ─────────────────────────

@@ -9,7 +9,7 @@ import type {
   UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
 
-import { DAY_COLORS } from './result-presentation'
+import { DAY_COLORS, routeGeometryParts } from './result-presentation'
 
 type MapInstance = {
   destroy(): void
@@ -23,6 +23,7 @@ type MapInstance = {
     maxZoom?: number,
   ): void
   setCenter(center: [number, number]): void
+  addControl?(control: unknown): void
   resize?(): void
   zoomIn?(): void
   zoomOut?(): void
@@ -31,6 +32,8 @@ type MapSDK = {
   Map: new (container: HTMLElement, options: object) => MapInstance
   Marker: new (options: object) => unknown
   Polyline: new (options: object) => unknown
+  Scale?: new (options?: object) => unknown
+  plugin?(names: string[], callback: () => void): void
 }
 let sdkPromise: Promise<MapSDK> | null = null
 
@@ -55,7 +58,7 @@ function loadMap(): Promise<MapSDK> {
       }
     }
     const timer = window.setTimeout(() => done(false), 12000)
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Scale`
     script.async = true
     script.onload = () => done(true)
     script.onerror = () => done(false)
@@ -118,6 +121,7 @@ export default function RouteMap({
   const [tilesReady, setTilesReady] = useState(false)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const [focusedLodging, setFocusedLodging] = useState<string | null>(null)
   selectionCallback.current = onSelect
   const visibleDays = useMemo(() => days || (day ? [day] : []), [days, day])
   const points = useMemo(
@@ -130,6 +134,19 @@ export default function RouteMap({
       ),
     [view?.points, visibleDays],
   )
+  const lodgingPoints = useMemo(() => {
+    const seen = new Set<string>()
+    return (view?.lodging_points || []).filter(point => {
+      if (!visibleDays.some(day => day.label === point.day_label) || !validPosition(point.position)) return false
+      const key = `${point.name}:${point.position.longitude},${point.position.latitude}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [view?.lodging_points, visibleDays])
+  const lodgingSelection = lodgingPoints.find(point => point.point_token === focusedLodging)
+  const initialPosition = useRef(points[0]?.position || lodgingPoints[0]?.position)
+  initialPosition.current = points[0]?.position || lodgingPoints[0]?.position
 
   useEffect(() => {
     if (!container.current || !activated) return
@@ -142,12 +159,21 @@ export default function RouteMap({
       .then((api) => {
         if (cancelled || !container.current) return
         sdk.current = api
+        const firstPosition = initialPosition.current
         map.current = new api.Map(container.current, {
           viewMode: '2D',
-          zoom: 12,
+          center: firstPosition ? [firstPosition.longitude,firstPosition.latitude] : [104,35],
+          zoom: firstPosition ? 12 : 4,
           resizeEnable: true,
           mapStyle: 'amap://styles/whitesmoke',
         })
+        // Native scale follows the SDK viewport; no fabricated fixed distance.
+        // https://lbs.amap.com/api/javascript-api-v2/tutorails/add-plugin
+        const instance = map.current
+        const addScale = () => {if (!cancelled && map.current === instance && api.Scale) instance.addControl?.(new api.Scale({position:'LB', offset:[14,16]}))}
+        if (api.Scale) addScale()
+        else api.plugin?.(['AMap.Scale'], addScale)
+        fittedDay.current = null
         map.current.on('complete', () => {
           if (!cancelled) {
             clearTimeout(mapTimeout)
@@ -179,9 +205,15 @@ export default function RouteMap({
     const instance = map.current
     const api = sdk.current
     const overlays: unknown[] = []
+    const extent = [Infinity, Infinity, -Infinity, -Infinity]
+    const extendFit = (longitude: number, latitude: number) => {
+      extent[0] = Math.min(extent[0], longitude); extent[1] = Math.min(extent[1], latitude)
+      extent[2] = Math.max(extent[2], longitude); extent[3] = Math.max(extent[3], latitude)
+    }
     markers.current.clear()
     points.forEach((point) => {
       const position = point.position!
+      extendFit(position.longitude, position.latitude)
       const button = document.createElement('button')
       button.type = 'button'
       button.className = 'e-map-marker'
@@ -205,26 +237,34 @@ export default function RouteMap({
         }),
       )
     })
+    lodgingPoints.forEach(point => {
+      const position = point.position
+      extendFit(position.longitude, position.latitude)
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'e-map-marker e-map-lodging-marker'
+      button.textContent = '宿'
+      button.title = point.name
+      button.setAttribute('aria-label', `查看住宿位置 ${point.name}`)
+      button.onclick = () => {
+        setFocusedLodging(point.point_token)
+        instance.setCenter([position.longitude, position.latitude])
+      }
+      overlays.push(new api.Marker({position: [position.longitude, position.latitude],
+        content: button, anchor: 'center', title: point.name}))
+    })
     if (view?.status === 'AVAILABLE' || view?.status === 'LIMITED') {
       visibleDays.forEach((routeDay, dayOffset) => {
       const routes = view.days.find((item) => item.label === routeDay.label)?.routes || []
       routes.forEach((route) => {
         const routeMode = mode === 'recommended' ? route.selected_mode : mode
         if (!routeMode) return
-        const segment = route[routeMode]
-        if (segment.status !== 'AVAILABLE' || segment.geometry.length < 2)
-          return
-        if (
-          !segment.geometry.every(
-            (point) =>
-              Number.isFinite(point.longitude) &&
-              Number.isFinite(point.latitude),
-          )
-        )
-          return
+        const parts = routeGeometryParts(route[routeMode]) || []
+        parts.filter(part => part.length >= 2).forEach(part => {
+        part.forEach(point => extendFit(point.longitude, point.latitude))
         overlays.push(
           new api.Polyline({
-            path: segment.geometry.map((point) => [
+            path: part.map((point) => [
               point.longitude,
               point.latitude,
             ]),
@@ -237,13 +277,15 @@ export default function RouteMap({
             lineCap: 'round',
           }),
         )
+        })
       })
       })
     }
     instance.add(overlays)
     currentOverlays.current = overlays
-    const fitKey = points.map((point) => `${point.activity_token}:${point.position?.longitude},${point.position?.latitude}`).join('|')
-    if (points.length && fittedDay.current !== fitKey) {
+    const fitKey = [points.map(point => point.activity_token).join('|'),
+      lodgingPoints.map(point => point.point_token).join('|'), mode, extent.join(',')].join(':')
+    if (tilesReady && (points.length || lodgingPoints.length) && fittedDay.current !== fitKey) {
       instance.setFitView(overlays, false, [70, 70, 70, 70], 15)
       fittedDay.current = fitKey
     }
@@ -253,7 +295,7 @@ export default function RouteMap({
       currentOverlays.current = []
       markers.current.clear()
     }
-  }, [visible, ready, points, visibleDays, days, view, mode, dayColor])
+  }, [visible, ready, tilesReady, points, lodgingPoints, visibleDays, days, view, mode, dayColor])
 
   useEffect(() => {
     markers.current.forEach((button, token) => {
@@ -368,7 +410,10 @@ export default function RouteMap({
           候选位置：{previewCandidate.name} · 尚未使用
         </p>
       )}
-      {(!tilesReady || error || (!points.length && !previewCandidate)) && (
+      {lodgingSelection && !previewCandidate && (
+        <p className="e-map-preview-label" role="status">住宿位置：{lodgingSelection.name}</p>
+      )}
+      {(!tilesReady || error || (!points.length && !lodgingPoints.length && !previewCandidate)) && (
         <div className="e-map-empty" role="status">
           <MapPin aria-hidden="true" />
           <p>

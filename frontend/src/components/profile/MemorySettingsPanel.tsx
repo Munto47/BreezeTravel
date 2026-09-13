@@ -207,7 +207,7 @@ export default function MemorySettingsPanel() {
               checked={consents.memory_enabled}
               disabled={loading || busy}
               label="记住结构化偏好"
-              description="只保存步行、出发时间、餐饮、酒店和行程强度；不保存攻略或聊天。"
+              description="只设置步行、餐饮、酒店和行程强度偏好；不保存攻略或聊天。"
               onChange={() =>
                 void toggleConsent('memory', !consents.memory_enabled)
               }
@@ -251,21 +251,6 @@ export default function MemorySettingsPanel() {
                         walking_tolerance_minutes: event.target.value
                           ? Number(event.target.value)
                           : null,
-                      }))
-                    }
-                    disabled={busy}
-                  />
-                </label>
-                <label>
-                  希望出发时间
-                  <input
-                    data-testid="preferred-start-time"
-                    type="time"
-                    value={preference.preferred_start_time ?? ''}
-                    onChange={(event) =>
-                      setPreference((current) => ({
-                        ...current,
-                        preferred_start_time: event.target.value || null,
                       }))
                     }
                     disabled={busy}

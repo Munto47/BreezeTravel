@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Route, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
 
 import type { Itinerary, DayPlan, TimeSlot } from '@/types/itinerary'
 import { parseSavedItinerary } from '@/types/itinerary'
+import { parseCurrentRoomRoute } from '@/lib/current-room-route'
 import ConstraintPanel from '@/components/itinerary/ConstraintPanel'
 import { useAuthStore } from '@/stores/authStore'
 import { api, ApiRequestError } from '@/lib/api'
@@ -30,7 +31,7 @@ function getWeatherIcon(condition: string): string {
   return '🌤️'
 }
 
-function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean; dayColor: string }) {
+function SlotCard({ slot, position, isLast, dayColor }: { slot: TimeSlot; position: number; isLast: boolean; dayColor: string }) {
   const icon = CATEGORY_ICON[slot.place.category] ?? '📍'
   const label = CATEGORY_LABEL[slot.place.category] ?? slot.place.category
   const hasPhoto = slot.place.amapPhotos && slot.place.amapPhotos.length > 0
@@ -69,8 +70,7 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
               {/* 时间 + 标签 */}
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] font-mono text-gray-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {slot.startTime} – {slot.endTime}
+                  第 {position + 1} 站
                 </span>
                 <span
                   className="text-[10px] font-medium px-2 py-0.5 rounded-full"
@@ -136,9 +136,9 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
 
           {/* 交通段 */}
           {!isLast && (
-            <div data-testid="collaboration-route-unavailable" className="flex items-center gap-1.5 mt-2 ml-2 text-xs text-slate-500">
+            <div data-testid={slot.transport ? 'collaboration-route-available' : 'collaboration-route-unavailable'} className="flex items-center gap-1.5 mt-2 ml-2 text-xs text-slate-500">
               <Car className="w-3.5 h-3.5" />
-              <span>路线暂不可用</span>
+              <span>{slot.transport ? `驾车 · ${slot.transport.durationMins} 分钟 · ${slot.transport.distanceKm} km` : '路线暂不可用'}</span>
             </div>
           )}
         </div>
@@ -149,9 +149,6 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
 
 function DaySection({ day, index }: { day: DayPlan; index: number }) {
   const dayColor = CLUSTER_COLORS[index % CLUSTER_COLORS.length]
-  const dateLabel = day.date
-    ? new Date(day.date).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
-    : null
 
   return (
     <motion.section
@@ -170,7 +167,6 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
         </div>
         <div>
           <p className="font-bold text-gray-900 text-sm">第 {day.dayIndex + 1} 天</p>
-          {dateLabel && <p className="text-xs text-gray-400">{dateLabel}</p>}
         </div>
         <span className="text-xs text-gray-300 ml-1">{day.slots.length} 个地点</span>
 
@@ -193,6 +189,7 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
           <SlotCard
             key={slot.placeId}
             slot={slot}
+            position={idx}
             isLast={idx === day.slots.length - 1}
             dayColor={dayColor}
           />
@@ -206,6 +203,7 @@ export default function ItineraryPage() {
   const params = useParams()
   const router = useRouter()
   const roomId = params.roomId as string
+  const shared = useSearchParams().get('shared') === '1'
   const { user, token, isHydrated, hydrate } = useAuthStore()
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -224,13 +222,15 @@ export default function ItineraryPage() {
     let cancelled = false
     setLoading(true)
     setLoadError('')
+    setItinerary(null)
 
     api.get<{ itinerary_data: unknown }>(
-      `/api/room/${encodeURIComponent(roomId)}/itinerary`,
+      `/api/room/${encodeURIComponent(roomId)}/${shared ? 'current-itinerary' : 'itinerary'}`,
     )
       .then(data => {
         if (cancelled) return
-        const itin = parseSavedItinerary(data.itinerary_data)
+        const common = shared ? parseCurrentRoomRoute(data, roomId) : null
+        const itin = common ? common.itinerary : parseSavedItinerary(data.itinerary_data)
         if (!itin) throw new Error('INVALID_SAVED_ITINERARY')
         setItinerary(itin)
       })
@@ -245,7 +245,7 @@ export default function ItineraryPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [isHydrated, roomId, token, user])
+  }, [isHydrated, roomId, shared, token, user])
 
   const totalPlaces = itinerary?.days.reduce((s, d) => s + d.slots.length, 0) ?? 0
   const totalDays = itinerary?.days.length ?? 0
@@ -333,7 +333,7 @@ export default function ItineraryPage() {
             >
               <div className="px-6 py-5 text-white">
                 <p className="text-xs opacity-70 mb-1 flex items-center gap-1">
-                  <Route className="w-3 h-3" /> 已保存的协同行程
+                  <Route className="w-3 h-3" /> {shared ? '共同路线 · 已同步' : '个人已保存的协同行程'}
                 </p>
                 <h2 className="text-2xl font-bold mb-4">
                   {itinerary.city} {totalDays} 日游
@@ -366,7 +366,7 @@ export default function ItineraryPage() {
             ))}
 
             <p className="text-center text-[11px] text-gray-300 mt-4">
-              由 BreezeTravel AI 生成 · {new Date(itinerary.generatedAt).toLocaleString('zh-CN')}
+              已保存的分日和先后安排 · 地点及路线可转入行程查后核验
             </p>
           </>
         )}

@@ -45,7 +45,8 @@ def test_a_viewed_tower_does_not_hide_the_other_branchs_revisit(reference_day, i
 
 @pytest.mark.asyncio
 async def test_time_cleanup_uses_the_same_indices_after_a_literal_option_was_inserted():
-    source = "Day1：市区\n星河公园。云岭咖啡可以打卡。青溪桥。"
+    # 2026-09-08 owner rule: weak advice is not an unselected option.
+    source = "Day1：市区\n星河公园。如果有空，云岭咖啡可以打卡。青溪桥。"
     rows = [activity("星河公园", 1, "PLANNED"), activity("青溪桥", 1, "PLANNED",
             start_time="10:00", time_evidence="没有原文依据的时间")]
     payload = json.dumps({"destination": "北京", "activities": rows}, ensure_ascii=False)

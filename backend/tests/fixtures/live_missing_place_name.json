@@ -1,0 +1,90 @@
+{
+  "source": "杭州两天，和朋友一起去，想慢一点。\n第一天：上午到断桥残雪，沿白堤走到浙江省博物馆孤山馆区，中午在楼外楼孤山路店吃饭，下午逛曲院风荷。晚上住杭州西湖国宾馆。\n第二天：退房后把行李寄存在酒店，上午去灵隐寺，下午去龙井村喝茶，傍晚回杭州西湖国宾馆取行李，然后到杭州东站返程。\n如果下雨，第二天下午就改去中国茶叶博物馆双峰馆区，不去龙井村。雷峰塔这次不去了。",
+  "model_response": {
+    "destination": "杭州",
+    "day_labels": [
+      null,
+      null
+    ],
+    "activities": [
+      {
+        "source_quote": "断桥残雪",
+        "role": "PLANNED",
+        "day_index": 1,
+        "category": "景点"
+      },
+      {
+        "source_quote": "浙江省博物馆孤山馆区",
+        "role": "PLANNED",
+        "day_index": 1,
+        "category": "景点"
+      },
+      {
+        "source_quote": "楼外楼孤山路店",
+        "role": "PLANNED",
+        "day_index": 1,
+        "category": "餐饮",
+        "meal_role": "LUNCH"
+      },
+      {
+        "source_quote": "曲院风荷",
+        "role": "PLANNED",
+        "day_index": 1,
+        "category": "景点"
+      },
+      {
+        "source_quote": "晚上住杭州西湖国宾馆",
+        "role": "PLANNED",
+        "day_index": 1,
+        "category": "住宿",
+        "lodging_event": "OVERNIGHT",
+        "lodging_scope": "DAY",
+        "lodging_evidence": "晚上住杭州西湖国宾馆"
+      },
+      {
+        "source_quote": "退房后把行李寄存在酒店",
+        "role": "PLANNED",
+        "day_index": 2,
+        "category": "住宿",
+        "lodging_event": "CHECK_OUT",
+        "lodging_evidence": "退房后把行李寄存在酒店"
+      },
+      {
+        "source_quote": "灵隐寺",
+        "role": "PLANNED",
+        "day_index": 2,
+        "category": "景点"
+      },
+      {
+        "source_quote": "龙井村",
+        "role": "PLANNED",
+        "day_index": 2,
+        "category": "地点"
+      },
+      {
+        "source_quote": "中国茶叶博物馆双峰馆区",
+        "role": "OPTIONAL",
+        "day_index": 2,
+        "category": "地点"
+      },
+      {
+        "source_quote": "傍晚回杭州西湖国宾馆取行李",
+        "role": "PLANNED",
+        "day_index": 2,
+        "category": "住宿",
+        "lodging_event": "LUGGAGE_PICKUP",
+        "lodging_evidence": "傍晚回杭州西湖国宾馆取行李"
+      },
+      {
+        "source_quote": "杭州东站",
+        "role": "PLANNED",
+        "day_index": 2,
+        "category": "交通节点"
+      },
+      {
+        "source_quote": "雷峰塔",
+        "role": "EXCLUDED"
+      }
+    ]
+  }
+}

@@ -375,6 +375,9 @@ def _get_llm():
 
 async def run(state: AgentState) -> dict:
     """Synthesizer 节点入口"""
+    if state.get("answer_only") and state.get("final_response"):
+        return {"synthesized_places": [], "final_response": state["final_response"],
+                "recommendations": [], "answer_only": True}
     amap_places: list[Place] = state.get("amap_places", [])
     rag_chunks: list[dict] = state.get("rag_chunks", [])
     trip_city: str = state.get("trip_city") or "该城市"
