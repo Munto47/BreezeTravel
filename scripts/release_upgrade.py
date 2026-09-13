@@ -565,12 +565,40 @@ process.exit(result.status===null?1:result.status);"""
                  "--env-file", str(self.target / "private-api.env"), "-v", f"{self.target}/src:/release:ro",
                  "-w", "/release", "--entrypoint", "python", self.containers["api"]["Image"], "-c", code, timeout=300)
 
+    def prepare_web_mounts(self, source: Path, *, live: bool) -> Path:
+        if source != self.target / "src":
+            raise UpgradeError("Runtime source must belong to this release")
+        web_source = source if live else self.target / "preview-src"
+        frontend = web_source / "frontend"
+        standalone = frontend / ".next/standalone"
+        files = [frontend / name for name in (
+            "package.json", "package-lock.json", ".next/BUILD_ID", ".next/standalone/server.js")]
+        inputs = [frontend / "public", frontend / ".next/static", standalone]
+        targets = [standalone / "public", standalone / ".next", standalone / ".next/static"]
+        # Refuse redirects before writing anything, including a mount target
+        # linked into a previous release. Only this chosen build may be changed.
+        for path in [source, web_source, *files, *inputs, *targets]:
+            if path.resolve() != path.absolute():
+                raise UpgradeError("Runtime web path resolves outside its selected build")
+        if any(not path.is_file() or path.stat().st_size == 0 for path in files):
+            raise UpgradeError("Runtime web build inputs or standalone server are missing")
+        if any(not path.is_dir() for path in inputs):
+            raise UpgradeError("Runtime web static inputs are missing")
+        if any(path.exists() and not path.is_dir() for path in targets):
+            raise UpgradeError("Runtime web mount target is not a directory")
+        # Docker cannot create nested mount targets inside the readonly /release
+        # mount. Prepare directories only; do not copy assets or rebuild outputs.
+        for path in targets:
+            path.mkdir(parents=True, exist_ok=True)
+        return web_source
+
     def start(self, source: Path, data: Path, *, live: bool) -> None:
         db = self.args.new_db if live else self.args.rehearsal_db
         self.assert_writer_set(db, set())
         if live:
             if any(self.inspect(n)["State"]["Running"] for n in (self.args.current_api, self.args.current_yjs)):
                 raise UpgradeError("Previous and new live writers may not overlap")
+        web_source = self.prepare_web_mounts(source, live=live)
         for kind in ("api", "yjs", "web"):
             args = ["docker", "run", "-d", "--name", self.names[kind], "--network", self.network,
                     "--label", f"breeze.upgrade.release={self.target.name}", "--restart", "unless-stopped",
@@ -584,7 +612,6 @@ process.exit(result.status===null?1:result.status);"""
                          "-v", f"{source}/y-websocket/server.js:/app/server.js:ro", "-v", f"{data}:/data", "-w", "/app", "--entrypoint", "node",
                          self.containers[kind]["Image"], "server.js"]
             else:
-                web_source = source if live else self.target / "preview-src"
                 args += [f"--memory={RUNTIME_MEMORY_MIB[kind]}m", f"--memory-swap={RUNTIME_MEMORY_MIB[kind]}m", "-p", f"127.0.0.1:{self.ports[kind]}:3000", "--env-file", str(self.target / ("private-web.env" if live else "private-preview-web.env")),
                          "-e", "HOSTNAME=0.0.0.0", "-e", "PORT=3000",
                          "-v", f"{web_source}/frontend/.next/standalone:/release:ro", "-v", f"{web_source}/frontend/.next/static:/release/.next/static:ro",

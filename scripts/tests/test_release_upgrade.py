@@ -600,6 +600,7 @@ class UpgradeTests(unittest.TestCase):
             self.operation.verify_restored_counts(backup, "breeze_live_20260908")
 
     def test_runtime_starts_without_implicit_migrations(self):
+        self.web_build(live=True)
         calls = []
         self.operation.run = lambda *args, **kw: calls.append(args) or ""
         self.operation.inspect = Mock(return_value={"State": {"Running": False}})
@@ -614,6 +615,114 @@ class UpgradeTests(unittest.TestCase):
             limit = release.RUNTIME_MEMORY_MIB[kind]
             self.assertIn(f"--memory={limit}m", call)
             self.assertIn(f"--memory-swap={limit}m", call)
+
+    def web_build(self, *, live):
+        source = self.operation.target / ("src" if live else "preview-src")
+        frontend = source / "frontend"
+        for folder in ("public", ".next/static", ".next/standalone"):
+            (frontend / folder).mkdir(parents=True, exist_ok=True)
+        for name, content in (("package.json", "{}"), ("package-lock.json", "{}"),
+                              (".next/BUILD_ID", "fixed-build"), (".next/standalone/server.js", "// compiled server")):
+            (frontend / name).write_text(content)
+        return frontend
+
+    def test_runtime_web_prepares_live_and_preview_readonly_mount_targets(self):
+        old = self.operation.current / "src/frontend/.next/standalone"
+        old.mkdir(parents=True)
+        (old / "server.js").write_text("old release must stay unchanged")
+        for live in (True, False):
+            with self.subTest(live=live):
+                frontend = self.web_build(live=live)
+                self.operation.run = Mock(return_value="")
+                self.operation.inspect = Mock(return_value={"State": {"Running": False}})
+                self.operation.assert_writer_set = Mock()
+                self.operation.health = Mock()
+                self.operation.build_web = Mock()
+                self.operation.start(self.operation.target / "src", self.operation.target / "yjs-data", live=live)
+                standalone = frontend / ".next/standalone"
+                self.assertTrue((standalone / "public").is_dir())
+                self.assertTrue((standalone / ".next/static").is_dir())
+                web = self.operation.run.call_args_list[-1].args
+                self.assertIn(f"{frontend.parent}/frontend/.next/standalone:/release:ro", web)
+                self.assertIn(f"{frontend.parent}/frontend/public:/release/public:ro", web)
+                self.assertIn(f"{frontend.parent}/frontend/.next/static:/release/.next/static:ro", web)
+                (standalone / "public/kept.txt").write_text("existing target contents")
+                self.operation.start(self.operation.target / "src", self.operation.target / "yjs-data", live=live)
+                self.assertEqual((standalone / "public/kept.txt").read_text(), "existing target contents")
+                self.assertEqual((standalone / "server.js").read_text(), "// compiled server")
+                self.operation.build_web.assert_not_called()
+                self.assertFalse((old / "public").exists())
+                self.assertEqual((old / "server.js").read_text(), "old release must stay unchanged")
+
+    def test_runtime_web_rejects_missing_build_input_before_starting_containers(self):
+        for live in (True, False):
+            for missing in (".next/standalone/server.js", "package.json", "package-lock.json", ".next/BUILD_ID", "public", ".next/static"):
+                with self.subTest(live=live, missing=missing):
+                    frontend = self.web_build(live=live)
+                    value = frontend / missing
+                    value.rmdir() if value.is_dir() else value.unlink()
+                    self.operation.run = Mock(return_value="")
+                    self.operation.inspect = Mock(return_value={"State": {"Running": False}})
+                    self.operation.assert_writer_set = Mock()
+                    self.operation.health = Mock()
+                    with self.assertRaises(release.UpgradeError):
+                        self.operation.start(self.operation.target / "src", self.operation.target / "yjs-data", live=live)
+                    self.operation.run.assert_not_called()
+
+    def test_runtime_web_cannot_prepare_mounts_in_old_or_unexpected_source(self):
+        for live in (True, False):
+            for source in (self.operation.current / "src", self.operation.target / "other-src"):
+                with self.subTest(live=live, source=source.name):
+                    self.web_build(live=live)
+                    self.operation.run = Mock(return_value="")
+                    self.operation.inspect = Mock(return_value={"State": {"Running": False}})
+                    self.operation.assert_writer_set = Mock()
+                    self.operation.health = Mock()
+                    with self.assertRaises(release.UpgradeError):
+                        self.operation.start(source, self.operation.target / "yjs-data", live=live)
+                    self.operation.run.assert_not_called()
+                    self.assertFalse((source / "frontend/.next/standalone/public").exists())
+
+    def test_runtime_web_rejects_mount_target_redirected_to_old_source_before_writes(self):
+        old = self.operation.current / "src/frontend/.next/standalone"
+        old.mkdir(parents=True)
+        (old / "server.js").write_text("old release")
+        original_resolve = Path.resolve
+        for live in (True, False):
+            with self.subTest(live=live):
+                frontend = self.web_build(live=live)
+                target = frontend / ".next/standalone/.next/static"
+                # Simulate the resolved path of a symlink/junction without
+                # requiring Windows symlink privileges in this isolated test.
+                def resolve(path, *args, **kwargs):
+                    return old / "static" if path == target else original_resolve(path, *args, **kwargs)
+                self.operation.run = Mock()
+                self.operation.inspect = Mock(return_value={"State": {"Running": False}})
+                self.operation.assert_writer_set = Mock()
+                self.operation.health = Mock()
+                with patch.object(Path, "resolve", resolve), self.assertRaises(release.UpgradeError):
+                    self.operation.start(self.operation.target / "src", self.operation.target / "yjs-data", live=live)
+                self.operation.run.assert_not_called()
+                self.assertFalse((frontend / ".next/standalone/public").exists())
+                self.assertEqual(list(old.iterdir()), [old / "server.js"])
+                self.assertEqual((old / "server.js").read_text(), "old release")
+
+    def test_runtime_web_preserves_existing_target_files_and_rejects_file_as_directory(self):
+        frontend = self.web_build(live=True)
+        public = frontend / ".next/standalone/public"
+        public.mkdir()
+        (public / "kept.txt").write_text("existing output")
+        static_parent = frontend / ".next/standalone/.next"
+        static_parent.mkdir()
+        (static_parent / "static").write_text("not a directory")
+        self.operation.run = Mock(return_value="")
+        self.operation.inspect = Mock(return_value={"State": {"Running": False}})
+        self.operation.assert_writer_set = Mock()
+        self.operation.health = Mock()
+        with self.assertRaises(release.UpgradeError):
+            self.operation.start(self.operation.target / "src", self.operation.target / "yjs-data", live=True)
+        self.operation.run.assert_not_called()
+        self.assertEqual((public / "kept.txt").read_text(), "existing output")
 
     def test_runtime_refuses_overlap_with_previous_writers(self):
         self.operation.inspect = Mock(return_value={"State": {"Running": True}})
