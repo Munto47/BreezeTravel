@@ -26,7 +26,7 @@ def prepared(kind="INITIAL_ORDER"):
     if kind == "REQUIRED_PRECEDENCE":
         group["required_precedence"] = [dict(before_index=0, after_index=1, evidence="必须先星河公园再月光公园")]
     raw = dict(destination="北京", day_labels=[None], unprocessed_quotes=[], activities=[
-        dict(source_quote=name, place_name=name, day_index=1, role="PLANNED", category="景点") for name in NAMES
+        dict(source_quote=name, place_name=name, day_index=1, role="PLANNED", category="景点", source_details=[]) for name in NAMES
     ], order_groups=[group])
     return text, raw
 

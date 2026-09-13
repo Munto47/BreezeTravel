@@ -127,7 +127,9 @@
         "tests/test_share_complete_content.py",
         "tests/test_collaboration_relative_route.py",
         "tests/test_room_current_itinerary.py",
-        "tests/test_inline_source_details.py"
+        "tests/test_inline_source_details.py",
+        "tests/test_collaboration_room_question.py",
+        "tests/test_focused_semantic_patch.py"
       ]
     },
     "postgres": {
@@ -174,7 +176,8 @@
         "tests/test_dining_unavailable_store.py",
         "tests/test_relative_route_flow.py",
         "tests/test_share_complete_content.py",
-        "tests/test_room_current_itinerary.py"
+        "tests/test_room_current_itinerary.py",
+        "tests/test_collaboration_room_question.py"
       ]
     },
     "browser-core": {
@@ -241,7 +244,9 @@
         "e2e/share-complete-export.spec.js",
         "e2e/collaboration-relative-local.spec.js",
         "e2e/collaboration-current-route.spec.js",
-        "e2e/collaboration-backup.spec.js"
+        "e2e/collaboration-backup.spec.js",
+        "e2e/collaboration-chat-desktop.spec.js",
+        "e2e/collaboration-place-sync.spec.js"
       ]
     }
   }

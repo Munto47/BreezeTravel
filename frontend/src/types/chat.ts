@@ -14,6 +14,7 @@ export interface ChatMessage {
   createdAt: string       // ISO 8601
 
   status: MessageStatus
+  notice?: string         // Incomplete, stopped or failed response, separate from received text.
 
   // AI 回复附加字段
   placesGenerated?: Place[]         // 本轮 AI 推荐的地点列表

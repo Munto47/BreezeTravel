@@ -152,7 +152,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
   )
 
   // ── AI 聊天 ────────────────────────────────────────────────────────────
-  const { messages, isStreaming, sendMessage } = useAIChat(
+  const { messages, isStreaming, sendMessage, stopMessage } = useAIChat(
     threadId,
     userId,
     roomId,
@@ -215,71 +215,86 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
     days: { date: string; condition: string; icon: string; temp_high: number; temp_low: number; suggestion: string }[]
   }>(null)
 
-  // ── 持久化：从 DB 恢复景点（进入房间时） ─────────────────────────────
+  // Read the server's saved shape before comparing CRDT updates. A fresh
+  // subscription is not a user edit, but changes during this read still are.
   const dbLoadedRef = useRef(false)
   const isSyncingFromDB = useRef(false)
   const [dbReady, setDbReady] = useState(false)
+  const savedPlacesKeyRef = useRef<string | null>(null)
+  const currentPlacesRef = useRef(places)
+  currentPlacesRef.current = places
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const placeSyncChainRef = useRef<Promise<void>>(Promise.resolve())
+  const placeSyncPendingRef = useRef(0)
+  const placeSyncUncertainRef = useRef(false)
 
   useEffect(() => {
     if (!roomData.loaded || !isSynced || dbLoadedRef.current) return
     dbLoadedRef.current = true
+    let cancelled = false
+    let restored = false
+    let restoreTimer: ReturnType<typeof setTimeout> | undefined
+    const valid = () => !cancelled && scopeRef.current === scope && localStorage.getItem('authToken') === token
+    const initiallyPresent = new Set(currentPlacesRef.current.map(place => place.placeId))
     ;(async () => {
       try {
         const dbPlaces = await api.get<Record<string, unknown>[]>(`/api/room/${roomId}/places`)
-        if (!dbPlaces.length) {
-          setDbReady(true)
-          return
-        }
+        if (!valid()) return
+        savedPlacesKeyRef.current = savedPlaceSnapshotKey(dbPlaces)
         isSyncingFromDB.current = true
+        const nowPresent = new Set(currentPlacesRef.current.map(place => place.placeId))
         dbPlaces.forEach((raw) => {
           try {
             const place = parsePlaceFromAPI(raw)
-            if (addPlace(place)) {
-              if (raw.room_selected === true) toggleVote(place.placeId)
-            }
-          } catch { /* 格式错误跳过 */ }
+            // A peer or this user may remove a known item while the GET is in
+            // flight. Do not resurrect it from the older database response.
+            if (initiallyPresent.has(place.placeId) && !nowPresent.has(place.placeId)) return
+            if (addPlace(place) && raw.room_selected === true) toggleVote(place.placeId)
+          } catch { /* Keep the existing rejection of malformed historical rows. */ }
         })
-        // voted_by 恢复：通过 updateNote 的方式处理 votedBy（Yjs addPlace 会重置 votedBy，这里额外回写）
-        // 简化处理：voted_by 在协同房间内是实时的，历史数据只恢复景点列表即可
-        setTimeout(() => {
+        restoreTimer = setTimeout(() => {
+          if (!valid()) return
           isSyncingFromDB.current = false
+          restored = true
           setDbReady(true)
         }, 500)
       } catch {
-        toast('候选地点暂时无法从房间记录恢复，已暂停同步以保护原数据', 'warning')
+        if (valid()) toast('候选地点暂时无法从房间记录恢复，已暂停同步以保护原数据', 'warning')
       }
     })()
+    return () => {
+      cancelled = true
+      if (restoreTimer) clearTimeout(restoreTimer)
+      if (!restored) { dbLoadedRef.current = false; isSyncingFromDB.current = false }
+    }
   }, [roomData.loaded, isSynced]) // eslint-disable-line
 
-  // ── 持久化：Yjs places 变化时同步到 DB（防抖 2s） ────────────────────
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const placeSyncChainRef = useRef<Promise<void>>(Promise.resolve())
-  const placeSyncUncertainRef = useRef(false)
-
   useEffect(() => {
-    // 初始加载阶段 / 从 DB 恢复时不触发同步
-    if (isSyncingFromDB.current || !roomData.loaded || !dbReady) return
-
+    if (isSyncingFromDB.current || !roomData.loaded || !dbReady || savedPlacesKeyRef.current === null) return
+    const snapshot = places.map(placeToRaw)
+    const key = savedPlaceSnapshotKey(snapshot)
+    const valid = () => scopeRef.current === scope && localStorage.getItem('authToken') === token
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    // Do not swallow a revert while an earlier, different write is in flight.
+    if (key === savedPlacesKeyRef.current && !placeSyncPendingRef.current) return
     syncTimerRef.current = setTimeout(() => {
-      const snapshot = places.map(placeToRaw)
+      placeSyncPendingRef.current += 1
       placeSyncChainRef.current = placeSyncChainRef.current
         .then(async () => {
-          if (placeSyncUncertainRef.current) return
-          await api.post(`/api/room/${roomId}/places/sync`, {
-            places: snapshot,
-          })
+          if (!valid() || placeSyncUncertainRef.current || key === savedPlacesKeyRef.current) return
+          await api.post(`/api/room/${roomId}/places/sync`, { places: snapshot })
+          if (valid()) savedPlacesKeyRef.current = key
         })
         .catch(() => {
-          if (placeSyncUncertainRef.current) return
+          if (!valid() || placeSyncUncertainRef.current) return
           placeSyncUncertainRef.current = true
           toast(
             '候选地点保存结果暂时无法确认；本会话内容仍保留，刷新房间前不会继续覆盖服务端记录。',
             'warning',
           )
         })
+        .finally(() => { placeSyncPendingRef.current -= 1 })
     }, 2000)
-
     return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current) }
   }, [places, roomData.loaded, dbReady]) // eslint-disable-line
 
@@ -635,6 +650,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
                 <ChatPanel
                   messages={messages}
                   isStreaming={isStreaming}
+                  onStop={stopMessage}
                   weather={weather}
                   tripCity={tripCity}
                   onSend={(text) =>
@@ -673,6 +689,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
               <ChatPanel
                 messages={messages}
                 isStreaming={isStreaming}
+                onStop={stopMessage}
                 weather={weather}
                 tripCity={tripCity}
                 onSend={(text) =>
@@ -750,4 +767,23 @@ function placeToRaw(p: YjsPlace) {
     estimated_duration: p.estimatedDuration,
     room_selected: p.votedBy.length > 0,
   }
+}
+
+// Compare only fields the room place endpoint persists. Missing nullable fields
+// and null are the same saved value; CRDT voter identity/order is not stored.
+function savedPlaceSnapshotKey(rows: Record<string, unknown>[]): string {
+  const nullable = ['district', 'amap_rating', 'amap_price', 'opening_hours', 'phone', 'description', 'estimated_duration']
+  return stableFingerprint(rows.map(raw => ({
+    place_id: raw.place_id,
+    name: raw.name,
+    category: raw.category,
+    address: raw.address || '',
+    coords: raw.coords,
+    city: raw.city || '',
+    source: raw.source || 'synthesized',
+    amap_photos: raw.amap_photos || [],
+    tags: raw.tags || [],
+    ...Object.fromEntries(nullable.map(key => [key, raw[key] ?? null])),
+    room_selected: raw.room_selected === true,
+  })).sort((left, right) => String(left.place_id).localeCompare(String(right.place_id))))
 }

@@ -9,6 +9,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from app.agents.graph import build_graph
 from app.agents.nodes import router, synthesizer, tool_executor
+from app.agents import context_answer
 from app.api import chat
 from app.schemas.api import ChatRequest
 from app.schemas.place import Coordinates, Place, PlaceCategory
@@ -40,7 +41,7 @@ async def test_context_answer_uses_selected_names_without_new_places_or_false_pa
             assert "internal-" not in prompt
             return AIMessage(content="建议优先选颐和园，皇家园林和湖景适合第一次来北京慢慢游览。")
 
-    monkeypatch.setattr(router, "_get_llm_with_tools", lambda: Model())
+    monkeypatch.setattr(context_answer, "get_context_model", lambda: Model())
     forbidden_tools = AsyncMock(side_effect=AssertionError("A comparison must not fetch new places or routes"))
     monkeypatch.setattr(tool_executor, "run", forbidden_tools)
     graph = build_graph(MemorySaver())

@@ -2662,6 +2662,7 @@ class ExperienceQwenProvider:
         enable_day_sections: bool = True,
         enable_role_evidence: bool = False,
         enable_source_visits: bool = False,
+        enable_focused_repair: bool = False,
         relative_only: bool = True,
     ) -> None:
         if not api_key or not model or not base_url.startswith("https://"):
@@ -2673,6 +2674,9 @@ class ExperienceQwenProvider:
         # Live workers and live measurements enable the bounded supplement.
         # Historical raw replays may only contain the original answer pair.
         self.enable_source_visits = enable_source_visits
+        # Development comparison only: the observed targeted answer did not
+        # match the existing whole-repair coverage. Workers keep the default.
+        self.enable_focused_repair = enable_focused_repair
         # Production and direct measurement entry points use relative order.
         # Explicit False is reserved for replaying the historical time contract.
         self.relative_only = relative_only
@@ -2728,7 +2732,13 @@ class ExperienceQwenProvider:
             if self.enable_day_sections and len(source_text) >= 900 and 2 <= _explicit_day_count(source_text) <= 14:
                 from app.trip_understanding.semantic_sections import propose_by_day
 
-                return await propose_by_day(self, source_text)
+                try:
+                    result = await propose_by_day(self, source_text)
+                except InferenceProviderUnavailableError as error:
+                    error.provider_binding["focused_repair_enabled"] = self.enable_focused_repair
+                    raise
+                return result.model_copy(update={"binding": {
+                    **result.binding, "focused_repair_enabled": self.enable_focused_repair}})
             return await self._propose(source_text)
 
     async def _propose(self, source_text: str, task_instruction: str = "", call_sink: list | None = None,
@@ -2840,6 +2850,20 @@ class ExperienceQwenProvider:
                                     (recovery_draft is not None and improves_only_inline_details(
                                         source_text, recovery_draft, recovery_partial, checked_recovery, recovered))):
                                 recovery_draft, recovery_partial = checked_recovery, recovered
+                        if (attempt == 0 and self.enable_focused_repair and self.enable_source_visits and isinstance(exc, SourceAnchorValidationError)
+                            and checked_recovery is not None and recovery_partial is not None):
+                            from app.trip_understanding.focused_semantic_repair import repair_focused_semantics, repair_targets
+
+                            targets = repair_targets(source_text, checked_recovery, exc)
+                            if any(targets):
+                                # Only the rejected fields and proven omissions
+                                # enter the original second-call allowance.
+                                # Keep the first validated portion on timeout.
+                                final_draft, proposal = checked_recovery, recovery_partial
+                                final_draft, proposal = await repair_focused_semantics(
+                                    self, source_text, final_draft, proposal, calls, targets)
+                                semantic_partial_used = bool(proposal.unprocessed_count)
+                                break
                         if (attempt == 0 and isinstance(exc, SourceAnchorValidationError) and exc.issues
                             and checked_recovery is not None and recovery_partial is not None
                             and all(issue["category"] == "UNSUPPORTED_CITY_REMOVED" for issue in exc.issues)):
@@ -3031,6 +3055,7 @@ class ExperienceQwenProvider:
         binding = {
             "provider": "QWEN", "model": self.model, "semantic_policy": SEMANTIC_POLICY,
             "source_visit_supplement_enabled": self.enable_source_visits,
+            "focused_repair_enabled": self.enable_focused_repair,
             "deadline_ms": round(max(0, available_seconds) * 1000), "max_output_tokens": self.max_output_tokens,
             "temperature": SEMANTIC_TEMPERATURE,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),

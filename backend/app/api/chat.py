@@ -47,6 +47,7 @@ from app.api.rate_limit import check_public_chat_limit
 from app.constraints.location import extract_explicit_district_constraint
 from app.constraints.recommendation_intent import rank_places_for_request
 from app.memory.policy import should_use_long_term_memory
+from app.services.room_chat_context import load_room_chat_context
 
 router = APIRouter()
 
@@ -212,7 +213,7 @@ async def _previous_collaboration_places(graph, config):
     return []
 
 
-async def _event_stream(request: ChatRequest, trace_id: str, http_request: Request):
+async def _event_stream(request: ChatRequest, trace_id: str, http_request: Request, *, room_context=None):
     """生成 SSE 事件流（使用 graph.astream_events v2）"""
     graph = await get_graph_with_persistence()
     config = {
@@ -222,13 +223,22 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
     start_time = time.time()
     public_scope = request.room_id or request.thread_id
     deadline_monotonic = time.monotonic() + get_settings().chat_deadline_seconds
-    try:
-        conversation_places = await asyncio.wait_for(_previous_collaboration_places(graph, config),
-            timeout=min(3.0, get_settings().chat_deadline_seconds))
-    except Exception:
-        yield f"data: {json.dumps({'event': 'error', 'data': {'message': '暂时无法读取房间地点，请稍后重试。'}}, ensure_ascii=False)}\n\n"
-        return
+    conversation_places = []
+    if room_context is None:
+        try:
+            conversation_places = await asyncio.wait_for(_previous_collaboration_places(graph, config),
+                timeout=min(3.0, get_settings().chat_deadline_seconds))
+        except Exception:
+            yield f"data: {json.dumps({'event': 'error', 'data': {'message': '暂时无法读取房间地点，请稍后重试。'}}, ensure_ascii=False)}\n\n"
+            return
     selected_ids = set(request.selected_place_ids)
+    if room_context is not None:
+        # The live room view takes precedence over graph history, including removals.
+        conversation_places = room_context["places"]
+        resolved_selected = room_context["selected_place_ids"]
+    else:
+        resolved_selected = [place.place_id for place in conversation_places
+            if _public_place_id(public_scope, place.place_id) in selected_ids]
     _prom_metrics.inc("agent_request_total", profile=get_settings().runtime_profile)
 
     # ── 加载用户长期偏好（Long-term Memory）────────────────────────────
@@ -267,8 +277,8 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         "retrieval_audits": [],
         "retrieval_snapshots": [],
         "synthesized_places": [],
-        "selected_place_ids": [place.place_id for place in conversation_places
-            if _public_place_id(public_scope, place.place_id) in selected_ids],
+        "selected_place_ids": resolved_selected,
+        "room_relative_route": room_context["relative_route"] if room_context is not None else [],
         "conversation_places": conversation_places,
         "answer_only": False,
         "intent": None,
@@ -511,9 +521,17 @@ async def chat(request: ChatRequest, http_request: Request, current_user: str | 
     - error:    {message: str}
     """
     await check_public_chat_limit(http_request)
+    room_context = None
+    if request.room_id:
+        try:
+            room_context = await asyncio.wait_for(load_room_chat_context(request), timeout=3.0)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(503, detail="暂时无法读取房间地点，请稍后重试。") from None
     trace_id = uuid4().hex
     return StreamingResponse(
-        _event_stream(request, trace_id, http_request),
+        _event_stream(request, trace_id, http_request, room_context=room_context),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
