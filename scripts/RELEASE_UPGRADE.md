@@ -1,114 +1,106 @@
-# 现有公网服务的升级和恢复
+# 本次桌面版本发布与恢复
 
-本工具不复跑首发部署，不删除旧库，不把预发测试数据提升为生产数据。以下步骤只有在产品验收完成、资源检查满足后才实际执行；省略 `--execute` 均为只读计划。
+2026-09-13用户已明确授权收敛并发布最新版。本次是带已知限制的阶段发布，不等待五城识别等整体目标全部达标，也不宣称这些目标已完成。停止新增功能和模型实验；只推进数据保护、隔离预发、正式切换和电脑网页验收。手机及小屏专项验收暂停。
 
-2026-09-13最新授权：用户要求立即收敛并部署当前最新版。本次为阶段发布，整体五城质量等未达标项如实记录，不继续功能/模型实验；发布仍须通过数据保护、当前预发真实操作和正式域名检查。当前产品检查点2bafa52，新目录`desktop-v14-2bafa52-20260913`，新正式/预发库分别为`breeze_v14_20260913`/`breeze_preview_v14_20260913`，端口8038/3138/1266，独立Redis11/12。下文仅prepare授权和等待整体G目标的历史限制已由本次明确部署授权更新，不再重复索取同一批准。
+用户随后明确允许丢弃旧版本项目、数据库等内容，旧数据不再是必须长期保留的业务要求。但本次CLI仍依赖旧容器/镜像、配置和切换前的源库，不能提前删除这些对象。本次先完成既定切换与恢复验证，不扩大旧环境清理；新版上线后的数据仍须保留。已完成的副本验证无需重做。
 
-当前已执行：该版本受限Linux构建通过（峰值777,502,720字节，OOM事件0），旧服务构建期间未动；rehearse已取得当前生产PG/Yjs/配置一致备份，恢复旧API/Yjs均200，并在独立副本完成035→041。状态COPY_RESTORED，尚未预发用户操作或正式切流。下一步核对副本内容/解密/旧结果，再执行隔离preview；阶段上线不等于整体功能和质量全部通过。实际私有入口/输出在`.local-artifacts/evaluation/desktop-stage-release-20260913/`，源码和CLI均取2bafa52。
+## 当前已完成与未完成
 
-## 当前限制
+本次产品源码固定取自 `2bafa52068429bd81dbbed384d9cf64ca35ff5fe`；后续发布工具修复为 `a65dd85`，仅预建只读挂载目录，不改变产品产物。run_action.py 已区分产品引用与工具引用。已完成：
 
-- 地图手动更新的041迁移保留旧任务与快照，并为同一行程追加计算代次。它将旧的`(plan_ref_id, route_config_hash)`唯一约束改为含代次的唯一约束；仍用旧双列`ON CONFLICT`的应用不能在迁移后的库继续写入。须先停止旧写入者，准备并验证包含新任务写入方式的兼容恢复构建；不能删新代次或切回旧数据库来恢复。专用PG已验证该限制，尚未在正式环境执行。
+- Linux受限构建退出0，峰值777,502,720字节、OOM事件0，构建期间旧服务未动。
+- `rehearse` 已短暂停止旧API/Yjs写入，取得生产PG、Yjs、身份配置及nginx的一致备份；旧API/Yjs恢复并健康检查通过。
+- 独立预发副本已完成035→041迁移，状态 `COPY_RESTORED`。
+- 副本只读核对全部通过：原业务行内容、主键、迁移默认值、原文解密、旧结果解析、身份配置，以及备份tar与Yjs副本的路径和文件内容一致。本次核对没有业务写入或供应商调用。
 
-- 新的只读分享包含备选、餐位、未完成和住宿字段；新协同保存允许没有行程钟点。旧前端的保存读取器和旧分享严格模型不能直接读取这些新记录，不能仅回退网页包或旧API。最终前后端须配套，在当前PG/Yjs副本实际验证新写入读取与恢复。
+**已正式切换为LIVE，预发和正式域名各一次两日四地点的真实整理、账号保存、移动撤销、重开、PNG及匿名分享通过。** 地图SDK已加载，交通衔接未核实仍为LIMITED；不宣称五城和全范围餐宿质量通过。空房间同账号双连接/刷新已通过；同版本恢复命令已成功结束为RECOVERED_KEEPING_CURRENT_DATA。用户随后要求停止，恢复后的用户流程复验NOT_RUN。
 
-- 2026-09-13范围调整：正式域名只验收电脑浏览器网页，手机竖屏及小屏适配、优化和专项验收暂停；已有实现与历史检查保留。真实交通耗时、全部核心功能及数据恢复要求不变。下文历史手机和时刻操作描述不作为本次执行要求。
+本次入口及私有输出保留在 `D:/CODEX/BreezeTravel-local-archive-20260913/latest-local-artifacts/evaluation/desktop-stage-release-20260913/`；副本核对结果为 `restored-data-readonly.json`。此前v13构建仅作历史记录，见 `.local-artifacts/evaluation/linux-v13-prepare-v1/`，不再沿用其命令或覆盖其目录。
 
-- **2026-09-13四页面实施状态**：本次必须正式公网交付，尚未达到切换条件。9月13日再次只读确认仍为`first-public-20260906`、数据库迁移035；API/Web/Yjs健康入口200且重启策略为`unless-stopped`。当时内存可用约1.62GiB、无swap、磁盘可用约8.23GiB；模型期限仍30秒、输出4096，尚不与本地60秒等价。未运行新公网用户流程，未迁移、重启或切流。脱敏结果见`.local-artifacts/verification/production-readonly-20260913.json`；正式执行前仍须再检查资源。
-- 新版只接收文字并使用相对Day；保留真实交通耗时，不再验收时刻编辑。当前新增任务找回、源餐位、内部安排与`can_redo`等字段，旧首发及7897cab不能直接充当新版恢复构建。恢复必须保留当前PG/Yjs和新写入，先证明兼容构建能够读取及编辑新结果；不能为回退切旧数据库。
-- 16f3d09的本地生产构建已完整通过编译、类型及生成；这不是Linux构建。最新四页面源码的受限Linux构建、生产一致副本恢复、预发完整用户流程和正式域名复验均仍为NOT_RUN。下文9月8日目录和参数是历史已核实示例，**不是本次可直接执行的发布命令**；正式执行时须指定未占用的新目录、数据库、端口和Redis空间。
+## 固定目标与运行边界
 
+|用途|本次目标|
+|---|---|
+|正式域名|`https://www.breezetravel.cn/`|
+|原发布目录|`/opt/breezetravel-releases/first-public-20260906`|
+|原生产库|`breeze_live_20260906`，迁移035；当前切换流程仍以它为源库，尚不删除|
+|原API/Web/Yjs容器|`breeze-first-api` / `breeze-first-web` / `breeze-first-yjs`|
+|本次发布目录|`/opt/breezetravel-releases/desktop-v14-2bafa52-20260913`|
+|预发库|`breeze_preview_v14_20260913`，已迁移041|
+|新正式库|`breeze_v14_20260913`，仅在正式切换步骤复制最新生产数据后使用|
+|新API/Web/Yjs端口|`127.0.0.1:8038` / `127.0.0.1:3138` / `127.0.0.1:1266`|
+|Redis|新正式11，预发12；仅作缓存，禁止清空未知空间|
+|模型边界|沿用现有默认模型，总期限60秒、每答4096输出；compact和focused默认关闭|
 
-- 2026-09-08只读现网：现有发布 `first-public-20260906`、生产库 `breeze_live_20260906`，迁移至035；已有上线后用户数据。
-- 2026-09-08只读主机：2 CPU、总内存3499 MiB、当时可用约1658 MiB，无swap。现网API/Web/Yjs主进程RSS约279/61/23 MiB，自9月6日启动后的RSS峰值约346/94/59 MiB；cgroup峰值约342/79/17 MiB，OOM计数均0。RSS与cgroup的共享内存/文件计费不同，各服务峰值不代表同时峰值，也不是负载容量保证。
-- 首发保留的 `breeze-first-builder-final` 在1400 MiB、1 CPU限额下完整构建退出0，14页生成齐、OOMKilled=false。前一次构建失败是npm缓存缺TypeScript（ENOTCACHED），不是内存不足；已退出容器没有可读的历史内存峰值，不能编造。
-- Windows同一源码的两个独立副本历史实测：单静态worker、原webpack方式峰值1317.4 MiB/23.08秒；启用独立webpack worker后783.0 MiB/25.09秒，均完整构建且生成standalone，没有跳过类型检查。改善是内存占用，不是构建速度。更早两轮测得1373.6/768.2 MiB，但其间结果页有修改，不用那两轮推算改动效果。现有自定义webpack配置会关闭Next默认构建worker，这是可定位的降耗来源。当前配置显式启用 `experimental: { cpus: 1, webpackBuildWorker: true }`。
-- CLI采用**Linux试跑限额**：构建1024 MiB；API640/Web192/Yjs128 MiB，均禁用额外swap，另保留384 MiB主机可用内存。限额高于已观察值，仍须实际受限构建和真实预发流程验证。开始检查用限额加余量保护旧服务，不把其总和说成应用实际内存需求；现有数据不支持必须扩服务器的结论。
-- 本机无Docker、WSL未安装；服务器a7c047c已在独立目录完成1024 MiB限额前端构建，峰值648,237,056字节、OOM事件均0，旧服务健康且未重启。其后本地改动尚未进入该目录，最新源码Linux构建与新应用启动仍为 **NOT_RUN**。后续仍按明确检查点构建；试跑失败须区分依赖/构建缺陷/OOM，不能直接降低检查或宣告需要扩容。
-- 现网前端和Yjs的package/lock与当前内容一致；旧发布目录保留完整Linux前端node_modules及npm/Linux缓存，web运行镜像本身没有TypeScript。CLI只在两个manifest相同时复制旧node_modules到新目录，执行 `npm ls --depth=0 --include=dev --offline` 后构建；只读旧依赖，不在旧发布目录安装。依赖有变化才在新目录执行有网络的 `npm ci`。现有API镜像所有requirements-base固定版本已核对一致，仍须新代码实际导入/启动验证。
-- 首发旧代码已实际无法读取新公共结果字段，禁止切回首发代码。更晚的 `68fd0db` 也已判定不能安全回退：独立PG样本中，已完成协同行程的2主线+1全局备选可读/编辑/撤销，但新语义字段校验失败，待处理initial_plan被旧worker忽略并重新推断；旧版采纳午餐会保留原缺口而多加一卡（9→10）。`1f7c892`未通过这些新操作的兼容验证，不能视为可用恢复包。
+预发和正式阶段复用本次新容器名及端口，但使用不同PG、Yjs目录、Redis空间和网页构建；`activate`先停止预发容器。预发Yjs目录是发布目录下的 `rehearsal-yjs-data`，正式为 `yjs-data`。预发数据不能提升为生产数据。
 
-## 访问与公共参数
+CLI执行前检查当前主机、挂载、数据库绑定、容器、端口、独立Redis及可用内存/磁盘。构建限额1024MiB/1CPU；API/Web/Yjs限额640/192/128MiB，禁止额外swap并保留主机余量。限额是保护边界，不是实际容量保证。任务、租约、旧服务健康及必要写入者停止状态须按实际阶段核对，不凭旧快照假定空闲。
 
-现有私有连接文件在 `D:/CODEX/BreezeTravel-server-access-private-20260906`。使用其中 `breezetravel_ed25519` 和 `breezetravel_known_hosts`，不复制密钥进代码包。
+## 实际操作入口
 
-```powershell
-$releaseSsh = @('-i','D:/CODEX/BreezeTravel-server-access-private-20260906/breezetravel_ed25519',
-  '-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','PasswordAuthentication=no',
-  '-o','StrictHostKeyChecking=yes',
-  '-o','UserKnownHostsFile=D:/CODEX/BreezeTravel-server-access-private-20260906/breezetravel_known_hosts',
- 'root@218.244.142.170')
-$releaseTargets = '--expected-host iZbp12kpho9obrs2n1564gZ --current-release /opt/breezetravel-releases/first-public-20260906 --current-db breeze_live_20260906 --current-api breeze-first-api --current-web breeze-first-web --current-yjs breeze-first-yjs --new-release /opt/breezetravel-releases/core-20260908 --new-db breeze_core_20260908 --rehearsal-db breeze_rehearsal_20260908 --api-port 8028 --web-port 3128 --yjs-port 1256 --redis-db 9 --preview-redis-db 10 --model-deadline-seconds 60 --model-max-output-tokens 4096'
-Get-Content -Raw scripts/release_upgrade.py | ssh @releaseSsh "python3 - prepare $releaseTargets"
-```
+清理工作树后以下私有辅助脚本仅作历史入口，部分内部ROOT仍指旧工作树，不能原样再次运行。正式源码和scripts/release_upgrade.py现位于D:/CODEX/BreezeTravel；需要后续运维时按本表核实实际环境再配置入口。用户当前已要求停止，不安排额外执行。
 
-以上是9月8日曾核实的目标示例。本次四页面发布必须重新指定当前版本、当前库、容器及未使用的新目录/数据库/端口/Redis库。Redis仅缓存但也不清空未知内容。实际模型参数固定60秒/4096输出，不能沿用现网30秒假定等价。
-
-## 当前可执行的Linux构建试跑（由主任务串行触发）
-
-2026-09-13补充实际结果：四页面v13源码ef509a3已在新目录 `/opt/breezetravel-releases/desktop-v13-ef509a3-20260913` 只执行prepare完成。编译、类型、15页、standalone、exit0均已验证；1024MiB限额下峰值751,153,152字节，OOM/max事件0。旧三服务的ID、启动时间、重启次数及健康不变，正式PG仍035，未停写、复制/迁移业务库或切流。产物在 `.local-artifacts/evaluation/linux-v13-prepare-v1/`；该目录仅PREPARED，不能称新API或生产数据恢复通过，也不自动覆盖后来代码。上文a7c047c为历史构建。不要重复prepare或紧接着执行rehearse。
-
-先完成源码检查点，再使用该检查点同时取源码和CLI，避免发送还在编辑的工作树。以下只允许 `prepare`，不会创建DB、停止旧writer、调用真实模型或切nginx；不要顺手执行下一节的rehearse。代码包只有现有运行文件，私有设置留在服务器。
+由主任务串行执行；同一步仍在运行时不要再次触发。以下本机入口读取已经核实的服务器连接和固定参数，并从上述Git版本取得CLI，不向服务器发送正在编辑的工作树。
 
 ```powershell
-$releaseRef = (git rev-parse HEAD).Trim()
-$releaseArchive = Join-Path (Get-Location) '.local-artifacts/release-core-20260908.tar'
-git archive --format=tar --output=$releaseArchive $releaseRef backend/app scripts/experience.py scripts/experience_container.py frontend/src frontend/public frontend/package.json frontend/package-lock.json frontend/next.config.ts frontend/tsconfig.json frontend/tailwind.config.ts frontend/postcss.config.js y-websocket/server.js y-websocket/package.json y-websocket/package-lock.json
-$releaseScp = $releaseSsh[0..($releaseSsh.Count - 2)]
-ssh @releaseSsh 'test ! -e /opt/breezetravel-releases/core-20260908 && test ! -e /opt/breezetravel-releases/core-20260908-input'
-# 只有上一条退出0才继续；失败先查明确路径，不覆盖旧目录。
-ssh @releaseSsh 'umask 077 && mkdir /opt/breezetravel-releases/core-20260908-input'
-scp @releaseScp $releaseArchive 'root@218.244.142.170:/opt/breezetravel-releases/core-20260908-input/source.tar'
-git show "${releaseRef}:scripts/release_upgrade.py" | ssh @releaseSsh "python3 - prepare $releaseTargets --source-archive /opt/breezetravel-releases/core-20260908-input/source.tar --source-ref $releaseRef"
-# 只读结果确认目标/资源/旧服务正确后，主任务触发一次独立构建：
-git show "${releaseRef}:scripts/release_upgrade.py" | ssh @releaseSsh "python3 - prepare $releaseTargets --source-archive /opt/breezetravel-releases/core-20260908-input/source.tar --source-ref $releaseRef --execute"
-ssh @releaseSsh 'cat /opt/breezetravel-releases/core-20260908/src/frontend/.release-build-memory.json'
-ssh @releaseSsh 'docker ps --filter name=breeze-first --format "{{.Names}} {{.Status}}"'
+$releasePython = 'D:/CODEX/BreezeTravel/.venv/Scripts/python.exe'
+$releaseAction = 'D:/CODEX/BreezeTravel-local-archive-20260913/latest-local-artifacts/evaluation/desktop-stage-release-20260913/run_action.py'
+
+# 只读计划：查看当前阶段、目标和下一步动作，不改变服务或数据。
+& $releasePython -X utf8 $releaseAction preview
+
+# 仅在确认当前无同一步操作运行后，执行该步骤。
+& $releasePython -X utf8 $releaseAction preview --execute
 ```
 
-构建成功依据：编译、类型检查、当前版本应有页面生成及standalone均完成，退出0，cgroup `oom_kill 0`，旧三服务仍运行。CLI验证Next真实加载的两个worker设置，安装和构建都限制1024 MiB/1 CPU；编译容器 `--network none` 且只挂载新源码/浏览器公开配置，无法触发旧业务。`PREPARED`仅代表前端Linux构建成功，不等于新API、数据恢复或用户任务已通过。Windows测量位于本次忽略目录 `.local-artifacts/resource-check`，不是Linux通过证据。
+`run_action.py`接受 `rehearse`、`preview`、`activate`、`recover`；省略 `--execute` 是只读计划。`prepare`和`rehearse`已完成，不重复构建、复制或创建另一套备份。若需查看恢复副本阶段，可使用 `rehearse`只读计划。
 
-后续在独立PG副本、Yjs副本、Redis10及私有端口下运行API640/Web192/Yjs128的完整预发流程；同时读各容器memory.peak、memory.events、RestartCount，确认新旧账号/保存编辑撤销重做/协同/真实模型与地点服务，并以14天160项固定外部输入检查应用上界。固定输入与真实模型分别报告。任何OOM、重启或用户结果丢失都不允许进入activate；先定位并重新测量，不能只看健康接口。预发所需的一致性备份涉及旧writer短暂停止，必须作为后续单独串行步骤执行，不包含在上述构建授权中。
+### 预发
 
-## 执行顺序与每步实际含义
+`preview`单独构建预发网页，API同源转发至8038，协同连接 `ws://127.0.0.1:1266`。第一次启动worker之前，只在副本隔离继承的识别、地图、餐饮、住宿待处理任务和租约，防止重放旧生产调用；正式任务不变。预发后再运行副本完整性脚本会因状态变化拒绝，不能把已隔离任务与启动前的严格副本混作同一状态。
 
-1. **prepare**：使用已审阅本地检查点的普通 `git archive` 源码包。代码包不得包含私有env或数据；上传路径需明确。执行时追加 `--source-archive <服务器上的代码tar绝对路径> --source-ref <实际Git检查点> --execute`。创建新发布目录并受限构建正式前端，不动旧业务；实际退出和资源测量才决定本步是否成功。
-2. **rehearse**：追加 `--execute`。短暂停止旧API/Yjs写入，备份当前PG、Yjs、身份配置及nginx，然后恢复旧服务。旧API和Yjs各最多等待40秒，必须实际健康后才继续克隆与迁移；超时明确指出失败服务，保留备份及其路径，不能报告 `COPY_RESTORED`。备份异常时仍先尝试恢复并检查旧服务。仅对独立副本恢复、追加迁移和核对原有业务行数，状态为 `COPY_RESTORED`。**此时没有启动应用，也没有用户流程验收。**
+入口健康只表示 `PREVIEW_SERVING_UNVERIFIED`。使用 `run_prepare.py`内已有的SSH身份和主机校验设置，将本机3138、8038、1266分别转发到服务器对应localhost端口，浏览器打开 `http://127.0.0.1:3138`；不要公开这些私有服务端口或关闭主机校验。
 
-   两个旧服务分别尝试启动和健康检查；一项启动命令失败不跳过另一项，所有命令/健康错误一起报告，最初备份错误及私有日志路径也保留。任何失败都不继续克隆或声称恢复成功。若部分新writer无法确认停止，则保留错误且不重启旧writer，避免新旧同时写入；由执行代理继续定位恢复，不把排错交给用户。
+用新的窄文字输入经过真实worker、模型及地点核验，检查最终地点、日序、角色和未完成提示，再实际编辑、撤销/重做、账号保存、刷新重开，并检查地图、餐宿和协同必要桌面路径。旧副本兼容核对已完成，不新增旧数据必须长期保留的门槛。仅使用相对Day和先后，不验收日历日期、时刻或停留编辑；真实路程和交通耗时保留。真实供应商与固定回放分别记录，不把200、完整状态或一条成功样本当整体质量达标。
 
-   本健康恢复修复尚未传入服务器已构建的 `a7c047c` 目录；必须进入下一份明确源码检查点与准备版本。a7构建成功不代表本工具改动已在Linux验证。本轮没有执行远程停写或副本演练。
-3. **preview**：追加 `--execute`。单独构建预发前端，API走新容器的同源转发，协同地址编译为 `ws://127.0.0.1:1256`，避免连接正式Yjs。只在副本将继承的待处理/运行中识别、地图、住宿和餐饮任务终止，清除副本租约；正式库与正式租约不变。随后以现有真实密钥、真实worker启动副本API、独立Yjs和Redis10。状态为 `PREVIEW_SERVING_UNVERIFIED`，仅表示入口健康。
-4. **真实预发操作**：建立下面的SSH转发，浏览器打开 `http://127.0.0.1:3128`。从新原文开始，等真实识别/地点核验，修改地点或时间、撤销、账号保存、刷新重开、路线、餐饮、住宿、协同等按本次目标实际验收。不得把复制过来的旧记录或健康接口当作新流程成功。复制的未完成任务不会自动重试，预发应新建测试记录。保留实际预发新记录的public resource id，仅用于操作时输入，不写进公共报告。
+浏览器高德SDK须实际加载；若预发地址受供应商白名单限制，记录并处理合法访问方式，不用模拟结果冒充真实通过。正式域名仍须复验。
+
+### 正式切换
+
+预发必要用户路径与数据保护通过后，将实际在本次预发中新建、由账号保存并编辑的资源ID赋给本地变量 `$previewTripId`，不写入公共报告，再运行：
 
 ```powershell
-ssh @releaseSsh -N -L 3128:127.0.0.1:3128 -L 8028:127.0.0.1:8028 -L 1256:127.0.0.1:1256
+& $releasePython -X utf8 $releaseAction activate --preview-trip-id $previewTripId
+& $releasePython -X utf8 $releaseAction activate --preview-trip-id $previewTripId --execute
 ```
 
-   浏览器高德SDK必须实际加载；现有密钥存在、后端CORS正确均不能证明控制台白名单正确。若本地预发域名受限，要如实记录并解决合法预发访问方式，不能把地图测试改成模拟后声称真实通过。正式域名仍需再次验收SDK。
+CLI会验证该记录确实创建于本次预发、保存到账号、有持久化编辑、当前结果完整，且有与当前配置一致的实际模型调用记录。此窄检查不代表全部产品验收，不能手改数据库或补造完整标记来通过。
 
-5. **activate**：全部范围的真实验收通过后，追加 `--preview-trip-id <预发中新建、账号保存并实际编辑的记录> --execute`。工具读取副本当前记录，要求新创建、与本次配置一致的模型及外部响应记录、完整结果、账号所有权及真实用户编辑版本；不硬编码Qwen供应商标签，也不自动更换现有模型。现有配置变量仍沿用Qwen旧命名。该窄路径检查不能代替全部产品验收。随后停止预发，停止旧writer，重新备份当前正式数据，另建新的live库和Yjs目录，再显式迁移、启动、切nginx。预发数据库/Yjs/Redis10均不提升为生产；正式新进程用Redis9。只在切换后将PG/Redis的restart设置为unless-stopped；旧writer保持停止。
-6. **公网验证**：正式域名电脑浏览器检查全部核心路径、现有账号和旧记录、新记录、地图SDK、协同，以及服务/主机重启后的恢复。手机竖屏及小屏专项验收暂停。健康接口或该脚本退出0不能代表交付。
+`activate`会停止预发和旧写入者，**在切换当时重新备份当前生产PG、Yjs及配置**，恢复到新正式库和独立Yjs目录，显式追加迁移，启动本次配套API/Web/Yjs，健康检查后切换nginx。不使用预发库、预发新记录或旧演练备份替代最新生产数据；旧写入者保持停止。
 
-## 失败、恢复与重跑
+切换后在正式域名电脑浏览器核对账号、新生成与编辑保存、刷新重开、地图SDK、餐宿和协同；随后按串行安排检查新服务重启后仍能读回并继续操作新版记录。容器或CLI退出0不能代替这些操作。实际结果和剩余限制由主任务补入当前状态。
 
-- 失败stderr保存在新发布目录 `private-failure-*.log`，以0600创建并过滤已有密钥/连接/Bearer；终端仅阶段、退出原因和日志路径。只读计划不写日志。由执行者读取私有日志定位，不公开整份运行配置。
-- `prepare`完成后重复执行不重复构建；构建失败停在SOURCE_READY可用同source-ref继续。恢复副本成功、预发健康、正式切换成功的重复执行不会重做数据快照或覆写数据。
-- 已有发布目录的 `prepare` 必须使用其原有 `--source-ref`，同引用重跑保持幂等；不同引用在只读计划和执行前都明确拒绝，须为新代码选择新目录。其他动作若显式指定引用也必须一致；省略引用仅继续该目录原版本，不能代表验证了最新源码。此修复尚未进入服务器的a7目录，下一准备版本需包含它。
-- 恢复/克隆中途失败时不删除或覆盖部分数据库；先读完整错误。若数据库已部分创建且无法确认完整性，保留它，使用新的明确发布目录和库名重做，不能借助DROP/旧库覆盖消除失败。
-- 预发启动失败可重跑preview，保留预发已产生的新数据和任务，不再次清理其队列。复制来的任务仅在第一次启动worker之前隔离；租约与幂等均归各自PG库，没有跨库共享。
-- 一旦记录“流量可能已切换”，即使reload响应丢失也不能重启旧库writer。执行 `recover --execute`，备份当前新库/Yjs并用本发布代码重新启动，保留可能发生的全部新写入。恢复不会回旧库、不会尝试旧首发代码；业务代码缺陷需创建新的前向修复发布。
-- 新协同计划与午餐缺口的最小前向恢复已在独立PG验证：用当前新repository/worker读取已产生的数据，未处理协同队列无需模型重解释，处理后2主线+1全局备选及编辑/撤销均保留；先前采纳的午餐保留，继续采纳后总9卡、剩1个缺口。该项为固定外部响应+真实PG/仓储/服务/worker检查，没有启动完整旧HTTP服务，不替代Linux恢复演练。私有复现入口为本次 `.local-artifacts/compatibility_probe.py`，结果在 `.local-artifacts/compatibility-68fd0db/result.json`。
-- 下一份完整餐宿/协同代码检查点可作为后续模型调整的兼容恢复候选；必须用最终新版的新写入与在途队列，在候选实际API/worker上读取、继续操作，再由新程序读回。未测或失败均不能宣称可回退，也不允许换回旧库隐藏新写入。
-- 发布使用主机文件锁，容器须有本发布标签才允许停止/移除；不删除DB、卷、Yjs数据或其他应用。正式新应用启动前检查旧writer停止。切换前出错先停止部分新writer再恢复旧writer。
+## 失败与保留新数据的恢复
 
-## 已有本地验证入口
+- 不复跑 `first_release`。旧代码和旧库虽已获准丢弃，本次尚不执行清理：CLI仍需旧镜像、容器信息、配置及切换源数据，须先完成当前切换与恢复。失败时也不擅自删除部分恢复库。新版源码、PG、Yjs及身份配置须配套保留；新版使用的加密原文根密钥、JWT和cookie签名设置不能随意更换。
+- 036/038/041为追加迁移，旧行保留legacy/代次0等兼容值。**041改动地图任务唯一约束：仍使用旧双列 `ON CONFLICT(plan_ref_id, route_config_hash)` 的旧应用不能在041库继续写入。** 不删除代次、不恢复旧唯一约束来迁就旧写入者。
+- 新公共结果包含备选、餐位、详情、未完成、重做及新版协同字段。旧前端与旧API不能直接作为恢复包；禁止只回退网页或API的一半。发布代码缺陷应准备保留当前数据的前向修复。
+- 在尚未记录可能切流的阶段出错，工具先停止部分新写入者，再尝试恢复原API/Yjs并检查健康。原库仍为原结构；未能确认新写入者停止时，不允许两边同时写。克隆中途失败保留部分库和错误，不能覆写或删除来消除失败。
+- **一旦 `traffic_may_have_switched=true`，即使nginx重载回执丢失，也必须假定新库已有用户写入。** 不能重启旧库写入者、切回旧数据库或恢复切换前备份。
+
+此时先读计划，再执行本版本恢复：
 
 ```powershell
-& D:/CODEX/BreezeTravel/.venv/Scripts/python.exe scripts/tests/test_release_upgrade.py
-& D:/CODEX/BreezeTravel/.venv/Scripts/python.exe scripts/tests/test_release_upgrade.py --local-env .local-artifacts/experience/experience.env --pg-bin D:/CODEX/BreezeTravel-G07-Tools/postgres16-pgvector/bin
+& $releasePython -X utf8 $releaseAction recover
+& $releasePython -X utf8 $releaseAction recover --execute
 ```
 
-第二条读取当前本地数据库快照，在三个自己创建的临时DB验证真实恢复、加密原文、旧住宿选择、035→当前全部追加迁移、保留新写入、副本任务租约隔离和拒绝假预发结果。恢复前后在内存逐行比较行程、结果、幂等响应、地图任务/快照/路段和共同路线，不公开这些私有内容；结束只清理自己的临时库。它不验证Linux镜像、Yjs文件副本、真实供应商或生产部署。
+`recover`停止新写入者，先备份**当前新正式PG和Yjs（含切换后的新写入）**，然后用同一发布源码、同一新库和数据目录重建服务及路由。它不是旧版本回滚，也不是自动恢复SQL备份；不能修复任意业务代码缺陷。成功状态为 `RECOVERED_KEEPING_CURRENT_DATA`，仍需正式网页读回和继续操作验证。
 
-2026-09-13本机最终演练已通过：035→041及重复迁移保留旧酒店选择，旧地图任务仅增加代次0，共同路线新表为空；当前数据副本恢复及新增一间测试房间后再次恢复，原业务行逐项一致、20份加密原文可解密。原检查硬编码只有4项追加迁移而失败的记录保留，未跳过040/041。最终输出在`.local-artifacts/verification/release-restore-041-final.json`。生产当前数据与Yjs的一致副本及最终应用恢复仍须另行演练。
+重复动作按CLI记录的阶段恢复，不覆盖已存在数据库或已保存的新记录。预发重启保留已产生的预发数据，继承任务只在首次启动worker前隔离。失败后先读 `upgrade-state.json` 和该发布目录的私有失败日志；只公开阶段、错误类别和脱敏结论，不贴运行配置、原文、令牌或密钥。发布文件锁和容器归属校验必须保留，不并行执行升级动作。
+
+## 已有验证记录
+
+本次Linux构建、复制迁移和只读副本核对见上述 `desktop-stage-release-20260913`目录。原业务行在内存比较，来源仅在进程内解密，Yjs直接比较文件内容；没有新增签名、摘要或治理平台。源生产备份后的变化单独报告，不能自动算作恢复丢失，也不能静默忽略。
+
+既有本地035→041及保留新写入的恢复演练见 `.local-artifacts/verification/release-restore-041-final.json`，对应维护入口为 `scripts/tests/test_release_upgrade.py`。其固定/本地结果不替代本次Linux预发和正式域名验收；不因本文整理重复全套测试。
