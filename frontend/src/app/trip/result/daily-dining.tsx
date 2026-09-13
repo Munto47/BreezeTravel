@@ -76,6 +76,9 @@ export function DailyMealCard({day, dayIndex, activities, state, disabled, onRef
   // recommendations are preparing or stale. They are not old candidates.
   const pendingMeal = day?.status === 'NEEDS_CONFIRMATION' && !!day.existing_activity_token
   const existingMeal = day?.status === 'EXISTING'
+  const recordedMeal = existingActivity || activities?.find(card => card.activity_token === day?.existing_activity_token)
+  const recordedMealName = recordedMeal?.meal_role
+    ? {BREAKFAST:'早餐', LUNCH:'午餐', DINNER:'晚餐', SNACK:'加餐'}[recordedMeal.meal_role] : null
   const candidates = current && day?.status === 'AVAILABLE' && !selectionNeedsReview ? day.candidates.slice(0, 3) : []
   const canAdopt = current && day?.status === 'AVAILABLE' && !!day.after_activity_token
   const anchor = activities?.find(card => card.activity_token === day?.after_activity_token)
@@ -112,7 +115,7 @@ export function DailyMealCard({day, dayIndex, activities, state, disabled, onRef
   return <aside className="daily-dining" aria-label={`Day ${dayIndex || day?.day_index || ''}中途用餐建议`} data-testid="daily-meal-card">
     <div className="daily-dining-heading">
       <span className="daily-dining-icon"><UtensilsCrossed aria-hidden="true"/></span>
-      <div className="daily-dining-title"><strong>{existingMeal ? '午餐安排' : pendingMeal ? '午餐待确认' : day?.meal_role === 'LUNCH' ? '午餐建议' : '中途用餐'}</strong><span>{existingMeal ? '当前行程 · 保留已有用餐' : pendingMeal ? '原文地点 · 确认后保留' : '系统建议 · 选择后加入'}</span></div>
+      <div className="daily-dining-title"><strong>{existingMeal ? recordedMealName ? `${recordedMealName}安排` : '已有用餐' : pendingMeal ? `${recordedMealName || '用餐'}待确认` : day?.meal_role === 'LUNCH' ? '午餐建议' : '中途用餐'}</strong><span>{existingMeal ? recordedMealName ? '当前行程 · 保留已有用餐' : '餐别未指定 · 保留已有用餐' : pendingMeal ? recordedMealName ? '原文地点 · 确认后保留' : '餐别未指定 · 确认后保留' : '系统建议 · 选择后加入'}</span></div>
       <span className={`daily-dining-state${existingMeal ? ' is-selected' : ''}`}>{existingMeal && <Check aria-hidden="true"/>}{status}</span>
       {!!candidates.length && <button type="button" className="daily-dining-toggle" aria-controls={contentId} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
         {expanded ? '收起候选' : `查看 ${candidates.length} 家候选`}{expanded ? <ChevronUp aria-hidden="true"/> : <ChevronDown aria-hidden="true"/>}
@@ -133,7 +136,7 @@ export function DailyMealCard({day, dayIndex, activities, state, disabled, onRef
     </div>}
     {!!candidates.length && !canAdopt && <p className="daily-dining-note">这组建议的加入位置尚未确认，请更新建议后再选择。</p>}
     {pendingMeal && existingActivity && <div className="daily-dining-confirm">
-      <button ref={confirmButton} type="button" className={action} disabled={disabled || writing} aria-expanded={confirming} onClick={() => setConfirming(value => !value)}>确认原文午餐</button>
+      <button ref={confirmButton} type="button" className={action} disabled={disabled || writing} aria-expanded={confirming} onClick={() => setConfirming(value => !value)}>{recordedMealName ? `确认原文${recordedMealName}` : '确认已有用餐地点'}</button>
       {confirming && <PendingPlaceDropdown card={existingActivity} resource={resource} disabled={disabled || writing} onCommand={onCommand} onClose={closeConfirmation}/>}
     </div>}
     {state && state.status !== 'PREPARING' && !pendingMeal && !existingMeal && <button type="button" className={`${action} daily-dining-refresh`} disabled={disabled || writing} onClick={onRefresh}><RefreshCw aria-hidden="true"/>更新用餐建议</button>}

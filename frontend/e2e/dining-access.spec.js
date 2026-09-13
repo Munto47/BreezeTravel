@@ -66,7 +66,7 @@ async function show(page, width, family) {
     return route.fulfill({status: 404, json: {}})
   })
   await page.goto(`/trip/result#trip=${RESOURCE}`)
-  await expect(page.getByTestId('activity-card')).toHaveCount(4)
+  await expect(page.getByTestId('activity-card')).toHaveCount(state.result.days.flatMap(day => day.activities).filter(card => card.status === 'READY').length)
   return state
 }
 
@@ -228,4 +228,41 @@ test('nearby light-food selection remains unspecified with visible conditions at
   expect(state.commands[0].meal_role).toBeUndefined()
   expect(state.result.days[0].meal_slots[0].selection_status).toBe('UNSELECTED')
   expect(state.result.days[0].activities.find(card => card.name === '坤宁宫东院餐厅').meal_role).toBeNull()
+})
+
+for (const status of ['ready', 'pending']) test(`saved unspecified dining keeps its real meal label with a lunch contrast ${status} at 1440`, {tag: '@desktop'}, async ({browser, baseURL}, info) => {
+  for (const role of ['none', 'lunch']) {
+    const context = await browser.newContext({baseURL})
+    const page = await context.newPage()
+    try {
+      const state = await show(page, 1440, `recorded-${role}-${status}`)
+      const restaurant = state.result.days[1].activities[1]
+      expect(restaurant).toMatchObject({name: '天坛福宴', meal_role: role === 'none' ? null : 'LUNCH'})
+      const dining = page.getByTestId('daily-meal-card').nth(1)
+      await expect(dining).toContainText('天坛福宴')
+      const title = dining.locator('.daily-dining-title')
+      if (role === 'none') {
+        await expect(title).toContainText(status === 'ready' ? '已有用餐' : '用餐待确认')
+        await expect(title).toContainText('餐别未指定')
+        await expect(dining).not.toContainText('午餐')
+      } else {
+        await expect(title).toContainText(status === 'ready' ? '午餐安排' : '午餐待确认')
+        await expect(title).not.toContainText('餐别未指定')
+      }
+      if (status === 'pending') {
+        await dining.getByRole('button', {name: role === 'none' ? '确认已有用餐地点' : '确认原文午餐', exact: true}).click()
+        await expect(dining.getByTestId('pending-place-dropdown')).toContainText('天坛公园')
+      } else {
+        await expect(dining).toContainText('已安排')
+        await expect(dining.getByRole('button')).toHaveCount(0)
+      }
+      expect(state.commands).toEqual([])
+      expect(state.searches).toEqual([])
+      expect(state.dailyWrites).toBe(0)
+      await page.screenshot({path: info.outputPath(`saved-${role}-${status}.png`), fullPage: true})
+      await page.reload()
+      await expect(title).toContainText(role === 'none' ? '餐别未指定' : status === 'ready' ? '午餐安排' : '午餐待确认')
+      expect(state.result.days[1].activities[1]).toEqual(restaurant)
+    } finally {await context.close()}
+  }
 })

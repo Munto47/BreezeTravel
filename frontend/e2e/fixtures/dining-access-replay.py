@@ -7,6 +7,7 @@ import asyncio
 from datetime import datetime, timezone
 import json
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 from pydantic import TypeAdapter
@@ -45,6 +46,15 @@ def definitions(family):
 
 
 async def initial(family):
+    if family.startswith('recorded-'):
+        result = json.loads(Path(__file__).with_name('dining-unspecified-adopted.json').read_text(encoding='utf-8'))['result']
+        card = result['days'][1]['activities'][1]
+        if '-lunch-' in family:
+            card['meal_role'] = 'LUNCH'  # Explicit controlled contrast, not the saved live role.
+        if family.endswith('-pending'):
+            card['status'] = 'NEEDS_CONFIRMATION'
+            result['status'] = 'PARTIAL_RESULT'
+        return UserFacingTripResult.model_validate(result)
     if family == 'saved':
         return (await build_dining_access_result()).public_result
     places, _, parent = definitions(family)

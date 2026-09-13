@@ -1,0 +1,144 @@
+{
+  "scope": "Sanitized public DINING_INSERT1 snapshot from the real dining-access-live-v1 run; original restaurant name/category/meal_role/access and relative position preserved. Activity tokens replaced; map/stay/source details omitted for this title-only regression. Pending and LUNCH variants are explicitly controlled test variants.",
+  "result": {
+    "status": "READY",
+    "can_undo": true,
+    "can_redo": false,
+    "assumptions": [
+      {
+        "key": "destination",
+        "label": "目的地",
+        "value": "北京",
+        "editable": true
+      },
+      {
+        "key": "party_size",
+        "label": "同行人数",
+        "value": "暂按 2 人",
+        "editable": true
+      }
+    ],
+    "days": [
+      {
+        "label": "Day 1",
+        "activities": [
+          {
+            "name": "故宫博物院",
+            "category": "景点",
+            "city": "北京",
+            "area_or_address": "景山前街4号",
+            "status": "READY",
+            "meal_role": null,
+            "dining_access": null,
+            "meal_evidence_status": "UNSPECIFIED",
+            "available_actions": [
+              "VIEW_DETAILS",
+              "REPLACE",
+              "DELETE",
+              "MOVE"
+            ],
+            "activity_token": "fixed-recorded-dining-day1-card1"
+          },
+          {
+            "name": "景山公园",
+            "category": "景点",
+            "city": "北京",
+            "area_or_address": "景山西街44号",
+            "status": "READY",
+            "meal_role": null,
+            "dining_access": null,
+            "meal_evidence_status": "UNSPECIFIED",
+            "available_actions": [
+              "VIEW_DETAILS",
+              "REPLACE",
+              "DELETE",
+              "MOVE"
+            ],
+            "activity_token": "fixed-recorded-dining-day1-card2"
+          }
+        ],
+        "alternatives": [],
+        "meal_slots": []
+      },
+      {
+        "label": "Day 2",
+        "activities": [
+          {
+            "name": "天坛公园",
+            "category": "景点",
+            "city": "北京",
+            "area_or_address": "天坛东里甲1号",
+            "status": "READY",
+            "meal_role": null,
+            "dining_access": null,
+            "meal_evidence_status": "UNSPECIFIED",
+            "available_actions": [
+              "VIEW_DETAILS",
+              "REPLACE",
+              "DELETE",
+              "MOVE"
+            ],
+            "activity_token": "fixed-recorded-dining-day2-card1"
+          },
+          {
+            "name": "天坛福宴",
+            "category": "餐饮",
+            "city": "北京",
+            "area_or_address": "天坛公园西门",
+            "status": "READY",
+            "meal_role": null,
+            "dining_access": {
+              "status": "DURING_VISIT",
+              "parent_name": "天坛公园"
+            },
+            "meal_evidence_status": "UNSPECIFIED",
+            "available_actions": [
+              "VIEW_DETAILS",
+              "REPLACE",
+              "DELETE",
+              "MOVE"
+            ],
+            "activity_token": "fixed-recorded-dining-day2-card2"
+          },
+          {
+            "name": "前门大街",
+            "category": "景点",
+            "city": "北京",
+            "area_or_address": "前门西河沿街1号",
+            "status": "READY",
+            "meal_role": null,
+            "dining_access": null,
+            "meal_evidence_status": "UNSPECIFIED",
+            "available_actions": [
+              "VIEW_DETAILS",
+              "REPLACE",
+              "DELETE",
+              "MOVE"
+            ],
+            "activity_token": "fixed-recorded-dining-day2-card3"
+          }
+        ],
+        "alternatives": [],
+        "meal_slots": []
+      }
+    ],
+    "map": {
+      "status": "NEEDS_UPDATE",
+      "message": "保存后需明确更新路线。",
+      "available_actions": [
+        "RENDER_MAP"
+      ]
+    },
+    "stay": {
+      "status": "UNAVAILABLE",
+      "message": "本固定快照不请求住宿",
+      "candidates": [],
+      "searched_scopes": [],
+      "available_actions": []
+    },
+    "available_actions": [
+      "EDIT_ASSUMPTIONS",
+      "EDIT_CARDS"
+    ]
+  }
+}
