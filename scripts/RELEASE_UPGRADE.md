@@ -42,6 +42,8 @@ Get-Content -Raw scripts/release_upgrade.py | ssh @releaseSsh "python3 - prepare
 
 ## 当前可执行的Linux构建试跑（由主任务串行触发）
 
+2026-09-13补充实际结果：四页面v13源码ef509a3已在新目录 `/opt/breezetravel-releases/desktop-v13-ef509a3-20260913` 只执行prepare完成。编译、类型、15页、standalone、exit0均已验证；1024MiB限额下峰值751,153,152字节，OOM/max事件0。旧三服务的ID、启动时间、重启次数及健康不变，正式PG仍035，未停写、复制/迁移业务库或切流。产物在 `.local-artifacts/evaluation/linux-v13-prepare-v1/`；该目录仅PREPARED，不能称新API或生产数据恢复通过，也不自动覆盖后来代码。上文a7c047c为历史构建。不要重复prepare或紧接着执行rehearse。
+
 先完成源码检查点，再使用该检查点同时取源码和CLI，避免发送还在编辑的工作树。以下只允许 `prepare`，不会创建DB、停止旧writer、调用真实模型或切nginx；不要顺手执行下一节的rehearse。代码包只有现有运行文件，私有设置留在服务器。
 
 ```powershell
