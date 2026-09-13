@@ -290,8 +290,19 @@ def _public_payload_is_redacted(payload: object) -> bool:
         return False
     if not FORBIDDEN_PUBLIC_KEYS.isdisjoint(keys):
         return False
-    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True).casefold()
-    return not any(marker in serialized for marker in _FORBIDDEN_PUBLIC_TEXT_MARKERS)
+    # Field names have already passed the exact public allowlist. A public
+    # status such as meal_evidence_status is not private evidence text; its
+    # value must still undergo the same diagnostic/sentinel check as any text.
+    def private_text(value: object) -> bool:
+        if isinstance(value, str):
+            return any(marker in value.casefold() for marker in _FORBIDDEN_PUBLIC_TEXT_MARKERS)
+        if isinstance(value, dict):
+            return any(private_text(child) for child in value.values())
+        if isinstance(value, list):
+            return any(private_text(child) for child in value)
+        return False
+
+    return not private_text(payload)
 
 
 def _empty_observation() -> dict[str, Any]:

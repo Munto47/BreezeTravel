@@ -9,6 +9,7 @@ from app.trip_understanding.experience_inference import SemanticDraft, _proposal
 from app.trip_understanding.semantic_recovery import _identity, merge_preserved_activities
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
 from tests.test_city_evidence_recovery import FixedCities, run
+from tests.test_experience_source_anchors import CapturedClient, provider
 
 
 SOURCE = "北京。\nDay1｜什刹海（皇城核心）\n傍晚去什刹海。之后去景山公园。"
@@ -28,14 +29,24 @@ def replies(*, reverse=False, name="什刹海", role="PLANNED"):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reverse", [False, True])
-async def test_summary_and_unique_body_repair_keeps_one_body_visit_and_valid_city(reverse):
+@pytest.mark.parametrize("relative_only", [True, False], ids=["relative", "legacy-clock"])
+async def test_summary_and_unique_body_repair_keeps_one_body_visit_and_valid_city(reverse, relative_only):
     first, second = replies(reverse=reverse)
-    # A mixed failure still uses the ordinary whole-answer repair. City-only
-    # failures have their own field patch and cannot change source anchors.
+    # Keep historical mixed clock repair explicit. The current contract needs
+    # an actual bad place field to reach whole-answer repair; clocks no longer
+    # supply that trigger, and city-only patches cannot move an occurrence.
     first["activities"][0].update(start_time="09:00", timing_source="TEXT",
                                   time_evidence="不存在的09点预约")
+    if relative_only:
+        first["activities"][1]["place_name"] = "不存在的景山分馆"
     assert _proposal_from_live_draft(SOURCE, SemanticDraft.model_validate(second)).unprocessed_count == 0
-    result, places = await run(SOURCE, first, second)
+    client = CapturedClient(first, second)
+    places = FixedCities()
+    result = await TripUnderstandingPipeline(provider(client, relative_only=relative_only), places).run(SOURCE)
+    assert len(client.calls) == 2 and result.inference_binding["repair_call_count"] == 1
+    errors = {issue["category"] for issue in result.inference_binding["calls"][0]["validation_errors"]}
+    assert ("PLACE_NOT_IN_SOURCE_QUOTE" if relative_only else "TIME_EVIDENCE_NOT_IN_SOURCE") in errors
+    assert not relative_only or "TIME_EVIDENCE_NOT_IN_SOURCE" not in errors
     planned = [m for m in result.proposal.mentions if m.role.value == "PLANNED"]
     assert [(m.atomic_place_name, m.span_start, m.span_end) for m in planned] == [
         ("什刹海", 22, 25), ("景山公园", 29, 33)]
@@ -97,12 +108,35 @@ async def test_reverse_repair_cannot_borrow_a_city_from_the_summary():
     first["activities"] = first["activities"][:1]
     second["activities"] = second["activities"][:1]
     first["activities"][0].update(start_time="09:00", timing_source="TEXT", time_evidence="没有这段时间")
+    # A valid city-patch shape must still fail the cross-city evidence check;
+    # rejecting an obsolete whole-answer shape would not test that boundary.
+    second = {"activities": [{"index": 0, "city": "北京", "city_evidence": "Day1 北京"}]}
     result, places = await run(source, first, second, FixedCities())
     body = [m for m in result.proposal.mentions if m.atomic_place_name == "星河公园"
             and m.span_start == source.index("星河公园", source.index("\n") + 1)]
     assert body and body[0].city_hint is None
     assert ("北京", "星河公园") not in places.calls
     assert result.public_result.coverage.complete is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True])
+async def test_relative_city_only_patch_preserves_the_original_occurrence(reverse):
+    first, _second = replies(reverse=reverse)
+    second = {"activities": [{"index": 0, "city": "北京", "city_evidence": "北京"}]}
+    result, places = await run(SOURCE, first, second)
+    planned = [item for item in result.proposal.mentions if item.role.value == "PLANNED"]
+    assert [(item.atomic_place_name, item.span_start, item.span_end, item.city_hint) for item in planned] == [
+        ("什刹海", 22 if reverse else 9, 25 if reverse else 12, "北京"),
+        ("景山公园", 29, 33, "北京"),
+    ]
+    assert [item.day_index for item in planned] == [1, 1]
+    assert all(SOURCE[item.span_start:item.span_end] == item.raw_text for item in planned)
+    assert [card.name for card in result.public_result.days[0].activities] == ["什刹海", "景山公园"]
+    assert places.calls == [("北京", "什刹海"), ("北京", "景山公园")]
+    call = result.inference_binding["calls"][1]
+    assert call["stage"] == "CITY_METADATA_REPAIR" and call["accepted_city_fields"] == 1
+    assert not any(item.category == "UNSUPPORTED_CITY_REMOVED" for item in result.proposal.diagnostics)
 
 
 @pytest.mark.parametrize("reverse", [False, True])

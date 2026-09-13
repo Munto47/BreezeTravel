@@ -64,6 +64,30 @@ def _identity(source: str, item: SemanticActivity) -> tuple[int, int] | None:
     return start, end
 
 
+def _broken_name_slot(source: str, item: SemanticActivity, original: SemanticDraft,
+                      rows: list[SemanticActivity]) -> int | None:
+    """Keep a uniquely quoted atomic visit's slot when only its name is broken."""
+    if not item.place_name:
+        return None
+    # A whole sentence or shared list is not an identity anchor for one member.
+    quoted_span = _identity(source, item.model_copy(update={"place_name": None}))
+    if quoted_span is None or quoted_span != _identity(source, item):
+        return None
+
+    def same_quote(row):
+        return (row.source_quote, row.occurrence) == (item.source_quote, item.occurrence)
+
+    slots = [index for index, row in enumerate(rows) if same_quote(row)]
+    if len(slots) != 1 or sum(same_quote(row) for row in original.activities) != 1:
+        return None
+    candidate = rows[slots[0]]
+    if (not candidate.place_name or _identity(source, candidate) is not None
+            or any(getattr(candidate, key) != getattr(item, key)
+                   for key in ("day_index", "role", "parent_source_quote"))):
+        return None
+    return slots[0]
+
+
 def _fill_missing_lodging_evidence(source: str, original: SemanticActivity,
                                   repaired: SemanticActivity) -> SemanticActivity:
     from app.trip_understanding.experience_inference import (
@@ -332,6 +356,15 @@ def merge_preserved_activities(source: str, original: SemanticDraft,
     existing = {_identity(source, item) for item in rows}
     for position, (identity, item) in enumerate(preserved):
         if identity in existing:
+            continue
+        # The second answer may keep the exact atomic occurrence but invent a
+        # different name. Preserve the verified original at that same slot,
+        # rather than moving it past newly recovered visits. No repaired fact
+        # is copied; the whole merged draft still passes the normal validator.
+        broken_name_slot = _broken_name_slot(source, item, original, rows)
+        if broken_name_slot is not None:
+            rows[broken_name_slot] = item
+            existing.add(identity)
             continue
         # A unique broken quote can still occupy the repaired item's intended
         # slot. Restore the already validated original quote/occurrence there;

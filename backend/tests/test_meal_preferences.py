@@ -18,6 +18,21 @@ from tests.test_semantic_supplement_budget import Client, provider
 MEALS = ['晚餐：铜锅涮肉（南门涮肉）、炸酱面', '晚餐：烤鸭（四季民福、紫光园）']
 
 
+@pytest.mark.parametrize("status", ["UNSPECIFIED", "LIGHT_FOOD_ITEMS_ONLY"])
+def test_public_meal_evidence_status_is_a_safe_field_not_private_text(status):
+    from evals.g07_text_convergence_v1.runner import _public_payload_is_redacted
+
+    assert _public_payload_is_redacted({"days": [{"meal_slots": [{"meal_evidence_status": status}]}]})
+
+
+@pytest.mark.parametrize("field", ["meal_evidence_status", "preference_text"])
+@pytest.mark.parametrize("text", ["private evidence", '{"provider_binding":"private"}', "Traceback: failure"])
+def test_public_meal_field_values_still_reject_private_diagnostic_text(field, text):
+    from evals.g07_text_convergence_v1.runner import _public_payload_is_redacted
+
+    assert not _public_payload_is_redacted({"days": [{"meal_slots": [{field: text}]}]})
+
+
 def fixture():
     return json.loads((Path(__file__).parent / 'fixtures/live_owner_beijing_meal_preferences.json').read_text(encoding='utf-8'))
 

@@ -24,10 +24,10 @@ def row(name, day=1, city="北京", evidence="城市核心", **extra):
                 city=city, city_evidence=evidence, category="景点", **extra)
 
 
-async def run(source, first, second, places=None):
+async def run(source, first, second, places=None, *, relative_only=True):
     client = CapturedClient(first, second)
     places = places or FixedCities()
-    output = await TripUnderstandingPipeline(provider(client), places).run(source)
+    output = await TripUnderstandingPipeline(provider(client, relative_only=relative_only), places).run(source)
     assert len(client.calls) == 2
     assert output.inference_binding["repair_call_count"] == 1
     return output, places
@@ -141,7 +141,8 @@ async def test_filtered_missing_name_row_cannot_shift_city_repair_to_a_valid_occ
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bad_quote", ["星河公园", "游览星河公园"])
-async def test_filtered_missing_name_row_keeps_time_repair_on_its_original_occurrence(bad_quote):
+@pytest.mark.parametrize("relative_only", [False, True], ids=["legacy-time", "current-relative"])
+async def test_filtered_missing_name_row_keeps_time_repair_on_its_original_occurrence(bad_quote, relative_only):
     source = "北京一日游。\nDay1：旅行开始，游览星河公园，10:00游览月光桥。"
     first = {"destination": "北京", "activities": [
         {"source_quote": "旅行开始", "role": "REFERENCE"},
@@ -154,9 +155,29 @@ async def test_filtered_missing_name_row_keeps_time_repair_on_its_original_occur
     second["activities"][0]["place_name"] = None
     for item in second["activities"][1:]:
         item.update(start_time=None, timing_source="UNSPECIFIED", time_evidence=None)
-    output, _places = await run(source, first, second)
+    output, places = await run(source, first, second, relative_only=relative_only)
     named = [item for item in output.proposal.mentions if item.atomic_place_name]
-    assert [(item.atomic_place_name, item.start_time) for item in named] == [("星河公园", None), ("月光桥", "10:00")]
+    assert [(item.atomic_place_name, item.day_index, item.role.value, item.city_hint, item.city_evidence)
+            for item in named] == [
+        ("星河公园", 1, "PLANNED", "北京", "北京一日游"),
+        ("月光桥", 1, "PLANNED", "北京", "北京一日游"),
+    ]
+    assert [(item.span_start, item.span_end) for item in named] == [
+        (source.index(name), source.index(name) + len(name)) for name in ("星河公园", "月光桥")]
+    assert all(source[item.span_start:item.span_end] == item.raw_text == item.atomic_place_name for item in named)
+    assert places.calls == [("北京", "星河公园"), ("北京", "月光桥")]
+    assert [card.name for day in output.public_result.days for card in day.activities] == ["星河公园", "月光桥"]
+    assert output.public_result.coverage.confirmed_place_count == 2
+    if relative_only:
+        assert all(item.start_time is None and item.end_time is None and item.visit_duration_minutes is None
+                   and item.time_hint is None and not item.locked and not item.fixed_commitment
+                   for item in output.proposal.mentions)
+        first_errors = output.inference_binding["calls"][0]["validation_errors"]
+        assert not any("TIME" in item["category"] for item in first_errors)
+    else:
+        # Legacy compatibility still protects the valid time on its own visit;
+        # filtering the nameless row must not shift repair authority onto it.
+        assert [(item.atomic_place_name, item.start_time) for item in named] == [("星河公园", None), ("月光桥", "10:00")]
     assert output.public_result.coverage.complete is True
     assert output.public_result.coverage.unprocessed_count == 0
 

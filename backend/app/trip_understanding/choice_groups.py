@@ -121,8 +121,10 @@ def _source_allows_choice(source, left, right, branches, day):
 def bind_choice_groups(source, original, mentions):
     """Validate typed groups and clarify only a complete explicit inline 'or'."""
     from app.trip_understanding.experience_inference import SourceAnchorIndex
+    from app.trip_understanding.guide_choices import explicit_choice_branches
 
     anchors = SourceAnchorIndex(source)
+    source_branches = explicit_choice_branches(source)
     by_identity = {}
     for mention in mentions:
         key = (mention.span_start, mention.span_end, mention.day_index, mention.role)
@@ -147,11 +149,23 @@ def bind_choice_groups(source, original, mentions):
                   and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} and not item.parent_mention_id}
         if actual != set(ids) or not _source_allows_choice(source, left, right, branches, next(iter(days))):
             return False
+        # Derive labels from the same verified source scopes as OPTIONAL roles,
+        # not from incoming mention metadata. Every member of each branch must
+        # belong to one distinct heading in the same source group and day.
+        labels = ["方案一", "方案二"]
+        heading_matches = [[heading for heading in source_branches
+            if all(heading.day == item.day_index and heading.start <= item.span_start < item.span_end <= heading.end
+                   for item in branch)] for branch in branches]
+        if all(len(matches) == 1 for matches in heading_matches):
+            first, second = (matches[0] for matches in heading_matches)
+            if (first.group_id == second.group_id and first.branch_id != second.branch_id and first.label != second.label
+                    and sum(heading.group_id == first.group_id for heading in source_branches) == 2):
+                labels = [first.label, second.label]
         group_id = f"choice-{left}-{right}"
         for index, branch in enumerate(branches):
             for item in branch:
                 assignments[item.mention_id] = {"choice_group_id": group_id,
-                    "branch_id": f"{group_id}-{index + 1}", "branch_label": f"方案{'一二'[index]}",
+                    "branch_id": f"{group_id}-{index + 1}", "branch_label": labels[index],
                     "choice_group_selectable": True}
         occupied.update(ids)
         return True

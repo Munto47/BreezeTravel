@@ -9,6 +9,7 @@ import asyncio,json
 from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.models import UserFacingTripResult,ChoiceClearCommand,UndoCommand,ActivityMoveCommand,AlternativeInsertCommand
 from tests.test_choice_group_selection import build_choice_states,select_command,build_unsupported_choice_result
+from tests.test_source_choice_labels import build_source_label_states
 async def main():
     values=await build_choice_states()
     states={k:UserFacingTripResult.model_validate(v) for k,v in values.items()}
@@ -41,6 +42,9 @@ async def main():
     states['inserted']=apply_public_command(states['unsupported'],insert).result
     edges.append(dict(start='unsupported',end='inserted',command=insert.model_dump(mode='json',exclude_unset=True)))
     transition('inserted','undone_insert',UndoCommand(command_type='UNDO'),undo_result=states['unsupported'])
+    labeled=await build_source_label_states()
+    states.update({k:UserFacingTripResult.model_validate(v) for k,v in labeled['states'].items()})
+    edges.extend(labeled['edges'])
     print(json.dumps(dict(states={k:v.model_dump(mode='json') for k,v in states.items()},edges=edges),ensure_ascii=False))
 asyncio.run(main())
 `], {cwd: path.resolve(__dirname, '../../backend'), encoding: 'utf8',
@@ -107,7 +111,56 @@ function visitContent(value) {
     ['activity_token', 'before_activity_token', 'after_activity_token'].includes(key) ? undefined : item))
 }
 
-for (const width of [1440, 390]) test(`source choice select confirm clear and undo at ${width}px`, async ({page}, info) => {
+test('original A B labels remain selectable through refresh clear and undo at 1440px', async ({page}, info) => {
+  // The response comes from fixed semantic/identity providers through the real
+  // pipeline and commands. No source label is substituted in this page fixture.
+  const state = await show(page, 1440, 'labeled_before')
+  const group = page.getByTestId('itinerary-choice-group')
+  const day = page.getByTestId('day-lane-1')
+  await expect(day).toContainText('这一天的地点仍是备选')
+  await expect(group.getByRole('button', {name: '选择方案：方案A', exact: true})).toBeEnabled()
+  await expect(group.getByRole('button', {name: '选择方案：方案B', exact: true})).toBeEnabled()
+  await expect(group).not.toContainText('方案一')
+  await expect(group).not.toContainText('方案二')
+  await page.screenshot({path: info.outputPath('source-a-b-before.png'), fullPage: true})
+  await group.getByRole('button', {name: '选择方案：方案A', exact: true}).click()
+  await changed(page, state, 'labeled_selected')
+  expect(state.result.days.map(d => d.activities.map(c => c.name))).toEqual([['良渚文化村'], ['西湖']])
+  expect(state.result.days[0].activities[0].status).toBe('NEEDS_CONFIRMATION')
+  await page.reload()
+  await expect(day).toContainText('这一天已安排 1 个地点，待确认后显示卡片。')
+  await expect(day).not.toContainText('这一天的地点仍是备选')
+  await page.getByTestId('toggle-day-1').click()
+  const overview = page.getByTestId('day-overview-1')
+  await expect(overview).toContainText('1 个地点待确认。')
+  await expect(overview).toContainText('2 个备选地点及方案状态可展开查看。')
+  await expect(overview).not.toContainText('尚未加入主线')
+  await page.getByTestId('toggle-day-1').click()
+  await page.getByTestId('day-alternatives-1').click()
+  await expect(group).toContainText('方案A')
+  await expect(group).toContainText('已选方案加入行程，地点仍需确认')
+  await expect(group.getByRole('button', {name: '未选择此方案', exact: true})).toBeDisabled()
+  await page.getByRole('button', {name: '撤销方案选择', exact: true}).click()
+  await changed(page, state, 'labeled_cleared')
+  expect(state.result.days.map(d => d.activities.map(c => c.name))).toEqual([[], ['西湖']])
+  await expect(day).toContainText('这一天的地点仍是备选')
+  await expect(group.getByRole('button', {name: '选择方案：方案B', exact: true})).toBeEnabled()
+  await page.getByLabel('关闭建议').click()
+  await page.getByTestId('undo-trip-command').click()
+  await changed(page, state, 'labeled_restored')
+  await page.getByTestId('day-alternatives-1').click()
+  await expect(group).toContainText('方案A')
+  await expect(group).toContainText('已选方案加入行程，地点仍需确认')
+  expect(state.result.days.map(d => d.activities.map(c => c.name))).toEqual([['良渚文化村'], ['西湖']])
+  expect(state.commands.map(c => c.command_type)).toEqual(['CHOICE_SELECT', 'CHOICE_CLEAR', 'UNDO'])
+  await page.screenshot({path: info.outputPath('source-a-b-restored.png'), fullPage: true})
+  await info.attach('source-label-command-snapshots', {
+    body: JSON.stringify({scope: 'FIXED_PROVIDER_PIPELINE_AND_COMMANDS_ZERO_EXTERNAL_CALLS', ...state}),
+    contentType: 'application/json',
+  })
+})
+
+for (const width of [1440, 390]) test(`source choice select confirm clear and undo at ${width}px`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}, info) => {
   const state = await show(page, width)
   await expect(page.getByLabel('方案加入位置')).toHaveValue('source')
   await page.getByRole('button', {name: '选择方案：方案一', exact: true}).evaluate(button => {button.click(); button.click()})
@@ -144,8 +197,8 @@ for (const width of [1440, 390]) test(`source choice select confirm clear and un
   await info.attach('actual-command-snapshots', {body: JSON.stringify({scope: 'FIXED_PROVIDER_AND_REAL_COMMAND_MUTATIONS_ZERO_NETWORK', ...state}), contentType: 'application/json'})
 })
 
-test('old source choice has no guessed insertion position', async ({page}) => {
-  const state = await show(page, 390, 'before', true)
+for (const width of [1440, 390]) test(`old source choice has no guessed insertion position at ${width}px`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}) => {
+  const state = await show(page, width, 'before', true)
   await expect(page.getByLabel('方案加入位置')).toHaveValue('')
   await expect(page.getByRole('button', {name: '选择方案：方案一', exact: true})).toBeDisabled()
   expect(state.commands).toHaveLength(0)
@@ -154,7 +207,7 @@ test('old source choice has no guessed insertion position', async ({page}) => {
   await changed(page, state, 'selected')
 })
 
-for (const width of [1440, 390]) test(`modified choice detaches without deleting visits at ${width}px`, async ({page}, info) => {
+for (const width of [1440, 390]) test(`modified choice detaches without deleting visits at ${width}px`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}, info) => {
   const state = await show(page, width, 'modified')
   const originalNames = state.result.days.map(d => d.activities.map(c => c.name))
   await expect(page.getByRole('button', {name: '未选择此方案', exact: true})).toBeDisabled()
@@ -175,8 +228,8 @@ for (const width of [1440, 390]) test(`modified choice detaches without deleting
   await page.screenshot({path: info.outputPath('choice-modified-detach-undo.png'), fullPage: true})
 })
 
-test('complex saved choice permits one manual pending visit without selecting the group on mobile', async ({page}, info) => {
-  const state = await show(page, 390, 'unsupported', false, 3)
+for (const width of [1440, 390]) test(`complex saved choice permits one manual pending visit without selecting the group at ${width}px`, {tag: width === 390 ? '@small-screen' : '@desktop'}, async ({page}, info) => {
+  const state = await show(page, width, 'unsupported', false, 3)
   const original = structuredClone(state.result)
   const group = page.getByTestId('itinerary-choice-group')
   await expect(group).toContainText('这组方案需要逐项确认，暂时不能整组加入。')

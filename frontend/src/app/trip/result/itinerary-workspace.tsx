@@ -546,7 +546,7 @@ export default function ItineraryWorkspace({
                       </li>)}
                     </ol> : <p className="four-overview-note">当天尚无已确认的主线地点。</p>}
                     {mealDescriptions.length > 0 && <ul className="four-overview-meals" aria-label={`${relativeDayLabel(dayOffset)}折叠原文用餐安排`}>{mealDescriptions.map((text, index) => <li key={index}><UtensilsCrossed aria-hidden="true"/>{text}</li>)}</ul>}
-                    {(pendingCount > 0 || !!day.unprocessed_count || !!day.alternatives?.length) && <p className="four-overview-note">{pendingCount > 0 ? `${pendingCount} 个地点待确认。` : ''}{day.unprocessed_count ? `${day.unprocessed_count} 处原文尚未整理。` : ''}{day.alternatives?.length ? `另有 ${day.alternatives.length} 个备选，尚未加入主线。` : ''}</p>}
+                    {(pendingCount > 0 || !!day.unprocessed_count || !!day.alternatives?.length) && <p className="four-overview-note">{pendingCount > 0 ? `${pendingCount} 个地点待确认。` : ''}{day.unprocessed_count ? `${day.unprocessed_count} 处原文尚未整理。` : ''}{day.alternatives?.length ? `${day.alternatives.length} 个备选地点及方案状态可展开查看。` : ''}</p>}
                   </div>}
 
                   <div id={`day-content-${dayIndex}`} className="four-day-content" hidden={collapsed}>
@@ -554,7 +554,7 @@ export default function ItineraryWorkspace({
                       resource={resource} etag={etag} disabled={locked} onCommand={onCommand}/>
                     {renderDaySuggestion?.(dayIndex)}
                     {!!day.unprocessed_count && <p className="py-4 text-sm text-amber-800" data-testid={`day-unprocessed-${dayIndex}`}>这一天尚有 {day.unprocessed_count} 处原文内容尚未整理完成，请对照原文补全。已确认的安排可以继续使用。</p>}
-                    {!day.activities.length && !day.unprocessed_count && <p className="py-4 text-sm text-slate-500">{day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
+                    {!day.activities.length && (pendingCount > 0 || !day.unprocessed_count) && <p className="py-4 text-sm text-slate-500">{pendingCount > 0 ? `这一天已安排 ${pendingCount} 个地点，待确认后显示卡片。` : day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
 
                     {layoutMode === 'LIST' ? (
                       <ol className="mt-3 grid gap-3" aria-label={`${relativeDayLabel(dayOffset)} 地点列表`}>
