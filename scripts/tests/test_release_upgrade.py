@@ -906,6 +906,23 @@ def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
             cipher.decrypt(bytes(encrypted), source_id=source_id, content_hash=content_hash)
         return len(rows)
 
+    def preserved_rows(conn):
+        # Compare values in memory, not only counts. Do not log private trips,
+        # tokens, command responses or the JSON contained in these rows.
+        tables = ("trip_understandings", "trip_understanding_revisions",
+                  "trip_understanding_activities", "trip_understanding_results",
+                  "trip_understanding_idempotency_records",
+                  "itinerary_revisions", "itinerary_edit_commands",
+                  "trip_plan_revision_refs", "trip_map_render_jobs",
+                  "trip_map_render_snapshots", "trip_map_route_edges",
+                  "trip_map_route_mode_facts", "trip_stay_selections",
+                  "room_itinerary_revisions", "room_itinerary_requests")
+        return {table: conn.execute(sql.SQL(
+            "SELECT to_jsonb(t)::text FROM {} t ORDER BY to_jsonb(t)::text"
+        ).format(sql.Identifier(table))).fetchall()
+            if conn.execute("SELECT to_regclass(%s)", (table,)).fetchone()[0] else []
+            for table in tables}
+
     def migrate_local(db):
         dsn = f"postgresql://{quote(connection['user'], safe='')}:{quote(password, safe='')}@127.0.0.1:{port}/{db}"
         if os.name == "nt":
@@ -924,6 +941,7 @@ def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
             original.execute("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY")
             snapshot = original.execute("SELECT pg_export_snapshot()").fetchone()[0]
             expected = counts(original)
+            expected_rows = preserved_rows(original)
             encrypted_count = decryptable(original)
             native("pg_dump", source_db, "-Fc", "-f", str(archive), snapshot=snapshot)
             original.execute("ROLLBACK")
@@ -932,6 +950,7 @@ def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
         with psycopg.connect(**connection, dbname=names[0], autocommit=True) as restored:
             assert counts(restored) == expected, "Restored local rows differ"
             assert decryptable(restored) == encrypted_count, "Restored source encryption differs"
+            assert preserved_rows(restored) == expected_rows, "Restored trip, command, map or shared-route values differ"
             restored.execute("INSERT INTO rooms(room_id,thread_id,trip_city) VALUES('upgrade-new-write','upgrade-thread','上海')")
         recovery = private / "current-after-write.dump"
         native("pg_dump", names[0], "-Fc", "-f", str(recovery))
@@ -941,8 +960,11 @@ def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
             assert recovered.execute("SELECT count(*) FROM rooms WHERE room_id='upgrade-new-write'").fetchone()[0] == 1
             assert counts(recovered) == {**expected, "rooms": expected["rooms"] + 1}
             assert decryptable(recovered) == encrypted_count
+            assert preserved_rows(recovered) == expected_rows, "Recovery changed existing trip, command, map or shared-route values"
         report.update(real_local_restore="PASS", retained_counts=expected,
-                      encrypted_sources_readable=encrypted_count, recovery_keeps_new_write="PASS")
+                      encrypted_sources_readable=encrypted_count, recovery_keeps_new_write="PASS",
+                      restored_business_values="PASS", recovered_business_values="PASS",
+                      compared_row_counts={table: len(rows) for table, rows in expected_rows.items()})
 
         # A separate 035 schema mirrors the current server version. These rows are synthetic.
         baseline = names[1]
@@ -963,6 +985,8 @@ def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
             old.execute("INSERT INTO trip_understanding_sources(source_id,understanding_id,source_type,content_hash,encrypted_content,encryption_key_ref,retention_until) VALUES('drill-source','drill-trip','TEXT',%s,%s,%s,NOW()+INTERVAL '1 day')", (content_hash, encrypted, cipher.key_ref))
             old.execute("INSERT INTO trip_understanding_revisions(understanding_id,revision,source_id,status,content_hash,destination_json,assumptions_json,proposal_json,inference_binding_json,compiler_receipt_json) VALUES('drill-trip',1,'drill-source','PARTIAL',%s,'{}','[]','{}','{}','{}')", (content_hash,))
             old.execute("INSERT INTO trip_plan_revision_refs(plan_ref_id,understanding_id,revision_kind,aggregate_id,revision,stop_set_hash) VALUES('drill-plan','drill-trip','UNDERSTANDING','drill-trip',1,repeat('0',64))")
+            old.execute("INSERT INTO trip_map_render_jobs(map_job_id,plan_ref_id,understanding_id,route_config_hash,logical_key_hash,request_origin,status) VALUES('drill-old-map','drill-plan','drill-trip',repeat('2',64),repeat('2',64),'INITIAL','UNAVAILABLE')")
+            old_map = old.execute("SELECT to_jsonb(t) FROM trip_map_render_jobs t WHERE map_job_id='drill-old-map'").fetchone()[0]
             old.execute("INSERT INTO trip_stay_recommendation_jobs(stay_job_id,plan_ref_id,understanding_id,policy_hash,logical_key_hash,status) VALUES('drill-job','drill-plan','drill-trip',repeat('0',64),repeat('1',64),'READY')")
             old.execute("INSERT INTO trip_stay_recommendation_snapshots(snapshot_id,stay_job_id,plan_ref_id,status,policy_hash,area_summary,searched_scopes_json,candidate_count,snapshot_sha256,provider_binding_json,started_at,finished_at,observed_at) VALUES('drill-snapshot','drill-job','drill-plan','READY',repeat('0',64),'迁移样例','[]',1,repeat('0',64),'{}',NOW(),NOW(),NOW())")
             old.execute("INSERT INTO trip_stay_candidates(candidate_id,snapshot_id,public_candidate_token,rank,canonical_place_id,name,brand,category,area_or_address,city,longitude,latitude,total_score,max_single_leg_minutes,transfer_count,missing_leg_count,evidence_penalty,provider_binding_json) VALUES('drill-candidate','drill-snapshot','upgrade-drill-public-candidate',1,'drill-place','迁移样例酒店','样例','住宿','样例地址','北京',116,39,0,0,0,0,0,'{}')")
@@ -977,9 +1001,16 @@ def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
             assert upgraded.execute("SELECT segment_key,selected_place_id,overnight_days FROM trip_stay_selections").fetchone() == ("legacy", "drill-place", [1])
             assert upgraded.execute("SELECT refresh_generation FROM trip_stay_recommendation_jobs").fetchone()[0] == 0
             applied = [row[0] for row in upgraded.execute("SELECT filename FROM applied_migrations WHERE filename>='036' ORDER BY filename")]
-            assert len(applied) == 4
+            expected_migrations = sorted(file.name for file in
+                (repository / "backend/app/db/migrations").glob("*.sql") if int(file.name[:3]) > 35)
+            assert applied == expected_migrations
+            current_map = upgraded.execute("SELECT to_jsonb(t) FROM trip_map_render_jobs t WHERE map_job_id='drill-old-map'").fetchone()[0]
+            assert current_map == {**old_map, "render_generation": 0}
+            assert upgraded.execute("SELECT count(*) FROM room_itinerary_revisions").fetchone()[0] == 0
+            assert upgraded.execute("SELECT count(*) FROM room_itinerary_requests").fetchone()[0] == 0
             upgraded.execute("SELECT metrics_json FROM trip_daily_dining_jobs LIMIT 1")
-        report.update(schema_035_to_current="PASS", repeated_migration="PASS", legacy_stay_selection="PASS", appended_migrations=applied)
+        report.update(schema_035_to_current="PASS", repeated_migration="PASS", legacy_stay_selection="PASS",
+                      legacy_map_generation_zero="PASS", shared_route_tables_added="PASS", appended_migrations=applied)
         # Exercise the actual preview queue-isolation SQL against real constraints.
         # Only this synthetic database is changed, never the source or restored live copy.
         with psycopg.connect(**connection, dbname=baseline, autocommit=True) as preview:
@@ -992,8 +1023,8 @@ def local_restore_drill(local_env: Path, pg_bin: Path) -> dict:
             operation.run = lambda *args, **kw: preview.execute(args[-1]) and ""
             operation.pause_copied_jobs()
             for table in ("trip_understanding_jobs", "trip_map_render_jobs", "trip_stay_recommendation_jobs", "trip_daily_dining_jobs"):
-                row = preview.execute(sql.SQL("SELECT status,lease_owner,lease_until FROM {} LIMIT 1").format(sql.Identifier(table))).fetchone()
-                assert row[0] in {"FAILED", "UNAVAILABLE"} and row[1:] == (None, None)
+                rows = preview.execute(sql.SQL("SELECT status,lease_owner,lease_until FROM {}").format(sql.Identifier(table))).fetchall()
+                assert rows and all(row[0] in {"FAILED", "UNAVAILABLE"} and row[1:] == (None, None) for row in rows)
             # A new preview job created after pausing is not touched by repeated preview starts.
             preview.execute("UPDATE trip_understanding_jobs SET status='QUEUED'")
             assert preview.execute("SELECT status FROM trip_understanding_jobs").fetchone()[0] == "QUEUED"

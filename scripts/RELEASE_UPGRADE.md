@@ -103,4 +103,6 @@ ssh @releaseSsh -N -L 3128:127.0.0.1:3128 -L 8028:127.0.0.1:8028 -L 1256:127.0.0
 & D:/CODEX/BreezeTravel/.venv/Scripts/python.exe scripts/tests/test_release_upgrade.py --local-env .local-artifacts/experience/experience.env --pg-bin D:/CODEX/BreezeTravel-G07-Tools/postgres16-pgvector/bin
 ```
 
-第二条读取当前本地数据库快照，在三个自己创建的临时DB验证真实恢复、加密原文、旧住宿选择、035→039重复迁移、保留新写入、副本任务租约隔离和拒绝假预发结果；结束只清理自己的临时库。它不验证Linux镜像、真实供应商或生产部署。
+第二条读取当前本地数据库快照，在三个自己创建的临时DB验证真实恢复、加密原文、旧住宿选择、035→当前全部追加迁移、保留新写入、副本任务租约隔离和拒绝假预发结果。恢复前后在内存逐行比较行程、结果、幂等响应、地图任务/快照/路段和共同路线，不公开这些私有内容；结束只清理自己的临时库。它不验证Linux镜像、Yjs文件副本、真实供应商或生产部署。
+
+2026-09-13本机最终演练已通过：035→041及重复迁移保留旧酒店选择，旧地图任务仅增加代次0，共同路线新表为空；当前数据副本恢复及新增一间测试房间后再次恢复，原业务行逐项一致、20份加密原文可解密。原检查硬编码只有4项追加迁移而失败的记录保留，未跳过040/041。最终输出在`.local-artifacts/verification/release-restore-041-final.json`。生产当前数据与Yjs的一致副本及最终应用恢复仍须另行演练。
