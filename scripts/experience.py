@@ -70,7 +70,7 @@ def existing_collaboration_config() -> dict[str, str]:
     discovered = {}
     for source in (ROOT.parent / "BreezeTravel" / ".env", ROOT / ".env"):
         discovered.update({k: v for k, v in read_env(source).items() if v})
-    keys = ("DEEPSEEK_API_KEY", "DEEPSEEK_API_URL", "OPENAI_API_KEY", "OPENAI_API_URL",
+    keys = ("KIMI_FOR_CODE", "KIMI_API_URL", "KIMI_MODEL", "DEEPSEEK_API_KEY", "DEEPSEEK_API_URL", "OPENAI_API_KEY", "OPENAI_API_URL",
             "LLM_MODEL_ROUTER", "LLM_MODEL_SYNTHESIZER")
     return {k: os.environ.get(k) or discovered[k] for k in keys if os.environ.get(k) or discovered.get(k)}
 
@@ -563,7 +563,8 @@ def start(*, no_web: bool = False, dev: bool = False) -> None:
     validate_runtime_binding(state)
     preflight_runtime_ports(state, no_web=no_web)
     values = configure()
-    missing = [name for name in ("QWEN_API_KEY", "AMAP_API_KEY", "TRIP_UNDERSTANDING_QWEN_MODEL") if not values.get(name)]
+    required = ("AMAP_API_KEY",) if values.get("KIMI_FOR_CODE") else ("QWEN_API_KEY", "AMAP_API_KEY", "TRIP_UNDERSTANDING_QWEN_MODEL")
+    missing = [name for name in required if not values.get(name)]
     if missing:
         raise RuntimeError("Existing provider configuration is missing: " + ", ".join(missing))
     env = environment(values)

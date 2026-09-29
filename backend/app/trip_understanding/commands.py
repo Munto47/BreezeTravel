@@ -7,7 +7,11 @@ from typing import Callable
 from app.trip_understanding.errors import CommandTargetChangedError
 from app.trip_understanding.models import (
     MAX_TRIP_ACTIVITIES,
+    IssueDispositionCommand,
+    SourceRestoreCommand, SourceNoteView,
     ActivityCardView,
+    ActivityAlternativeView,
+    VisitDecision,
     ActivityDeleteCommand,
     ActivityInsertCommand,
     AlternativeInsertCommand,
@@ -43,10 +47,19 @@ class PublicCommandMutation:
     changed_days: list[str]
     token_map: dict[str, str]
     inserted_token: str | None = None
+    routes_changed: bool = True
 
 
 def _default_token() -> str:
     return secrets.token_urlsafe(24)
+
+
+def _decision_occurrences(result: UserFacingTripResult, card: ActivityCardView) -> list[str]:
+    previous = result.visit_decisions.get(card.visit_id)
+    values = list(previous.source_occurrence_ids) if previous else []
+    if card.source_occurrence_id and card.source_occurrence_id not in values:
+        values.append(card.source_occurrence_id)
+    return values
 
 
 def _find_card(
@@ -195,6 +208,8 @@ def apply_public_command(
     current_place_id: str | None = None,
     source_lunch_gaps: dict[str, str] | None = None,
     dining_plan=None,
+    verified_issue=None,
+    source_fragment=None,
 ) -> PublicCommandMutation:
     result = current.model_copy(deep=True)
     changed: set[str] = set()
@@ -202,9 +217,45 @@ def apply_public_command(
     filled_gap_token: str | None = None
     confirmed_dining_state = None
 
-    if isinstance(command, (UndoCommand, RedoCommand)):
+    if isinstance(command, SourceRestoreCommand):
+        if not source_fragment or command.day_index > len(result.days):
+            raise CommandTargetChangedError('a current source fragment is required')
+        fragment_id=source_fragment['fragment_id']
+        if fragment_id in result.source_restorations:
+            raise CommandTargetChangedError('source fragment is already restored')
+        day=result.days[command.day_index-1]
+        if command.position>len(day.activities):
+            raise CommandTargetChangedError('source insertion position changed')
+        if command.kind=='PLACE':
+            if not command.name or atomic_place_rejection_reason(command.name) or len(result_cards(result))>=MAX_TRIP_ACTIVITIES:
+                raise CommandTargetChangedError('a valid place name is required')
+            inserted_card=ActivityCardView(activity_token=token_factory(),name=command.name,category='地点',
+                area_or_address='地点待确认',status='NEEDS_CONFIRMATION',source_fragment_id=fragment_id,
+                available_actions=['VIEW_DETAILS','REPLACE','DELETE','MOVE'])
+            day.activities.insert(command.position,inserted_card)
+        else:
+            from app.trip_understanding.source_restore import note_text
+            day.source_notes.append(SourceNoteView(note_id=fragment_id,text=note_text(source_fragment['text']),position=command.position))
+        result.source_restorations[fragment_id]={'kind':command.kind,'source_version':source_fragment['version'],
+            'start':str(source_fragment['start']),'end':str(source_fragment['end']),'day_id':day.day_id}
+        changed.add(day.label)
+    elif isinstance(command, IssueDispositionCommand):
+        if command.disposition == "OPEN":
+            if command.issue_id not in result.issue_dispositions:
+                raise CommandTargetChangedError("issue disposition no longer exists")
+            del result.issue_dispositions[command.issue_id]
+        else:
+            if verified_issue is None or verified_issue.issue_id != command.issue_id:
+                raise CommandTargetChangedError("issue is not present in current checks")
+            result.issue_dispositions[command.issue_id] = {
+                "status": "IGNORED", "title": verified_issue.title, "message": verified_issue.message,
+                "input_fingerprint": verified_issue.input_fingerprint,
+            }
+        # Disposition is separate from check status. In particular it cannot
+        # turn an unknown or violated finding into a passed check.
+    elif isinstance(command, (UndoCommand, RedoCommand)):
         target = undo_result if isinstance(command, UndoCommand) else redo_result
-        available = current.can_undo if isinstance(command, UndoCommand) else current.can_redo
+        available = (current.can_undo or bool(command.change_etag)) if isinstance(command, UndoCommand) else current.can_redo
         if not available or target is None:
             raise CommandTargetChangedError("no edit is available to restore")
         result = target.model_copy(deep=True)
@@ -299,7 +350,7 @@ def apply_public_command(
         card.category = confirmed_place.category
         card.area_or_address = confirmed_place.area_or_address
         card.city = confirmed_place.city
-        card.photo_url = None
+        card.photo_url = confirmed_place.photo_url
         card.status = "READY"
         card.knowledge_suggestions = []
     elif isinstance(command, LodgingRecoverCommand):
@@ -448,6 +499,7 @@ def apply_public_command(
             if atomic_place_rejection_reason(member.name) is not None:
                 raise CommandTargetChangedError("choice member requires clarification")
             card = ActivityCardView(activity_token=token_factory(), name=member.name, city=member.city,
+                source_occurrence_id=member.source_occurrence_id,
                 category=member.category, meal_role=member.meal_role, area_or_address="地点待确认",
                 source_details=[detail.model_copy(deep=True) for detail in member.source_details],
                 **timing_values(member), status="NEEDS_CONFIRMATION",
@@ -466,18 +518,36 @@ def apply_public_command(
         if len(matches) != 1 or matches[0][0] != command.day_index:
             raise CommandTargetChangedError("alternative is no longer unique in this day's current result")
         member = matches[0][1]
-        if command.position > len(day.activities) or len(result_cards(result)) >= MAX_TRIP_ACTIVITIES:
+        target = next((card for card in day.activities if card.visit_id == member.replaces_visit_id), None)
+        if member.replaces_visit_id and target is None:
+            raise CommandTargetChangedError("the visit to replace was deleted or moved; refresh this choice")
+        if command.position > len(day.activities) or (target is None and len(result_cards(result)) >= MAX_TRIP_ACTIVITIES):
             raise CommandTargetChangedError("alternative position or trip capacity is unavailable")
         if atomic_place_rejection_reason(member.name) is not None:
             raise CommandTargetChangedError("alternative requires clarification")
         inserted_card = ActivityCardView(
             activity_token=token_factory(), name=member.name, city=member.city,
+            source_occurrence_id=member.source_occurrence_id,
             category=member.category, meal_role=member.meal_role,
             source_details=[detail.model_copy(deep=True) for detail in member.source_details],
             area_or_address="地点待确认", **timing_values(member), status="NEEDS_CONFIRMATION",
             available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
         )
-        day.activities.insert(command.position, inserted_card)
+        if target:
+            inserted_card.visit_id = target.visit_id
+            inserted_card.note = target.note
+            day.activities[day.activities.index(target)] = inserted_card
+            day.alternatives.remove(member)
+            day.alternatives.append(ActivityAlternativeView(name=target.name, category=target.category, city=target.city,
+                source_occurrence_id=target.source_occurrence_id,
+                activity_token=token_factory(), replaces_visit_id=target.visit_id, replaces_name=member.name,
+                replacement_condition="恢复原安排", meal_role=target.meal_role,
+                source_details=[detail.model_copy(deep=True) for detail in target.source_details]))
+            result.visit_decisions[target.visit_id] = VisitDecision(action="REPLACE", name=target.name,
+                source_occurrence_ids=_decision_occurrences(result, target),
+                selected_alternative_id=member.alternative_id)
+        else:
+            day.activities.insert(command.position, inserted_card)
         changed.add(day.label)
     elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
@@ -498,10 +568,14 @@ def apply_public_command(
     elif isinstance(command, ActivityDeleteCommand):
         constraint = next((card for card in result.lodging_constraints if card.activity_token == command.activity_token), None)
         if constraint:
+            result.visit_decisions[constraint.visit_id] = VisitDecision(action="DELETE", name=constraint.name,
+                source_occurrence_ids=_decision_occurrences(result, constraint))
             result.lodging_constraints.remove(constraint)
             changed.update(result.days[night - 1].label for night in constraint.overnight_days)
         else:
             day_index, position, _card = _find_card(result.days, command.activity_token)
+            result.visit_decisions[_card.visit_id] = VisitDecision(action="DELETE", name=_card.name,
+                source_occurrence_ids=_decision_occurrences(result, _card))
             changed.add(result.days[day_index].label)
             result.days[day_index].activities.pop(position)
     elif isinstance(command, ActivityMoveCommand):
@@ -514,8 +588,12 @@ def apply_public_command(
         changed.update((source_label, target.label))
     elif isinstance(command, ActivityTextEditCommand):
         day_index, _position, card = _find_card(result.days, command.activity_token)
+        if command.note is not None:
+            card.note = command.note.strip()
         if command.name is not None:
             if command.name != card.name:
+                result.visit_decisions[card.visit_id] = VisitDecision(action="REPLACE", name=card.name,
+                    source_occurrence_ids=_decision_occurrences(result, card))
                 card.source_details = []
             card.name = command.name
             card.area_or_address = "地点待确认"
@@ -531,6 +609,8 @@ def apply_public_command(
         changed.add(result.days[day_index].label)
     elif isinstance(command, PlaceReplaceCommand):
         day_index, _position, card = _find_card(result.days, command.activity_token)
+        result.visit_decisions[card.visit_id] = VisitDecision(action="REPLACE", name=card.name,
+            source_occurrence_ids=_decision_occurrences(result, card))
         card.source_details = []
         card.name = command.replacement.name
         card.category = command.replacement.category
@@ -609,13 +689,16 @@ def apply_public_command(
     result.can_undo = not isinstance(command, UndoCommand)
     result.can_redo = isinstance(command, UndoCommand)
     result.map = MapReadinessView(
-        status="NEEDS_UPDATE",
-        message="卡片已调整，路线地图需要手动更新",
-        available_actions=["RENDER_MAP"],
+        status="PREPARING",
+        message="修改已保存，正在更新相关路线",
+        available_actions=[],
     )
     return PublicCommandMutation(
         result=result,
         changed_days=list(dict.fromkeys(day.label for day in [*current.days, *result.days] if day.label in changed)),
         token_map=token_map,
         inserted_token=inserted_token,
+        routes_changed=not (isinstance(command, IssueDispositionCommand) or
+            isinstance(command, ActivityTextEditCommand) and command.name is None or
+            isinstance(command, SourceRestoreCommand) and command.kind == 'NOTE'),
     )

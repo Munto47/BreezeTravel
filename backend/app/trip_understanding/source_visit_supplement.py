@@ -215,14 +215,22 @@ def _purpose_supported(row):
             if re.search(r"不|并非|不是", text[max(0, explicit.start() - 3):explicit.start()]):
                 return None
             return explicit.span()
-        restriction = re.search(r"(?:不|不用|无需|不必)[^。；;\n]{0,8}(?:进|入)(?:馆|园|内|内部|场馆)", text)
+        restriction = re.search(r"(?:不|不用|无需|不必)[^。；;\n]{0,8}(?:进|入)(?:馆|园|校|内|内部|场馆)", text)
         return restriction.span() if restriction and re.search(r"外观|外面|门外|外部|外立面|外广场", text) else None
-    action = re.search(r"取[^。；;\n]{0,8}(?:行李|寄存|物品|物)", text)
-    return action.span() if (action and re.search(r"(?:只|仅)[^。；;\n]{0,12}取", text)
-        and re.search(r"不(?:进|入|参观)[^。；;\n]{0,6}(?:展厅|内部|馆|园)", text)) else None
+    action = re.search(r"取(?:[^。；;\n]{0,8}(?:行李|寄存|物品|物)|"
+                       r"[^。；;，,\n]{0,8}(?:落下|遗落|寄放|存放)的[^。；;，,\n]{1,12})", text)
+    if not action or re.search(r"不|无需|不用|取消", text[max(0, action.start() - 4):action.start()]):
+        return None
+    no_entry = re.search(r"不(?:再)?(?:进|入|参观|游览)[^。；;\n]{0,6}(?:展厅|内部|馆|园|城内|镇内)|"
+                         r"不(?:再)?参观(?=$|[，,。；;！？!?\s])", text)
+    only_pickup = re.search(r"(?:只|仅)[^。；;\n]{0,12}取", text)
+    return_pickup = re.search(r"(?:回|返回|再到)[^。；;\n]{1,40}取", text)
+    # A return visit with an explicit no-entry restriction has the same meaning
+    # as “only pick up”. Retain the original occurrence/parent checks below.
+    return action.span() if no_entry and (only_pickup or return_pickup) else None
 
 
-def _unique_purpose_action(source: str, row: SourceVisitPurpose, evidence_match):
+def _unique_purpose_action(source: str, row: SourceVisitPurpose, evidence_match, *, condition_start: int = 0):
     """Locate one supported action; shortened evidence cannot hide negation."""
     from app.trip_understanding.experience_inference import _markdown_visible
 
@@ -241,9 +249,10 @@ def _unique_purpose_action(source: str, row: SourceVisitPurpose, evidence_match)
     _, context_indices = _markdown_visible(context)
     if actual is None or (left + context_indices[actual[0]], left + context_indices[actual[1] - 1] + 1) != located:
         return None
-    if row.optional and not _cancelled_or_conditional(source, *located, context, False):
+    if row.optional and not _cancelled_or_conditional(source, *located, context, False,
+                                                      condition_start=condition_start):
         return None  # Explicit purpose cannot acquire an unsupported condition.
-    if _cancelled_or_conditional(source, *located, context, row.optional):
+    if _cancelled_or_conditional(source, *located, context, row.optional, condition_start=condition_start):
         return None
     return located
 
@@ -320,8 +329,11 @@ def apply_source_visit_supplement(
             continue
         evidence_matches = _literal_matches(source, row.evidence)
         evidence_spans = [span for span, _ in evidence_matches]
+        parent = by_id.get(parent_ids[row.parent_index]) if row.parent_index < len(parent_ids) else None
+        condition_start = parent.span_end if parent and parent.role == ActivityRole.OPTIONAL else 0
         if isinstance(row, SourceVisitPurpose):
-            span = _unique_purpose_action(source, row, evidence_matches[0]) if len(evidence_matches) == 1 else None
+            span = (_unique_purpose_action(source, row, evidence_matches[0], condition_start=condition_start)
+                    if len(evidence_matches) == 1 else None)
             quote_indices = []
         elif isinstance(row, SourceVisitLocation):
             local_matches = [match for match in _literal_matches(source, row.source_quote)
@@ -330,7 +342,6 @@ def apply_source_visit_supplement(
         else:
             quotes = _literal_matches(source, row.source_quote)
             span, quote_indices = quotes[row.occurrence - 1] if row.occurrence <= len(quotes) else (None, [])
-        parent = by_id.get(parent_ids[row.parent_index]) if row.parent_index < len(parent_ids) else None
         diagnostic_span = evidence_spans[0] if len(evidence_spans) == 1 else span
         if (not parent or parent.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or parent.parent_mention_id
             or not parent.atomic_place_name or parent.day_index is None
@@ -343,6 +354,10 @@ def apply_source_visit_supplement(
         if isinstance(row, SourceVisitLocation):
             name = _visible_slice(row.source_quote, 0, len(row.source_quote))
             if row.kind == "VISIT" and name == parent.atomic_place_name:
+                # Describing this already retained visit again adds no child.
+                # A different occurrence still cannot borrow this parent's ID.
+                if span == (parent.span_start, parent.span_end) and not row.optional:
+                    continue
                 reject(index, diagnostic_span)
                 continue
         if row.kind == "VISIT" and _explicit_consumption_object(source, *span):
@@ -382,7 +397,8 @@ def apply_source_visit_supplement(
                     or evidence_span[0] <= span[0] < span[1] <= evidence_span[1]):
                     continue
                 action = (evidence_indices[action_span[0]], evidence_indices[action_span[1] - 1] + 1)
-                if _cancelled_or_conditional(source, *action, row.evidence, row.optional):
+                if _cancelled_or_conditional(source, *action, row.evidence, row.optional,
+                                            condition_start=condition_start):
                     continue
                 if _scope_parent(source, anchors, row, parent, purpose_roots, *action, explicit_kind=True):
                     selected = evidence_span
@@ -404,10 +420,15 @@ def apply_source_visit_supplement(
         same_occurrence = [mention for mention in roots
             if row.kind == "VISIT" and mention.day_index == parent.day_index
             and (mention.span_start, mention.span_end) == span and mention.atomic_place_name == name]
-        if same_occurrence and (len(same_occurrence) != 1 or not row.optional
-            or same_occurrence[0].role != ActivityRole.OPTIONAL
+        from app.trip_understanding.semantic_recovery import explicit_reference_context
+
+        reconcilable = (len(same_occurrence) == 1 and (
+            row.optional and same_occurrence[0].role == ActivityRole.OPTIONAL
+            or not row.optional and same_occurrence[0].role == ActivityRole.REFERENCE
+            and not explicit_reference_context(source, *span)))
+        if same_occurrence and (not reconcilable
             or same_occurrence[0].mention_id in reconciled_ids):
-            # The supplement may clarify where one optional visit belongs,
+            # The supplement may attach one unresolved reference or optional,
             # but cannot demote a main stop or resolve conflicting occurrences.
             reject(index, diagnostic_span)
             continue

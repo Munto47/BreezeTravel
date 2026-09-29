@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # deepseek-reasoner: 深度推理（R1），适合复杂规划任务
     deepseek_api_key: str = ""
     deepseek_api_url: str = "https://api.deepseek.com/v1"
+    kimi_for_code: str = ""
+    kimi_api_url: str = "https://api.kimi.com/coding/v1"
+    kimi_model: str = "kimi-for-coding"
+    kimi_parse_deadline_seconds: float = 180.0
+    kimi_parse_max_output_tokens: int = 8192
 
     # ── 备用 LLM：OpenAI 兼容接口 ────────────────────────────────────
     # 支持 OpenAI 官方 / SiliconFlow / 其他兼容服务
@@ -260,14 +265,19 @@ class Settings(BaseSettings):
     @property
     def effective_llm_api_key(self) -> str:
         """主 LLM Key：优先 DeepSeek，回退 OpenAI"""
-        return self.deepseek_api_key or self.openai_api_key
+        return self.kimi_for_code or self.deepseek_api_key or self.openai_api_key
 
     @property
     def effective_llm_api_url(self) -> str:
         """主 LLM URL：有 DeepSeek Key 时用 DeepSeek，否则用 OpenAI"""
+        if self.kimi_for_code:
+            return self.kimi_api_url
         if self.deepseek_api_key:
             return self.deepseek_api_url
         return self.openai_api_url
+
+    def generative_model(self, legacy_model: str) -> str:
+        return self.kimi_model if self.kimi_for_code else legacy_model
 
     @property
     def effective_embedding_api_key(self) -> str:

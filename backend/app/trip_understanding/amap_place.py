@@ -1224,211 +1224,35 @@ class AmapPlaceResolver:
         return await asyncio.shield(task)
 
     async def _resolve_uncached(
-        self,
-        *,
-        city: str,
-        atomic_place_name: str,
-        category_hint: str | None = None,
+        self, *, city: str, atomic_place_name: str, category_hint: str | None = None,
         _allow_lexical_category: bool = True,
     ) -> PlaceResolutionOutcome:
-        atomic = atomic_place_name.strip()
-        if (
-            not atomic
-            or len(atomic) > 40
-            or atomic_place_rejection_reason("".join(atomic.split())) is not None
-            or any(marker in atomic.casefold() for marker in _FORBIDDEN_MARKERS)
-            or any(marker in atomic for marker in _SENTENCE_MARKERS)
-        ):
-            return PlaceResolutionOutcome(
-                receipt=self._no_call_receipt(
-                    city=city,
-                    atomic_place_name=atomic,
-                    status="INVALID_ATOMIC_TEXT",
-                )
-            )
-        normalized_city = _normalized_city(city)
-        city_receipt: dict = {}
-        scope = await self.city_scope(city, city_receipt) if normalized_city not in _CITY_BOUNDS else None
-        if normalized_city not in _CITY_BOUNDS and scope is None:
-            return PlaceResolutionOutcome(
-                receipt={**self._no_call_receipt(
-                    city=city,
-                    atomic_place_name=atomic,
-                    status="CITY_SCOPE_NOT_FOUND",
-                ), "city_scope": city_receipt},
-            )
+        from app.trip_understanding.ranked_places import ranked_candidates
 
-        lexicon = get_three_city_place_lexicon()
-        lookup = lexicon.lookup(city=normalized_city, name=atomic) if lexicon.available else None
-        knowledge = get_city_knowledge()
-        reviewed_lookup = knowledge.query_lookup(city=normalized_city, name=atomic)
-        if reviewed_lookup.matches:
-            lookup = reviewed_lookup
-        if lookup is not None and lookup.tier is LexiconMatchTier.VENUE_SUFFIX_EQUIVALENT:
-            # The query lexicon also offers stem-only suggestions. They cannot
-            # supply a missing venue identity before provider confirmation.
-            lookup = PlaceLexiconLookup(
-                tier=lookup.tier,
-                matches=tuple(entry for entry in lookup.matches if any(
-                    _explicit_venue_suffix_equivalent(atomic, name)
-                    for name in (entry.canonical_name, *entry.aliases)
-                )),
-            )
-        lexicon_binding: dict[str, object] = {
-            "lexicon_status": "UNAVAILABLE" if not lexicon.available else "MISS",
-            "lexicon_match_tier": LexiconMatchTier.NONE.value,
-            "lexicon_rewrite_applied": False,
-            "lexicon_provenance": "OFFICIAL_NAME_ONLY" if reviewed_lookup.matches else "LEGACY_LEAD",
-            "knowledge_version": knowledge.versions.get(normalized_city),
-            **({"city_scope": city_receipt} if city_receipt else {}),
-        }
-        query_name = atomic
-        safe_aliases: tuple[str, ...] = ()
-        expected_district: str | None = None
-        lexicon_category: PlaceCategory | None = None
-        if lookup is not None and lookup.matches:
-            lexicon_binding["lexicon_match_tier"] = lookup.tier.value
-            if lookup.unique is None:
-                return PlaceResolutionOutcome(
-                    receipt={
-                        **self._no_call_receipt(
-                            city=city,
-                            atomic_place_name=atomic,
-                            status="LEXICON_AMBIGUOUS",
-                        ),
-                        **lexicon_binding,
-                        "lexicon_status": "AMBIGUOUS",
-                    }
-                )
-            entry = lookup.unique
-            query_name = entry.canonical_name
-            safe_aliases = entry.aliases
-            expected_district = entry.district
-            lexicon_category = PlaceCategory(entry.category)
-            lexicon_binding = {
-                **lexicon_binding,
-                "lexicon_status": "MATCHED",
-                "lexicon_entry_id_sha256": _sha256_text(entry.entry_id),
-                "lexicon_rewrite_applied": _normalized_name(query_name) != _normalized_name(atomic),
-                "lexicon_category": entry.category,
-                "lexicon_district_constraint": expected_district is not None,
-            }
-
-        hint = landmark_hint(normalized_city, atomic)
-        if hint is not None and (lookup is None or not lookup.matches or hint.matches(query_name)):
-            query_name = hint.name
-            safe_aliases = hint.aliases
-            expected_district = hint.district
-            lexicon_category = PlaceCategory.ATTRACTION
-            lexicon_binding["landmark_hint"] = "reviewed-landmarks-v1"
-
-        expected_category = _expected_category(category_hint)
-        category_basis = "EXPLICIT_SEMANTIC_HINT"
-        if expected_category is None:
-            category_basis = "NOT_AVAILABLE"
-            if _allow_lexical_category and not category_hint:
-                expected_category = _lexical_category(atomic)
-                if expected_category is not None:
-                    category_basis = "ATOMIC_NAME_LEXICAL"
-        if (
-            expected_category is not None
-            and lexicon_category is not None
-            and expected_category is not lexicon_category
-        ):
-            return PlaceResolutionOutcome(
-                receipt={
-                    **self._no_call_receipt(
-                        city=city,
-                        atomic_place_name=atomic,
-                        status="LEXICON_CATEGORY_CONFLICT",
-                    ),
-                    **lexicon_binding,
-                    "category_basis": category_basis,
-                }
-            )
-        if expected_category is None and lexicon_category is not None:
-            expected_category = lexicon_category
-            category_basis = "LEXICON_CATEGORY"
-
-        typecodes = typecodes_for_category(expected_category) if expected_category is not None else []
-        # Tourist commercial streets are useful for text-card resolution, but
-        # the shared category list is part of older suggestion query contracts.
-        if expected_category == PlaceCategory.ATTRACTION:
-            typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
-            if hint is not None:
-                typecodes = [hint.typecode]
-            technical = knowledge.technical_landmark(city=normalized_city, name=query_name)
-            if technical is not None:
-                typecodes = [pair["typecode"] for pair in technical.provider_type_pairs]
-
-        pois, primary_base = await self._query_provider(
-            city=city,
-            query_name=query_name,
-            original_atomic=atomic,
-            category_basis=category_basis,
-            typecodes=typecodes,
-            lexicon_binding=lexicon_binding,
-        )
-        primary_decision = _evaluate_candidates(
-            pois,
-            city=city,
-            canonical_name=query_name,
-            safe_aliases=safe_aliases,
-            expected_category=expected_category,
-            expected_district=expected_district,
-            atomic=atomic,
-            scope=scope,
-        )
-        primary_receipt = {**primary_base, **primary_decision.metrics}
-        if primary_decision.selected is not None:
-            return self._resolved_outcome(primary_decision.selected, primary_receipt)
-
-        compatible_count = int(primary_decision.metrics["category_compatible_candidate_count"])
-        if compatible_count == 0 and typecodes:
-            try:
-                rewrite_pois, rewrite_base = await self._query_provider(
-                    city=city,
-                    query_name=query_name,
-                    original_atomic=atomic,
-                    category_basis=category_basis,
-                    typecodes=[],
-                    lexicon_binding=lexicon_binding,
-                )
-            except PlaceProviderUnavailableError as exc:
-                failure = dict(exc.provider_binding)
-                raise PlaceProviderUnavailableError(
-                    exc.category,
-                    provider_binding={
-                        **failure,
-                        "primary_request_sha256": primary_receipt["request_sha256"],
-                        "primary_response_sha256": primary_receipt["response_sha256"],
-                        "external_calls": int(primary_receipt.get("external_calls", 1)) + exc.external_call_count,
-                        "rewrite_count": 1,
-                        "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
-                        "raw_provider_response_retained": False,
-                    },
-                    external_call_count=int(primary_receipt.get("external_calls", 1)) + exc.external_call_count,
-                ) from exc
-            rewrite_decision = _evaluate_candidates(
-                rewrite_pois,
-                city=city,
-                canonical_name=query_name,
-                safe_aliases=safe_aliases,
-                expected_category=expected_category,
-                expected_district=expected_district,
-                atomic=atomic,
-                scope=scope,
-            )
-            rewrite_receipt = {**rewrite_base, **rewrite_decision.metrics}
-            combined_receipt = _combine_rewrite_receipts(
-                primary_receipt,
-                rewrite_receipt,
-                accepted=rewrite_decision.selected is not None,
-            )
-            if rewrite_decision.selected is not None:
-                return self._resolved_outcome(rewrite_decision.selected, combined_receipt)
-            return PlaceResolutionOutcome(receipt=combined_receipt)
-
-        return PlaceResolutionOutcome(
-            receipt={**primary_receipt, "status": "NO_UNIQUE_MATCH"}
-        )
+        if atomic_place_rejection_reason("".join(atomic_place_name.split())) is not None:
+            return PlaceResolutionOutcome(receipt=self._no_call_receipt(
+                city=city, atomic_place_name=atomic_place_name, status="INVALID_ATOMIC_TEXT"))
+        candidates, receipt = await ranked_candidates(self, city=city, query=atomic_place_name,
+                                                      category_hint=category_hint)
+        if candidates:
+            first = candidates[0]
+            peers = [candidate for candidate in candidates if candidate.tier == first.tier]
+            receipt = {**receipt, "auto_selection_policy": "UNIQUE_HIGHEST_IDENTITY_TIER"}
+            hint = landmark_hint(city, atomic_place_name)
+            if first.tier == "CANONICAL_EXACT" and hint and hint.typecode == "190301":
+                # A reviewed road district can reject a conflicting provider
+                # segment without removing it from manual search suggestions.
+                peers = [candidate for candidate in peers
+                         if verified_technical_landmark(candidate.raw, city=city, name=atomic_place_name)]
+            same_road = (first.tier == "CANONICAL_EXACT" and hint is not None
+                         and _same_road_segments(tuple(peers)))
+            if peers and first.tier in _PROVIDER_MATCH_TIERS and (len(peers) == 1 or same_road):
+                first = peers[0]
+                if same_road:
+                    receipt = {**receipt, "selection_tier": "CANONICAL_EXACT_REVIEWED_ROAD_SEGMENTS"}
+                return self._resolved_outcome(first, receipt)
+            # Search suggestions remain available, but ranking alone cannot
+            # choose among identities or turn a related venue into this visit.
+            receipt = {**receipt, "selection_tier": (
+                f"AMBIGUOUS_{first.tier}" if len(peers) > 1 else "UNVERIFIED_RELATED")}
+        return PlaceResolutionOutcome(receipt={**receipt, "status": "NO_VALID_CANDIDATE"})

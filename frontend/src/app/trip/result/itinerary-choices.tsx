@@ -5,7 +5,7 @@ import type {TripUnderstandingCommand, UserFacingTripResult} from '@/lib/trip-un
 
 type Day = UserFacingTripResult['days'][number]
 type Alternative = NonNullable<Day['alternatives']>[number]
-type Props = {day: Day; dayIndex: number; disabled: boolean; onApply: (command: TripUnderstandingCommand) => Promise<void>}
+type Props = {day: Day; dayIndex: number; pendingVisits?: Day['activities']; disabled: boolean; onApply: (command: TripUnderstandingCommand) => Promise<void>}
 const action = 'min-h-11 rounded-xl px-3 text-sm font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600'
 
 function insertAlternative(item: Alternative, dayIndex: number, position: number): TripUnderstandingCommand {
@@ -83,6 +83,7 @@ function ChoiceGroup({day, dayIndex, disabled, onApply, token, members}: Props &
 }
 
 export default function ItineraryChoices(props: Props) {
+  const visits = [...props.day.activities, ...(props.pendingVisits || [])]
   const groups = new Map<string, Alternative[]>()
   const ungrouped: Alternative[] = []
   for (const item of props.day.alternatives || []) {
@@ -92,8 +93,12 @@ export default function ItineraryChoices(props: Props) {
   return <>
     {[...groups].map(([token, members]) => <ChoiceGroup key={token} {...props} token={token} members={members}/>)}
     {ungrouped.map((item, index) => <div key={index} className="flex items-start justify-between gap-2 py-1 text-sm">
-      <div className="min-w-0">{item.branch_label && <span className="mr-2 text-xs text-slate-500">{item.branch_label}</span>}{item.name}{item.city ? ` · ${item.city}` : ''}<AlternativeDetails item={item}/></div>
-      <button className={action} disabled={props.disabled} onClick={() => void props.onApply(insertAlternative(item, props.dayIndex, props.day.activities.length))}>加入待确认</button>
+      <div className="min-w-0">{item.branch_label && <span className="mr-2 text-xs text-slate-500">{item.branch_label}</span>}{item.name}{item.city ? ` · ${item.city}` : ''}
+        {item.replaces_visit_id && <p className="mt-1 text-xs text-slate-600">{item.replacement_condition} · 替换「{item.replaces_name}」这次访问</p>}
+        <AlternativeDetails item={item}/></div>
+      <button className={action} disabled={props.disabled || !!item.replaces_visit_id && !visits.some(card => card.visit_id === item.replaces_visit_id)} onClick={() => void props.onApply(insertAlternative(item, props.dayIndex, props.day.activities.length))}>
+        {item.replaces_visit_id ? visits.some(card => card.visit_id === item.replaces_visit_id) ? '替换此站，待确认' : '原访问已移出当天' : '加入待确认'}
+      </button>
     </div>)}
   </>
 }

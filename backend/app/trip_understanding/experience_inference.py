@@ -5,6 +5,7 @@ structure; it never manufactures POIs or rewrites meaning with a local parser.
 The legacy frozen adapter remains available for historical experiments.
 """
 from __future__ import annotations
+from app.trip_understanding.inference_allowance import InferenceAllowanceExceeded, reserve_model_call
 
 import asyncio
 import hashlib
@@ -15,7 +16,8 @@ from bisect import bisect_left
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from openai import APIError, AsyncOpenAI
+from openai import APIError
+from app.llm import AsyncOpenAI
 from pydantic import Field, ValidationError, field_validator
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
@@ -31,6 +33,7 @@ from app.trip_understanding.source_capacity import saturated_source_capacity
 from app.trip_understanding.inline_source_details import inline_details_schema
 from app.trip_understanding.choice_groups import SemanticChoiceGroup, bind_choice_groups
 from app.trip_understanding.source_order import SemanticOrderGroup, bind_semantic_order_groups
+from app.trip_understanding.conditional_replacement import SemanticReplacement, bind_conditional_replacements
 from app.trip_understanding.timing_evidence import validated_timing
 from app.trip_understanding.semantic_recovery import complete_activities_from_truncated_json, explicit_reference_context, improves_only_lodging_evidence, merge_preserved_activities
 
@@ -58,6 +61,11 @@ class SemanticActivity(ActivityTiming):
         description="逐字复制包含此地点、实际动作和所有适用条件的短原文。不要只有地点名；条件性到访不能省略如果/若有余力等限制。")
     parent_source_quote: str | None = Field(default=None, max_length=100,
         description="仅原文明示此活动在已提取的父景点内部时，逐字填父景点名称；独立后续站点留空。")
+    conditional_replacement: Any | None = Field(default=None,
+        json_schema_extra={"anyOf": [SemanticReplacement.model_json_schema(), {"type": "null"}]},
+        description="仅OPTIONAL条件替代项：target_quote及target_occurrence定位原有PLANNED具体访问，"
+        "condition_quote逐字包含如果/若等条件，evidence完整逐字覆盖该默认访问直到替换句末。"
+        "无默认目标的普通备选、取消和未选二选一留空；同名再次访问不能合并。")
     # Typed live wire, but local row validation must preserve valid siblings.
     source_details: list[Any] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES,
         json_schema_extra={"items": inline_details_schema()},
@@ -1662,11 +1670,24 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
         for candidate in candidates:
             left = max(source.rfind(mark, 0, candidate.start()) for mark in "\n。；;") + 1
             prefix = source[left:candidate.start()]
-            if not prefix.strip(" \t#>*_~+-"):
-                labels.append(candidate)
-            elif re.search(r"更正|调整|变更|挪|对调|交换|顺延|改期|移到|移至|改到|推迟|提前", prefix):
+            # A local place replacement restating the same known day does not
+            # move the new parent's internal items to a different day.
+            same_day_replacement = (re.fullmatch(r"\s*更正\s*[:：]\s*", prefix)
+                and labels and _explicit_day_count(candidate[0]) == _explicit_day_count(labels[-1][0])
+                and re.match(r"\s*[:：]?\s*(?:不去|取消)[^，,。；;\n]{1,40}[，,]\s*(?:换成|改去|改为)",
+                             source[candidate.end():position]))
+            if (not same_day_replacement
+                and re.search(r"更正|调整|变更|挪|对调|交换|顺延|改期|移到|移至|改到|推迟|提前", prefix)):
                 return None  # A moved visit still needs semantic day review.
-        if not labels or len({_explicit_day_count(label[0]) for label in labels}) != len(labels):
+            # An introductory clause may precede a real relative-day heading.
+            # Do not treat quoted, denied or embedded day references as headings.
+            clause_prefix = re.split(r"[，,：:]", prefix)[-1]
+            if (not clause_prefix.strip(" \t#>*_~+-")
+                and not re.search(r"[“”‘’\"「」『』]|不是|不按|原来计划", prefix)):
+                labels.append(candidate)
+        days = [_explicit_day_count(label[0]) for label in labels]
+        runs = [value for index, value in enumerate(days) if not index or value != days[index - 1]]
+        if not labels or len(set(runs)) != len(runs):
             return None
         label = labels[-1]
         if re.match(r"[ \t*_]*[-–—~～/至到][ \t*_]*(?:\d|[一二两三四五六七八九十])", source[label.end():]):
@@ -1679,11 +1700,15 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
     if parent_day is None or parent_day != child_day or parent_day not in {0, day}:
         return None
     gap = source[parent.span_end:start]
+    # A walking verb inside an explicit local internal route does not leave
+    # the parent. Retain all other travel, exit and external-location guards.
+    scope_gap = re.sub(r"((?:^|[，,：:])\s*(?:园|馆|寺|院|区)(?:内|里|中)[^。；;\n]{0,120})走到", r"\1", gap)
     if (len(gap) > 500 or re.search(label_pattern, gap, re.I) or re.search(r"\n[ \t]*\n", gap)
         or gap.count("\n") > 1
-        or re.search(r"前往|走到|步行到|离开|出园|出馆|(?:之后|随后|然后|接着)去", gap)
+        or re.search(r"前往|走到|步行到|离开|出园|出馆|(?:之后|随后|然后|接着)去", scope_gap)
         or re.search(r"(?:乘车|乘坐|搭乘|坐车|驾车|打车|骑行|地铁|公交)[^，,。；;\n]{0,20}(?:去|到|抵达)", gap)
-        or re.search(r"附近|周边|隔壁|对面", gap)):
+        or re.search(r"附近|周边|隔壁|对面", gap)
+        or scope_gap != gap and re.search(r"(?:园|馆|校|区)外|外面", gap)):
         return None
     if "\n" in gap:
         body = gap.rsplit("\n", 1)[1]
@@ -1699,7 +1724,7 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
     if view and not re.search(r"参观|游览|进入|前往|走到|登上", before[view.end():]):
         return None
     relation_text = source[max(parent.span_start, parent.span_end - 1):start]
-    internal_scope = re.search(r"(?:园|馆|寺|院|区)(?:内|里|中)|内部|(?:重点|必看|必逛|必玩)(?:参观|游览|看)?\s*[:：]", relation_text)
+    internal_scope = re.search(r"(?:园|馆|寺|院|区|镇|城|府)(?:内|里|中)|内部|(?:重点|必看|必逛|必玩)(?:参观|游览|看)?\s*[:：]", relation_text)
     local_visit = re.search(r"(?:参观|游览|游玩|打卡|登上|登|上|逛|看)[^。；;\n]{0,35}$", before)
     if not internal_scope and not local_visit and not inferred_parent and not _is_parent_visit_detail(
             source, item.place_name, start, end, day, preceding):
@@ -2318,6 +2343,9 @@ def proposal_from_draft(source: str, draft: SemanticDraft, *, allow_partial: boo
     mentions, choice_diagnostics = bind_choice_groups(source, choice_draft, mentions)
     diagnostics.extend(choice_diagnostics)
     unprocessed += len(choice_diagnostics)
+    mentions, replacement_diagnostics = bind_conditional_replacements(source, draft, mentions)
+    diagnostics.extend(replacement_diagnostics)
+    unprocessed += len(replacement_diagnostics)
     labels: dict[int, str] = {}
     valid_parent_ids = {mention.mention_id for mention in mentions
                         if mention.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}}
@@ -2508,6 +2536,12 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
                                hints: list[dict]) -> SourceSemanticPlan:
     """Known nouns are coverage questions, never automatic planned visits."""
     covered = [(mention.span_start, mention.span_end) for mention in proposal.mentions]
+    from app.trip_understanding.source_inventory import inventory_covers
+
+    reviewed_references = set()
+    inventory_covers(source, proposal, proposal.binding.get('_source_inventory'),
+                     covered_references=reviewed_references)
+    covered.extend(reviewed_references)
     covered.extend((issue.span_start, issue.span_end) for issue in proposal.diagnostics
                    if issue.span_start is not None and issue.span_end is not None)
     anchors = SourceAnchorIndex(source)
@@ -2671,6 +2705,7 @@ class ExperienceQwenProvider:
         if deadline_seconds <= 0 or max_output_tokens < 256:
             raise ValueError("Invalid inference budget")
         self.model = model
+        self.provider_name = "KIMI_CODE" if model.startswith("kimi-") else "QWEN"
         self.enable_day_sections = enable_day_sections
         # Live workers and live measurements enable the bounded supplement.
         # Historical raw replays may only contain the original answer pair.
@@ -2748,6 +2783,11 @@ class ExperienceQwenProvider:
 
                 try:
                     result = await propose_by_day(self, source_text)
+                except InferenceAllowanceExceeded as error:
+                    raise InferenceProviderUnavailableError(str(error), provider_binding={
+                        "provider": self.provider_name, "external_calls": 0, "calls": [],
+                        "outcome": str(error),
+                    }, external_call_count=0) from None
                 except InferenceProviderUnavailableError as error:
                     error.provider_binding["focused_repair_enabled"] = self.enable_focused_repair
                     error.provider_binding["compact_wire_enabled"] = self.enable_compact_wire
@@ -2791,6 +2831,7 @@ class ExperienceQwenProvider:
                 for attempt in range(2):
                     if deadline_at is not None and time.perf_counter() >= deadline_at:
                         raise TimeoutError
+                    await reserve_model_call()
                     call: dict[str, object] = {"attempt": attempt + 1, "input_tokens": None, "output_tokens": None, "outcome": "UNKNOWN"}
                     calls.append(call)
                     call_started = time.perf_counter()
@@ -3031,6 +3072,8 @@ class ExperienceQwenProvider:
             failure = INPUT_CAPACITY_EXCEEDED
             if calls:
                 calls[-1]["outcome"] = failure
+        except InferenceAllowanceExceeded as exc:
+            failure = str(exc)
         except TimeoutError:
             failure = "DEADLINE_EXCEEDED"
             if calls:
@@ -3063,14 +3106,17 @@ class ExperienceQwenProvider:
         if self.enable_source_visits and proposal is not None:
             from app.trip_understanding.semantic_supplement import _clear_pending, mark_source_visits_pending, needs_source_visit_supplement
             from app.trip_understanding.inline_source_details import source_visit_fragments_covered
+            from app.trip_understanding.source_inventory import inventory_covers
 
             # A hotel repair or recovered first answer can leave the loop
             # early. Its successful fields do not account for visit details.
             if needs_source_visit_supplement(source_text, proposal):
                 has_inline = final_draft is not None and any(item.source_details for item in final_draft.activities)
-                if has_inline and source_visit_fragments_covered(source_text, proposal):
+                source_inventory = proposal.binding.get('_source_inventory')
+                if (inventory_covers(source_text, proposal, source_inventory)
+                        or source_inventory is None and has_inline and source_visit_fragments_covered(source_text, proposal)):
                     proposal = _clear_pending(proposal)
-                elif has_inline or not any(call.get("stage") == "SOURCE_VISITS_SUPPLEMENT" for call in calls):
+                elif source_inventory is not None or has_inline or not any(call.get("stage") == "SOURCE_VISITS_SUPPLEMENT" for call in calls):
                     proposal = mark_source_visits_pending(source_text, proposal)
         if proposal is not None and final_draft is not None:
             proposal = _with_coverage_diagnostics(source_text, final_draft, proposal, source_places)
@@ -3094,12 +3140,12 @@ class ExperienceQwenProvider:
         if known_usage and all(rate is not None for rate in self.rates):
             cost = round((input_tokens * self.rates[0] + output_tokens * self.rates[1]) / 1_000_000, 8)
         binding = {
-            "provider": "QWEN", "model": self.model, "semantic_policy": SEMANTIC_POLICY,
+            "provider": self.provider_name, "model": self.model, "semantic_policy": SEMANTIC_POLICY,
             "source_visit_supplement_enabled": self.enable_source_visits,
             "focused_repair_enabled": self.enable_focused_repair,
             "compact_wire_enabled": self.enable_compact_wire,
             "deadline_ms": round(max(0, available_seconds) * 1000), "max_output_tokens": self.max_output_tokens,
-            "temperature": SEMANTIC_TEMPERATURE,
+            "temperature": 0.6 if self.provider_name == "KIMI_CODE" else SEMANTIC_TEMPERATURE,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),
             "fallback_used": bool(degraded_timing or grounded_days or semantic_partial_used), "degraded_timing_activities": degraded_timing,
             "semantic_partial_recovery": semantic_partial_used,

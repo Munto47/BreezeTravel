@@ -790,7 +790,7 @@ export function useTripExperience() {
     let stopped = false
     let timer: ReturnType<typeof setTimeout>
     const generation = current.current.generation
-    const deadline = Date.now() + 90000
+    const deadline = Date.now() + 600000
     const wait = (delay: number) =>
       new Promise<void>((resolve) => {
         timer = setTimeout(resolve, delay)

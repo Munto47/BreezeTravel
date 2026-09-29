@@ -4,6 +4,7 @@ Original visits are immutable inputs. The model cannot submit a replacement
 itinerary; additions still pass the ordinary source/day/role/parent validator.
 """
 from __future__ import annotations
+from app.trip_understanding.inference_allowance import reserve_model_call
 
 from collections import Counter
 import copy
@@ -323,6 +324,7 @@ async def repair_focused_semantics(provider, source, draft, proposal, calls, tar
     parents = source_visit_parents(apply_inline_source_details(source, draft, proposal))
     call = {"attempt": 2, "stage": "FOCUSED_SEMANTIC_REPAIR", "input_tokens": None,
             "output_tokens": None, "outcome": "UNKNOWN"}
+    await reserve_model_call()
     calls.append(call)
     started = time.perf_counter()
     try:

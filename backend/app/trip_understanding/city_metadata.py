@@ -1,5 +1,6 @@
 """Repair rejected city fields without asking the model to rewrite visits."""
 from __future__ import annotations
+from app.trip_understanding.inference_allowance import reserve_model_call
 
 from collections import Counter
 import json
@@ -112,6 +113,7 @@ async def repair_city_metadata(provider: ExperienceQwenProvider, source: str, dr
         return draft, proposal
     call = {"attempt": len(calls) + 1, "stage": "CITY_METADATA_REPAIR", "input_tokens": None,
             "output_tokens": None, "outcome": "UNKNOWN"}
+    await reserve_model_call()
     calls.append(call)
     started = time.perf_counter()
     try:

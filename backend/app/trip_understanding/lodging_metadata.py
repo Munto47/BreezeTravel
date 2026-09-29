@@ -1,5 +1,6 @@
 """One bounded source-evidence repair for already extracted hotel activities."""
 from __future__ import annotations
+from app.trip_understanding.inference_allowance import reserve_model_call
 
 import hashlib
 import json
@@ -88,6 +89,7 @@ async def repair_lodging_metadata(provider: ExperienceQwenProvider, source: str,
         return draft, proposal
     call: dict[str, object] = {"attempt": len(calls) + 1, "stage": "LODGING_METADATA_REPAIR",
         "input_tokens": None, "output_tokens": None, "outcome": "UNKNOWN"}
+    await reserve_model_call()
     calls.append(call)
     started = time.perf_counter()
     try:

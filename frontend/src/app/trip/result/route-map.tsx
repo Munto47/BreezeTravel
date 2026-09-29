@@ -115,6 +115,7 @@ export default function RouteMap({
   const selectionCallback = useRef(onSelect)
   const currentOverlays = useRef<unknown[]>([])
   const fittedDay = useRef<string | null>(null)
+  const focusedVisit = useRef<string | null>(null)
   const [activated, setActivated] = useState(visible)
   useEffect(() => { if (visible) setActivated(true) }, [visible])
   const [ready, setReady] = useState(false)
@@ -283,10 +284,11 @@ export default function RouteMap({
     }
     instance.add(overlays)
     currentOverlays.current = overlays
-    const fitKey = [points.map(point => point.activity_token).join('|'),
-      lodgingPoints.map(point => point.point_token).join('|'), mode, extent.join(',')].join(':')
+    // Only a user changing the Day filter requests a new overview. Background
+    // route geometry and rotating write tokens must not move the viewport.
+    const fitKey = visibleDays.map(day => day.day_id || day.label).join('|')
     if (tilesReady && (points.length || lodgingPoints.length) && fittedDay.current !== fitKey) {
-      instance.setFitView(overlays, false, [70, 70, 70, 70], 15)
+      instance.setFitView(overlays, false, [160, 100, 100, 390], 15)
       fittedDay.current = fitKey
     }
     return () => {
@@ -303,12 +305,18 @@ export default function RouteMap({
       button.setAttribute('aria-pressed', String(token === selected))
     })
     const point = points.find((point) => point.activity_token === selected)
-    if (focusSelected && point?.position)
-      map.current?.setCenter([
-        point.position.longitude,
-        point.position.latitude,
-      ])
-  }, [selected, points, ready, mode, focusSelected])
+    const card = visibleDays.flatMap(day => day.activities).find(card => card.activity_token === selected)
+    const visit = card?.visit_id || selected
+    if (focusSelected && point?.position && visit !== focusedVisit.current) {
+      focusedVisit.current = visit
+      const box = selected ? markers.current.get(selected)?.getBoundingClientRect() : null
+      const obstructed = box && Array.from(document.querySelectorAll<HTMLElement>('.trip-inspector:not([hidden]), .map-place-directory, .e-trip-title, .e-context-panel'))
+        .some(element => {const panel=element.getBoundingClientRect(); return panel.width>0 && panel.height>0 && box.right>panel.left && box.left<panel.right && box.bottom>panel.top && box.top<panel.bottom})
+      if (!box || box.width===0 || obstructed || box.left<32 || box.top<150 || box.right>window.innerWidth-32 || box.bottom>window.innerHeight-90)
+        map.current?.setCenter([point.position.longitude, point.position.latitude])
+    }
+    if (!selected) focusedVisit.current = null
+  }, [selected, points, ready, mode, focusSelected, visibleDays])
 
   useEffect(() => {
     if (

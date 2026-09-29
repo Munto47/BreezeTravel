@@ -36,7 +36,7 @@ import { forgetBrowserTripReference } from '@/lib/browser-resource-ref'
 import ItineraryPngExport from './itinerary-png-export'
 import ItineraryWorkspace from './itinerary-workspace'
 import MapStayWorkspace from './map-stay-workspace'
-import JourneySuggestions from './journey-suggestions'
+import TripInspector from './trip-inspector'
 import {DailyMealCard, useDailyDining} from './daily-dining'
 import UnresolvedPlaces from './unresolved-places'
 import SourceLodging from './source-lodging'
@@ -48,6 +48,7 @@ import {
   needsRecheck,
 } from './presentation'
 import '../../experience.css'
+import './inspector.css'
 
 export default function TripResultPage() {
   const trip = useTripExperience()
@@ -421,20 +422,29 @@ export default function TripResultPage() {
     const index =
       result?.days.findIndex((day) =>
         day.activities.some((card) =>
-          item.affected_activity_tokens?.includes(card.activity_token),
+          item.target_visit_ids?.includes(card.visit_id || '') || item.affected_activity_tokens?.includes(card.activity_token),
         ),
       ) ?? -1
-    if (index < 0 || !result) return
+    if (!result) return
+    if(index<0){
+      const day=result.days.findIndex(day=>item.target_day_ids?.includes(day.day_id || '') || item.affected_days.includes(day.label))
+      if(day>=0)focusIssueTarget(day)
+      return
+    }
     const card = result.days[index].activities.find((value) =>
-      item.affected_activity_tokens?.includes(value.activity_token),
+      item.target_visit_ids?.includes(value.visit_id || '') || item.affected_activity_tokens?.includes(value.activity_token),
     )!
+    focusIssueTarget(index,card.visit_id || card.activity_token)
+  }
+  function focusIssueTarget(index:number,visit?:string){
     setDayIndex(index)
-    setSelected(card.activity_token)
-    setContext({
-      kind: 'place',
-      activityToken: card.activity_token,
-      dayIndex: index,
-      editorMode: 'EDIT',
+    const card=result?.days[index]?.activities.find(card=>(card.visit_id || card.activity_token)===visit)
+    if(card)setSelected(card.activity_token)
+    if(activeView!=='ITINERARY')return
+    requestAnimationFrame(()=>{
+      const target=document.querySelector<HTMLElement>(card?`[data-visit-id="${CSS.escape(card.visit_id || card.activity_token)}"]`:`[data-day-heading="${index+1}"]`)
+      const box=target?.getBoundingClientRect()
+      if(box&&(box.top<165||box.bottom>window.innerHeight-30))target?.scrollIntoView({block:'center',behavior:'instant'})
     })
   }
   const issue = (item: PublicTripCheckItem) => {
@@ -526,7 +536,7 @@ export default function TripResultPage() {
 
   return (
     <main
-      className={`experience e-result-page ${activeView === 'MAP_STAY' && !contextOpen ? 'e-map-mode' : ''}`}
+      className={`experience e-result-page ${activeView === 'MAP_STAY' ? 'e-map-mode' : ''} e-full-workspace`}
       onClickCapture={(event) => {
         if (!dirty || !(event.target instanceof Element)) return
         const anchor = event.target.closest(
@@ -770,7 +780,19 @@ export default function TripResultPage() {
                 >
                   {accountSaved ? '已保存到账号' : '保存到账号'}
                 </button>
-                <JourneySuggestions
+                <TripInspector
+                  onSupplementSaved={trip.retry}
+                  onSourceAdd={index=>openContext({kind:'place',activityToken:null,dayIndex:index,editorMode:'ADD'})}
+                  onFocusTarget={focusIssueTarget}
+                  unresolvedDays={trip.unresolvedDays}
+                  suspended={contextOpen}
+                  recovery={<>
+<UnresolvedPlaces key={`${trip.resource}:${trip.etag}:${sourceDeleted}`} days={trip.unresolvedDays} visitDays={result.days}
+              coverage={result.coverage} resource={trip.resource} etag={trip.etag} disabled={disabled || dirty} onCommand={trip.workspaceCommand}
+              pendingLodgings={trip.pendingLodgings} lodgingDetails={trip.pendingLodgingDetails} lodgingStatus={trip.pendingLodgingStatus}
+              sourceDeleted={sourceDeleted} onLoadLodgings={() => void trip.loadPendingLodgings()} onClearLodgings={trip.clearPendingLodgings} onRefresh={trip.retry}/>
+            {<SourceLodging cards={trip.sourceLodgings} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand} />}
+                  </>}
                   resource={trip.resource}
                   etag={trip.etag}
                   result={result}
@@ -857,11 +879,6 @@ export default function TripResultPage() {
             </div>
           )}
           <div className="e-page-message">
-            <UnresolvedPlaces key={`${trip.resource}:${trip.etag}:${sourceDeleted}`} days={trip.unresolvedDays} visitDays={result.days}
-              coverage={result.coverage} resource={trip.resource} etag={trip.etag} disabled={disabled || dirty} onCommand={trip.workspaceCommand}
-              pendingLodgings={trip.pendingLodgings} lodgingDetails={trip.pendingLodgingDetails} lodgingStatus={trip.pendingLodgingStatus}
-              sourceDeleted={sourceDeleted} onLoadLodgings={() => void trip.loadPendingLodgings()} onClearLodgings={trip.clearPendingLodgings} onRefresh={trip.retry}/>
-            {!contextOpen && <SourceLodging cards={trip.sourceLodgings} resource={trip.resource} disabled={disabled || dirty} onCommand={trip.workspaceCommand} />}
             {trip.notice && (
               <div
                 className="e-message"
@@ -889,7 +906,7 @@ export default function TripResultPage() {
             )}
           </div>
           <ResultNavigation activeView={activeView} onChange={changeResultView} />
-          {!contextOpen && displayMap && (
+          {displayMap && (
             <div className="e-horizontal-result-shell">
               <div data-testid="result-view-itinerary" hidden={activeView !== 'ITINERARY'}>
                 <section
@@ -900,20 +917,12 @@ export default function TripResultPage() {
                   <ItineraryWorkspace
                     resource={trip.resource}
                     onRender={() => void trip.renderMap()}
-                    toolbar={<ItineraryPngExport result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
+                    toolbar={<ItineraryPngExport resource={trip.resource} result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
                     pendingCounts={trip.unresolvedDays.map(day => day.activities.length)}
                     unresolvedDays={trip.unresolvedDays}
                     etag={trip.etag}
                     sourceMealDescriptions={trip.sourceMealDescriptions}
-                    renderDaySuggestion={dayIndex => <DailyMealCard
-                      dayIndex={dayIndex}
-                      activities={result.days[dayIndex-1]?.activities}
-                      resource={trip.resource}
-                      day={dailyDining.value?.days.find(day => day.day_index===dayIndex)}
-                      existingActivity={trip.unresolvedDays[dayIndex-1]?.activities.find(card => card.activity_token===dailyDining.value?.days.find(day => day.day_index===dayIndex)?.existing_activity_token)}
-                      state={dailyDining.value} disabled={disabled || dirty || dailyDining.busy}
-                      onRefresh={() => void dailyDining.refresh()} onCommand={trip.workspaceCommand}/>}
                     disabled={disabled || dirty}
                     routesPending={hideOldRoutes}
                     mapView={displayMap}
@@ -1307,11 +1316,7 @@ export default function TripResultPage() {
                   title={contextTitle}
                   dayLabel={currentDay ? relativeDayLabel(safeDayIndex) : '行程'}
                   busy={trip.busy || privacyBusy}
-                  modal={
-                    context.kind === 'place' ||
-                    context.kind === 'privacy' ||
-                    context.kind === 'share'
-                  }
+                  modal={false}
                   closeLabel={
                     context.kind === 'place'
                       ? '关闭编辑'

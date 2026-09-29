@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal
 from urllib.parse import urlparse
+from uuid import NAMESPACE_URL, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -68,6 +69,8 @@ class ProposedMention(ActivityTiming):
     choice_group_selectable: bool = False
     branch_id: str | None = None
     branch_label: str | None = None
+    replaces_mention_id: str | None = None
+    replacement_condition: str | None = None
     parent_mention_id: str | None = None
     relation_type: Literal["INTERNAL_DETAIL"] | None = None
     detail_kind: Literal["VISIT", "ENTRY", "EXIT", "EXTERIOR_ONLY", "PICKUP_ONLY"] | None = None
@@ -262,6 +265,10 @@ class DiningAccessView(StrictModel):
 
 
 class ActivityCardView(ActivityTiming):
+    source_fragment_id: str | None = None
+    source_occurrence_id: str | None = None
+    note: str = Field(default="", max_length=600)
+    visit_id: str = ""
     photo_url: str | None = None
     city: str | None = None
 
@@ -271,6 +278,12 @@ class ActivityCardView(ActivityTiming):
         return safe_poi_photo_url(value)
 
     activity_token: str = Field(min_length=20, max_length=80)
+
+    @model_validator(mode="after")
+    def stable_visit_reference(self):
+        if not self.visit_id:
+            self.visit_id = str(uuid5(NAMESPACE_URL, "visit:" + self.activity_token))
+        return self
     name: str
     category: str
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
@@ -292,9 +305,14 @@ class ActivityCardView(ActivityTiming):
 
 
 class ActivityAlternativeView(ActivityTiming):
+    alternative_id: str = ""
+    source_occurrence_id: str | None = None
     name: str = Field(min_length=1, max_length=40)
     category: str = Field(min_length=1, max_length=40)
     city: str | None = None
+    replaces_visit_id: str | None = None
+    replaces_name: str | None = None
+    replacement_condition: str | None = None
     activity_token: str | None = Field(default=None, min_length=20, max_length=80)
     choice_group_token: str | None = Field(default=None, min_length=20, max_length=80)
     choice_group_selectable: bool = False
@@ -306,6 +324,12 @@ class ActivityAlternativeView(ActivityTiming):
     meal_role: Literal["BREAKFAST", "LUNCH", "DINNER", "SNACK"] | None = None
     source_details: list[SourceDetailView] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
 
+    @model_validator(mode="after")
+    def stable_alternative(self):
+        if not self.alternative_id:
+            self.alternative_id = uuid5(NAMESPACE_URL, 'alternative:' + (self.activity_token or self.name)).hex
+        return self
+
 
 class ChoiceSelectionView(StrictModel):
     choice_group_token: str = Field(min_length=20, max_length=80)
@@ -315,9 +339,16 @@ class ChoiceSelectionView(StrictModel):
 
 
 class PendingLodgingRefView(StrictModel):
+    lodging_id: str = ""
     pending_token: str = Field(min_length=20, max_length=80)
     status: Literal["NEEDS_CONFIRMATION"] = "NEEDS_CONFIRMATION"
     unprocessed_count: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def stable_lodging(self):
+        if not self.lodging_id:
+            self.lodging_id = uuid5(NAMESPACE_URL, 'lodging:' + self.pending_token).hex
+        return self
 
 
 class LodgingConstraintView(ActivityCardView):
@@ -340,7 +371,15 @@ class MealSlotView(StrictModel):
         return self
 
 
+class SourceNoteView(StrictModel):
+    note_id: str
+    text: str = Field(min_length=1, max_length=600)
+    position: int = Field(ge=0)
+
+
 class TripDayView(StrictModel):
+    day_id: str = ""
+    source_notes: list[SourceNoteView] = Field(default_factory=list)
     label: str
     activities: list[ActivityCardView]
     alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
@@ -350,6 +389,8 @@ class TripDayView(StrictModel):
 
     @model_validator(mode="after")
     def selected_meals_belong_to_day(self):
+        if not self.day_id:
+            self.day_id = str(uuid5(NAMESPACE_URL, "day:" + self.label))
         cards = {card.activity_token: card for card in self.activities}
         selected_tokens = set()
         for slot in self.meal_slots:
@@ -452,7 +493,24 @@ class TripRecognitionCoverage(StrictModel):
     complete: bool = False
 
 
+class VisitDecision(StrictModel):
+    action: Literal["DELETE", "REPLACE"]
+    name: str
+    source_occurrence_ids: list[str] = Field(default_factory=list)
+    selected_alternative_id: str | None = None
+
+
+class SourceCorrectionSuggestionView(StrictModel):
+    suggestion_id: str
+    target_visit_id: str
+    source_name: str = Field(min_length=1, max_length=100)
+
+
 class UserFacingTripResult(StrictModel):
+    correction_suggestions: list[SourceCorrectionSuggestionView] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES)
+    visit_decisions: dict[str, VisitDecision] = Field(default_factory=dict)
+    source_restorations: dict[str, dict[str, str]] = Field(default_factory=dict)
+    issue_dispositions: dict[str, dict[str, str]] = Field(default_factory=dict)
     status: Literal["READY", "PARTIAL_RESULT", "BASIC_ONLY", "LIMITED"]
     assumptions: list[AssumptionChipView]
     days: list[TripDayView]
@@ -479,6 +537,11 @@ class MaterializedTripView(StrictModel):
 
 
 class PublicTripCheckItem(StrictModel):
+    input_fingerprint: str = ""
+    issue_id: str = ""
+    issue_type: str = "CHECK"
+    target_visit_ids: list[str] = Field(default_factory=list)
+    target_day_ids: list[str] = Field(default_factory=list)
     check_token: str = Field(min_length=20, max_length=100)
     label: Literal["必须调整", "可以更好", "需要确认"]
     title: str
@@ -494,6 +557,7 @@ class PublicTripChecksView(StrictModel):
     status: Literal["READY", "STILL_NEEDS_CONFIRMATION"]
     message: str
     items: list[PublicTripCheckItem] = Field(max_length=3)
+    all_items: list[PublicTripCheckItem] = Field(default_factory=list)
     remaining_must_adjust: int = Field(ge=0)
     available_actions: list[Literal["PREVIEW_CHANGE"]] = Field(default_factory=list)
 
@@ -730,6 +794,8 @@ class PublicEventPayload(StrictModel):
         "这次没有整理完成，可以重新尝试",
         "这次整理的内容超过 160 项上限，请分成多份行程后再试。",
         "这次整理的行程超过 14 天上限，请分成多份行程后再试。",
+        "本次整理的尝试次数已用完，已停止继续请求",
+        "本次整理已超过处理期限，已停止继续请求",
     ]
     phase: Literal["RECEIVED", "CARDS_AVAILABLE", "CHECKING_PLACES"] | None = None
     progress: TripUnderstandingProgressMetrics = Field(
@@ -830,10 +896,11 @@ class ActivityTextEditCommand(StrictModel):
     activity_token: str = Field(min_length=20, max_length=80)
     name: str | None = Field(default=None, min_length=1, max_length=40)
     time_hint: str | None = Field(default=None, max_length=80)
+    note: str | None = Field(default=None, max_length=600)
 
     @model_validator(mode="after")
     def has_edit(self) -> "ActivityTextEditCommand":
-        if self.name is None and self.time_hint is None:
+        if self.name is None and self.time_hint is None and self.note is None:
             raise ValueError("activity text edit requires name or time_hint")
         return self
 
@@ -912,8 +979,24 @@ class LodgingRecoverCommand(StrictModel):
     intent: LodgingRecoveryIntent
 
 
+class SourceRestoreCommand(StrictModel):
+    command_type: Literal['SOURCE_RESTORE']
+    source_token: str = Field(min_length=40, max_length=8000)
+    day_index: int = Field(ge=1, le=14)
+    position: int = Field(ge=0, le=MAX_TRIP_ACTIVITIES)
+    kind: Literal['NOTE', 'PLACE']
+    name: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class IssueDispositionCommand(StrictModel):
+    command_type: Literal["ISSUE_DISPOSITION"]
+    issue_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    disposition: Literal["IGNORED", "OPEN"]
+
+
 class UndoCommand(StrictModel):
     command_type: Literal["UNDO"]
+    change_etag: str | None = Field(default=None, min_length=20, max_length=100)
 
 
 class RedoCommand(StrictModel):
@@ -935,7 +1018,7 @@ class DiningInsertCommand(StrictModel):
 
 
 TripUnderstandingCommand = Annotated[
-    ActivityInsertCommand
+    IssueDispositionCommand | SourceRestoreCommand | ActivityInsertCommand
     | AlternativeInsertCommand
     | ChoiceSelectCommand
     | ChoiceClearCommand
@@ -959,7 +1042,7 @@ TripUnderstandingCommand = Annotated[
 class CommandAppliedView(StrictModel):
     status: Literal["APPLIED"] = "APPLIED"
     changed_days: list[str]
-    map_readiness: Literal["NEEDS_UPDATE"] = "NEEDS_UPDATE"
+    map_readiness: Literal["NEEDS_UPDATE", "PREPARING"] = "PREPARING"
 
 
 class CommandOutcome(StrictModel):
@@ -999,6 +1082,7 @@ class TravelDataDeletionOutcome(StrictModel):
 
 
 class TripUnderstandingJobRecord(StrictModel):
+    job_type: Literal["UNDERSTAND", "SUPPLEMENT"] = "UNDERSTAND"
     job_id: str
     understanding_id: str
     revision: int

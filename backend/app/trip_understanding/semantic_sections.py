@@ -1,5 +1,6 @@
 """Model-selected day scopes with source-preserving coordinates and bounded work."""
 from __future__ import annotations
+from app.trip_understanding.inference_allowance import reserve_model_call
 
 import asyncio
 import hashlib
@@ -96,12 +97,12 @@ def aggregate_binding(provider, bindings: list[dict], started: float, **extra) -
     cost = None
     if known and all(rate is not None for rate in provider.rates):
         cost = round((inputs * provider.rates[0] + outputs * provider.rates[1]) / 1_000_000, 8)
-    return {"provider": "QWEN", "model": provider.model, "semantic_policy": "GLOBAL_STRUCTURE_DAY_SCOPES_V2",
+    return {"provider": getattr(provider, "provider_name", "QWEN"), "model": provider.model, "semantic_policy": "GLOBAL_STRUCTURE_DAY_SCOPES_V2",
         "external_calls": len(calls), "repair_call_count": sum(binding.get("repair_call_count", 0) for binding in bindings),
         "input_tokens": inputs, "output_tokens": outputs, "estimated_cost_cny": cost, "calls": calls,
         "latency_ms": round((time.perf_counter() - started) * 1000, 2),
         "deadline_ms": round(provider.deadline_seconds * 1000), "max_output_tokens": provider.max_output_tokens,
-        "temperature": 0, **extra}
+        "temperature": 0.6 if getattr(provider, 'provider_name', '') == 'KIMI_CODE' else 0, **extra}
 
 
 async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> SourceSemanticPlan:
@@ -109,6 +110,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
 
     started = time.perf_counter()
     deadline_at = started + provider.deadline_seconds
+    await reserve_model_call()
     plan_call = {"phase": "GLOBAL_STRUCTURE", "attempt": 1, "input_tokens": None, "output_tokens": None, "outcome": "UNKNOWN"}
     bindings = [{"calls": [plan_call]}]
     sections = []
@@ -153,6 +155,12 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
     if not sections:
         return await whole_document()
     prefix = source[:sections[0][1]]
+    from app.trip_understanding.pipeline import DOMESTIC_CITY_NAMES
+    if not any(city in prefix for city in DOMESTIC_CITY_NAMES):
+        # A city introduced inside Day 1 is not present in later day slices.
+        # Keep the original document together rather than inventing a preamble
+        # or rejecting valid later places for missing city evidence.
+        return await whole_document()
     slots = asyncio.Semaphore(2)
     results = {}
     diagnostics = []
@@ -216,6 +224,8 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
             # into this physical paragraph's day.
             return await whole_document()
         ids = {item.mention_id: f"day-{day}-{item.mention_id}" for item in scoped}
+        if any(item.replaces_mention_id and item.replaces_mention_id not in ids for item in scoped):
+            return await whole_document()
         order = remap_source_order_assessment(output.order_assessment, ids,
             offset=offset, source_start=len(prefix))
         order_groups.extend(order.groups)
@@ -231,6 +241,7 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
                 "lodging_exclusion_evidence_start": item.lodging_exclusion_evidence_start + offset if item.lodging_exclusion_evidence_start is not None else None,
                 "lodging_exclusion_evidence_end": item.lodging_exclusion_evidence_end + offset if item.lodging_exclusion_evidence_end is not None else None,
                 "parent_mention_id": ids.get(item.parent_mention_id),
+                "replaces_mention_id": ids.get(item.replaces_mention_id),
                 "choice_group_id": f"day-{day}-{item.choice_group_id}" if item.choice_group_id else None,
                 "branch_id": f"day-{day}-{item.branch_id}" if item.branch_id else None}))
         for issue in output.diagnostics:

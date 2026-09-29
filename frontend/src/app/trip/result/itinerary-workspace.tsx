@@ -42,7 +42,6 @@ import PlacePhoto, { PlacePhotoProvider } from './place-photo'
 import AccessibleDialog from './accessible-dialog'
 import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, connectorPresentation, dayRouteSummary, relativeDayLabel } from './result-presentation'
 import './itinerary-workspace.css'
-import SourceMealSlots from './source-meal-slots'
 import {diningAccessBadge} from './dining-access'
 
 
@@ -519,7 +518,7 @@ export default function ItineraryWorkspace({
                       <span className="four-day-count"><MapPin aria-hidden="true"/>{day.activities.length} 个地点</span>
                       <span className="four-day-confirmed"><Check aria-hidden="true"/>已确认 {day.activities.length}</span>
                       {pendingCount > 0 && <span className="four-day-pending">待确认 {pendingCount}</span>}
-                      {!!day.unprocessed_count && <span className="four-day-pending">未整理 {day.unprocessed_count}</span>}
+                      {(pendingCount>0 || !!day.unprocessed_count) && <button className="four-day-issues" onClick={()=>window.dispatchEvent(new CustomEvent('trip-inspector-open',{detail:{day:dayOffset}}))}>查看问题</button>}
                       {routeSummary && <span className="four-day-route-summary">{routeSummary}</span>}
                     </div>
                     <div className="four-day-actions">
@@ -539,7 +538,7 @@ export default function ItineraryWorkspace({
                   </header>
                   {collapsed && <div className="four-day-overview" data-testid={`day-overview-${dayIndex}`}>
                     {day.activities.length > 0 ? <ol className="four-mini-chain" aria-label={`${relativeDayLabel(dayOffset)}折叠地点顺序`}>
-                      {day.activities.map((activity, position) => <li key={activity.activity_token}>
+                      {day.activities.map((activity, position) => <li key={activity.visit_id || activity.activity_token}>
                         <div className="four-mini-image"><PlacePhoto card={activity}/><span style={{backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length]}}>{position + 1}</span></div>
                         <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}{diningAccessBadge(activity) ? ` · ${diningAccessBadge(activity)}` : ''}</small></div>
                         {position < day.activities.length - 1 && <ChevronRight className="four-mini-arrow" aria-hidden="true"/>}
@@ -550,10 +549,8 @@ export default function ItineraryWorkspace({
                   </div>}
 
                   <div id={`day-content-${dayIndex}`} className="four-day-content" hidden={collapsed}>
-                    <SourceMealSlots day={day} dayIndex={dayIndex} unresolvedActivities={unresolvedDays?.[dayOffset]?.activities} descriptions={mealDescriptions}
-                      resource={resource} etag={etag} disabled={locked} onCommand={onCommand}/>
-                    {renderDaySuggestion?.(dayIndex)}
-                    {!!day.unprocessed_count && <p className="py-4 text-sm text-amber-800" data-testid={`day-unprocessed-${dayIndex}`}>这一天尚有 {day.unprocessed_count} 处原文内容尚未整理完成，请对照原文补全。已确认的安排可以继续使用。</p>}
+                    {!!day.source_notes?.length && <p className="four-source-notes">{day.source_notes.map(note=>note.text).join(' · ')}</p>}
+                    {!!day.meal_slots?.length && <p className="four-source-notes">{[...new Set(day.meal_slots.map(slot=>slot.preference_text).filter(Boolean))].join(' · ')}</p>}
                     {!day.activities.length && (pendingCount > 0 || !day.unprocessed_count) && <p className="py-4 text-sm text-slate-500">{pendingCount > 0 ? `这一天已安排 ${pendingCount} 个地点，待确认后显示卡片。` : day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
 
                     {layoutMode === 'LIST' ? (
@@ -561,7 +558,7 @@ export default function ItineraryWorkspace({
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
-                            <li key={activity.activity_token} className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                            <li key={activity.visit_id || activity.activity_token} className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
                               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0c789d] text-xs font-bold text-white">{position + 1}</span>
                               <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
@@ -603,7 +600,7 @@ export default function ItineraryWorkspace({
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
-                            <motion.div key={activity.activity_token} className="serpentine-cell" initial={false} data-reverse={layout.point(previewPosition(position)).reverse} style={{...placeStyle(position),zIndex:pendingPlace?.card.activity_token===activity.activity_token || cardMenu?.card.activity_token===activity.activity_token?40:undefined,visibility:position === sourceIndex ? 'hidden' : 'visible'}} animate={{x:layout.point(previewPosition(position)).x-layout.point(position).x,y:layout.point(previewPosition(position)).y-layout.point(position).y}} transition={reduceMotion ? {duration:0} : {type:"spring",stiffness:390,damping:32}}>
+                            <motion.div key={activity.visit_id || activity.activity_token} className="serpentine-cell" initial={false} data-reverse={layout.point(previewPosition(position)).reverse} style={{...placeStyle(position),zIndex:pendingPlace?.card.activity_token===activity.activity_token || cardMenu?.card.activity_token===activity.activity_token?40:undefined,visibility:position === sourceIndex ? 'hidden' : 'visible'}} animate={{x:layout.point(previewPosition(position)).x-layout.point(position).x,y:layout.point(previewPosition(position)).y-layout.point(position).y}} transition={reduceMotion ? {duration:0} : {type:"spring",stiffness:390,damping:32}}>
                               <DropSlot
                                 dayIndex={dayIndex}
                                 rawPosition={position}
@@ -616,6 +613,7 @@ export default function ItineraryWorkspace({
                               <motion.article
                                 data-testid="activity-card"
                                 data-activity-name={activity.name}
+                                data-visit-id={activity.visit_id || activity.activity_token}
                                 data-drop-day={dayIndex}
                                 data-drop-position={position}
                                 onDragOver={(event) => {
@@ -728,6 +726,7 @@ export default function ItineraryWorkspace({
                                   <span className="flex items-start justify-between gap-2">
                                     <span className="min-w-0">
                                       <h3 className="four-card-name text-sm font-semibold text-slate-800">{activity.name}</h3>
+                                      {activity.note && <p className="e-small e-muted" title={activity.note}>{activity.note}</p>}
 
                                     </span>
                                     <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-300" aria-hidden="true" />

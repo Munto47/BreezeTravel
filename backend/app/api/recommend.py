@@ -14,7 +14,7 @@ from typing import Optional
 
 import aiohttp
 from fastapi import APIRouter
-from openai import AsyncOpenAI
+from app.llm import AsyncOpenAI
 from pydantic import BaseModel
 
 from app.config import settings
@@ -266,11 +266,11 @@ async def _recommend_smart(city: str, trip_days: int) -> list[Place]:
 
     # ── Step 1：LLM 生成搜索关键词 ──────────────────────────────────────
     queries: list[dict] = []
-    if settings.deepseek_api_key:
+    if settings.effective_llm_api_key:
         try:
             client = AsyncOpenAI(
-                api_key=settings.deepseek_api_key,
-                base_url=settings.deepseek_api_url,
+                api_key=settings.effective_llm_api_key,
+                base_url=settings.effective_llm_api_url,
             )
             prompt = (
                 "你是专业旅行顾问，请为用户生成在【%s】%d天旅行的高德地图POI搜索关键词。\n\n"
@@ -283,7 +283,7 @@ async def _recommend_smart(city: str, trip_days: int) -> list[Place]:
                 '仅返回JSON数组，格式：[{"keyword":"...","type":"attraction"},{"keyword":"...","type":"food"},{"keyword":"...","type":"hotel"}]'
             ) % (city, trip_days, n_attract, n_food, n_hotel)
             resp = await client.chat.completions.create(
-                model="deepseek-chat",
+                model=settings.generative_model("deepseek-chat"),
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=512,

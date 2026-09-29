@@ -233,7 +233,7 @@ def map_view_with_points(view: MapRenderView, plan: MapRenderPlan) -> MapRenderV
     # Old geometry remains visible, but cannot claim to connect current edited cards.
     if view.status != "NEEDS_UPDATE":
         for day in view.days:
-            stops = sorted((stop for stop in plan.stops if stop.day_label == day.label and stop.resolution_status == "AUTO_MATCHED" and stop.canonical_place_id), key=lambda stop: stop.sequence_index)
+            stops = sorted((stop for stop in plan.stops if stop.day_label == day.label), key=lambda stop: stop.sequence_index)
             for index, edge in enumerate(day.routes):
                 if index + 1 < len(stops) and edge.from_name == stops[index].name and edge.to_name == stops[index + 1].name:
                     edge.from_activity_token = stops[index].activity_token
@@ -358,7 +358,8 @@ def _mode_view_from_row(
     geometry: list[RouteGeometryPoint] | None = None,
 ) -> PublicRouteModeView:
     if row is None or row["status"] != "AVAILABLE":
-        return PublicRouteModeView(status="UNAVAILABLE")
+        from app.trip_understanding.map_render import route_failure_kind
+        return PublicRouteModeView(status="UNAVAILABLE",failure_kind=route_failure_kind(_row_route_binding(row)) if row else 'NO_DATA')
     return PublicRouteModeView(
         status="AVAILABLE",
         duration_minutes=row["duration_minutes"],
@@ -394,7 +395,13 @@ def _edge_message(selected_mode: str | None, walking: Any | None, transit: Any |
         return f"建议步行约 {walking['duration_minutes']} 分钟"
     if selected_mode == "transit" and transit is not None:
         return f"建议公交约 {transit['duration_minutes']} 分钟"
-    return "路线暂不可用"
+    from app.trip_understanding.map_render import route_failure_kind
+    reasons={route_failure_kind(_row_route_binding(row)) for row in (walking,transit) if row}
+    if 'UNCONFIRMED_PLACE' in reasons:
+        return '补全相邻地点后自动更新路线'
+    if 'PROVIDER_ERROR' in reasons:
+        return '路线服务暂不可用，可以重试'
+    return '暂无可用路线数据'
 
 
 class MapRenderRepository(Protocol):
@@ -478,7 +485,7 @@ class PostgresMapRenderRepositoryMixin:
         row: Any | None,
     ) -> tuple[PublicRouteModeView, bool]:
         if row is None or row["status"] != "AVAILABLE":
-            return PublicRouteModeView(status="UNAVAILABLE"), False
+            return _mode_view_from_row(row), False
         reference = row.get("geometry_ref") if hasattr(row, "get") else row["geometry_ref"]
         raw_points = await self._get_geometry_cache().get(reference) if reference else None
         points = [RouteGeometryPoint.model_validate(point) for point in (raw_points or [])]
@@ -492,7 +499,7 @@ class PostgresMapRenderRepositoryMixin:
     ) -> MapRenderPlan:
         result_row = await conn.fetchrow(
             """
-            SELECT result.public_json, revision.destination_json
+            SELECT result.public_json, revision.destination_json, revision.proposal_json
             FROM trip_understanding_results result
             JOIN trip_understanding_revisions revision
               ON revision.understanding_id = result.understanding_id
@@ -531,6 +538,7 @@ class PostgresMapRenderRepositoryMixin:
             bindings,
             city=city if isinstance(city, str) else None,
         )
+        plan.routes_changed = _json_value(result_row["proposal_json"]).get("routes_changed", True)
         selections = await conn.fetch(
             """
             SELECT s.* FROM trip_stay_selections s
@@ -985,6 +993,7 @@ class PostgresMapRenderRepositoryMixin:
             )
         return MapRenderJobRecord(
             map_job_id=row["map_job_id"],
+            request_origin=row["request_origin"],
             understanding_id=row["understanding_id"],
             plan_ref_id=row["plan_ref_id"],
             plan_ref=PlanRevisionRef(
@@ -1352,6 +1361,7 @@ class InMemoryMapRenderRepositoryMixin:
             bindings,
             city=destination,
         )
+        plan.routes_changed = getattr(self, "g03_pipeline_inputs", {}).get((understanding_id, revision), {}).get("routes_changed", True)
         selection = getattr(self, "stay_selections", {}).get((understanding_id, revision))
         if selection is None:
             return plan
@@ -1620,6 +1630,7 @@ class InMemoryMapRenderRepositoryMixin:
         )
         return MapRenderJobRecord(
             map_job_id=item["map_job_id"],
+            request_origin=item["request_origin"],
             understanding_id=item["understanding_id"],
             plan_ref_id=item["plan_ref_id"],
             plan_ref=item["plan"].plan_ref,

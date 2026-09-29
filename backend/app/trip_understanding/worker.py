@@ -23,6 +23,7 @@ from app.trip_understanding.repository import (
 )
 from app.trip_understanding.experience_inference import ExperienceQwenProvider
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
+from app.trip_understanding.inference_allowance import InferenceAllowanceExceeded, inference_allowance
 
 
 logger = logging.getLogger(__name__)
@@ -42,26 +43,31 @@ class _LeaseTakeoverInferenceProvider:
         )
 
 
+def build_configured_inference_provider(settings: Settings):
+    """One configuration path for production and opt-in measurements."""
+    return ExperienceQwenProvider(
+        api_key=settings.kimi_for_code or settings.qwen_api_key,
+        base_url=settings.kimi_api_url if settings.kimi_for_code else settings.qwen_api_url,
+        model=settings.generative_model(settings.trip_understanding_qwen_model),
+        deadline_seconds=settings.kimi_parse_deadline_seconds if settings.kimi_for_code else settings.trip_understanding_qwen_deadline_seconds,
+        max_output_tokens=settings.kimi_parse_max_output_tokens if settings.kimi_for_code else settings.trip_understanding_qwen_max_output_tokens,
+        enable_source_visits=True,
+        relative_only=True,
+        input_cny_per_million=(
+            None if settings.kimi_for_code else settings.trip_understanding_qwen_input_cny_per_million
+        ),
+        output_cny_per_million=(
+            None if settings.kimi_for_code else settings.trip_understanding_qwen_output_cny_per_million
+        ),
+    )
+
+
 def build_configured_full_pipeline(settings: Settings):
     if settings.trip_understanding_provider_mode != "live":
         if settings.runtime_profile not in {"test", "local_fixture"}:
             raise ValueError("custom text requires live providers")
         return build_full_text_pipeline()
-    qwen = ExperienceQwenProvider(
-        api_key=settings.qwen_api_key,
-        base_url=settings.qwen_api_url,
-        model=settings.trip_understanding_qwen_model,
-        deadline_seconds=settings.trip_understanding_qwen_deadline_seconds,
-        max_output_tokens=settings.trip_understanding_qwen_max_output_tokens,
-        enable_source_visits=True,
-        relative_only=True,
-        input_cny_per_million=(
-            settings.trip_understanding_qwen_input_cny_per_million
-        ),
-        output_cny_per_million=(
-            settings.trip_understanding_qwen_output_cny_per_million
-        ),
-    )
+    qwen = build_configured_inference_provider(settings)
     amap = AmapPlaceResolver(
         api_key=settings.amap_api_key,
         deadline_seconds=settings.trip_understanding_amap_place_deadline_seconds,
@@ -82,12 +88,14 @@ class TripUnderstandingWorker:
         repository: TripUnderstandingRepository,
         *,
         full_pipeline=None,
+        supplement_provider=None,
         lease_seconds: int = 30,
     ) -> None:
         self.repository = repository
         self.lease_seconds = lease_seconds
         self.demo_pipeline = build_demo_pipeline()
         self.full_pipeline = full_pipeline if full_pipeline is not None else build_configured_full_pipeline(get_settings())
+        self.supplement_provider = supplement_provider
         self.lease_takeover_pipeline = TripUnderstandingPipeline(
             _LeaseTakeoverInferenceProvider(), getattr(self.full_pipeline, "place_resolver", None),
         )
@@ -140,6 +148,9 @@ class TripUnderstandingWorker:
         )
         if job is None:
             return False
+        if job.job_type == "SUPPLEMENT":
+            await self._run_supplement(job, operation_now)
+            return True
         try:
             async def execute_pipeline():
                 source = await self.repository.load_source(job, now=observed_at)
@@ -210,10 +221,14 @@ class TripUnderstandingWorker:
                             "collaboration_city_guard_token": collaboration_city_guard,
                         }
                     )
-                return (
-                    await pipeline.run(source.text, **pipeline_options),
-                    source_binding,
-                )
+                async def reserve_call():
+                    await self.repository.reserve_inference_call(job, now=operation_now())
+
+                with inference_allowance(reserve_call):
+                    return (
+                        await pipeline.run(source.text, **pipeline_options),
+                        source_binding,
+                    )
 
             output, source_binding = await self._run_with_heartbeat(
                 job,
@@ -249,6 +264,8 @@ class TripUnderstandingWorker:
                 provider_binding=exc.provider_binding,
             )
             logger.warning("trip inference unavailable; a new user request can retry")
+        except InferenceAllowanceExceeded as exc:
+            await self.repository.fail_job(job, category=str(exc), now=operation_now(), allow_retry=False)
         except Exception:
             await self.repository.fail_job(
                 job,
@@ -257,6 +274,42 @@ class TripUnderstandingWorker:
             )
             logger.warning("trip understanding job failed safely")
         return True
+
+    async def _run_supplement(self, job, operation_now):
+        from app.trip_understanding.bounded_supplement import build_supplement_patch
+        from app.trip_understanding.errors import ResourceAccessDeniedError, ResourceGoneError, RevisionConflictError, SourceUnavailableError
+        from app.trip_understanding.supplement_jobs import SupplementRejectedError
+        from app.trip_understanding.supplement_provider import BoundedSupplementProvider
+
+        usage = {}
+        try:
+            async def execute():
+                nonlocal usage
+                work = await self.repository.load_supplement_work(job, now=operation_now())
+                provider = self.supplement_provider or BoundedSupplementProvider(self.full_pipeline.inference_provider)
+                async def reserve():
+                    await self.repository.reserve_inference_call(job, now=operation_now())
+                with inference_allowance(reserve):
+                    rows, usage = await provider.propose(work)
+                    patch = await build_supplement_patch(work.source, work.plan, work.result, rows, self.full_pipeline)
+                return work, patch
+            work, patch = await self._run_with_heartbeat(job, execute(), operation_now)
+            await self.repository.complete_supplement_job(job, work, patch, now=operation_now(), provider_binding=usage)
+        except asyncio.CancelledError:
+            raise
+        except JobLeaseLostError:
+            logger.info("supplement worker stopped after losing its lease")
+        except Exception as exc:
+            category = ({RevisionConflictError: "BASE_VERSION_CHANGED", ResourceGoneError: "RESOURCE_EXPIRED",
+                ResourceAccessDeniedError: "OWNER_CHANGED", SourceUnavailableError: "SOURCE_UNAVAILABLE"}.get(type(exc), "SUPPLEMENT_FAILED"))
+            if isinstance(exc, SupplementRejectedError):
+                category = exc.reason
+            elif isinstance(exc, InferenceAllowanceExceeded):
+                category = str(exc)
+            elif isinstance(exc, InferenceProviderUnavailableError):
+                category, usage = exc.category, exc.provider_binding
+            await self.repository.fail_supplement_job(job, category=category, now=operation_now(), provider_binding=usage)
+            logger.warning("supplement did not complete; saved trip preserved")
 
 
 async def run_forever() -> None:

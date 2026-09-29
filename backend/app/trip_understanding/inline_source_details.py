@@ -97,9 +97,12 @@ def source_visit_fragments_covered(source: str, proposal: SourceSemanticPlan) ->
 
     roots = [m for m in proposal.mentions if not m.parent_mention_id and m.atomic_place_name]
     details = [m for m in proposal.mentions if m.parent_mention_id and m.relation_type == "INTERNAL_DETAIL"]
-    # This is intentionally only a narrow single-visit proof. Multiple visits,
-    # branches or days need richer coverage evidence; do not infer their scope
-    # or reinterpret an incorrectly independent root merely to clear a warning.
+    # Multiple visits need explicit arrivals and per-visit ownership; the
+    # single-visit grammar below must not borrow details across visits.
+    if len(roots) > 1:
+        from app.trip_understanding.source_fragment_coverage import multiple_visit_fragments_covered
+
+        return multiple_visit_fragments_covered(source, proposal)
     if not details or len(roots) != 1:
         return False
     scopes = set()

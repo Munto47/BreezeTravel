@@ -1,0 +1,75 @@
+/* One desktop workspace; controls float above the itinerary, never resize it. */
+@media (min-width:1024px) {
+ .experience.e-full-workspace {height:100dvh;overflow:auto;background:#f5f9fb;}
+ .e-full-workspace > .four-site-header {position:fixed;inset:18px 24px auto;z-index:35;min-height:42px;height:42px;padding:0;pointer-events:none;background:none;display:flex;justify-content:space-between;}
+ .e-full-workspace .four-site-header > * {pointer-events:auto;}
+ .e-full-workspace .four-site-header > a:first-child {background:#fffffff2;border-radius:28px;padding:10px 19px;box-shadow:0 6px 24px #25465b0a;}
+ .e-full-workspace .four-site-nav {display:none;}
+ .experience.e-full-workspace .e-trip-head {position:fixed;z-index:34;top:78px;left:24px;right:24px;width:auto;min-height:0;margin:0;padding:0;align-items:flex-start;pointer-events:none;}
+ /* The panel belongs to this stacking context; its own z-index cannot pass
+    the site header. Keep its close button above the account link. */
+ .experience.e-full-workspace .e-trip-head:has(.trip-inspector:not([hidden])),
+ .experience.e-full-workspace .e-trip-head:has(#inspector-editor-slot:not(:empty)) {z-index:36;}
+ .e-full-workspace .e-trip-head > * {pointer-events:auto;}
+ .e-full-workspace .e-trip-title {padding:15px 19px;background:#fffffff5;border:1px solid #e9eff3;border-radius:19px;box-shadow:0 8px 30px #20465b08;}
+ .experience.e-full-workspace .e-trip-head h1 {font-size:24px;}
+ .e-full-workspace .e-save-area {padding:7px 10px;background:#fffffff5;border:1px solid #e9eff3;border-radius:18px;box-shadow:0 8px 30px #20465b08;}
+ .e-full-workspace .e-save-status {font-size:11px;padding:0 8px;}
+ .e-full-workspace .e-actions {gap:2px;}
+ .e-full-workspace .e-actions .e-button {min-height:36px;font-size:12px;padding:7px 10px;}
+ .e-full-workspace [data-testid=result-desktop-nav] {top:174px;left:24px;width:60px;}
+ .e-full-workspace #itinerary-view {padding:170px 24px 50px 104px;max-width:none;}
+ .e-full-workspace .four-day-panel {border:1px solid #e5edf2;border-radius:18px;box-shadow:none;}
+ .e-full-workspace .serpentine-route-label.is-unverified {background:#f5f8fa;color:#64788a;}
+ .e-full-workspace .serpentine-route-label .route-connection-warning {display:none;}
+ .e-full-workspace .four-day-confirmed,.e-full-workspace .four-day-route-summary,.e-full-workspace .four-overview-note {display:none;}
+ .e-full-workspace .four-source-notes {color:#546c7e;font-size:13px;padding:9px 18px;}
+ .e-full-workspace .four-day-issues {color:#9b590d;font-size:12px;padding:6px 10px;border-radius:10px;background:#fff8ee;}
+ .e-full-workspace .e-page-message {position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:60;padding:0;max-width:580px;}
+ .e-full-workspace .e-page-message:empty {display:none;}
+ .experience.e-full-workspace.e-map-mode .e-horizontal-result-shell {position:fixed;inset:0;z-index:0;}
+ .experience.e-full-workspace .fluid-map-workspace {display:block;position:absolute;inset:0;padding:0;height:100dvh;}
+ .experience.e-full-workspace .fluid-map-stage {position:absolute;inset:0;border-radius:0;box-shadow:none;}
+ .e-full-workspace .map-place-directory {position:absolute;z-index:22;left:104px;top:178px;bottom:98px;width:278px;border-radius:20px;background:#fffffff2;box-shadow:0 10px 35px #2748550d;}
+ .e-full-workspace .map-directory-photo {width:50px;height:46px;flex-basis:50px;}
+ .experience.e-full-workspace .fluid-map-bottom {position:absolute;bottom:22px;left:24px;right:24px;z-index:23;pointer-events:none;}
+ .e-full-workspace .fluid-map-bottom > * {pointer-events:auto;background:#fffffff5;border-radius:28px;padding:7px;}
+ .e-full-workspace .map-directory-filters {display:none;}
+ .e-full-workspace .map-suggestions-slot {display:none;}
+ .e-full-workspace [data-testid=context-workspace] {position:fixed;inset:0;z-index:50;pointer-events:none;display:block;padding:0;}
+ .e-full-workspace [data-testid=context-workspace] > .e-itinerary,.e-full-workspace [data-testid=context-workspace] > .e-map-column {display:none;}
+ .e-full-workspace .e-context-panel {pointer-events:auto;position:fixed;top:16px;bottom:16px;right:16px;width:400px;border:1px solid #e1e9ef;border-radius:20px;background:white;box-shadow:0 12px 48px #193f5918;}
+ .e-full-workspace #inspector-editor-slot:not(:empty) {position:fixed;top:16px;bottom:16px;right:16px;width:400px;z-index:55;overflow:auto;background:#fff;border:1px solid #e1e9ef;border-radius:20px;box-shadow:0 12px 48px #193f5918;padding:20px;}
+ .e-full-workspace #inspector-editor-slot .pending-place-dropdown {width:100%;position:static;margin:0;padding:0;border:0;box-shadow:none;}
+ .e-full-workspace:has(#inspector-editor-slot:not(:empty)) .trip-inspector {visibility:hidden;}
+ .e-full-workspace:has(.trip-inspector:not([hidden])) .e-save-area,.e-full-workspace:has(#inspector-editor-slot:not(:empty)) .e-save-area {margin-right:408px;}
+ .e-full-workspace:has(.trip-inspector:not([hidden])) .e-save-status {display:none;}
+}
+.trip-inspector {position:fixed;top:16px;bottom:16px;right:16px;width:400px;z-index:49;background:#fff;border:1px solid #e1e9ef;border-radius:20px;box-shadow:0 12px 48px #193f5918;display:flex;flex-direction:column;text-align:left;color:#18334b;overflow:hidden;}
+.trip-inspector[hidden],.trip-inspector [hidden] {display:none !important;}
+.trip-inspector > header {display:flex;justify-content:space-between;align-items:center;padding:20px 22px 10px;}
+.trip-inspector > header > div {display:flex;align-items:center;gap:10px;}
+.trip-inspector h2 {font-size:18px;font-weight:650;}
+.trip-inspector button {text-align:left;}
+.trip-inspector header button {padding:8px;}
+.inspector-background {font-size:12px;color:#667b8c;margin:0;padding:0 22px 15px;}
+.trip-inspector > nav {display:flex;gap:5px;padding:0 16px 12px;border-bottom:1px solid #edf1f5;}
+.trip-inspector > nav button {min-height:38px;border-radius:10px;padding:8px 11px;font-size:13px;white-space:nowrap;}
+.trip-inspector > nav button[aria-pressed=true] {color:#087b98;background:#eaf6f8;}
+.trip-inspector small {font-size:12px;}
+.trip-inspector nav small,.inspector-count {margin-left:7px;border-radius:8px;background:#e8f3f7;padding:1px 5px;font-size:11px;}
+.inspector-list,.inspector-detail {overflow:auto;min-height:0;padding:12px 18px;flex:1;overscroll-behavior:contain;}
+.inspector-item {width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #edf1f5;padding:17px 5px;}
+.inspector-item strong {display:block;font-size:14px;font-weight:600;}
+.inspector-item small {display:block;line-height:1.6;color:#6c7f90;margin-top:6px;}
+.inspector-item svg {flex-shrink:0;color:#8ba0af;}
+.inspector-item:hover {background:#f8fafc;}
+.inspector-empty {font-size:14px;color:#677e90;padding:28px 8px;line-height:1.8;}
+.inspector-back {display:flex;align-items:center;gap:7px;font-size:13px;min-height:40px;color:#38738c;}
+.inspector-detail h3 {font-size:19px;margin:18px 0 10px;font-weight:600;}
+.inspector-detail > p,.inspector-detail details {font-size:13px;line-height:1.8;color:#64788a;margin:12px 0;}
+.inspector-detail .pending-place-dropdown {position:static;width:100%;border:0;box-shadow:none;padding:0;margin:24px 0;}
+.inspector-suggestions {position:static;padding:0;background:#fff;}
+.inspector-source {white-space:pre-wrap;font:inherit;line-height:1.9;max-height:340px;overflow:auto;padding:12px;background:#f8fafb;border-radius:10px;}
+.trip-inspector :focus-visible,#inspector-editor-slot :focus-visible {outline:2px solid #008da9;outline-offset:3px;}
+@media (prefers-reduced-motion:reduce) {.e-full-workspace * {scroll-behavior:auto !important;transition:none !important;}}

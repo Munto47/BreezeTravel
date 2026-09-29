@@ -27,7 +27,7 @@ _ROUTE_FIXTURE = json.loads(_ROUTE_FIXTURE_BYTES.decode("utf-8"))
 ROUTE_CONFIG_SHA256 = canonical_sha256(
     {
         "selection_policy": "walking-at-most-30-minutes-otherwise-transit-v2",
-        "stop_policy": "confirmed-visible-stops-v2",
+        "stop_policy": "actual-adjacent-stops-v3",
         "modes": ["walking", "transit"],
         "walking_endpoint": "https://restapi.amap.com/v3/direction/walking",
         "transit_endpoint": "https://restapi.amap.com/v3/direction/transit/integrated",
@@ -72,6 +72,7 @@ class MapLodgingConstraint(MapStop):
 
 
 class MapRenderPlan(StrictModel):
+    routes_changed: bool = True
     understanding_id: str
     plan_ref: PlanRevisionRef
     route_config_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -81,6 +82,7 @@ class MapRenderPlan(StrictModel):
 
 
 class MapRenderJobRecord(StrictModel):
+    request_origin: str = "INITIAL"
     map_job_id: str
     understanding_id: str
     plan_ref_id: str
@@ -160,6 +162,7 @@ class MapRenderOutput(StrictModel):
 
 class PublicRouteModeView(StrictModel):
     status: Literal["AVAILABLE", "UNAVAILABLE"]
+    failure_kind: Literal['NO_DATA','PROVIDER_ERROR','UNCONFIRMED_PLACE','UNREACHABLE'] | None = None
     duration_minutes: int | None = None
     distance_meters: int | None = None
     transfer_count: int | None = None
@@ -410,11 +413,8 @@ class MapRenderer:
         started_at = observed_at or datetime.now(timezone.utc)
         by_day: dict[int, list[MapStop]] = defaultdict(list)
         for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
-            # Keep the immutable plan binding intact, but route only the
-            # confirmed stops displayed by the itinerary. Hidden mentions
-            # must not interrupt adjacency or receive provider calls.
-            if stop.resolution_status != "AUTO_MATCHED" or not stop.canonical_place_id:
-                continue
+            # Unknown stops interrupt adjacency. Never invent an A → C route
+            # when the actual itinerary is A → unresolved B → C.
             by_day[stop.day_index].append(stop)
         edges: list[InternalMapEdge] = []
         for day_index in sorted(by_day):
@@ -539,9 +539,20 @@ class MapRenderer:
         )
 
 
+def route_failure_kind(binding):
+    reason=binding.get('reason') or binding.get('status')
+    if reason in {'PLACE_NEEDS_CONFIRMATION','ROUTE_ENDPOINT_COORDINATES_UNAVAILABLE','ROUTE_ENDPOINT_CITY_UNAVAILABLE'}:
+        return 'UNCONFIRMED_PLACE'
+    if reason in {'DEADLINE_EXCEEDED','PROVIDER_UNAVAILABLE','INVALID_PROVIDER_RESPONSE','PROVIDER_REJECTED'}:
+        return 'PROVIDER_ERROR'
+    # An empty provider response is not proof of physical inaccessibility.
+    return 'NO_DATA'
+
+
 def mode_public_view(fact: InternalRouteModeFact) -> PublicRouteModeView:
     return PublicRouteModeView(
         status=fact.status,
+        failure_kind=route_failure_kind(fact.provider_binding) if fact.status!='AVAILABLE' else None,
         duration_minutes=fact.duration_minutes,
         distance_meters=fact.distance_meters,
         transfer_count=fact.transfer_count,

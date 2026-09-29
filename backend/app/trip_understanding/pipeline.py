@@ -9,6 +9,7 @@ from collections import Counter
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Protocol
 from uuid import uuid4
+from app.trip_understanding.source_occurrence import source_occurrence_id
 from app.trip_understanding.timing import timing_values
 from app.trip_understanding.place_labels import normalized_place_label
 
@@ -277,6 +278,7 @@ def _reviewed_places_support_soft_city(source_text: str, proposal: InferenceProp
         normalize_place_name,
     )
     from app.trip_understanding.landmark_hints import HINTS
+    from app.trip_understanding.city_knowledge import get_city_knowledge
 
     if proposal.destination_basis != DestinationBasis.SOFT_ASSUMPTION:
         return False
@@ -300,12 +302,19 @@ def _reviewed_places_support_soft_city(source_text: str, proposal: InferenceProp
         normalize_place_name(item.atomic_place_name)
         for item in planned
         if item.city_evidence is None or item.city_hint == destination
+        or (item.city_evidence in source_text and item.atomic_place_name in item.city_evidence)
     }
     matches: dict[str, dict[tuple[str, str], bool]] = {name: {} for name in names}
     reviewed = [
         (entry.city, entry.canonical_name, entry.aliases, entry.category in {"attraction", "transport"})
         for entry in lexicon.entries
     ] + [(hint.city, hint.name, hint.aliases, hint.typecode.startswith(("08", "11", "14", "15", "19"))) for hint in HINTS]
+    # Use the active city vocabulary as well as the older three-city pack.
+    # All matching names participate in ambiguity checks; only reviewed names
+    # for places/areas can support a query city. This never confirms a POI.
+    reviewed += [(entry.city, entry.canonical_name, entry.aliases,
+                  entry.review_status == "name_verified" and entry.category in {"attraction", "transport", "area"})
+                 for entry in get_city_knowledge().entities]
     for city, canonical, aliases, eligible in reviewed:
         identity = (city, normalize_place_name(canonical))
         for label in (canonical, *aliases):
@@ -331,7 +340,18 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
     if mention.city_hint:
         return (mention.city_hint,)
     if mention.city_evidence is not None:
-        return ("目的地待确认",)
+        # A rejected redundant model hint must not defeat independently
+        # validated whole-document city context. Never use its rejected city:
+        # only a source-explicit, single-city destination may be reconsidered.
+        evidence_cities = {city for city in DOMESTIC_CITY_NAMES if city in mention.city_evidence}
+        arrival_city = re.search(r"(?:抵达|到达)\s*" + re.escape(proposal.destination_name.removesuffix('市'))
+            + r"(?:市)?(?:后|[，。；\s])", source_text)
+        reviewed_context = (mention.city_evidence in source_text and bool(mention.atomic_place_name)
+            and mention.atomic_place_name in mention.city_evidence
+            and _reviewed_places_support_soft_city(source_text, proposal, proposal.destination_name.removesuffix('市')))
+        if ((proposal.destination_basis != DestinationBasis.EXPLICIT and not arrival_city and not reviewed_context)
+                or evidence_cities - {proposal.destination_name.removesuffix('市')}):
+            return ("目的地待确认",)
     destination = proposal.destination_name.strip().removesuffix("市")
     # This vocabulary detects conflicting city mentions; it is not a coverage
     # whitelist. The live resolver verifies an arbitrary city with AMap admin
@@ -1220,6 +1240,7 @@ class PublicResultProjector:
         for day_index in range(1, day_count + 1):
             cards = []
             meal_slots = []
+            source_notes = []
             anonymous_meal_occurrences: set[tuple] = set()
             daily = sorted((activity for activity in activities
                 if activity.compiled.mention.role == ActivityRole.PLANNED
@@ -1237,10 +1258,6 @@ class PublicResultProjector:
                 key=lambda activity: activity.compiled.mention.sequence_index,
             ):
                 mention = item.compiled.mention
-                if mention.category_hint in {"住宿", "交通节点"} and not mention.atomic_place_name:
-                    # Unnamed lodging gaps and transport actions retain their
-                    # source semantics without inventing a place to confirm.
-                    continue
                 anonymous_meal = (mention.meal_role or mention.category_hint == "餐饮") and not mention.atomic_place_name
                 area_meal = bool(mention.meal_role and mention.atomic_place_name and mention.category_hint == "地点")
                 if anonymous_meal or area_meal:
@@ -1296,6 +1313,23 @@ class PublicResultProjector:
                             after_activity_token=after_token, before_activity_token=before_token))
                     if anonymous_meal:
                         continue
+                if not mention.atomic_place_name and not item.place:
+                    from app.trip_understanding.models import SourceNoteView
+                    # An action without a named entity is not a failed POI.
+                    # Preserve its position and readable content; the full
+                    # literal evidence remains in the retained source record.
+                    text = mention.raw_text
+                    if source_text and source_text[mention.span_start:mention.span_end] == text:
+                        left = max(source_text.rfind(mark, 0, mention.span_start) for mark in ('\n', '。', '；', '，')) + 1
+                        right = min((position for mark in ('\n', '。', '；', '，')
+                            if (position := source_text.find(mark, mention.span_end)) >= 0), default=len(source_text))
+                        if right - left <= 120:
+                            text = re.sub(r"^[\s*\-]*(?:上午|中午|下午|傍晚|晚上)[*\s]*[：:]", "", source_text[left:right]).replace('**', '')
+                    text = re.sub(r"\d+(?:\.\d+)?(?:\s*[-–~至]\s*\d+(?:\.\d+)?)?\s*(?:小时|分钟|时|分)", "", text)
+                    text = re.sub(r"\d+\s*月\s*\d+\s*日", "", text).strip()
+                    source_notes.append(SourceNoteView(note_id=item.compiled.public_activity_token,
+                        text=text[:600] or "原文安排", position=len(cards)))
+                    continue
                 place = item.place
                 source_confirmation_required = item.resolver_receipt.get("status") in {
                     "SOURCE_CONFIRMATION_REQUIRED",
@@ -1304,6 +1338,7 @@ class PublicResultProjector:
                 cards.append(
                     ActivityCardView(
                         activity_token=item.compiled.public_activity_token,
+                        source_occurrence_id=source_occurrence_id(source_text, mention),
                         name=(
                             place.name
                             if place
@@ -1359,7 +1394,14 @@ class PublicResultProjector:
                     and item.mention.day_index == day_index), default=mention.sequence_index)
                 insertion_position = sum(sequence_by_token[card.activity_token] < first_sequence for card in cards)
 
+                replacement_token = next((item.compiled.public_activity_token for item in daily
+                    if item.compiled.mention.mention_id == mention.replaces_mention_id), None)
+                replacement = next((card for card in cards if card.activity_token == replacement_token), None)
                 choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint,
+                    source_occurrence_id=source_occurrence_id(source_text, mention),
+                    replaces_visit_id=replacement.visit_id if replacement else None,
+                    replaces_name=replacement.name if replacement else None,
+                    replacement_condition=mention.replacement_condition,
                     activity_token=alternative.public_activity_token, branch_label=mention.branch_label,
                     choice_group_selectable=mention.choice_group_selectable,
                     insertion_position=insertion_position,
@@ -1370,7 +1412,7 @@ class PublicResultProjector:
                     choice_group_token=group_token(mention.choice_group_id), branch_token=group_token(mention.branch_id)))
             day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
                                         activities=cards, alternatives=choices, meal_slots=meal_slots,
-                                        unprocessed_count=(unprocessed_by_day or {}).get(day_index, 0)))
+                                        unprocessed_count=(unprocessed_by_day or {}).get(day_index, 0), source_notes=source_notes))
         resolved_count = sum(item.place is not None for item in planned)
         if planned and resolved_count == len(planned):
             result_status = "READY"
@@ -1703,6 +1745,9 @@ class TripUnderstandingPipeline:
                     max((mention.day_index or 0 for mention in proposal.mentions), default=0))),
             })
         model_meaning = isinstance(proposal, SourceSemanticPlan)
+        if model_meaning:
+            from app.trip_understanding.source_summary import explicit_source_relations
+            proposal = explicit_source_relations(source_text, proposal)
         cancellation_pending_spans: set[tuple[int, int]] = set()
         if not model_meaning:
             proposal, cancellation_pending_spans = _adapt_legacy_proposal(source_text, proposal)
@@ -2077,6 +2122,20 @@ class TripUnderstandingPipeline:
                     resolver_receipt=receipt,
                 )
             )
+        from app.trip_understanding.source_summary import summary_references
+        references = summary_references(source_text, resolved)
+        if references:
+            # Retain literal records as references. A later real visit, even to
+            # the same POI, remains an independent planned arrangement.
+            for item in compiled:
+                if item.mention.mention_id in references:
+                    item.mention = item.mention.model_copy(update={"role": ActivityRole.REFERENCE})
+            for item in resolved:
+                if item.compiled.mention.mention_id in references:
+                    item.compiled.mention = item.compiled.mention.model_copy(update={"role": ActivityRole.REFERENCE})
+            proposal = proposal.model_copy(update={"mentions": [mention.model_copy(
+                update={"role": ActivityRole.REFERENCE}) if mention.mention_id in references else mention
+                for mention in proposal.mentions]})
         public_result = self.projector.project(
             proposal.destination_name,
             proposal.destination_basis,
@@ -2100,11 +2159,20 @@ class TripUnderstandingPipeline:
                                 for chip in public_result.assumptions],
             })
         fallback_used = proposal.binding.get("fallback_used") is True
+        recovered_source_complete = False
+        if (model_meaning and fallback_used and proposal.binding.get("semantic_partial_recovery") is True
+                and not proposal.unprocessed_count and not proposal.diagnostics):
+            from app.trip_understanding.inline_source_details import source_visit_fragments_covered
+
+            # Keep the fact that recovery was used in operational accounting.
+            # It is not a permanent unfinished flag once literal source
+            # coverage and the final projection both account for every item.
+            recovered_source_complete = source_visit_fragments_covered(source_text, proposal)
         if partial_source or proposal.unprocessed_count:
             public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
         elif budget_limited_count:
             public_result = public_result.model_copy(update={"status": "LIMITED"})
-        elif (fallback_used or unavailable_count) and public_result.status != "PARTIAL_RESULT":
+        elif ((fallback_used and not recovered_source_complete) or unavailable_count) and public_result.status != "PARTIAL_RESULT":
             public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
         recognized = [item for item in resolved if item.compiled.mention.role == ActivityRole.PLANNED
                       and not _is_internal_detail(item.compiled.mention)

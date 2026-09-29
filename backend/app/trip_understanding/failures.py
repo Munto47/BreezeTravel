@@ -13,6 +13,10 @@ def public_failure_message(category: str) -> str:
         return CAPACITY_EXCEEDED_MESSAGE
     if category == INPUT_DAY_CAPACITY_EXCEEDED:
         return DAY_CAPACITY_EXCEEDED_MESSAGE
+    if category == "MODEL_CALL_BUDGET_EXHAUSTED":
+        return "本次整理的尝试次数已用完，已停止继续请求"
+    if category == "MODEL_CALL_DEADLINE_EXCEEDED":
+        return "本次整理已超过处理期限，已停止继续请求"
     return "这次没有整理完成，可以重新尝试"
 
 

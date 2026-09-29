@@ -59,7 +59,7 @@ def _get_llm():
     api_key = settings.effective_llm_api_key
     if not api_key:
         return None
-    from langchain_openai import ChatOpenAI
+    from app.llm import chat_model as ChatOpenAI
     return ChatOpenAI(
         model=settings.llm_model_router,
         api_key=api_key,

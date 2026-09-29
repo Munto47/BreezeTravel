@@ -166,9 +166,15 @@ class Upgrade:
         # credential formats in dependency errors without losing the stack trace.
         secrets = set()
         environments = [self.environment, *(self.env(c) for c in self.containers.values() if "Config" in c)]
+        provider_path = getattr(self.args, 'provider_config', None)
+        if provider_path and provider_path.is_file():
+            try:
+                environments.append(self.provider_configuration())
+            except (ValueError, UpgradeError):
+                pass
         for environment in environments:
             for key, value in environment.items():
-                if re.search(r"SECRET|PASSWORD|TOKEN|(?:^|_)KEY|SECURITY_CODE|DATABASE_URL", key):
+                if re.search(r"SECRET|PASSWORD|TOKEN|(?:^|_)KEY|SECURITY_CODE|DATABASE_URL|KIMI_FOR_CODE", key):
                     if value:
                         secrets.add(value)
                         if "://" in value and urlsplit(value).password:
@@ -537,6 +543,7 @@ process.exit(result.status===null?1:result.status);"""
         if db != (self.args.new_db if live else self.args.rehearsal_db):
             raise UpgradeError("Application configuration must target the selected isolated database")
         values = dict(self.environment)
+        values.update(self.provider_configuration())
         values["DATABASE_URL"] = database_url(values["DATABASE_URL"], db)
         redis = urlsplit(values["REDIS_URL"])
         index = self.args.redis_db if live else self.args.preview_redis_db
@@ -546,15 +553,31 @@ process.exit(result.status===null?1:result.status);"""
                       AMAP_MOCK="false", TRIP_UNDERSTANDING_PROVIDER_MODE="live",
                       TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS=str(self.args.model_deadline_seconds),
                       TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS=str(self.args.model_max_output_tokens))
+        if values.get('KIMI_FOR_CODE'):
+            values.update(KIMI_PARSE_DEADLINE_SECONDS=str(self.args.model_deadline_seconds),
+                          KIMI_PARSE_MAX_OUTPUT_TOKENS=str(self.args.model_max_output_tokens))
         if not live:
             values["TRIP_UNDERSTANDING_COOKIE_NAME"] = "bt_upgrade_preview"
             values["CORS_ORIGIN_REGEX"] = rf"^http://127\.0\.0\.1:{self.ports['web']}$"
-        required = ("QWEN_API_KEY", "AMAP_API_KEY", "JWT_SECRET_KEY", "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY", "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY")
+        required = ("KIMI_FOR_CODE" if values.get('KIMI_FOR_CODE') else "QWEN_API_KEY", "AMAP_API_KEY", "JWT_SECRET_KEY", "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY", "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY")
         if any(not values.get(key) for key in required):
             raise UpgradeError("Real preview/live configuration requires existing provider and identity keys")
         self.private_env(self.target / "private-api.env", values)
         self.private_env(self.target / "private-yjs.env", {
             "JWT_SECRET_KEY": values["JWT_SECRET_KEY"], "HOST": "0.0.0.0", "PORT": "1234", "YPERSISTENCE": "/data"})
+
+    def provider_configuration(self) -> dict:
+        path=getattr(self.args,'provider_config',None)
+        if not path:
+            return {}
+        if not path.is_file() or path.is_symlink() or path.parent != Path(str(self.target)+'-input'):
+            raise UpgradeError('Provider configuration must be a private file in this release input directory')
+        values=json.loads(path.read_text())
+        if set(values) != {'KIMI_FOR_CODE','KIMI_API_URL','KIMI_MODEL'} or not all(isinstance(value,str) and value for value in values.values()):
+            raise UpgradeError('Provider configuration contains unsupported fields')
+        if values['KIMI_API_URL']!='https://api.kimi.com/coding/v1' or values['KIMI_MODEL']!='kimi-for-coding':
+            raise UpgradeError('Unsupported Kimi Code endpoint or model')
+        return values
 
     def migrate(self) -> None:
         self.check_resources("migrate")
@@ -713,7 +736,9 @@ process.exit(result.status===null?1:result.status);"""
             FROM trip_understandings u JOIN trip_understanding_results result ON result.result_id=u.current_result_id
             WHERE u.public_resource_id='{resource}'),'{{}}'::json)"""))
         bindings = report.pop("model_bindings", [])
-        real_model = isinstance(bindings, list) and has_live_model_call(bindings, self.environment.get("TRIP_UNDERSTANDING_QWEN_MODEL", ""))
+        provider={**self.environment,**self.provider_configuration()}
+        expected_model=provider.get('KIMI_MODEL','kimi-for-coding') if provider.get('KIMI_FOR_CODE') else provider.get('TRIP_UNDERSTANDING_QWEN_MODEL','')
+        real_model = isinstance(bindings, list) and has_live_model_call(bindings, expected_model)
         if set(report) != {"new_in_preview", "saved", "complete", "edited"} or not all(v is True for v in report.values()) or not real_model:
             raise UpgradeError("Preview trip has not completed real model generation, complete readback, account save and a persisted edit")
         # A narrow DB check is a prerequisite, never the full product acceptance.
@@ -838,6 +863,7 @@ def parse_args(argv=None):
     parser.add_argument("--preview-trip-id", help="Actual newly generated, account-saved and edited preview trip; required by activate")
     parser.add_argument("--model-deadline-seconds", type=float, required=True)
     parser.add_argument("--model-max-output-tokens", type=int, required=True)
+    parser.add_argument("--provider-config", type=Path)
     parser.add_argument("--source-archive", type=Path)
     parser.add_argument("--source-ref", default="unspecified", help="Ordinary Git ref for identifying the deployed code")
     return parser.parse_args(argv)

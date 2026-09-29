@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from openai import AsyncOpenAI
+from app.llm import AsyncOpenAI
 
 
 @dataclass(frozen=True)

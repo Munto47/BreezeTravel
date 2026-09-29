@@ -52,6 +52,7 @@ export default function PlaceEditor({
       (item) => item.activity_token === card?.activity_token,
     ) ?? 0
   const [name, setName] = useState(card?.name || '')
+  const [note,setNote] = useState(card?.note || '')
   const [query, setQuery] = useState(card?.name || '')
   const [candidates, setCandidates] = useState<PlaceCandidatesView | null>(null)
   const [candidate, setCandidate] = useState<PlaceCandidateView | null>(null)
@@ -71,7 +72,7 @@ export default function PlaceEditor({
       ? false
       : editorMode === 'ADD'
       ? Boolean(name.trim())
-      : moveDirty || Boolean(candidate)
+      : moveDirty || Boolean(candidate) || note !== (card?.note || '')
   useEffect(() => {
     onDirtyChange(dirty)
   }, [dirty, onDirtyChange])
@@ -218,6 +219,11 @@ export default function PlaceEditor({
       )}
       <SourceDetails card={card} />
       <DiningAccessNote value={card} showUnknown={card.category === '餐饮'}/>
+      <details className="e-disclosure"><summary>编辑行程备注</summary>
+        <p className="e-small e-muted">备注仅改变展示文案，不改变地点或重新算路。</p>
+        <label className="e-field">备注<textarea aria-label="行程备注" maxLength={600} value={note} disabled={busy} onChange={event=>setNote(event.target.value)}/></label>
+        <button className="e-button e-button-primary" disabled={busy || note===(card.note || '')} onClick={()=>void onCommand({command_type:'ACTIVITY_TEXT_EDIT',activity_token:card.activity_token,note}).then(ok=>{if(ok)setMessage('备注已保存。')})}>保存备注</button>
+      </details>
       <section className="e-form-section">
         <h3>确认或更换地点</h3>
         <form
@@ -312,7 +318,7 @@ export default function PlaceEditor({
                     if (stagedCard) { onApplied(); return }
                     selectCandidate(null)
                     setCandidates(null)
-                    setMessage('地点已更新，需要时再更新路线。')
+                    setMessage('地点已保存，相关路线正在后台更新。')
                   }
                 })
               }}

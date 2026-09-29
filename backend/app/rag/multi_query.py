@@ -26,7 +26,7 @@ Multi-Query 将一条查询改写为多个语义角度不同的子查询，分�
 """
 
 import asyncio
-from openai import AsyncOpenAI
+from app.llm import AsyncOpenAI
 from app.config import settings
 
 
@@ -104,7 +104,7 @@ async def generate_sub_queries(
             base_url=settings.effective_llm_api_url,
         )
         resp = await client.chat.completions.create(
-            model=settings.llm_model_router,   # 使用 router 模型（低延迟低 cost）
+            model=settings.generative_model(settings.llm_model_router),
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_content},
@@ -124,12 +124,10 @@ async def generate_sub_queries(
                 sub_queries.append(line)
 
         print(f"[MultiQuery] 生成 {len(sub_queries)} 条子查询（intent={intent or 'default'}）")
-        for i, q in enumerate(sub_queries):
-            print(f"  [{i}] {q}")
         return sub_queries
 
     except Exception as exc:
-        print(f"[MultiQuery] 子查询生成失败，回退到单查询：{exc}")
+        print(f"[MultiQuery] 子查询生成失败，保留原始查询：{type(exc).__name__}")
         return [query]
 
 

@@ -60,6 +60,7 @@ class DiningPOIInfo(StrictModel):
 
 
 class CandidatePlace(StrictModel):
+    photo_url: str | None = None
     canonical_place_id: str
     city: str
     name: str = Field(min_length=1, max_length=40)
@@ -73,6 +74,11 @@ class CandidatePlace(StrictModel):
     dining_access: DiningAccessView | None = None
     meal_evidence_status: Literal["LIGHT_FOOD_ITEMS_ONLY", "UNSPECIFIED"] = "UNSPECIFIED"
 
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def valid_photo(cls, value):
+        return safe_poi_photo_url(value)
+
     def receipt(self) -> dict:
         return {"status": "USER_CONFIRMED", "provider": "AMAP_POI_V2",
                 "city": self.city, "coordinates": self.position.model_dump(),
@@ -81,6 +87,7 @@ class CandidatePlace(StrictModel):
 
 
 class PublicPlaceCandidate(StrictModel):
+    photo_url: str | None = None
     candidate_token: str
     name: str
     category: str
@@ -128,72 +135,30 @@ def verify_candidate(token: str, *, public_resource_id: str, activity_token: str
 
 
 async def search_candidates(*, city: str, query: str, category_hint: str | None) -> list[CandidatePlace] | None:
+    from app.trip_understanding.ranked_places import ranked_candidates
+
     settings = get_settings()
-    city = city.strip().removesuffix("市")
     if not settings.amap_api_key or settings.trip_understanding_provider_mode != "live":
         return None
-    if not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", query.strip()):
-        return []
-    expected = _expected_category(category_hint)
-    hint = landmark_hint(city, query.strip()) if expected in {None, PlaceCategory.ATTRACTION} else None
-    reviewed = get_city_knowledge().query_lookup(city=city, name=query.strip())
-    entry = reviewed.unique
-    if entry is not None and (len(entry.canonical_name) > 40 or expected not in {None, PlaceCategory(entry.category)}):
-        entry = None
-    # A colliding alias stays the user's literal search, with ordinary candidate
-    # filtering. The name catalog cannot pick one physical place for the user.
-    if reviewed.matches:
-        hint = None
-    canonical = entry.canonical_name if entry else hint.name if hint else query.strip()
-    aliases = entry.aliases if entry else hint.aliases if hint else ()
     provider = AmapPlaceResolver(api_key=settings.amap_api_key)
     try:
-        scope = await provider.city_scope(city) if city not in _CITY_BOUNDS else None
-        if city not in _CITY_BOUNDS and scope is None:
-            return []
-        rows, _receipt = await provider._query_provider(city=city, query_name=canonical,
-            original_atomic=query.strip(), category_basis="USER_SEARCH", typecodes=[], lexicon_binding={})
+        candidates, _receipt = await ranked_candidates(provider, city=city, query=query, category_hint=category_hint)
+        places = []
+        for candidate in candidates:
+            row = candidate.raw
+            address = row.get("address")
+            place = CandidatePlace(canonical_place_id=f"amap:{row['id']}", city=city,
+                photo_url=next((url for photo in (row.get('photos') or []) if isinstance(photo, dict)
+                    if (url := safe_poi_photo_url(photo.get('url')))), None),
+                name=str(row['name']), category=_CATEGORY_LABELS[candidate.category],
+                area_or_address=str(address)[:120] if isinstance(address, str) and address else str(row.get("adname") or city),
+                position=GCJ02Position(longitude=candidate.coordinates[0], latitude=candidate.coordinates[1]))
+            if candidate.category == PlaceCategory.FOOD:
+                from app.trip_understanding.dining import dining_metadata
+                place = dining_metadata(place, row)
+            places.append(place)
+        return places
     except PlaceProviderUnavailableError:
         return None
     finally:
         await provider.aclose()
-    places: dict[str, CandidatePlace] = {}
-    for row in rows:
-        name = str(row.get("name") or "").strip()
-        poi_id = str(row.get("id") or "").strip()
-        if not poi_id or atomic_place_rejection_reason("".join(name.split())) or not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", name):
-            continue
-        if not _admin_matches(row, expected_city=city, expected_district=None, scope=scope):
-            continue
-        signals = classify_amap_type_signals(str(row.get("typecode") or ""), str(row.get("type") or ""))
-        category = signals.category
-        visitor = expected in {None, PlaceCategory.ATTRACTION} and _visitor_type_compatible(row, name)
-        if visitor:
-            category = PlaceCategory.ATTRACTION
-        if signals.conflict and not visitor:
-            continue
-        if not visitor and (not signals.complete or category == PlaceCategory.UNKNOWN):
-            if expected in {None, PlaceCategory.ATTRACTION} and verified_technical_landmark(row, city=city, name=query):
-                category = PlaceCategory.ATTRACTION
-            else:
-                continue
-        if expected is not None and category != expected:
-            continue
-        coordinates = _coordinates(row.get("location"))
-        if not coordinates or not (73 <= coordinates[0] <= 136 and 18 <= coordinates[1] <= 54):
-            continue
-        west, east, south, north = scope.bounds if scope else _CITY_BOUNDS[city]
-        if not (west <= coordinates[0] <= east and south <= coordinates[1] <= north):
-            continue
-        address = row.get("address")
-        places[poi_id] = CandidatePlace(canonical_place_id=f"amap:{poi_id}", city=city,
-            name=name, category=_CATEGORY_LABELS[category],
-            area_or_address=str(address)[:120] if isinstance(address, str) and address else str(row.get("adname") or city),
-            position=GCJ02Position(longitude=coordinates[0], latitude=coordinates[1]))
-        if category == PlaceCategory.FOOD:
-            from app.trip_understanding.dining import dining_metadata
-            places[poi_id] = dining_metadata(places[poi_id], row)
-    # Rank before truncation; generic keyword search still offers related POIs.
-    tiers = {"CANONICAL_EXACT": 0, "SAFE_ALIAS_EXACT": 1, "VENUE_SUFFIX_EQUIVALENT": 2}
-    return sorted(places.values(), key=lambda place: tiers.get(_name_match_tier(
-        {"name": place.name}, canonical_name=canonical, safe_aliases=aliases, city=city), 3))[:6]

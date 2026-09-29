@@ -60,6 +60,9 @@ export interface DiningContextView {
 }
 
 export interface ActivityCardView extends DiningContextView {
+  source_fragment_id?:string|null
+  note?: string
+  visit_id?: string
   source_details?: Array<{name: string; optional: boolean}>
   lodging_event?: 'OVERNIGHT' | 'CHECK_OUT' | 'DEPARTURE' | 'LUGGAGE_PICKUP' | 'VISIT_ONLY' | null
   lodging_scope?: 'WHOLE_TRIP' | 'DAY' | null
@@ -178,6 +181,8 @@ export interface StaySuggestionView {
 }
 
 export interface UserFacingTripResult {
+  correction_suggestions?: Array<{suggestion_id:string;target_visit_id:string;source_name:string}>
+  issue_dispositions?: Record<string,{status:string;title:string;message:string;input_fingerprint:string}>
   pending_lodgings?: PendingLodgingView[]
   lodging_constraints?: LodgingConstraintView[]
   coverage?: {recognized_place_count: number; confirmed_place_count: number; unresolved_place_count: number; unclassified_mention_count: number; unprocessed_count: number; complete: boolean} | null
@@ -189,12 +194,12 @@ export interface UserFacingTripResult {
   is_demo?: boolean
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
-  days: Array<{ label: string; activities: ActivityCardView[]; unprocessed_count?: number;
+  days: Array<{ label: string; day_id?: string; source_notes?: Array<{note_id:string; text:string; position:number}>; activities: ActivityCardView[]; unprocessed_count?: number;
     meal_slots?: Array<{meal_role:'BREAKFAST'|'LUNCH'|'DINNER'|'SNACK'|'UNSPECIFIED';after_activity_token?:string|null;before_activity_token?:string|null;
       preference_text?:string|null;
       selection_status?:'UNKNOWN'|'UNSELECTED'|'SELECTED';selected_activity_token?:string|null}>;
     choice_selections?: Array<{choice_group_token:string;branch_token:string;activity_tokens:string[];status:'SELECTED'|'MODIFIED'}>;
-    alternatives?: Array<{name: string; category: string; city?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
+    alternatives?: Array<{name: string; category: string; city?: string | null; replaces_visit_id?: string | null; replaces_name?: string | null; replacement_condition?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
   map: {
     status:
       | 'PREPARING'
@@ -218,6 +223,7 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
+  | {command_type:'ISSUE_DISPOSITION';issue_id:string;disposition:'IGNORED'|'OPEN'}
   | { command_type: 'ALTERNATIVE_INSERT'; day_index: number; alternative_token: string; position: number }
   | { command_type: 'CHOICE_CLEAR'; day_index: number; choice_group_token: string; preserve_activities?: boolean }
   | { command_type: 'CHOICE_SELECT'; day_index: number; choice_group_token: string; branch_token: string; position?: number }
@@ -231,7 +237,7 @@ export type TripUnderstandingCommand =
         end_time: string | null
       }>
     }
-  | { command_type: 'UNDO' }
+  | { command_type: 'UNDO'; change_etag?:string }
   | { command_type: 'REDO' }
   | {
       command_type: 'PLACE_CONFIRM'
@@ -257,6 +263,7 @@ export type TripUnderstandingCommand =
       time_hint?: string | null
     }
   | { command_type: 'ACTIVITY_DELETE'; activity_token: string }
+  | { command_type:'SOURCE_RESTORE'; source_token:string; day_index:number; position:number; kind:'NOTE'|'PLACE'; name?:string }
   | {
       command_type: 'ACTIVITY_MOVE'
       activity_token: string
@@ -265,6 +272,7 @@ export type TripUnderstandingCommand =
     }
   | {
       command_type: 'ACTIVITY_TEXT_EDIT'
+      note?: string
       activity_token: string
       name?: string
       time_hint?: string | null
@@ -283,7 +291,7 @@ export type TripUnderstandingCommand =
 export interface CommandAppliedView {
   status: 'APPLIED'
   changed_days: string[]
-  map_readiness: 'NEEDS_UPDATE'
+  map_readiness: 'NEEDS_UPDATE'|'PREPARING'
 }
 
 export interface ClaimedTripView {
@@ -362,6 +370,11 @@ export interface MaterializedTripView {
 }
 
 export interface PublicTripCheckItem {
+  input_fingerprint?: string
+  issue_id?: string
+  issue_type?: string
+  target_visit_ids?: string[]
+  target_day_ids?: string[]
   check_token: string
   label: '必须调整' | '可以更好' | '需要确认'
   title: string
@@ -392,6 +405,7 @@ export interface MyTripListView {
 }
 
 export interface TripSourceView {
+  fragments?:Array<{fragment_id:string;source_version:string;start:number;end:number;day_index:number|null;text:string;source_token:string;restored:boolean}>
   status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
   text: string | null
   activities: Array<{ activity_token: string; name: string; quote: string }>
@@ -435,6 +449,7 @@ export interface LodgingConstraintView extends ActivityCardView {
 }
 
 export interface PublicTripChecksView {
+  all_items?: PublicTripCheckItem[]
   status: 'READY' | 'STILL_NEEDS_CONFIRMATION'
   message: string
   items: PublicTripCheckItem[]
@@ -850,6 +865,41 @@ export function readTripSource(
   )
 }
 
+export interface TripSupplementState {
+  status: 'AVAILABLE'|'UNAVAILABLE'|'QUEUED'|'RUNNING'|'APPLIED'|'NO_CHANGES'|'FAILED'|'CANCELLED'
+  message: string
+  job_id?: string|null
+  base_etag?: string|null
+  result_etag?: string|null
+  added_count: number
+  rejected: Array<{operation_id:string;reason:string}>
+  available_actions: Array<'REQUEST'|'RETRY'|'CANCEL'>
+  reason?: string|null
+}
+
+export function readTripSupplement(resource: string, signal?: AbortSignal): Promise<TripSupplementState> {
+  return readPrivateTripJson(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/supplements`, signal)
+}
+
+export async function requestTripSupplement(resource:string, etag:string, retry:boolean, key:string):Promise<TripSupplementState> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/supplements`, {
+    method:'POST', credentials:'include', cache:'no-store',
+    headers:{...authorizationHeaders(),'Content-Type':'application/json','If-Match':etag,'Idempotency-Key':key},
+    body:JSON.stringify({retry}),
+  })
+  const body = await response.json()
+  if(!response.ok) throw new Error(body.detail?.message || '补全请求尚未确认，请稍后查看')
+  return body
+}
+
+export async function cancelTripSupplement(resource:string, jobId:string):Promise<TripSupplementState> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/supplements/${encodeURIComponent(jobId)}/cancel`, {
+    method:'POST', credentials:'include', cache:'no-store', headers:authorizationHeaders(),
+  })
+  if(!response.ok) throw new Error('停止结果尚未确认，请稍后查看')
+  return response.json()
+}
+
 export function readTripSupplementary(
   publicResourceId: string,
   signal?: AbortSignal,
@@ -1123,6 +1173,20 @@ export async function materializeTripUnderstanding(
     body: (await response.json()) as MaterializedTripView,
     etag: currentEtag,
   }
+}
+
+export interface InspectorIssue {
+  issue_id:string; kind:'PLACE'|'SOURCE'|'CHECK'|'MEAL'|'ALTERNATIVE'|'LODGING'
+  category:'DECISION'|'OPTIONAL'; severity:'INFO'|'WARNING'|'ERROR'; disposition:'OPEN'|'IGNORED'
+  title:string; message:string; day_index:number|null; target_day_ids:string[]; target_visit_ids:string[]
+  actions:string[]; dependencies:string[]; input_version:string; input_fingerprint:string; check:PublicTripCheckItem|null
+}
+export async function readTripInspector(resource:string, signal?:AbortSignal):Promise<{input_version:string;issues:InspectorIssue[];changes:Array<{change_etag:string;title:string}>}> {
+  const response=await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/inspector`,{
+    credentials:'include',cache:'no-store',signal,headers:authorizationHeaders(),
+  })
+  if(!response.ok)throw new Error('INSPECTOR_UNAVAILABLE')
+  return response.json()
 }
 
 export async function readTripUnderstandingChecks(

@@ -21,7 +21,7 @@ HyDE 的做法：
   embedding  = await embed_text(hyp_text)
 """
 
-from openai import AsyncOpenAI
+from app.llm import AsyncOpenAI
 
 from app.config import settings
 
@@ -168,7 +168,7 @@ async def generate_hypothetical_doc(
     try:
         client = _get_client()
         resp = await client.chat.completions.create(
-            model=settings.hyde_model,
+            model=settings.generative_model(settings.hyde_model),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {

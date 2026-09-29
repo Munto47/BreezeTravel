@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // Bound build concurrency on the shared deployment host. Keep webpack in
   // its worker even with the custom development-cache configuration below.
   experimental: { cpus: 1, webpackBuildWorker: true },
-  logging: { incomingRequests: false, fetches: { fullUrl: false } },
+  logging: { fetches: { fullUrl: false } },
   // Keep local development assets separate from the production build.
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   // Build a self-contained, content-addressable runtime directory. The

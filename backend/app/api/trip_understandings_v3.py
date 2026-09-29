@@ -72,6 +72,8 @@ from app.trip_understanding.repository import (
     TripUnderstandingRepository,
 )
 from app.trip_understanding.service import TripUnderstandingApplicationService
+from app.trip_understanding.supplement_jobs import SupplementRequest, SupplementStateView, SupplementRejectedError
+from app.trip_understanding.errors import SourceUnavailableError
 from app.trip_understanding.collaboration_import import (
     CollaborationImportReplay,
     CollaborationRouteUnavailableError,
@@ -561,6 +563,66 @@ async def refresh_daily_dining(public_resource_id: str, request: Request, respon
     if replay_info.get("replayed"):
         response.headers["Idempotency-Replayed"] = "true"
     return view
+
+
+@router.get("/{public_resource_id}/inspector")
+async def get_trip_inspector(public_resource_id: str, request: Request, response: Response,
+                             repository: RepositoryDep, current_user: OptionalUserDep):
+    response.headers['Cache-Control'] = 'no-store'
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    stored = await repository.get_result(resource)
+    if stored is None:
+        raise HTTPException(status_code=409, detail="RESULT_NOT_READY")
+    try:
+        checks = await repository.get_trip_checks(resource)
+    except ResourceNotReadyError:
+        checks = None
+    current_resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    latest = await repository.get_result(current_resource)
+    if latest is None or latest.opaque_etag != stored.opaque_etag:
+        raise HTTPException(status_code=409, detail="RESULT_CHANGED")
+    from app.trip_understanding.inspector import build_issues
+    from app.trip_understanding.change_history import read_changes
+    return {"input_version": stored.opaque_etag,
+        "issues": build_issues(stored.result, checks, input_version=stored.opaque_etag),
+        "changes": await read_changes(repository, resource),
+        "checks_updating": checks is None,
+        "routes_updating": stored.result.map.status == "PREPARING"}
+
+
+@router.get("/{public_resource_id}/photo")
+async def get_trip_place_photo(public_resource_id: str, activity_token: str, request: Request,
+                               repository: RepositoryDep, current_user: OptionalUserDep):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    stored = await repository.get_result(resource)
+    card = next((card for card in result_cards(stored.result) if card.activity_token == activity_token), None) if stored else None
+    from app.trip_understanding.models import safe_poi_photo_url
+    url = safe_poi_photo_url(card.photo_url) if card else None
+    if not url:
+        raise HTTPException(status_code=404, detail="PHOTO_UNAVAILABLE")
+    try:
+        # The URL comes only from this owner's validated current POI record.
+        # Redirects and arbitrary client-supplied URLs are never fetched.
+        async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
+            async with client.stream('GET', url) as upstream:
+                content_type = upstream.headers.get('content-type', '').split(';')[0]
+                if upstream.status_code != 200 or content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
+                    raise HTTPException(status_code=502, detail="PHOTO_UNAVAILABLE")
+                data = bytearray()
+                async for chunk in upstream.aiter_bytes():
+                    data.extend(chunk)
+                    if len(data) > 4 * 1024 * 1024:
+                        raise HTTPException(status_code=502, detail="PHOTO_TOO_LARGE")
+                return Response(bytes(data), media_type=content_type,
+                    headers={'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff'})
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="PHOTO_UNAVAILABLE") from None
 
 
 @router.get(
@@ -1125,6 +1187,8 @@ async def apply_trip_understanding_command(
             expected_etag=expected_etag,
             idempotency_key=key,
         )
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        raise _resource_error(exc) from exc
     except RevisionConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -1238,6 +1302,71 @@ async def read_trip_understanding_source(public_resource_id: str, request: Reque
     response: Response, repository: RepositoryDep, current_user: OptionalUserDep):
     response.headers["Cache-Control"] = "no-store"
     return await _private_import_view(public_resource_id, request, repository, current_user)
+
+
+def _supplement_error(exc):
+    messages = {
+        "SOURCE_CONTEXT_UNAVAILABLE": "这份行程暂不能自动补全，仍可对照原文手动补充",
+        "MODEL_CALL_DEADLINE_EXCEEDED": "本次整理已超过补全期限，仍可手动补充",
+        "MODEL_CALL_BUDGET_EXHAUSTED": "本次整理的自动补全次数已用完",
+        "RETRY_REQUIRED": "本次已尝试补全，请明确选择再试一次",
+        "SUPPLEMENT_LIMIT": "本次补全及重试次数已用完",
+        "SUPPLEMENT_RUNNING": "正在补全，请稍后查看或停止本次补全",
+    }
+    if isinstance(exc, SupplementRejectedError):
+        code, message = exc.reason, messages.get(exc.reason, "暂不能补全，请刷新后查看")
+    elif isinstance(exc, RevisionConflictError):
+        code, message = "BASE_VERSION_CHANGED", "行程已变化，请刷新后基于当前内容补全"
+    elif isinstance(exc, SourceUnavailableError):
+        code, message = "SOURCE_UNAVAILABLE", "原文已不可用，仍可手动补充行程"
+    elif isinstance(exc, ResourceNotReadyError):
+        code, message = "CARDS_NOT_READY", "请先等待卡片整理完成"
+    elif isinstance(exc, IdempotencyConflictError):
+        code, message = "IDEMPOTENCY_KEY_REUSED", "请求内容已变化，请刷新后重试"
+    else:
+        return _resource_error(exc)
+    return HTTPException(status_code=409, detail={"code": code, "message": message}, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/{public_resource_id}/supplements", response_model=SupplementStateView)
+async def read_trip_supplement(public_resource_id: str, request: Request, response: Response,
+    repository: RepositoryDep, current_user: OptionalUserDep):
+    response.headers["Cache-Control"] = "no-store"
+    resource = await _authorize(public_resource_id, cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    try:
+        return await repository.get_supplement_state(resource, now=datetime.now(timezone.utc))
+    except (ResourceGoneError, ResourceAccessDeniedError, ResourceNotFoundError) as exc:
+        raise _resource_error(exc) from exc
+
+
+@router.post("/{public_resource_id}/supplements", response_model=SupplementStateView, status_code=202)
+async def request_trip_supplement(public_resource_id: str, body: SupplementRequest, request: Request, response: Response,
+    repository: RepositoryDep, current_user: OptionalUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
+    etag, key = _require_if_match(if_match), _require_idempotency_key(idempotency_key)
+    response.headers["Cache-Control"] = "no-store"
+    resource = await _authorize(public_resource_id, cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    try:
+        return await repository.request_supplement(resource, expected_etag=etag, idempotency_key=key,
+            retry=body.retry, now=datetime.now(timezone.utc))
+    except (SupplementRejectedError, RevisionConflictError, SourceUnavailableError, ResourceNotReadyError,
+            IdempotencyConflictError, ResourceGoneError, ResourceAccessDeniedError, ResourceNotFoundError) as exc:
+        raise _supplement_error(exc) from exc
+
+
+@router.post("/{public_resource_id}/supplements/{job_id}/cancel", response_model=SupplementStateView)
+async def cancel_trip_supplement(public_resource_id: str, job_id: str, request: Request, response: Response,
+    repository: RepositoryDep, current_user: OptionalUserDep):
+    response.headers["Cache-Control"] = "no-store"
+    resource = await _authorize(public_resource_id, cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    try:
+        return await repository.cancel_supplement(resource, job_id, now=datetime.now(timezone.utc))
+    except (ResourceGoneError, ResourceAccessDeniedError, ResourceNotFoundError) as exc:
+        raise _resource_error(exc) from exc
 
 
 @router.get("/{public_resource_id}/supplementary", response_model=SupplementaryView)

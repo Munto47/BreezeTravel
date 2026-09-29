@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 from app.audit.engine import AuditEngine
 from app.audit.models import (
@@ -767,7 +768,7 @@ def public_checks(
     )
     scope_reasons = {"SCHEDULE_TIMES_MISSING", "DAY_INDEX_HAS_NO_DATE_HARD_CONCLUSION"}
     scope_findings = [finding for finding in unresolved if finding.reason_code in scope_reasons]
-    selected = [finding for finding in unresolved if finding.reason_code not in scope_reasons][:3]
+    selected = [finding for finding in unresolved if finding.reason_code not in scope_reasons]
     items: list[PublicTripCheckItem] = []
     for finding in selected:
         token = check_tokens.get(finding.finding_id)
@@ -777,8 +778,20 @@ def public_checks(
         depends, basis_current = bases[finding.finding_id]
         if not basis_current:
             title, message = "这段交通需要重新核对", "交通依据需要更新；更新路线后重新检查，暂时不能据此比较交通。"
+        visit_refs=sorted(card.visit_id for day in (result.days if result else []) for card in day.activities
+            if _stable_internal_id('stop',card.activity_token) in finding.affected_stop_ids)
+        day_refs=[result.days[index].day_id for index in sorted(set(finding.affected_days)) if result and index<len(result.days)]
         items.append(
             PublicTripCheckItem(
+                issue_id=uuid5(NAMESPACE_URL,finding.reason_code+':'+':'.join(visit_refs or day_refs)).hex,
+                issue_type=finding.reason_code,
+                input_fingerprint=uuid5(NAMESPACE_URL, str([
+                    [(card.visit_id, card.name, card.category, card.status) for card in result.days[index].activities]
+                    for index in sorted(set(finding.affected_days)) if result and index < len(result.days)])).hex,
+                target_visit_ids=[card.visit_id for day in (result.days if result else []) for card in day.activities
+                    if _stable_internal_id("stop", card.activity_token) in finding.affected_stop_ids],
+                target_day_ids=[result.days[index].day_id for index in sorted(set(finding.affected_days))
+                    if result and index < len(result.days)],
                 check_token=token,
                 label=_label(finding) if basis_current else "需要确认",
                 title=title,
@@ -793,7 +806,7 @@ def public_checks(
             )
         )
     total_must = sum(_label(item) == "必须调整" and bases[item.finding_id][1] for item in unresolved)
-    visible_must = sum(item.label == "必须调整" for item in items)
+    visible_must = sum(item.label == "必须调整" for item in items[:3])
     needs_confirmation = any(
         finding.status == AuditStatus.UNKNOWN
         or not bases[finding.finding_id][1]
@@ -817,9 +830,10 @@ def public_checks(
         status="STILL_NEEDS_CONFIRMATION" if needs_confirmation else "READY",
         message=(
             ("已列出当前最值得处理的安排。" if selected else "当前没有其他需要优先处理的问题。") + scope_message
-            if scope_message else ("还有内容需要确认，已先列出最值得处理的三项" if unresolved else "当前没有需要优先处理的问题")
+            if scope_message else ("检查事项已整理，可按需查看和处理" if unresolved else "当前没有需要优先处理的问题")
         ),
-        items=items,
+        items=items[:3],
+        all_items=list({item.issue_id: item for item in items}.values()),
         remaining_must_adjust=max(total_must - visible_must, 0),
         available_actions=["PREVIEW_CHANGE"] if any(item.can_preview for item in items) else [],
     )

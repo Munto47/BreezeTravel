@@ -47,6 +47,7 @@ class SourceReadView(StrictModel):
     status: Literal["AVAILABLE", "DELETED", "UNAVAILABLE"]
     text: str | None = None
     activities: list[ActivitySourceView] = Field(default_factory=list)
+    fragments: list[dict] = Field(default_factory=list)
 
 
 class SupplementaryItem(StrictModel):
@@ -165,6 +166,8 @@ class _ReadbackProjection:
                     for mention in data.mentions:
                         if mention["role"] != "PLANNED":
                             continue
+                        if mention.get("source_occurrence_id") and card.source_occurrence_id != mention["source_occurrence_id"]:
+                            continue
                         original_id = mention.get("canonical_place_id")
                         # Current identity must still correspond to this import; a renamed/
                         # replaced location must not acquire another location's source quote.
@@ -178,7 +181,10 @@ class _ReadbackProjection:
                         break
                 if len(items) >= 12:
                     break
-        return SourceReadView(status=data.status, text=data.text, activities=items)
+        from app.trip_understanding.source_restore import source_fragments
+        fragments = source_fragments(data.text, resource.public_resource_id, now,
+            data.result.source_restorations if data.result else {}) if data.status == 'AVAILABLE' and data.text else []
+        return SourceReadView(status=data.status, text=data.text, activities=items, fragments=fragments)
 
     async def get_supplementary_view(self, resource, *, now, include_pending_lodgings=False):
         data = await self._read_import(resource, now=now)
@@ -227,8 +233,8 @@ class PostgresReadbackMixin(_ReadbackProjection):
             LEFT JOIN trip_understanding_sources s ON s.source_id=v.source_id
             WHERE u.owner_user_id=$1 AND u.deleted_at IS NULL AND u.source_expires_at>$2
                 AND u.state IN ('PROCESSING','READY','PARTIAL','FAILED','CANCELLED')
-                AND ($3::timestamptz IS NULL OR (u.updated_at,u.public_resource_id)<($3,$4::text))
-            ORDER BY u.updated_at DESC,u.public_resource_id DESC LIMIT $5""",
+                AND ($3::timestamptz IS NULL OR (u.updated_at,u.public_resource_id COLLATE "C")<($3,$4::text COLLATE "C"))
+            ORDER BY u.updated_at DESC,u.public_resource_id COLLATE "C" DESC LIMIT $5""",
             user_id, now, seek[0] if seek else None, seek[1] if seek else None, limit + 1,
             self._get_source_cipher().key_ref, DEMO_SOURCE_SHA256)
         items = [_trip_item(row, UserFacingTripResult.model_validate(_json(row["public_json"])) if row["public_json"] else None,
@@ -276,6 +282,7 @@ class PostgresReadbackMixin(_ReadbackProjection):
             current = await conn.fetch("SELECT * FROM trip_understanding_activities WHERE understanding_id=$1 AND revision=$2",
                 resource.understanding_id, row["current_revision"])
             structure = []
+            supports_details = False
             if mentions:
                 original = await conn.fetchrow("""SELECT r.proposal_json,p.public_json FROM trip_understanding_revisions r
                     JOIN trip_understanding_results p ON p.understanding_id=r.understanding_id AND p.revision=r.revision
@@ -283,8 +290,24 @@ class PostgresReadbackMixin(_ReadbackProjection):
                 original_result = _json(original["public_json"]) if original else {}
                 # Historical results without parent details still need their
                 # original supplementary exit; an edit must not hide them.
-                if any("source_details" in card for day in original_result.get("days", []) for card in day.get("activities", [])):
+                supports_details = any("source_details" in card for day in original_result.get("days", []) for card in day.get("activities", []))
+                if supports_details:
                     structure = _json(original["proposal_json"]).get("structure", [])
+            # New snapshots retain the validated source plan, including bounded
+            # additions. Manual edits never become new source facts.
+            proposal = await conn.fetchval("SELECT proposal_json FROM trip_understanding_revisions WHERE understanding_id=$1 AND revision=$2",
+                resource.understanding_id, row["current_revision"])
+            if supports_details and row["source_type"] == "TEXT" and row["encrypted_content"] and "retained_source_plan" in _json(proposal):
+                from app.trip_understanding.supplement_context import open_source_plan
+                from app.trip_understanding.source_occurrence import source_occurrence_id
+                plan = open_source_plan(self._get_source_cipher(), _json(proposal), source_id=row["source_id"],
+                    source_hash=content_hash, envelope=row["encrypted_content"])
+                if plan is not None:
+                    mentions = [dict(role=m.role.value, day_index=m.day_index, sequence_index=m.sequence_index,
+                        mention_text=m.raw_text, atomic_place_name=m.atomic_place_name, time_hint=None,
+                        parent_mention_id=m.parent_mention_id, relation_type=m.relation_type,
+                        source_occurrence_id=source_occurrence_id(text, m)) for m in plan.mentions]
+                    structure = []
             return _ImportView("AVAILABLE", text, result, _with_source_relationships(mentions, structure),
                 {item["public_activity_token"]: item["canonical_place_id"] for item in current}, [dict(item) for item in current])
 

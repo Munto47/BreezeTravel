@@ -177,7 +177,7 @@ async def save_conversation_preferences(
 
 async def _extract_preferences(messages: list, trip_city: Optional[str]) -> str:
     """用 LLM 从对话中提取偏好，返回摘要文本"""
-    from openai import AsyncOpenAI
+    from app.llm import AsyncOpenAI
     from langchain_core.messages import HumanMessage
 
     # 构建对话文本（只用 human/ai 消息，忽略 tool 消息）
@@ -201,7 +201,7 @@ async def _extract_preferences(messages: list, trip_city: Optional[str]) -> str:
     )
 
     resp = await client.chat.completions.create(
-        model=settings.llm_model_router,  # 用 router 模型（低 cost）
+        model=settings.generative_model(settings.llm_model_router),  # 用 router 模型（低 cost）
         messages=[{"role": "user", "content": _EXTRACT_PROMPT.format(conversation=convo_text)}],
         max_tokens=300,
         temperature=0,

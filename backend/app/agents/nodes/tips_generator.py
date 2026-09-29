@@ -162,7 +162,7 @@ def _rule_generate_tips(itinerary: Itinerary) -> Itinerary:
 async def _llm_generate_tips(itinerary: Itinerary, preferences: str) -> Itinerary:
     """LLM 生成温馨提示"""
     from langchain_core.messages import HumanMessage, SystemMessage
-    from langchain_openai import ChatOpenAI
+    from app.llm import chat_model as ChatOpenAI
 
     llm = ChatOpenAI(
         model=settings.llm_model_synthesizer,

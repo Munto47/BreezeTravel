@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState} from 'react'
 import {createPortal} from 'react-dom'
 import SourceDetails from './source-details'
+import SourceMealSlots from './source-meal-slots'
 import {Sparkles, X} from 'lucide-react'
 import {queryTripDiningCandidates, type DiningCandidatesView, type UserFacingTripResult,
   type TripUnderstandingCommand, type PublicTripChecksView, type PublicTripCheckItem,
@@ -16,11 +17,14 @@ import {relativeDayLabel} from './result-presentation'
 import RelativeRouteSuggestions from './relative-route-suggestions'
 import DiningAccessNote, {diningAdoptionBlocked, diningAdoptionLabel} from './dining-access'
 
-type Props = {
+export type JourneySuggestionProps = {
+  initialDay?:number
+  embedded?: boolean; initialTab?: 'all'|'dining'|'route'|'stay'
   resource: string; etag: string; result: UserFacingTripResult; disabled: boolean
   checks: PublicTripChecksView | null; checking: boolean; checksError: string
   map: MapRenderView | null; stay: StaySuggestionView | null
   supplementary?: TripSupplementaryView | null
+  unresolvedDays?: UserFacingTripResult['days']
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdoptRelativeRoute: (token:string, basisEtag:string) => Promise<boolean>
   onRetry: () => void; onPreview: (item: PublicTripCheckItem) => void
@@ -30,17 +34,17 @@ type Props = {
   alternativesRequest?: {dayIndex: number; trigger: HTMLButtonElement} | null
 }
 
-export default function JourneySuggestions(props: Props) {
+export default function JourneySuggestions(props: JourneySuggestionProps) {
   const {result, resource, etag, disabled} = props
-  const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<'all'|'dining'|'route'|'stay'>('all')
+  const [open, setOpen] = useState(Boolean(props.embedded))
+  const [tab, setTab] = useState<'all'|'dining'|'route'|'stay'>(props.initialTab || 'all')
   const [dock, setDock] = useState<HTMLElement | null>(null)
   useEffect(() => {
     setDock(props.mapDock ? document.getElementById('map-suggestions-slot') : null)
-    if (props.mapDock) setOpen(window.matchMedia('(min-width:1024px)').matches)
+    // The Inspector opens only after an explicit user action.
   }, [props.mapDock])
   useEffect(() => {if (props.mapDock && props.selectedDayIndex != null) {setDayIndex(props.selectedDayIndex); setAnchorIndex(0)}}, [props.mapDock, props.selectedDayIndex])
-  const [dayIndex, setDayIndex] = useState(0)
+  const [dayIndex, setDayIndex] = useState(props.initialDay || 0)
   const [anchorIndex, setAnchorIndex] = useState(0)
   const [searching, setSearching] = useState(false)
   const [dining, setDining] = useState<{view: DiningCandidatesView; anchor: string; etag: string} | null>(null)
@@ -64,7 +68,7 @@ export default function JourneySuggestions(props: Props) {
     ? props.supplementary.days.filter(item => item.day_index === null)
       .flatMap(item => item.items.filter(choice => choice.role === 'OPTIONAL')) : []
   const stay = props.stay || result.stay
-  const items = props.checks?.items || []
+  const items = props.checks?.all_items || props.checks?.items || []
   const shownItems = items
   const selectedCard = result.days.flatMap(day => day.activities).find(card => card.activity_token === props.selectedToken)
 
@@ -103,10 +107,10 @@ export default function JourneySuggestions(props: Props) {
   useEffect(() => {
     if (!open) return
     const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closePanel()
+      if (event.key === 'Escape' && !props.embedded) closePanel()
     }
     const outside = (event: PointerEvent) => {
-      if (!props.mapDock && !panel.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setOpen(false)
+      if (!props.embedded && !props.mapDock && !panel.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setOpen(false)
     }
     document.addEventListener('keydown', close)
     document.addEventListener('pointerdown', outside)
@@ -140,11 +144,11 @@ export default function JourneySuggestions(props: Props) {
   }
 
   const action = 'min-h-11 rounded-xl px-3 text-sm font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600'
-  const content = open && <aside ref={panel} id="journey-suggestions" aria-label="检查与建议" className={dock ? 'journey-suggestions-docked' : 'fixed right-3 top-24 z-50 max-h-[calc(100dvh-7rem)] w-[min(25rem,calc(100vw-1.5rem))] overflow-y-auto rounded-3xl border border-sky-100 bg-white p-4 shadow-xl'}>
-      <div className="flex items-center justify-between"><strong>检查与建议</strong><button type="button" className={action} aria-label="关闭建议" onClick={closePanel}><X className="h-4 w-4"/></button></div>
+  const content = open && <aside ref={panel} id="journey-suggestions" aria-label="检查与建议" className={props.embedded ? 'inspector-suggestions' : dock ? 'journey-suggestions-docked' : 'fixed right-3 top-24 z-50 max-h-[calc(100dvh-7rem)] w-[min(25rem,calc(100vw-1.5rem))] overflow-y-auto rounded-3xl border border-sky-100 bg-white p-4 shadow-xl'}>
+      {!props.embedded && <div className="flex items-center justify-between"><strong>检查与建议</strong><button type="button" className={action} aria-label="关闭建议" onClick={closePanel}><X className="h-4 w-4"/></button></div>}
       <div className="journey-suggestion-tabs" aria-label="建议分类">{([['all','总体检查'],['dining','用餐'],['route','顺路优化'],['stay','住宿']] as const).map(([key,label]) => <button type="button" key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</div>
       {selectedCard && props.mapDock && <section className="journey-selected-place" aria-label="当前选中地点"><p>当前选中 · {relativeDayLabel(props.selectedDayIndex || 0)}</p><strong>{selectedCard.name}</strong><p>{selectedCard.category} · 已确认</p><SourceDetails card={selectedCard}/><DiningAccessNote value={selectedCard} showUnknown={selectedCard.category === '餐饮'}/></section>}
-      {tab === 'all' && <details open className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">行程检查</summary>
+      {!props.embedded && tab === 'all' && <details open className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">行程检查</summary>
         <div className="grid gap-3" aria-live="polite">
           {shownItems.map(item => {
             const outdated = needsRecheck(item, props.map)
@@ -164,6 +168,7 @@ export default function JourneySuggestions(props: Props) {
         </div>
       </details>}
       <label className="my-3 flex items-center gap-3 text-sm">哪一天<select aria-label="建议所属日期" className="min-h-11 min-w-0 flex-1 rounded-xl bg-slate-50 px-3" value={currentDayIndex} onChange={event => {setDayIndex(Number(event.target.value)); setAnchorIndex(0); setDining(null); setError('')}}>{result.days.map((item, index) => <option key={index} value={index}>{relativeDayLabel(index)}</option>)}</select></label>
+      {(tab === 'all' || tab === 'dining') && day && <SourceMealSlots day={day} dayIndex={currentDayIndex+1} resource={resource} etag={etag} disabled={busy} onCommand={props.onCommand}/>}
       {tab === 'route' && <RelativeRouteSuggestions resource={resource} etag={etag} dayIndex={currentDayIndex+1} disabled={busy}
         onAdopt={props.onAdoptRelativeRoute}/>}
       {tab === 'all' && !!unassigned.length && <details className="border-b border-slate-100 py-2" data-testid="unassigned-alternatives">
@@ -184,11 +189,13 @@ export default function JourneySuggestions(props: Props) {
         </article>)}</>}
       </details>}
       {tab === 'all' && !!alternatives.length && <details ref={alternativesSection} className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">备选地点 · {alternatives.length}</summary>
-        <ItineraryChoices key={`${etag}:${currentDayIndex}`} day={day} dayIndex={currentDayIndex} disabled={busy} onApply={apply}/>
+        <ItineraryChoices key={`${etag}:${currentDayIndex}`} day={day} dayIndex={currentDayIndex}
+          pendingVisits={props.unresolvedDays?.[currentDayIndex]?.activities} disabled={busy} onApply={apply}/>
       </details>}
       {(tab === 'all' || tab === 'stay') && <details open={tab === 'stay' || undefined} className="py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">住宿</summary><p className="py-2 text-sm text-slate-500">{stay.message}</p><button className={action} disabled={busy || stay.status === 'PREPARING'} onClick={props.onRefreshStay}>{stay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button><StayCandidates stay={stay} days={result.days} disabled={busy} onSelect={props.onStay}/></details>}
       {error && <p role="status" className="mt-2 text-sm text-slate-600">{error}</p>}
     </aside>
+  if (props.embedded) return content
   return <div className="relative">
     <button ref={trigger} type="button" className={action} aria-expanded={open} aria-controls="journey-suggestions"
       onClick={() => {returnFocus.current = trigger.current; pendingAlternativesFocus.current = false; setOpen(value => !value)}} data-testid="journey-suggestions-toggle"><Sparkles className="mr-1 inline h-4 w-4" aria-hidden="true"/>检查与建议</button>

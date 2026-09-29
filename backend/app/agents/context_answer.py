@@ -15,7 +15,7 @@ from app.config import settings
 def get_context_model():
     if not settings.effective_llm_api_key:
         return None
-    from langchain_openai import ChatOpenAI
+    from app.llm import chat_model as ChatOpenAI
     return ChatOpenAI(model=settings.llm_model_router,
         api_key=settings.effective_llm_api_key, base_url=settings.effective_llm_api_url,
         max_tokens=500, temperature=0, max_retries=0, timeout=settings.chat_deadline_seconds)

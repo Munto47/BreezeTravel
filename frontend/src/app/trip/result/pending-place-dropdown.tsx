@@ -1,5 +1,6 @@
 'use client'
 
+import {createPortal} from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
 import { PROVINCES } from '@/data/cities'
 import { queryTripPlaceCandidates, queryPendingLodgingCandidates, type ActivityCardView, type LodgingRecoveryIntent, type PlaceCandidateView, type TripSupplementaryView, type TripUnderstandingCommand } from '@/lib/trip-understanding-v3'
@@ -9,16 +10,21 @@ import DiningAccessNote, {diningAdoptionBlocked, diningAdoptionLabel} from './di
 
 /** An anchored, non-modal search. Opening never searches or confirms a place. */
 type PendingHotel = NonNullable<TripSupplementaryView['pending_lodgings']>[number]
+const searchDrafts = new Map<string, {query:string; city:string}>()
 type Props = {
-  resource:string; disabled:boolean
+  embedded?:boolean; resource:string; disabled:boolean
   onCommand:(command:TripUnderstandingCommand)=>Promise<WorkspaceCommandResult>
   onClose:()=>void
 } & ({card:ActivityCardView; recovery?:never} | {card?:never; recovery:{hotel:PendingHotel;intent:LodgingRecoveryIntent;etag:string;onInvalidated:()=>void}})
 
-export default function PendingPlaceDropdown({card,recovery,resource,disabled,onCommand,onClose}: Props) {
+export default function PendingPlaceDropdown({card,recovery,resource,disabled,onCommand,onClose,embedded=false}: Props) {
+  const [slot,setSlot]=useState<HTMLElement|null>(null)
+  useEffect(()=>{if(!embedded){setSlot(document.getElementById('inspector-editor-slot'));window.dispatchEvent(new CustomEvent('trip-inspector-open'))}},[embedded])
   const target = recovery?.hotel || card!
-  const [query,setQuery]=useState(target.name==='地点待确认'?'':target.name)
-  const [city,setCity]=useState(target.city||'')
+  const draftKey = `${resource}:${card?.visit_id || card?.activity_token || recovery?.hotel.pending_token}`
+  const [query,setQuery]=useState(searchDrafts.get(draftKey)?.query ?? (target.name==='地点待确认'?'':target.name))
+  const [city,setCity]=useState(searchDrafts.get(draftKey)?.city ?? target.city ?? '')
+  useEffect(()=>{searchDrafts.set(draftKey,{query,city})},[draftKey,query,city])
   const [items,setItems]=useState<PlaceCandidateView[]>([])
   const [selected,setSelected]=useState<PlaceCandidateView|null>(null)
   const [message,setMessage]=useState('')
@@ -42,7 +48,7 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
   },[])
   useEffect(()=>{
     const outside=(event:PointerEvent)=>{
-      if(!locked && event.target instanceof Node && !root.current?.parentElement?.contains(event.target)) close.current()
+      // Clicking the itinerary does not discard an in-progress search.
     }
     const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&!locked){event.preventDefault();close.current()}}
     document.addEventListener('keydown',escape)
@@ -92,13 +98,14 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
       const outcome=await onCommand(recovery
         ? {command_type:'LODGING_RECOVER',pending_token:recovery.hotel.pending_token,candidate_token:candidate.candidate_token,intent:recovery.intent}
         : {command_type:'PLACE_CONFIRM',activity_token:card!.activity_token,candidate_token:candidate.candidate_token})
-      if(outcome.status==='APPLIED')close.current()
+      if(outcome.status==='APPLIED'){searchDrafts.delete(draftKey);close.current()}
       else {clearSearch();setMessage(outcome.status==='SYNCED'?'行程已变化，请重新核对地点。':'正在确认保存结果，请稍候。')}
     } catch {setMessage('未能确认保存，请稍后重试。')}
     finally {saveLock.current=false;setSaving(false)}
   }
-  return <div ref={root} className="pending-place-dropdown" data-testid="pending-place-dropdown" role="region" aria-label={`修改地点 ${target.name}`} onKeyDown={event=>{if(event.key==='Escape'&&!locked){event.stopPropagation();close.current()}}}>
+  const content = <div ref={root} className="pending-place-dropdown" data-testid="pending-place-dropdown" role="region" aria-label={`修改地点 ${target.name}`} onKeyDown={event=>{if(event.key==='Escape'&&!locked){event.stopPropagation();close.current()}}}>
     <div className="pending-place-head"><strong>地点</strong><button type="button" aria-label="收起地点确认" disabled={locked} onClick={onClose}>×</button></div>
+    <p className="inspector-background">收起后保留搜索草稿；确认才会修改行程。</p>
     {card && <SourceDetails card={card} />}
     {card && <DiningAccessNote value={card} showUnknown={card.category === '餐饮'}/>}
     <label style={{display:'grid',gap:4,marginBottom:8,fontSize:13}}>查询城市
@@ -127,4 +134,5 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
     })}</div>
     {message&&<p role="status">{message}</p>}
   </div>
+  return slot ? createPortal(content,slot) : content
 }

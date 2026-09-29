@@ -177,6 +177,15 @@ class MapRenderWorker:
                         self.lease_takeover_renderer if job.attempt > 1
                         else self.demo_renderer if is_demo else self.renderer
                     )
+                    if job.attempt == 1 and isinstance(renderer, MapRenderer):
+                        from app.trip_understanding.route_reuse import ReusingRouteProvider, load_route_facts
+                        facts = (await load_route_facts(self.repository, job.understanding_id, operation_now())
+                            if job.request_origin == "INITIAL" else {})
+                        if not hasattr(self.repository, '_reusable_route_facts'):
+                            self.repository._reusable_route_facts = {}
+                        self.repository._reusable_route_facts[job.understanding_id] = facts
+                        renderer = MapRenderer(ReusingRouteProvider(renderer.provider, facts,
+                            reuse_only=not plan.routes_changed and job.request_origin == "INITIAL"))
                     return await renderer.render(
                         plan,
                         observed_at=operation_now(),

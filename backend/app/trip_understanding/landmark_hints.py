@@ -36,6 +36,8 @@ HINTS = (
                  "https://whlyj.sh.gov.cn/cysc/20220228/25a0b870bdf34fa7a84e76d6edd2375c.html"),
     LandmarkHint("上海", "安福路", (), "徐汇区", "190301", "地名地址信息;交通地名;道路名",
                  "https://www.shanghai.gov.cn/citywalk/20260625/3492b1b945c146fc96c4585d7b04f00d.html"),
+    LandmarkHint("杭州", "西湖风景名胜区", ("西湖", "西湖景区", "西湖风景区"), "西湖区", "110202", None,
+                 "https://www.zlb.gov.cn/20250729/2edc66eb74184a94b7381dbf7b543fec/c.html"),
     LandmarkHint("北京", "中国美术馆", (), "东城区", "140100", "科教文化服务;博物馆;博物馆",
                  "https://www.namoc.org/zgmsg/cgfw/cgfw.shtml"),
     LandmarkHint("北京", "故宫博物院-神武门", ("故宫北门", "故宫博物院北门", "神武门"), "东城区", "110202", None,
