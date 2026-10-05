@@ -234,7 +234,7 @@ class TripUnderstandingWorker:
                         }
                     )
                 async def reserve_call():
-                    await self.repository.reserve_inference_call(job, now=operation_now())
+                    return await self.repository.reserve_inference_call(job, now=operation_now())
 
                 async def record_call(record):
                     await self.repository.record_model_call(job, record)
@@ -308,7 +308,7 @@ class TripUnderstandingWorker:
                 pipeline, owned_provider = await self._execution_pipeline(job, operation_now())
                 provider = self.supplement_provider or BoundedSupplementProvider(pipeline.inference_provider)
                 async def reserve():
-                    await self.repository.reserve_inference_call(job, now=operation_now())
+                    return await self.repository.reserve_inference_call(job, now=operation_now())
                 async def record_call(record):
                     await self.repository.record_model_call(job, record)
                 with inference_allowance(reserve), record_model_calls(record_call):

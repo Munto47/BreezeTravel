@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -102,7 +103,11 @@ class SemanticModelAdapter:
         self.calls.append(record)
         started = time.perf_counter()
         try:
-            response = await client.chat.completions.create(**options)
+            from app.trip_understanding.inference_allowance import remaining_call_seconds
+            remaining = remaining_call_seconds()
+            timeout = self.config.deadline_seconds if remaining is None else min(self.config.deadline_seconds, remaining)
+            async with asyncio.timeout(timeout):
+                response = await client.chat.completions.create(**options)
             usage = getattr(response, "usage", None)
             details = getattr(usage, "completion_tokens_details", None)
             record.update(status="RECEIVED", input_tokens=getattr(usage, "prompt_tokens", None),

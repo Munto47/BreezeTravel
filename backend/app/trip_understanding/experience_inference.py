@@ -89,7 +89,8 @@ class SemanticActivity(ActivityTiming):
         description="非空排除晚序号时，连续逐字引用包含当前旧酒店、明确另住决定及适用晚的原文，可跨同日句子。")
     time_evidence: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=40)
-    city_evidence: str | None = Field(default=None, max_length=500)
+    city_evidence: str | None = Field(default=None, max_length=500,
+        description="逐字原文，必须包含city城市名并适用于本次访问；全文单城导语可复用。仅地点名或不含城市的日标题不成立；无依据时与city一起省略或填null。")
 
     @field_validator('lodging_excluded_nights', mode='before')
     @classmethod

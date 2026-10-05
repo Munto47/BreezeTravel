@@ -36,7 +36,9 @@ async def test_concurrent_reservations_cannot_overspend_and_takeover_keeps_allow
         await create(repo, "budget", now)
         job = await repo.claim_next(worker_id="same-name", now=now, lease_seconds=1)
         results = await asyncio.gather(*(repo.reserve_inference_call(job, now=now) for _ in range(32)), return_exceptions=True)
-        assert sum(result is None for result in results) == 31
+        remaining = [result for result in results if isinstance(result, float)]
+        assert len(remaining) == 31
+        assert all(0 < seconds <= 600 for seconds in remaining)
         assert sum(isinstance(result, InferenceAllowanceExceeded) for result in results) == 1
         # A restarted repository and a new attempt must see the same depletion.
         if kind == "postgres":

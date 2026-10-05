@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -80,6 +81,34 @@ def test_partial_usage_keeps_known_tokens_and_unknown_count():
     result = usage_summary([{"input_tokens":7,"output_tokens":3}, {"input_tokens":None}])
     assert result["input_tokens"] == 7 and result["input_tokens_unknown_calls"] == 1
     assert result["reasoning_tokens"] is None and result["reasoning_tokens_unknown_calls"] == 2
+
+
+@pytest.mark.asyncio
+async def test_in_flight_call_stops_at_remaining_durable_budget_and_keeps_unknown_usage():
+    from app.trip_understanding.inference_allowance import inference_allowance, reserve_model_call, remaining_call_seconds
+
+    entered = asyncio.Event()
+    cancelled = asyncio.Event()
+    async def create(**options):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+    async def reserve():
+        return 0.03
+    adapter = SemanticModelAdapter(config(deadline_seconds=90))
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    with inference_allowance(reserve):
+        await reserve_model_call()
+        async with asyncio.timeout(1):
+            with pytest.raises(TimeoutError):
+                await adapter.complete(client, messages=[], response_format={"type":"json_object"}, max_tokens=1024)
+    assert entered.is_set() and cancelled.is_set()
+    assert remaining_call_seconds() is None
+    assert adapter.calls[0]["status"] == "FAILED"
+    assert adapter.calls[0]["error_category"] == "TimeoutError"
+    assert usage_summary(adapter.calls)["input_tokens_unknown_calls"] == 1
 
 
 @pytest.mark.parametrize("kind", ["memory", "postgres"])

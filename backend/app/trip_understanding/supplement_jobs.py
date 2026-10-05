@@ -322,6 +322,7 @@ class PostgresSupplementRepositoryMixin:
             await conn.execute("UPDATE trip_understanding_sources SET inference_calls_remaining=inference_calls_remaining-1,inference_deadline_at=$2 WHERE source_id=$1",
                 source["source_id"], deadline)
             await conn.execute("UPDATE trip_understanding_jobs SET supplement_dispatched_at=$2 WHERE job_id=$1", job.job_id, checked)
+            return max(0, (deadline - await conn.fetchval("SELECT clock_timestamp()")).total_seconds())
 
     async def fail_supplement_job(self, job, *, category, now, provider_binding=None):
         # A stale base may still terminate its own job; it never changes a

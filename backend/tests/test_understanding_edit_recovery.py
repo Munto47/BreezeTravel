@@ -101,7 +101,7 @@ async def test_parallel_dispatches_cannot_overspend_or_reset_allowance_after_tak
         await repo._pool.execute('UPDATE trip_understanding_sources SET inference_calls_remaining=1')
         replies = await asyncio.gather(*(repo.reserve_inference_call(original, now=now) for _ in range(2)),
                                        return_exceptions=True)
-        assert replies.count(None) == 1
+        assert sum(isinstance(item, float) and 0 < item <= 600 for item in replies) == 1
         assert sum(isinstance(item, InferenceAllowanceExceeded) for item in replies) == 1
         source = await repo._pool.fetchrow('SELECT inference_calls_remaining,inference_deadline_at FROM trip_understanding_sources')
         assert source['inference_calls_remaining'] == 0 and source['inference_deadline_at'] is not None

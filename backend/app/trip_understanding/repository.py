@@ -773,7 +773,7 @@ class TripUnderstandingRepository(
         lease_seconds: int,
     ) -> bool: ...
 
-    async def reserve_inference_call(self, job: TripUnderstandingJobRecord, *, now: datetime) -> None: ...
+    async def reserve_inference_call(self, job: TripUnderstandingJobRecord, *, now: datetime) -> float: ...
 
     async def complete_job(
         self,
@@ -4700,7 +4700,7 @@ class PostgresTripUnderstandingRepository(
             internal_binding=_json_value(row["inference_binding_json"]),
         )
 
-    async def reserve_inference_call(self, job: TripUnderstandingJobRecord, *, now: datetime) -> None:
+    async def reserve_inference_call(self, job: TripUnderstandingJobRecord, *, now: datetime) -> float:
         if job.job_type == "SUPPLEMENT":
             return await self.reserve_supplement_call(job, now=now)
         from app.trip_understanding.inference_allowance import InferenceAllowanceExceeded
@@ -4741,6 +4741,7 @@ class PostgresTripUnderstandingRepository(
                 SET inference_calls_remaining=inference_calls_remaining-1, inference_deadline_at=$2
                 WHERE source_id=$1""", source["source_id"], deadline)
             await conn.execute("UPDATE trip_understanding_jobs SET inference_dispatched_at=COALESCE(inference_dispatched_at,$2) WHERE job_id=$1", job.job_id, checked_at)
+            return max(0, (deadline - await conn.fetchval("SELECT clock_timestamp()")).total_seconds())
 
     async def renew_lease(
         self,
@@ -7010,7 +7011,7 @@ class InMemoryTripUnderstandingRepository(
         _checked_initial_plan(source.initial_plan, source.text)
         return source
 
-    async def reserve_inference_call(self, job: TripUnderstandingJobRecord, *, now: datetime) -> None:
+    async def reserve_inference_call(self, job: TripUnderstandingJobRecord, *, now: datetime) -> float:
         from app.trip_understanding.inference_allowance import InferenceAllowanceExceeded
 
         item = self.jobs.get(job.job_id)
@@ -7031,6 +7032,7 @@ class InMemoryTripUnderstandingRepository(
             raise InferenceAllowanceExceeded("MODEL_CALL_DEADLINE_EXCEEDED")
         self.inference_allowances[key] = (remaining - 1, deadline)
         item["inference_dispatched_at"] = item.get("inference_dispatched_at") or now
+        return (deadline - now).total_seconds()
 
     async def renew_lease(
         self,

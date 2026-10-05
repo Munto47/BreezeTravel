@@ -18,7 +18,9 @@ from tests.test_experience_source_anchors import provider
 
 
 SOURCE = "北京一日游。\nDay1：故宫博物院，景山公园。"
-FIRST = {"destination": "北京", "activities": [row("故宫博物院"), row("景山公园", evidence="北京一日游")]}
+# The rejected city conflicts with the explicit source city. This isolates
+# patch authorization from independently valid single-city source inference.
+FIRST = {"destination": "北京", "activities": [row("故宫博物院", city="上海", evidence="上海城市核心"), row("景山公园", evidence="北京一日游")]}
 PATCH = {"index": 0, "city": "北京", "city_evidence": "北京一日游"}
 PRIVATE = "private-city-value-must-never-enter-diagnostics"
 
@@ -78,6 +80,17 @@ async def test_explicit_null_pair_removes_only_invalid_evidence_and_uses_existin
 
 
 @pytest.mark.asyncio
+async def test_independent_source_city_can_resolve_places_without_accepting_invalid_patch():
+    first = {"destination": "北京", "activities": [row("故宫博物院"), row("景山公园", evidence="北京一日游")]}
+    output, places, _client = await run_patch({"activities": [{"index": 0, "city": "北京"}]}, first=first)
+    assert places.calls == [("北京", "故宫博物院"), ("北京", "景山公园")]
+    assert output.proposal.mentions[0].city_hint is None
+    assert output.proposal.mentions[0].city_evidence == "城市核心"
+    assert len(city_warnings(output.proposal)) == 1
+    assert not output.public_result.coverage.complete
+
+
+@pytest.mark.asyncio
 async def test_valid_city_index_is_ignored_while_invalid_index_can_be_repaired():
     output, places, _client = await run_patch({"activities": [
         {"index": 1, "city": "上海", "city_evidence": "北京一日游"}, PATCH]})
@@ -88,7 +101,7 @@ async def test_valid_city_index_is_ignored_while_invalid_index_can_be_repaired()
 
 @pytest.mark.asyncio
 async def test_repair_accepts_good_patch_and_keeps_each_other_original_warning():
-    first = {"destination": "北京", "activities": [row("故宫博物院"), row("景山公园")]}
+    first = {"destination": "北京", "activities": [row(name, city="上海", evidence="上海城市核心") for name in ("故宫博物院", "景山公园")]}
     output, places, _client = await run_patch({"activities": [PATCH,
         {"index": 1, "city": "上海", "city_evidence": "北京一日游"}]}, first=first)
     assert places.calls == [("北京", "故宫博物院")]
@@ -101,7 +114,7 @@ async def test_repair_accepts_good_patch_and_keeps_each_other_original_warning()
 
 @pytest.mark.asyncio
 async def test_duplicate_index_does_not_authorize_last_write_but_unique_patch_still_survives():
-    first = {"destination": "北京", "activities": [row("故宫博物院"), row("景山公园")]}
+    first = {"destination": "北京", "activities": [row(name, city="上海", evidence="上海城市核心") for name in ("故宫博物院", "景山公园")]}
     output, places, _client = await run_patch({"activities": [PATCH, dict(PATCH, city=None, city_evidence=None),
         {"index": 1, "city": "北京", "city_evidence": "北京一日游"}]}, first=first)
     assert places.calls == [("北京", "景山公园")]
@@ -194,12 +207,12 @@ async def test_invalid_patch_contract_cannot_promote_city_or_destroy_safe_origin
     output, places, _client = await run_patch(response)
     assert places.calls == [("北京", "景山公园")]
     assert output.proposal.mentions[0].city_hint is None
-    assert output.proposal.mentions[0].city_evidence == "城市核心"
+    assert output.proposal.mentions[0].city_evidence == FIRST["activities"][0]["city_evidence"]
     assert [card.name for card in output.public_result.days[0].activities] == ["故宫博物院", "景山公园"]
     assert output.public_result.coverage.complete is False
     assert len(city_warnings(output.proposal)) == 1
     logged = json.dumps(output.inference_binding, ensure_ascii=False) + caplog.text
-    for value in (PRIVATE, SOURCE, "故宫博物院", "城市核心"):
+    for value in (PRIVATE, SOURCE, "故宫博物院", FIRST["activities"][0]["city_evidence"]):
         assert value not in logged
 
 
@@ -261,7 +274,7 @@ async def test_patch_uses_original_deadline_and_preserves_first_answer_on_cancel
     engine = provider(client)
     engine.deadline_seconds = 0.08
     result = await asyncio.wait_for(engine.propose(SOURCE), timeout=0.5)
-    assert timeouts == [0.08]
+    assert timeouts[0] == 0.08
     assert len(client.calls) == 2 and client.second_cancelled
     assert result.binding["external_calls"] == 2
     assert [m.atomic_place_name for m in result.mentions] == ["故宫博物院", "景山公园"]
@@ -272,7 +285,7 @@ async def test_patch_uses_original_deadline_and_preserves_first_answer_on_cancel
 @pytest.mark.asyncio
 async def test_valid_first_answer_never_spends_a_city_patch_call():
     first = copy.deepcopy(FIRST)
-    first["activities"][0]["city_evidence"] = "北京一日游"
+    first["activities"][0].update(city="北京", city_evidence="北京一日游")
     client = RawClient(first)
     result = await provider(client).propose(SOURCE)
     assert len(client.calls) == 1 and not city_warnings(result)
