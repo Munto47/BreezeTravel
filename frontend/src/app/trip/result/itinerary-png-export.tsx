@@ -55,15 +55,25 @@ export default function ItineraryPngExport({
   sourceLodgings?: SourceLodgingCard[]
 }) {
   const currentEtag = useRef(etag)
+  const currentDisabled = useRef(disabled)
+  const previewEtag = useRef('')
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   currentEtag.current = etag
+  currentDisabled.current = disabled
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
   }, [previewUrl])
+
+  useEffect(() => {
+    if (previewUrl && previewEtag.current !== etag) {
+      setPreviewUrl('')
+      setError('生成期间行程已经更新，请重新生成。')
+    }
+  }, [etag, previewUrl])
 
   const createPreview = async () => {
     const startingEtag = currentEtag.current
@@ -72,9 +82,10 @@ export default function ItineraryPngExport({
     try {
 
       const canvas = await renderShareImage(result, sourceLodgings, resource)
-      if (startingEtag !== currentEtag.current) throw new Error('ITINERARY_CHANGED')
+      if (startingEtag !== currentEtag.current || currentDisabled.current) throw new Error('ITINERARY_CHANGED')
       const blob = await canvasBlob(canvas)
-      if (startingEtag !== currentEtag.current) throw new Error('ITINERARY_CHANGED')
+      if (startingEtag !== currentEtag.current || currentDisabled.current) throw new Error('ITINERARY_CHANGED')
+      previewEtag.current = startingEtag
       setPreviewUrl((previous) => {
         if (previous) URL.revokeObjectURL(previous)
         return URL.createObjectURL(blob)
@@ -93,6 +104,11 @@ export default function ItineraryPngExport({
 
   const download = () => {
     if (!previewUrl) return
+    if (previewEtag.current !== currentEtag.current || currentDisabled.current) {
+      setPreviewUrl('')
+      setError('行程正在更新或已经改变，请重新生成图片。')
+      return
+    }
     const anchor = document.createElement('a')
     anchor.href = previewUrl
     anchor.download = `行程查-${new Date().toISOString().slice(0, 10)}.png`
