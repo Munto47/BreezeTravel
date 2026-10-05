@@ -121,6 +121,7 @@ for (const width of [1440, 390]) {
       await expect(workspace).toContainText('2 已识别主线地点')
       const day2 = workspace.locator('.live-day').filter({ has: page.getByRole('heading', { name: 'Day 2', exact: true }) })
       await expect(day2).toContainText('上海博物馆东馆')
+      await expect(day2.locator('header')).toContainText('上海')
       await expect(day2).toContainText('还有 2 项原文尚未整理')
       await expect(day2).toContainText('这一天的主线地点仍在整理')
       await expect(day2.locator('[data-generation-token]')).toHaveCount(0)

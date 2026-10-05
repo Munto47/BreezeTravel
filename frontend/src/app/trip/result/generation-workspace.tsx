@@ -88,7 +88,7 @@ export default function GenerationWorkspace({phase, progress, snapshot, streamSt
         <div className="live-feed" ref={feed} onScroll={rememberPosition} role="region" aria-label="逐日整理预览" tabIndex={0}>
           {!days.length && <div className="live-empty"><div className="live-wait-mark"><MapPin size={28}/></div><h2>正在从全文中整理地点和先后</h2><p>收到完整地点后，卡片会出现在这里。你可以离开页面，后台会继续整理。</p><span>已接收文字 · 等待地点内容</span></div>}
           {days.map((day, index) => <section className="live-day" data-live-day={index} key={day.label}>
-            <header><h2 tabIndex={-1}>Day {index + 1}</h2><span>{[...new Set(day.activities.map(card => card.city).filter(Boolean))].join(' · ')}</span><small>{day.activities.length} 个主线地点</small></header>
+            <header><h2 tabIndex={-1}>Day {index + 1}</h2><span>{[...new Set([...day.activities, ...(day.alternatives || [])].map(card => card.city).filter(Boolean))].join(' · ')}</span><small>{day.activities.length} 个主线地点</small></header>
             <div className="live-card-grid">{day.activities.map((card, position) => {
               const token = card.visit_id || card.activity_token
               const ready = card.status === 'READY'
