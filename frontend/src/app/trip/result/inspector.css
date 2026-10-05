@@ -37,7 +37,8 @@
  .e-full-workspace .map-directory-filters {display:none;}
  .e-full-workspace .map-suggestions-slot {display:none;}
  .e-full-workspace [data-testid=context-workspace] {position:fixed;inset:0;z-index:50;pointer-events:none;display:block;padding:0;}
- .e-full-workspace [data-testid=context-workspace] > .e-itinerary,.e-full-workspace [data-testid=context-workspace] > .e-map-column {display:none;}
+ .e-full-workspace [data-testid=context-workspace] > .e-itinerary {display:contents;}
+ .e-full-workspace [data-testid=context-workspace] > .e-itinerary > :not(.e-context-panel),.e-full-workspace [data-testid=context-workspace] > .e-map-column {display:none;}
  .e-full-workspace .e-context-panel {pointer-events:auto;position:fixed;top:16px;bottom:16px;right:16px;width:400px;border:1px solid #e1e9ef;border-radius:20px;background:white;box-shadow:0 12px 48px #193f5918;}
  .e-full-workspace #inspector-editor-slot:not(:empty) {position:fixed;top:16px;bottom:16px;right:16px;width:400px;z-index:55;overflow:auto;background:#fff;border:1px solid #e1e9ef;border-radius:20px;box-shadow:0 12px 48px #193f5918;padding:20px;}
  .e-full-workspace #inspector-editor-slot .pending-place-dropdown {width:100%;position:static;margin:0;padding:0;border:0;box-shadow:none;}
