@@ -64,6 +64,7 @@ export function transportConnectorFor(
   mapView: MapRenderView,
   locallyPending = false,
 ): TransportConnector {
+  if (from.status !== 'READY' || to.status !== 'READY') return { status: 'UNAVAILABLE' }
   if (locallyPending || mapView.status === 'NEEDS_UPDATE') return { status: 'NEEDS_UPDATE' }
   if (mapView.status === 'UNAVAILABLE') return { status: 'UNAVAILABLE' }
   if (!['AVAILABLE', 'LIMITED'].includes(mapView.status)) return { status: 'PENDING' }

@@ -23,6 +23,7 @@ import {
   type TripInputDraft as InputDraft,
 } from '@/lib/trip-input-recovery'
 import './experience.css'
+import {tripWaitClock} from '@/lib/trip-wait-clock'
 
 type Resume = { reference: string; title: string; updated?: string | null }
 type Replacement = {text: string; label: string; kind: 'example' | 'clipboard'}
@@ -220,6 +221,7 @@ export default function HomePage() {
       }
       attempt.current.failedResource = undefined
       const submittedAttempt = attempt.current
+      submittedAttempt.submittedAt ??= Date.now()
       sessionStorage.setItem(INPUT_KEY, JSON.stringify(submittedAttempt))
       const accepted = await createFullTripUnderstanding(
         source.trim(),
@@ -237,6 +239,7 @@ export default function HomePage() {
       clearTripUnderstandingSession()
       sessionStorage.removeItem('bt_pending_operation')
       attempt.current.resource = accepted.public_resource_id
+      tripWaitClock(accepted.public_resource_id, submittedAttempt.submittedAt)
       sessionStorage.setItem(INPUT_KEY, JSON.stringify(attempt.current))
       sessionStorage.setItem('bt_active_trip_ref', accepted.public_resource_id)
       if (!user) rememberBrowserTripReference(accepted.public_resource_id)

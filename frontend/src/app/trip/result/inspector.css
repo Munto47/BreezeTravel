@@ -22,7 +22,7 @@
  .e-full-workspace .four-day-panel {border:1px solid #e5edf2;border-radius:18px;box-shadow:none;}
  .e-full-workspace .serpentine-route-label.is-unverified {background:#f5f8fa;color:#64788a;}
  .e-full-workspace .serpentine-route-label .route-connection-warning {display:none;}
- .e-full-workspace .four-day-confirmed,.e-full-workspace .four-day-route-summary,.e-full-workspace .four-overview-note {display:none;}
+ .e-full-workspace .four-day-route-summary,.e-full-workspace .four-overview-note {display:none;}
  .e-full-workspace .four-source-notes {color:#546c7e;font-size:13px;padding:9px 18px;}
  .e-full-workspace .four-day-issues {color:#9b590d;font-size:12px;padding:6px 10px;border-radius:10px;background:#fff8ee;}
  .e-full-workspace .e-page-message {position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:60;padding:0;max-width:580px;}

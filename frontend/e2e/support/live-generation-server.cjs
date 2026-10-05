@@ -61,6 +61,7 @@ function createLiveGenerationServer() {
     if(path.endsWith('/cancel')){finish(true);return json({status:'STOPPED_WITH_DRAFT',message:'当前结果已保留',has_editable_result:true})}
     if(path.endsWith('/map-renders/latest'))return json(unavailable)
     if(path.endsWith('/stay-suggestions'))return json({...unavailable,area_summary:null,searched_scopes:[],candidates:[]})
+    if(path.endsWith('/source'))return json({status:'AVAILABLE',text:'北京三日游：第一天故宫博物院、景山公园、北海公园和什刹海。第二天天坛公园、前门大街、大栅栏和天安门广场。第三天颐和园、圆明园、北京动物园和景山公园。',activities:[]})
     if(path.endsWith('/supplementary'))return json({status:'UNAVAILABLE',days:[]})
     if(path.endsWith('/materialize'))return json({status:'READY',message:'',calendar:'Day 1–3',party_size:2,checks_available:true})
     if(path.endsWith('/checks'))return json({status:'STILL_NEEDS_CONFIRMATION',message:'',items:[],remaining_must_adjust:0,available_actions:[]})

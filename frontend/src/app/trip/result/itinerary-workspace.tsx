@@ -142,7 +142,8 @@ export default function ItineraryWorkspace({
         // receives the same height as the visible cards and connectors.
         heights[day] = Math.ceil(Math.max(0, ...Array.from(lane.querySelectorAll<HTMLElement>('[data-testid="activity-card"]')).map(card =>
           (card.querySelector<HTMLElement>('.four-card-photo')?.offsetHeight || 0) +
-          (card.querySelector<HTMLElement>('.four-card-copy')?.scrollHeight || 0) + 2)))
+          (card.querySelector<HTMLElement>('.four-card-copy')?.scrollHeight || 0) +
+          (card.querySelector<HTMLElement>('.four-pending-confirm')?.offsetHeight || 0) + 2)))
         const labels = Array.from(lane.querySelectorAll<HTMLElement>('.serpentine-route-label'))
         // During drag the connectors are hidden; keep the measured gap so
         // the drop geometry cannot collapse while the pointer is moving.
@@ -158,7 +159,7 @@ export default function ItineraryWorkspace({
     const observer = new ResizeObserver(measure)
     laneScrollers.current.forEach(lane => {
       observer.observe(lane)
-      lane.querySelectorAll('.four-card-copy,.four-card-photo,.serpentine-route-label').forEach(element => observer.observe(element))
+      lane.querySelectorAll('.four-card-copy,.four-card-photo,.four-pending-confirm,.serpentine-route-label').forEach(element => observer.observe(element))
     })
     return () => observer.disconnect()
   }, [localDays, layoutMode, collapsedDays, mapView, routesPending, operationPending])
@@ -516,7 +517,7 @@ export default function ItineraryWorkspace({
                     </div>
                     <div className="four-day-statistics" aria-label={`${relativeDayLabel(dayOffset)}状态统计`}>
                       <span className="four-day-count"><MapPin aria-hidden="true"/>{day.activities.length} 个地点</span>
-                      <span className="four-day-confirmed"><Check aria-hidden="true"/>已确认 {day.activities.length}</span>
+                      <span className="four-day-confirmed"><Check aria-hidden="true"/>已确认 {day.activities.filter(card => card.status === 'READY').length}</span>
                       {pendingCount > 0 && <span className="four-day-pending">待确认 {pendingCount}</span>}
                       {(pendingCount>0 || !!day.unprocessed_count) && <button className="four-day-issues" onClick={()=>window.dispatchEvent(new CustomEvent('trip-inspector-open',{detail:{day:dayOffset}}))}>查看问题</button>}
                       {routeSummary && <span className="four-day-route-summary">{routeSummary}</span>}
@@ -540,7 +541,7 @@ export default function ItineraryWorkspace({
                     {day.activities.length > 0 ? <ol className="four-mini-chain" aria-label={`${relativeDayLabel(dayOffset)}折叠地点顺序`}>
                       {day.activities.map((activity, position) => <li key={activity.visit_id || activity.activity_token}>
                         <div className="four-mini-image"><PlacePhoto card={activity}/><span style={{backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length]}}>{position + 1}</span></div>
-                        <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}{diningAccessBadge(activity) ? ` · ${diningAccessBadge(activity)}` : ''}</small></div>
+                        <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activity.status !== 'READY' ? '地点待确认 · ' : ''}{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}{diningAccessBadge(activity) ? ` · ${diningAccessBadge(activity)}` : ''}</small></div>
                         {position < day.activities.length - 1 && <ChevronRight className="four-mini-arrow" aria-hidden="true"/>}
                       </li>)}
                     </ol> : <p className="four-overview-note">当天尚无已确认的主线地点。</p>}
@@ -564,7 +565,7 @@ export default function ItineraryWorkspace({
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
                                 {!!activity.source_details?.length && <span className="block text-xs text-[#0c789d]">原文安排 · {activity.source_details.length} 项</span>}
                                 {diningAccessBadge(activity) && <span className="block text-xs text-amber-800">{diningAccessBadge(activity)}</span>}
-                                <span className="text-xs text-slate-500">{activityCategoryLabel(activity)} · 已确认 · 可更改</span>
+                                <span className="text-xs text-slate-500">{activityCategoryLabel(activity)} · {activity.status === 'READY' ? '已确认' : '地点待确认'} · 可更改</span>
                               </button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
@@ -673,7 +674,7 @@ export default function ItineraryWorkspace({
                                     }}
                                     onPointerCancel={(event) => { event.currentTarget.draggable = false; setDragged(null); setDropTarget(null); setTouchPoint(null); touchTarget.current=null }}
 >
-                                  <CategoryArtwork category={activity.category} />
+                                  {activity.status === 'READY' ? <CategoryArtwork category={activity.category} /> : <div className="absolute inset-0 grid place-items-center bg-slate-100 text-slate-400"><MapPin aria-hidden="true"/></div>}
                                   <PlacePhoto card={activity} />
                                   <span style={{ backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length] }} className="absolute left-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-emerald-700 px-2 text-xs font-bold text-white shadow-sm">
                                     {position + 1}
@@ -737,7 +738,7 @@ export default function ItineraryWorkspace({
                                       ? 'rounded-full bg-emerald-50 px-2 py-1 text-emerald-700'
                                       : 'rounded-full bg-amber-50 px-2 py-1 text-amber-800'}
                                     >
-                                      已确认
+                                      {activity.status === 'READY' ? '已确认' : '地点待确认'}
                                     </span>
                                     {!!activity.source_details?.length && <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">原文安排 · {activity.source_details.length} 项</span>}
                                     {diningAccessBadge(activity) && <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800">{diningAccessBadge(activity)}</span>}
@@ -751,13 +752,14 @@ export default function ItineraryWorkspace({
                                 </button>
 
 
+                                {activity.status !== 'READY' && <button type="button" className="four-pending-confirm" disabled={locked} onClick={()=>window.dispatchEvent(new CustomEvent('trip-inspector-open',{detail:{day:dayOffset,token:activity.activity_token}}))}>确认地点</button>}
                               </motion.article>
                               <div className="four-card-menu">
                                 <button type="button" className="four-card-more" aria-label={`${activity.name}更多操作`}
                                   aria-expanded={cardMenu?.card.activity_token === activity.activity_token} disabled={locked || !!dragged}
                                   onClick={event => { rememberTrigger(event.currentTarget); setPendingPlace(null); setCardMenu(current => current?.card.activity_token === activity.activity_token ? null : item) }}><MoreHorizontal aria-hidden="true"/></button>
                                 {cardMenu?.card.activity_token === activity.activity_token && <div className="four-card-menu-options" role="group" aria-label={`${activity.name}操作`}>
-                                  <button type="button" onClick={() => { setCardMenu(null); openDetails(item, lastTriggerRef.current!) }}>查看详情</button>
+                                  <button type="button" onClick={() => { setCardMenu(null); openDetails(item, lastTriggerRef.current!) }}>{activity.status === 'READY' ? '查看详情' : '确认地点'}</button>
                                   <button type="button" onClick={() => { setCardMenu(null); openMove(item, lastTriggerRef.current || undefined) }}>移动地点</button>
                                   <button type="button" onClick={() => { setCardMenu(null); openDelete(item, lastTriggerRef.current || undefined) }}>删除地点</button>
                                 </div>}

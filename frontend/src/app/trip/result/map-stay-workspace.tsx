@@ -73,7 +73,8 @@ export default function MapStayWorkspace({
     [],
   )
   const currentStay = stay || result.stay
-  const directoryDays = result.days.map((day, index) => ({...day, activities: [...day.activities, ...(pendingDays[index]?.activities || [])]}))
+  const directoryDays = result.days.map((day, index) => ({...day, activities: [...day.activities,
+    ...(pendingDays[index]?.activities || []).filter(card => !day.activities.some(item => item.activity_token === card.activity_token))]}))
   const categories = [...new Set(directoryDays.flatMap(day => day.activities.map(card => card.category)))]
   const listedDays = directoryDays.map((day, index) => ({...day, index, activities: day.activities.filter(card =>
     (mapScope === 'all' || index === dayIndex) && (!query.trim() || card.name.includes(query.trim())) &&

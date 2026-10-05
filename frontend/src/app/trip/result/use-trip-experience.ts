@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { confirmedDays, confirmedSourceLodgings, confirmedTripView, storedPositionCommand } from '@/lib/confirmed-trip-view'
+import { itineraryDays, confirmedSourceLodgings, confirmedTripView, itineraryTripView, storedPositionCommand } from '@/lib/confirmed-trip-view'
 import * as api from '@/lib/trip-understanding-v3'
 import { recoverExpiredLogin } from '@/lib/request-safety'
 import { forgetBrowserTripReference, rememberBrowserTripReference } from '@/lib/browser-resource-ref'
@@ -1899,7 +1899,7 @@ export function useTripExperience() {
   const workspaceCommand = async (value: api.TripUnderstandingCommand) => {
     await command(value)
     const outcome = workspaceOutcome.current
-    return { ...outcome, days: outcome.days ? confirmedDays(outcome.days) : undefined }
+    return { ...outcome, days: outcome.days ? itineraryDays(outcome.days) : undefined }
   }
   const renderMap = () =>
     execute({
@@ -2063,7 +2063,7 @@ export function useTripExperience() {
         setNotice('住宿建议更新尚未确认，可稍后再试。')
     } finally {writing.current = false; if (alive.current) setBusy(false)}
   }
-  const displayedResult = useMemo(() => confirmedTripView(result), [result])
+  const displayedResult = useMemo(() => itineraryTripView(result), [result])
   const displayedProgress = useMemo(() => confirmedTripView(progressSnapshot), [progressSnapshot])
   return {
     resource,

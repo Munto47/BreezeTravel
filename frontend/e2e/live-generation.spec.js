@@ -5,7 +5,7 @@ test.beforeEach(async({request})=>{await control(request,{action:'reset'})})
 
 test('continuous snapshots preserve cards, reading, cursor and final focus',async({page,request})=>{
   await page.goto('/trip/result#trip=live-generation-cards-resource')
-  await expect(page.getByText('实时接收中',{exact:true})).toBeVisible()
+  await expect(page.getByText('进度连接已建立',{exact:true})).toBeVisible()
   expect((await control(request,{action:'advance',count:3,ready:0})).connections).toBe(1)
   const card=page.locator('[data-generation-token="controlled-visit-0"]')
   await expect(card).toHaveAttribute('data-state','checking')
@@ -35,13 +35,92 @@ test('continuous snapshots preserve cards, reading, cursor and final focus',asyn
   await expect(page.getByRole('button',{name:'拖动 前门大街',exact:true})).toBeEnabled()
 })
 
-test('stop preserves confirmed cards and excludes unconfirmed cards from the mainline',async({page,request})=>{
+test('stop preserves unconfirmed cards in their original positions',async({page,request})=>{
   await page.goto('/trip/result#trip=live-generation-cards-resource')
-  await expect(page.getByText('实时接收中',{exact:true})).toBeVisible()
+  await expect(page.getByText('进度连接已建立',{exact:true})).toBeVisible()
   await control(request,{action:'advance',count:4,ready:1,detail:true})
   await expect(page.locator('[data-generation-token]')).toHaveCount(4)
   await page.getByRole('button',{name:'停止整理',exact:true}).click()
   await expect(page.getByRole('button',{name:'拖动 故宫博物院',exact:true})).toBeEnabled()
-  await expect(page.getByRole('button',{name:'拖动 景山公园',exact:true})).toHaveCount(0)
+  await expect(page.getByRole('button',{name:'拖动 景山公园',exact:true})).toBeEnabled()
+  await expect(page.locator('[data-visit-id="controlled-visit-1"]')).toContainText('地点待确认')
+  await page.reload()
+  await expect(page.locator('[data-visit-id="controlled-visit-1"]')).toContainText('地点待确认')
   await expect(page.getByText('已取消：王府井',{exact:true})).toBeVisible()
+})
+
+
+test('waiting shows source, elapsed time and honest connection feedback',async({page,request},testInfo)=>{
+  await page.clock.install()
+  await page.goto('/trip/result#trip=live-generation-cards-resource')
+  await expect(page.getByText('进度连接已建立',{exact:true})).toBeVisible()
+  await expect(page.locator('.live-source-text')).toContainText('故宫博物院')
+  await expect(page.locator('.live-statusbar')).toHaveCount(0)
+  await expect(page.getByRole('navigation',{name:'浏览逐日预览'})).toHaveCount(0)
+  await page.clock.fastForward(21000)
+  await expect(page.getByText('首批地点尚未返回，可以先查看原文。',{exact:true})).toBeVisible()
+  await page.screenshot({path:testInfo.outputPath('waiting.png'),fullPage:true})
+  await page.clock.fastForward(40000)
+  await expect(page.getByText('等待时间较长，可后台继续，稍后从我的行程查看。',{exact:true})).toBeVisible()
+  await expect(page.locator('.live-elapsed')).toContainText('01:01')
+  await page.reload()
+  await expect(page.locator('.live-elapsed')).toContainText('01:01')
+  await page.getByRole('button',{name:'展开全文',exact:true}).click()
+  await control(request,{action:'advance',count:3,ready:1})
+  await expect(page.locator('[data-generation-token]')).toHaveCount(3)
+  await expect(page.locator('.live-source-text')).toBeVisible()
+  await expect(page.getByRole('button',{name:'收起全文',exact:true})).toBeFocused()
+})
+
+test('pending final card stays visible and opens the correct confirmation panel',async({page,request})=>{
+  await page.goto('/trip/result#trip=live-generation-cards-resource')
+  await expect(page.getByText('进度连接已建立',{exact:true})).toBeVisible()
+  await control(request,{action:'advance',count:4,ready:2,detail:true})
+  await control(request,{action:'finish'})
+  const card=page.locator('[data-visit-id="controlled-visit-2"]')
+  await expect(card).toContainText('地点待确认')
+  const button=card.getByRole('button',{name:'确认地点',exact:true})
+  const bounds=await card.boundingBox(), action=await button.boundingBox()
+  expect(action.y+action.height).toBeLessThanOrEqual(bounds.y+bounds.height+1)
+  await card.getByRole('button',{name:'确认地点',exact:true}).click()
+  await expect(page.getByRole('region',{name:'修改地点 北海公园'})).toBeVisible()
+  await expect(page.getByRole('textbox',{name:'搜索地点名称'})).toHaveValue('北海公园')
+  await expect(page.getByText('查看原始行程',{exact:true})).toHaveCount(0)
+  await expect(page.locator('#trip-inspector')).not.toContainText('重新匹配未确认地点')
+})
+
+
+test('PNG keeps pending names in their original order with an explicit label',async({page,request},testInfo)=>{
+  await page.goto('/trip/result#trip=live-generation-cards-resource')
+  await expect(page.getByText('进度连接已建立',{exact:true})).toBeVisible()
+  await control(request,{action:'advance',count:4,ready:2,detail:true})
+  await control(request,{action:'finish'})
+  await expect(page.getByTestId('export-itinerary-png')).toBeEnabled()
+  await page.evaluate(()=>{
+    window.paintedText=[]
+    const original=CanvasRenderingContext2D.prototype.fillText
+    CanvasRenderingContext2D.prototype.fillText=function(text,...args){window.paintedText.push(text);return original.call(this,text,...args)}
+  })
+  await page.getByTestId('export-itinerary-png').click()
+  await expect(page.getByTestId('png-preview')).toBeVisible()
+  const painted=await page.evaluate(()=>window.paintedText)
+  expect(painted.indexOf('景山公园')).toBeLessThan(painted.indexOf('北海公园'))
+  expect(painted.indexOf('北海公园')).toBeLessThan(painted.indexOf('什刹海'))
+  expect(painted.filter(text=>text==='地点待确认')).toHaveLength(2)
+  expect(painted.some(text=>text.includes('备选：南锣鼓巷'))).toBe(true)
+  const downloadPromise=page.waitForEvent('download')
+  await page.getByTestId('download-itinerary-png').click()
+  const download=await downloadPromise
+  await download.saveAs(testInfo.outputPath('itinerary.png'))
+  expect(await download.failure()).toBeNull()
+})
+
+
+test('unavailable original text does not block real cards or fabricate source',async({page,request})=>{
+  await page.route('**/source',route=>route.fulfill({json:{status:'DELETED',text:null,activities:[]}}))
+  await page.goto('/trip/result#trip=live-generation-cards-resource')
+  await expect(page.getByText('原文已删除，整理状态仍可继续查看。',{exact:true})).toBeVisible()
+  await control(request,{action:'advance',count:2,ready:1})
+  await expect(page.locator('[data-generation-token]')).toHaveCount(2)
+  await expect(page.locator('.live-source-text')).toHaveCount(0)
 })

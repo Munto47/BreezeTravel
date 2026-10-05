@@ -9,8 +9,7 @@ import AccessibleDialog from './accessible-dialog'
 import {renderShareImage} from './share-image'
 
 function exportStatus(result: UserFacingTripResult, unresolvedDays: UserFacingTripResult['days'] = []) {
-  // The page passes the confirmed-only mainline. Coverage counts named places;
-  // older results can also contain anonymous pending cards, retained separately.
+  // Include unresolved historical entries when calculating the export notice.
   const pending = Math.max(result.coverage?.unresolved_place_count || 0,
     result.days.reduce((sum, day) => sum + day.activities.filter(card => card.status !== 'READY').length, 0),
     unresolvedDays.reduce((sum, day) => sum + day.activities.length, 0))

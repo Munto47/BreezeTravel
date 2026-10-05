@@ -37,6 +37,21 @@ def is_replacement_reference(source, proposal, start, end):
     return False
 
 
+def is_implicit_alternative_reference(source, proposal, segment, quote, *, day_index=None):
+    """A following clause can restate the same validated rainy-day alternative."""
+    if not re.fullmatch(r'\s*(?:暂按晴天主线整理[，,]\s*)?雨天方案保留为备选[。；;\s]*', segment['text']):
+        return False
+    previous = max((m for m in proposal.mentions if not m.parent_mention_id and m.span_end <= segment['start']),
+                   key=lambda m: m.span_end, default=None)
+    if (previous is None or previous.role != 'OPTIONAL' or not previous.replaces_mention_id
+            or not re.search(r'下雨|雨天', previous.replacement_condition or '')
+            or previous.raw_text != quote or (day_index is not None and previous.day_index != day_index)):
+        return False
+    clause_end = min((p for mark in '\n。；;！!？?'
+        if (p := source.find(mark, previous.span_end)) >= 0), default=len(source))
+    return clause_end <= segment['start'] and not source[clause_end:segment['start']].strip('。；;\n\r \t')
+
+
 def is_implicit_default_reference(source, proposal, segment, quote, *, day_index=None):
     """A narrow return-to-default sentence adds no named destination."""
     if not re.fullmatch(r'\s*(?:晴天|否则|不下雨时|没有下雨时|天气好的话)?[，,]?\s*仍(?:然)?(?:按|走)原(?:来|先|定)的?'

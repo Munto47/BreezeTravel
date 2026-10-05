@@ -7,7 +7,7 @@ import PendingPlaceDropdown from './pending-place-dropdown'
 import SourceRestoreEditor from './source-restore-editor'
 import SourceSupplement from './source-supplement'
 import {readTripInspector, type InspectorIssue} from '@/lib/trip-understanding-v3'
-import {readTripSource, readTripUnderstandingResult, queryTripPlaceCandidates, type TripSourceView, type ActivityCardView, type PublicTripCheckItem, type UserFacingTripResult} from '@/lib/trip-understanding-v3'
+import {readTripSource, type TripSourceView, type ActivityCardView, type PublicTripCheckItem, type UserFacingTripResult} from '@/lib/trip-understanding-v3'
 
 type Item = {id: string; title: string; description: string; day?: number; kind: 'place'|'source'|'check'|'meal'|'alternative'|'lodging'; card?: ActivityCardView; check?: PublicTripCheckItem; optional?:boolean}
 export default function TripInspector(props: JourneySuggestionProps & {
@@ -21,14 +21,14 @@ export default function TripInspector(props: JourneySuggestionProps & {
   const [sourceDay, setSourceDay] = useState<number|null>(null)
   const [feedback, setFeedback] = useState('')
   const [source, setSource] = useState<TripSourceView|null>(null)
-  const [rematching, setRematching] = useState(false)
+  const [dayFilter, setDayFilter] = useState<number|null>(null)
+  const [targetToken, setTargetToken] = useState<string|null>(null)
   const [serverIssues,setServerIssues]=useState<{input_version:string;issues:InspectorIssue[];changes:Array<{change_etag:string;title:string}>}|null>(null)
   useEffect(()=>{
     const controller=new AbortController()
     void readTripInspector(props.resource,controller.signal).then(setServerIssues).catch(()=>{})
     return ()=>controller.abort()
   },[props.resource,props.etag,props.checks,props.map?.status])
-  const command = useRef(props.onCommand); command.current=props.onCommand
   const list = useRef<HTMLDivElement>(null)
   const returnFocus = useRef<HTMLElement|null>(null)
   const scroll = useRef(0)
@@ -61,7 +61,7 @@ export default function TripInspector(props: JourneySuggestionProps & {
       .map(item => ({name: item.name, day: day.day_index}))) : []
   const pending = items.filter(item => !handledIds.has(item.id) && !item.optional && item.check?.label !== '可以更好')
   const optional = items.filter(item => !handledIds.has(item.id) && (item.optional || item.check?.label === '可以更好'))
-  const active = items.find(item => item.id === activeIssueId)
+  const active = items.find(item => targetToken ? item.card?.activity_token === targetToken || item.card?.visit_id === targetToken : item.id === activeIssueId)
   const updating = props.map?.status === 'PREPARING' || props.checking
   useEffect(()=>{
     if((active?.kind!=='source' && sourceDay==null)||source)return
@@ -69,32 +69,11 @@ export default function TripInspector(props: JourneySuggestionProps & {
     void readTripSource(props.resource,controller.signal).then(setSource).catch(()=>{if(!controller.signal.aborted)setFeedback('原文暂时无法读取，请稍后重试。')})
     return ()=>controller.abort()
   },[active?.kind,sourceDay,source,props.resource])
-  async function rematch() {
-    if(rematching||props.disabled)return
-    setRematching(true);let matched=0,missing=0,failed=0
-    try {
-      const targets=items.filter(item=>item.card).map(item=>item.card!.visit_id || item.card!.activity_token)
-      for(const id of targets){
-        const current=await readTripUnderstandingResult(props.resource)
-        if(current.status!==200)break
-        const card=(current.body as UserFacingTripResult).days.flatMap(day=>day.activities).find(card=>(card.visit_id||card.activity_token)===id&&card.status!=='READY')
-        if(!card)continue
-        const candidates=await queryTripPlaceCandidates(props.resource,card.activity_token,card.name)
-        if(candidates.status==='EMPTY'){missing++;continue}
-        const first=candidates.candidates?.[0]
-        if(!first){failed++;continue}
-        const outcome=await command.current({command_type:'PLACE_CONFIRM',activity_token:card.activity_token,candidate_token:first.candidate_token})
-        if(outcome.status!=='APPLIED'){failed++;break}
-        matched++
-      }
-      setFeedback(`已重新匹配 ${matched} 个地点${missing?`，${missing} 个未找到有效结果`:''}${failed?`，${failed} 个暂未完成，请重试`:''}。已保存的修改可撤销。`)
-    } catch {setFeedback(`已匹配 ${matched} 个地点；后续查询暂不可用，已保存内容保留。`)}
-    finally {setRematching(false)}
-  }
   useEffect(() => {
     const show = (event: Event) => {
-      const day = (event as CustomEvent<{day?:number}>).detail?.day
-      if (day != null) {setSourceDay(day); setTab('pending')}
+      const detail = (event as CustomEvent<{day?:number; token?:string}>).detail
+      setSourceDay(null); setActiveIssueId(null); setDayFilter(detail?.day ?? null)
+      setTargetToken(detail?.token ?? null); setTab('pending')
       setOpen(true)
     }
     window.addEventListener('trip-inspector-open', show)
@@ -102,12 +81,12 @@ export default function TripInspector(props: JourneySuggestionProps & {
   }, [])
   useEffect(() => {if(props.alternativesRequest){setTab('optional');setOpen(true)}},[props.alternativesRequest])
   function back() {
-    setActiveIssueId(null); setSourceDay(null)
+    setActiveIssueId(null); setTargetToken(null); setSourceDay(null)
     requestAnimationFrame(() => {if(list.current)list.current.scrollTop=scroll.current;returnFocus.current?.focus({preventScroll:true})})
   }
   function select(item: Item, trigger: HTMLElement) {
     returnFocus.current=trigger;scroll.current=list.current?.scrollTop || 0
-    setActiveIssueId(item.id)
+    setTargetToken(null); setActiveIssueId(item.id)
     if(item.check) props.onLocate(item.check)
     else if(item.day != null) {
       props.onFocusTarget(item.day,item.card?.visit_id || item.card?.activity_token)
@@ -115,12 +94,12 @@ export default function TripInspector(props: JourneySuggestionProps & {
   }
   return <>
     <button className="e-button" data-testid="journey-suggestions-toggle" aria-expanded={open}
-      onClick={()=>setOpen(value=>!value)}><Sparkles size={17}/>检查与建议{pending.length>0 && <span className="inspector-count">{pending.length}</span>}</button>
+      onClick={()=>{setDayFilter(null);setOpen(value=>!value)}}><Sparkles size={17}/>检查与建议{pending.length>0 && <span className="inspector-count">{pending.length}</span>}</button>
     <aside id="trip-inspector" className="trip-inspector" hidden={!open || props.suspended} aria-label="检查与建议">
       <header><div><Sparkles size={19}/><h2>检查与建议</h2></div><button aria-label="关闭检查侧栏" onClick={()=>setOpen(false)}><X size={18}/></button></header>
       <p className="inspector-background" role="status">{updating?'正在后台更新 · 已保存的修改可继续查看':'行程修改自动保存'}</p>
       {feedback&&<p className="inspector-background" role="status">{feedback}</p>}
-      <nav aria-label="事项分类">{([['pending','待确认',pending.length],['optional','可选建议',optional.length],['handled','已处理',handled.length + excluded.length]] as const).map(([key,label,count])=><button key={key} aria-pressed={tab===key} onClick={()=>{back();setTab(key)}}>{label}{count>0&&<small>{count}</small>}</button>)}</nav>
+      <nav aria-label="事项分类">{([['pending','待确认',pending.length],['optional','可选建议',optional.length],['handled','已处理',handled.length + excluded.length]] as const).map(([key,label,count])=><button key={key} aria-pressed={tab===key} onClick={()=>{back();setDayFilter(null);setTab(key)}}>{label}{count>0&&<small>{count}</small>}</button>)}</nav>
       <div ref={list} className="inspector-list" hidden={Boolean(active) || sourceDay != null}>
         {tab==='pending'&&<SourceSupplement resource={props.resource} etag={props.etag} open={open} disabled={props.disabled} onSaved={props.onSupplementSaved}/>}
         {tab==='pending'&&(props.result.correction_suggestions||[]).map(suggestion=>{
@@ -128,8 +107,8 @@ export default function TripInspector(props: JourneySuggestionProps & {
           const card=props.result.days[day]?.activities.find(card=>card.visit_id===suggestion.target_visit_id)
           return <article className="inspector-item" key={suggestion.suggestion_id}><span><strong>原文名称待核对</strong><small>原文提到“{suggestion.source_name}”；当前“{card?.name||'安排'}”已保留，请核对后自行修改。</small></span>{card&&<button className="e-button" onClick={()=>props.onFocusTarget(day,card.visit_id)}>查看安排</button>}</article>
         })}
-        {tab==='pending'&&items.some(item=>item.card)&&<button className="e-button" disabled={props.disabled||rematching} onClick={()=>void rematch()}>{rematching?'正在重新匹配…':'重新匹配未确认地点'}</button>}
-        {(tab==='pending'?pending:tab==='optional'?optional:[]).map(item=><button key={item.id} data-issue-id={item.id} className="inspector-item" onClick={event=>select(item,event.currentTarget)}>
+        {dayFilter != null && <p className="inspector-background">Day {dayFilter+1} 的事项 <button className="e-button" onClick={()=>setDayFilter(null)}>查看全部</button></p>}
+        {(tab==='pending'?pending:tab==='optional'?optional:[]).filter(item=>dayFilter == null || item.day === dayFilter).map(item=><button key={item.id} data-issue-id={item.id} className="inspector-item" onClick={event=>select(item,event.currentTarget)}>
           <span><strong>{item.title}</strong><small>{item.day != null?`Day ${item.day+1} · `:''}{item.description}</small></span><ChevronRight size={16}/>
         </button>)}
         {tab==='pending'&&!pending.length&&<p className="inspector-empty">{props.checking?'正在检查行程…':'暂无需要你决定的事项。'}</p>}

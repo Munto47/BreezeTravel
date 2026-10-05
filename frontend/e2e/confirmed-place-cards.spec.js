@@ -176,13 +176,16 @@ for (const width of [1440,390]) test(`pending source lunch is confirmed in place
 test('filter preserves original records, truthful status, empty days and positional commands', () => {
   const raw = fixtureResult(), before = JSON.stringify(raw), shown = view.confirmedTripView(raw)
   expect(shown.days.map(d => d.activities.length)).toEqual([9, 0])
+  const itinerary = view.itineraryTripView(raw)
+  expect(itinerary.days.map(d => d.activities.length)).toEqual([11, 1])
+  expect(itinerary.days[0].activities.map(c=>c.activity_token)).toEqual(raw.days[0].activities.map(c=>c.activity_token))
   expect(shown.days[0].alternatives).toEqual(raw.days[0].alternatives)
   expect(shown.status).toBe('PARTIAL_RESULT')
   expect(JSON.stringify(raw)).toBe(before)
   const token = raw.days[0].activities[1].activity_token
-  expect(view.storedPositionCommand({ command_type: 'ACTIVITY_MOVE', activity_token: token, target_day_index: 1, target_position: 1 }, raw).target_position).toBe(3)
-  expect(view.storedPositionCommand({ command_type: 'ACTIVITY_MOVE', activity_token: token, target_day_index: 2, target_position: 0 }, raw).target_position).toBe(1)
-  expect(view.storedPositionCommand({ command_type: 'ACTIVITY_INSERT', day_index: 1, position: 0, name: '新地点' }, raw).position).toBe(1)
+  expect(view.storedPositionCommand({ command_type: 'ACTIVITY_MOVE', activity_token: token, target_day_index: 1, target_position: 1 }, raw).target_position).toBe(1)
+  expect(view.storedPositionCommand({ command_type: 'ACTIVITY_MOVE', activity_token: token, target_day_index: 2, target_position: 0 }, raw).target_position).toBe(0)
+  expect(view.storedPositionCommand({ command_type: 'ACTIVITY_INSERT', day_index: 1, position: 0, name: '新地点' }, raw).position).toBe(0)
 })
 
 test('choice and single alternative positions refer to visible visits with pending cards retained', () => {
@@ -194,9 +197,9 @@ test('choice and single alternative positions refer to visible visits with pendi
   const sourceChoice = {command_type: 'CHOICE_SELECT', day_index: 1, choice_group_token: 'fixed-group', branch_token: 'fixed-branch'}
   expect(view.storedPositionCommand(sourceChoice, raw)).toEqual(sourceChoice)
   for (const command_type of ['CHOICE_SELECT', 'ALTERNATIVE_INSERT']) {
-    expect(view.storedPositionCommand({command_type, day_index: 1, position: 1}, raw).position).toBe(3)
-    expect(view.storedPositionCommand({command_type, day_index: 2, position: 0}, raw).position).toBe(1)
-    expect(view.storedPositionCommand({command_type, day_index: 1, position: 9}, raw).position).toBe(11)
+    expect(view.storedPositionCommand({command_type, day_index: 1, position: 1}, raw).position).toBe(1)
+    expect(view.storedPositionCommand({command_type, day_index: 2, position: 0}, raw).position).toBe(0)
+    expect(view.storedPositionCommand({command_type, day_index: 1, position: 9}, raw).position).toBe(9)
   }
   expect(raw.days.map(day => day.activities.filter(card => card.status !== 'READY').length)).toEqual([2, 1])
 })
@@ -209,7 +212,7 @@ test('photo types follow business categories and distinguish landscape, streets 
     ['未知名称', '景点', null]]) expect(photos.placePhotoType({ name, category })).toBe(type)
 })
 
-for (const width of [1440, 1280, 390, 360]) test(`confirmed-only cards and nine local photo types at ${width}px`, async ({ page }) => {
+for (const width of [1440, 1280, 390, 360]) test(`pending cards retain order and confirmed cards retain nine local photo types at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 })
   await fixture(page)
   for (const [name, , type] of types) {
@@ -220,16 +223,17 @@ for (const width of [1440, 1280, 390, 360]) test(`confirmed-only cards and nine 
     await expect(photo.locator('..').getByText('配图', {exact: true})).toBeVisible()
     await expect.poll(() => photo.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true)
   }
-  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
-  await expect(page.getByText(/未匹配的地点[一二三]/).filter({ visible: true })).toHaveCount(0)
+  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(3)
+  await expect(page.getByTestId('activity-card').filter({hasText:/未匹配的地点[一二三]/}).locator('img')).toHaveCount(0)
   await expect(page.getByTestId('day-alternatives-1')).toHaveCount(1)
   await expect(page.getByRole('heading',{name:'尚未查询的备选',exact:true})).toHaveCount(0)
-  await expect(page.getByTestId('unmatched-places-note')).toContainText('3 项')
+  await expect(page.getByTestId('day-lane-1').getByText('待确认 2',{exact:true})).toBeVisible()
+  await expect(page.getByTestId('day-lane-2').getByText('待确认 1',{exact:true})).toBeVisible()
   await expect(page.getByText('类型配图', { exact: true })).toHaveCount(0)
   await page.reload()
   await expect(page.getByRole('heading', { name: types[0][0], exact: true })).toBeVisible()
-  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
-  await expect(page.getByText(/未匹配的地点[一二三]/).filter({ visible: true })).toHaveCount(0)
+  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(3)
+  await expect(page.getByTestId('activity-card').filter({hasText:/未匹配的地点[一二三]/}).locator('img')).toHaveCount(0)
 })
 
 test('every photo subtype has at least ten distinct, traceable local assets', () => {
@@ -291,8 +295,8 @@ test('generation snapshots also show only confirmed cards', async ({ page }) => 
   const cards = page.locator('.e-progress-card')
   await expect(cards).toHaveCount(9)
   await expect(cards.getByText('已确认', { exact: true })).toHaveCount(9)
-  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(0)
-  await expect(page.getByText(/未匹配的地点[一二三]/).filter({ visible: true })).toHaveCount(0)
+  await expect(page.getByTestId('activity-card').getByText(/未匹配的地点[一二三]/)).toHaveCount(3)
+  await expect(page.getByTestId('activity-card').filter({hasText:/未匹配的地点[一二三]/}).locator('img')).toHaveCount(0)
   await expect(cards.getByText('待确认', { exact: true })).toHaveCount(0)
 })
 
@@ -350,18 +354,18 @@ test('both image sources fail without broken image or unusable card', async ({ p
 
 test('empty matching results retain days and add entry without invented cards', async ({ page }) => {
   await fixture(page, { allMissing: true })
-  await expect(page.getByTestId('itinerary-workspace').getByRole('heading', { level: 3 })).toHaveCount(0)
-  await expect(page.getByTestId('unmatched-places-note')).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').getByRole('heading', { level: 3 })).toHaveCount(12)
+  await expect(page.getByTestId('day-lane-1').getByText('待确认 11',{exact:true})).toBeVisible()
   await expect(page.getByRole('button', { name: '新增地点到 Day 1', exact: true })).toBeVisible()
 })
 
-test('reorder across hidden entries, replace and undo preserve records and never auto-render routes', async ({ page }) => {
+test('reorder with pending entries, replace and undo preserve records and never auto-render routes', async ({ page }) => {
   const state = await fixture(page)
   await page.getByTestId('drag-handle-1-0').press('Enter')
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('Enter')
   await expect.poll(() => state.commands.length).toBe(1)
-  expect(state.commands[0].target_position).toBe(3)
+  expect(state.commands[0].target_position).toBe(1)
   await page.getByRole('heading', { name: types[0][0], exact: true }).click()
   await page.getByRole('textbox', { name: '搜索地点名称' }).fill('雨湖餐厅')
   await page.getByRole('button', { name: '搜索', exact: true }).click()
@@ -413,16 +417,15 @@ for (const width of [1440,390]) test(`daily dining adopts once and editing requi
   await page.screenshot({path:`test-results/daily-dining-${width}.png`,fullPage:true})
 })
 
-test('unresolved places can be recovered without showing unconfirmed main cards',async ({page})=>{
+test('unresolved places can be recovered while preserving visible pending cards',async ({page})=>{
   const state = await fixture(page)
-  await page.getByTestId('unmatched-places-note').click()
-  const recover = page.getByTestId('unresolved-places')
-  await recover.getByRole('button',{name:'未匹配的地点一 · 北京 · 确认地点',exact:true}).click()
+  await page.getByTestId('activity-card').filter({hasText:'未匹配的地点一'}).getByRole('button',{name:'确认地点',exact:true}).click()
+  const recover = page.getByRole('region',{name:'修改地点 未匹配的地点一'})
   await recover.getByRole('button',{name:'搜索',exact:true}).click()
   await recover.getByRole('button',{name:/雨湖餐厅.*合成新地址/}).click()
   await recover.getByRole('button',{name:'使用这个地点',exact:true}).click()
   await expect(page.getByRole('heading',{name:'雨湖餐厅',exact:true})).toBeVisible()
-  await expect(page.getByTestId('unmatched-places-note')).toContainText('2 项')
+  await expect(page.getByTestId('day-lane-1').getByText('待确认 1',{exact:true})).toBeVisible()
   expect(state.commands[0].command_type).toBe('PLACE_CONFIRM')
   expect(state.mapPosts).toBe(0)
 })

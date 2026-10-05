@@ -585,7 +585,7 @@ export default function TripResultPage() {
       <ExperienceHeader />
       {!result ? (
         trip.loading || (trip.progressDraft && trip.unavailable === 'NONE') ? (
-          <GenerationWorkspace phase={trip.phase} progress={trip.progress}
+          <GenerationWorkspace resource={trip.resource} phase={trip.phase} progress={trip.progress}
             snapshot={trip.progressDraft} streamState={trip.streamState} reading={generationReading}
             onReadingChange={change => setGenerationReading(current => ({...current, ...change}))}
             notice={trip.notice} cancelling={trip.cancelling}
@@ -779,6 +779,7 @@ export default function TripResultPage() {
                   </div>
                 </details>
               </div>
+              <p className="e-small e-muted" aria-label="行程地点统计">{result.days.reduce((n, day) => n + day.activities.length, 0)} 个安排 · {result.days.reduce((n, day) => n + day.activities.filter(card => card.status === 'READY').length, 0)} 个已确认{trip.omittedPlaceCount > 0 ? ` · ${trip.omittedPlaceCount} 个待确认` : ''}</p>
             </div>
             <div className="e-save-area" data-testid="result-action-bar">
               <p className="e-save-status" role="status">

@@ -2592,6 +2592,8 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
     from app.trip_understanding.conditional_replacement import is_replacement_reference
     from app.trip_understanding.source_visit_sections import is_section_reference
 
+    from app.trip_understanding.departure_reference import is_departure_reference
+
     reviewed_references = set()
     roots = [m for m in proposal.mentions if not m.parent_mention_id]
     inventory_covers(source, proposal, proposal.binding.get('_source_inventory'),
@@ -2608,6 +2610,7 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
     diagnostics = [SemanticDiagnostic(category="KNOWN_PLACE_UNCLASSIFIED", field="source.coverage",
         span_start=hint["span_start"], span_end=hint["span_end"])
         for hint in hints if not explicit_reference_context(source, hint["span_start"], hint["span_end"])
+        and not is_departure_reference(source, proposal, hint['span_start'], hint['span_end'], hints)
         and not is_replacement_reference(source, proposal, hint['span_start'], hint['span_end'])
         and not any(is_section_reference(source, root, roots, (hint['span_start'], hint['span_end'])) for root in roots)
         and not any(left <= hint["span_start"] < hint["span_end"] <= right

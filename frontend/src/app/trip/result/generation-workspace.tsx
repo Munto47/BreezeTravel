@@ -5,11 +5,13 @@ import {useLayoutEffect, useRef, useState} from 'react'
 import {ArrowDown, ArrowLeft, Check, ChevronDown, MapPin, Square, Wifi} from 'lucide-react'
 import type {TripUnderstandingProgressMetrics, TripUnderstandingProgressView, UserFacingTripResult} from '@/lib/trip-understanding-v3'
 import './generation-workspace.css'
+import GenerationSource from './generation-source'
 
 export type GenerationReading = {dayIndex: number; token: string | null; offset: number; expanded: string[]; following: boolean}
 export const initialGenerationReading: GenerationReading = {dayIndex: 0, token: null, offset: 0, expanded: [], following: true}
 
-export default function GenerationWorkspace({phase, progress, snapshot, streamState, reading, onReadingChange, notice, cancelling, onStop, onResume}: {
+export default function GenerationWorkspace({resource, phase, progress, snapshot, streamState, reading, onReadingChange, notice, cancelling, onStop, onResume}: {
+  resource: string
   phase: TripUnderstandingProgressView['phase']
   progress: TripUnderstandingProgressMetrics
   snapshot: UserFacingTripResult | null
@@ -33,7 +35,7 @@ export default function GenerationWorkspace({phase, progress, snapshot, streamSt
   const unresolved = cards.length - confirmed - verifying
   const understanding = progress.semantic_complete === false || (progress.semantic_complete == null && phase === 'RECEIVED')
   const heading = !cards.length ? '正在阅读你的旅行安排' : understanding ? '行程正在逐步形成' : '正在完成地点核验'
-  const connection = {SYNCING: '正在连接进度', STREAMING: '实时接收中', POLLING: '正在重连，已生成内容保留', PAUSED: '连接暂时中断，已生成内容保留'}[streamState]
+  const connection = {SYNCING: '正在连接进度', STREAMING: snapshot ? '已收到新内容' : '进度连接已建立', POLLING: '正在重连，已生成内容保留', PAUSED: '连接暂时中断，已生成内容保留'}[streamState]
 
   useLayoutEffect(() => {
     const container = feed.current
@@ -55,7 +57,9 @@ export default function GenerationWorkspace({phase, progress, snapshot, streamSt
     const container = feed.current
     if (!container) return
     const top = container.getBoundingClientRect().top
-    const anchor = [...container.querySelectorAll<HTMLElement>('[data-generation-token]')].find(el => el.getBoundingClientRect().bottom > top + 12)
+    const focused = document.activeElement?.closest<HTMLElement>('[data-generation-token]')
+    const focusedVisible = focused && container.contains(focused) && focused.getBoundingClientRect().bottom > top && focused.getBoundingClientRect().top < container.getBoundingClientRect().bottom
+    const anchor = focusedVisible ? focused : [...container.querySelectorAll<HTMLElement>('[data-generation-token]')].find(el => el.getBoundingClientRect().bottom > top + 12)
     const following = container.scrollHeight - container.clientHeight - container.scrollTop < 64
     if (following) setUnseen(0)
     onReadingChange({following, ...(anchor ? {token: anchor.dataset.generationToken!, dayIndex: Number(anchor.dataset.dayIndex), offset: anchor.getBoundingClientRect().top - top} : {})})
@@ -76,17 +80,17 @@ export default function GenerationWorkspace({phase, progress, snapshot, streamSt
   return <section className="live-generation" data-testid="generation-workspace">
     <div className="live-topline"><Link href="/" className="live-back"><ArrowLeft size={16}/>返回首页</Link><span className="live-connection" role="status"><Wifi size={14}/>{connection}</span></div>
     <header className="live-heading"><div><span className="live-eyebrow">你的行程 · 实时整理</span><h1>{heading}</h1><p>地点一出现就可以展开阅读，确认结果会更新在同一张卡片上。</p></div><div className="live-actions"><Link href="/my-trips">后台继续</Link><button type="button" disabled={cancelling} onClick={onStop}><Square size={13}/>{cancelling ? '正在停止…' : '停止整理'}</button></div></header>
-    <div className="live-statusbar" role="status">
+    {!!cards.length && <div className="live-statusbar" role="status">
       <span><b>{cards.length}</b> 已识别主线地点</span><span className="is-confirmed"><b>{confirmed}</b> 已确认</span><span><b>{verifying}</b> 核验中</span><span><b>{unresolved}</b> 待确认</span>
       <span className="live-stage">{understanding ? '正在理解全文' : '全文理解已结束'} · {verifying ? '同时核验地点' : '继续整理安排'}</span>
-    </div>
+    </div>}
     {notice && <p className="live-notice" role="alert">{notice}</p>}
     {streamState === 'PAUSED' && <button type="button" className="four-secondary" onClick={onResume}>重新连接进度</button>}
-    <div className="live-layout">
-      <nav className="live-days" aria-label="浏览逐日预览"><span>行程目录</span>{days.map((day, index) => <button key={day.label} type="button" aria-current={reading.dayIndex === index ? 'true' : undefined} onClick={() => chooseDay(index)}>Day {index + 1}<small>{day.activities.length} 个地点</small></button>)}<p>可展开阅读；完成或停止后开放编辑。</p></nav>
+    <GenerationSource key={resource} resource={resource} hasCards={!!cards.length}/>
+    <div className={`live-layout${cards.length || days.some(day => day.alternatives?.length || day.source_notes?.length) ? '' : ' is-empty'}`}>
+      {!!cards.length && <nav className="live-days" aria-label="浏览逐日预览"><span>行程目录</span>{days.map((day, index) => <button key={day.label} type="button" aria-current={reading.dayIndex === index ? 'true' : undefined} onClick={() => chooseDay(index)}>Day {index + 1}<small>{day.activities.length} 个地点</small></button>)}<p>可展开阅读；完成或停止后开放编辑。</p></nav>}
       <div className="live-feed-wrap">
         <div className="live-feed" ref={feed} onScroll={rememberPosition} role="region" aria-label="逐日整理预览" tabIndex={0}>
-          {!days.length && <div className="live-empty"><div className="live-wait-mark"><MapPin size={28}/></div><h2>正在从全文中整理地点和先后</h2><p>收到完整地点后，卡片会出现在这里。你可以离开页面，后台会继续整理。</p><span>已接收文字 · 等待地点内容</span></div>}
           {days.map((day, index) => <section className="live-day" data-live-day={index} key={day.label}>
             <header><h2 tabIndex={-1}>Day {index + 1}</h2><span>{[...new Set([...day.activities, ...(day.alternatives || [])].map(card => card.city).filter(Boolean))].join(' · ')}</span><small>{day.activities.length} 个主线地点</small></header>
             <div className="live-card-grid">{day.activities.map((card, position) => {

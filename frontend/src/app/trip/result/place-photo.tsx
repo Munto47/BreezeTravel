@@ -9,7 +9,7 @@ const PhotoSelection = createContext<ReturnType<typeof allocatePlacePhotos> | nu
 export function PlacePhotoProvider({ days, children }: {
   days: { activities: ActivityCardView[] }[], children: ReactNode
 }) {
-  const photos = useMemo(() => allocatePlacePhotos(days.flatMap(day => day.activities)), [days])
+  const photos = useMemo(() => allocatePlacePhotos(days.flatMap(day => day.activities.filter(card => card.status === 'READY'))), [days])
   return <PhotoSelection.Provider value={photos}>{children}</PhotoSelection.Provider>
 }
 

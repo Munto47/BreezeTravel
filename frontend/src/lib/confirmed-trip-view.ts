@@ -42,8 +42,21 @@ export function confirmedTripView(result: UserFacingTripResult | null) {
   return result ? { ...result, days: confirmedDays(result.days) } : null
 }
 
+export function itineraryTripView(result: UserFacingTripResult | null) {
+  return result ? {...result, days: itineraryDays(result.days)} : null
+}
+
+export function itineraryDays(days: UserFacingTripResult['days']) {
+  return days.map(day => ({...day,
+    activities: day.activities.filter(card => !isWholeTripLodging(card)).map(card => ({...card,
+      knowledge_suggestions: card.status === 'READY' ? relativeKnowledgeSuggestions(card) : [],
+    })),
+  }))
+}
+
 // The server still owns all original positions. Translate a visible insertion
-// boundary by token after removing the dragged card, never by hidden count.
+// boundary by token after removing the dragged card; whole-trip lodging
+// remains outside the visit list, while pending visits retain their positions.
 export function storedPositionCommand(command: TripUnderstandingCommand, result: UserFacingTripResult | null): TripUnderstandingCommand {
   if (!result || !['ACTIVITY_MOVE', 'ACTIVITY_INSERT', 'ALTERNATIVE_INSERT', 'CHOICE_SELECT'].includes(command.command_type)) return command
   if (command.command_type === 'ACTIVITY_MOVE') {
@@ -61,6 +74,6 @@ export function storedPositionCommand(command: TripUnderstandingCommand, result:
 }
 
 function storedPosition(cards: UserFacingTripResult['days'][number]['activities'], position: number) {
-  const next = cards.filter(isConfirmedVisit)[position]
+  const next = cards.filter(card => !isWholeTripLodging(card))[position]
   return next ? cards.findIndex(card => card.activity_token === next.activity_token) : cards.length
 }

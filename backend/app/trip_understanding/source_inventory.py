@@ -82,7 +82,9 @@ def inventory_covers(source, proposal, raw, *, covered_references: set | None = 
     from app.trip_understanding.semantic_supplement import _VISIT_CUE
     from app.trip_understanding.source_visit_supplement import _cancelled_or_conditional
     from app.trip_understanding.source_visit_sections import is_section_reference
-    from app.trip_understanding.conditional_replacement import is_replacement_reference, is_implicit_default_reference
+    from app.trip_understanding.conditional_replacement import is_replacement_reference, is_implicit_default_reference, is_implicit_alternative_reference
+    from app.trip_understanding.departure_reference import is_departure_reference
+    from app.trip_understanding.city_knowledge import source_place_hints
 
     if raw is None or any(d.category == 'SOURCE_VISIT_UNRESOLVED' for d in proposal.diagnostics):
         return False
@@ -112,8 +114,9 @@ def inventory_covers(source, proposal, raw, *, covered_references: set | None = 
             except ValueError:
                 return False
             target = next((m for m in roots.values() if (m.span_start, m.span_end) == target_span), None)
-            if (target is None or not is_implicit_default_reference(source, proposal, segment,
-                    target.raw_text, day_index=target.day_index)):
+            if (target is None or not (is_implicit_default_reference(source, proposal, segment,
+                    target.raw_text, day_index=target.day_index) or is_implicit_alternative_reference(source, proposal, segment,
+                    target.raw_text, day_index=target.day_index))):
                 return False
             reference_targets.add(target.mention_id)
             reference_spans.add((segment['start'], segment['end']))
@@ -241,7 +244,8 @@ def inventory_covers(source, proposal, raw, *, covered_references: set | None = 
                     local_order[group] = mention
             elif (not candidates and item.role == 'REFERENCE' and item.kind == 'VISIT'
                   and not item.parent_quote and (explicit_reference_context(source, start, end)
-                      or is_replacement_reference(source, proposal, start, end))):
+                      or is_replacement_reference(source, proposal, start, end)
+                      or is_departure_reference(source, proposal, start, end, source_place_hints(source)))):
                 reference_spans.add((start, end))
                 continue
             else:

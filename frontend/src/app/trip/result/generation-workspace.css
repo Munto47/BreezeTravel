@@ -68,6 +68,22 @@
 .live-empty > span {margin-top:20px;color:#7e939c;font-size:11px;}
 .live-notice {font-size:12px;padding:10px;border-radius:10px;background:#fff5e5;color:#886325;}
 .live-day-empty {font-size:13px;color:#8096a2;}
+.live-layout.is-empty {display:none;}
+.live-source {margin:22px 0;background:#fff;border:1px solid #dce8ed;border-radius:18px;padding:22px 26px;}
+.live-source.has-cards {padding:10px 18px;margin:14px 0;}
+.live-source-heading {display:flex;justify-content:space-between;align-items:center;gap:20px;}
+.live-source-heading button {min-height:44px;text-align:left;font-size:16px;font-weight:650;}
+.live-source-heading button span {font-size:12px;font-weight:400;color:#197d90;margin-left:14px;}
+.live-elapsed {font-size:13px;color:#54717f;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.live-source-text {white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;line-height:1.9;font-size:14px;color:#425e70;background:#f4f8fa;border-radius:12px;padding:18px 20px;margin:12px 0 0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:8;overflow:hidden;}
+.live-source-text.expanded {-webkit-line-clamp:unset;}
+.live-source-expand {min-height:44px;font-size:12px;color:#167f90;}
+.live-source-help,.live-source-unavailable {font-size:12px;line-height:1.8;color:#6c8593;}
+.live-wait-hint {font-size:14px;color:#476e7d;line-height:1.8;margin:15px 0;}
+.live-wait-line {height:3px;border-radius:4px;background:#e6f1f3;overflow:hidden;margin-top:10px;}
+.live-wait-line::before {content:'';display:block;width:25%;height:100%;background:#389eaa;animation:live-wait-travel 2.4s ease-in-out infinite alternate;}
+.four-pending-confirm {min-height:44px;width:100%;color:#895b16;background:#fff6e7;font-size:12px;border-top:1px solid #f4e4c8;}
+@keyframes live-wait-travel {to {transform:translateX(300%)}}
 @keyframes live-card-arrive {from {opacity:0;transform:translateY(5px)} to {opacity:1;transform:none}}
 @keyframes live-state-change {from {opacity:.4} to {opacity:1}}
 @keyframes live-wait {50% {opacity:.55}}

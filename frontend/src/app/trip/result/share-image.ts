@@ -60,9 +60,9 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
   if (!ctx) throw new Error('CANVAS_UNAVAILABLE')
   ctx.font = '600 19px "Microsoft YaHei", sans-serif'
   const days = result.days.map(day => {
-    const visible = day.activities.filter(card => card.status === 'READY')
+    const visible = day.activities
     const names = visible.map(card => lines(ctx, card.name, cardWidth - 24))
-    const cardHeight = 165 + Math.max(1, ...names.map(name => name.length)) * 26
+    const cardHeight = 191 + Math.max(1, ...names.map(name => name.length)) * 26
     const visitLabel = (card: ActivityCardView, index: number) =>
       `${visible.filter(other => other.name === card.name).length > 1 ? `第 ${index + 1} 站 · ` : ''}${card.name}`
     const notes = [
@@ -70,6 +70,7 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
       ...visible.flatMap((card, index) => card.source_details?.length
         ? [`${visitLabel(card, index)}：${card.source_details.filter(detail => !detail.optional).map(detail => detail.name).join(' → ')}`] : []),
       ...(day.source_notes || []).map(note => note.text),
+      ...(day.alternatives || []).map(card => `备选：${card.name}${card.replaces_name ? `（${card.replacement_condition || '条件满足时'}替换${card.replaces_name}）` : ''}${card.source_details?.length ? ` · ${card.source_details.map(detail => detail.name).join('、')}` : ''}`),
       ...(day.meal_slots || []).filter(slot => slot.selection_status !== 'SELECTED' && slot.preference_text).map(slot => slot.preference_text!),
     ].filter(Boolean)
     ctx.font = '400 17px "Microsoft YaHei", sans-serif'
@@ -100,7 +101,7 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
   }
   text('行程查  /  TRIPCHECK', padding, 48, '600 16px', '#1594a8')
   text((result.assumptions.find(item => item.key === 'destination')?.value || '我的旅行') + ` · ${days.length} 天`, padding, 104, '700 36px')
-  text(`${cards.length} 个地点，一路好风景`, padding, 141, '400 18px', '#647c8b')
+  text(`${result.days.reduce((n, day) => n + day.activities.length, 0)} 个安排 · ${cards.length} 个已确认${result.days.some(day => day.activities.some(card => card.status !== 'READY')) ? ' · 含待确认地点' : ''}`, padding, 141, '400 18px', '#647c8b')
   let y = 180
   days.forEach((day, dayIndex) => {
     box(padding, y, width - padding * 2, day.height, '#ffffff', 22)
@@ -124,6 +125,7 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
       }
       box(x + 10, top + 10, 30, 30, color, 15); text(String(i + 1), x + 19 - (i >= 9 ? 4 : 0), top + 31, '700 16px', '#fff')
       day.names[i].forEach((name, line) => text(name, x + 12, top + 168 + line * 26, '600 19px'))
+      if (card.status !== 'READY') text('地点待确认', x + 12, top + day.cardHeight - 12, '500 16px', '#946015')
       if (i % columns !== columns - 1 && i < day.visible.length - 1) text('›', x + cardWidth + 5, top + 90, '400 23px', '#91a6b2')
     })
     const noteY = y + 83 + Math.ceil(day.visible.length / columns) * (day.cardHeight + gap)

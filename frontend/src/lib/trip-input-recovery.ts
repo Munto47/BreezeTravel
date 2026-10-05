@@ -7,6 +7,7 @@ export type TripInputDraft = {
   demo: boolean
   key: string
   expires: number
+  submittedAt?: number
   resource?: string
   failedResource?: string
   cancelledResource?: string
@@ -34,6 +35,7 @@ export function releaseCancelledTripInput(
     const recovered: TripInputDraft = {
       ...draft,
       key: createTripRequestKey(),
+      submittedAt: undefined,
       resource: undefined,
       cancelledResource: reference,
     }
@@ -68,6 +70,7 @@ export function releaseFailedTripInput(
     const recovered: TripInputDraft = {
       ...draft,
       key: createTripRequestKey(),
+      submittedAt: undefined,
       resource: undefined,
       failedResource: reference,
     }
