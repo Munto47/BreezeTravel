@@ -1571,6 +1571,7 @@ export async function streamTripUnderstandingEvents(
   onEvent: (event: TripUnderstandingPublicEvent) => void,
   signal: AbortSignal,
   lastEventId = 0,
+  onConnected?: () => void,
 ): Promise<void> {
   const response = await fetch(tripUnderstandingEventsUrl(publicResourceId), {
     credentials: 'include',
@@ -1583,6 +1584,7 @@ export async function streamTripUnderstandingEvents(
     signal,
   })
   if (!response.ok || !response.body) throw new Error('TRIP_EVENTS_UNAVAILABLE')
+  onConnected?.()
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()

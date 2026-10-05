@@ -1,11 +1,11 @@
 import { MapPin, Route, ArrowRight } from 'lucide-react'
 import { SketchMap } from './home-decor'
+import { HOME_EXAMPLES } from './home-examples'
 
-const DAYS = [
-  {day: 'Day 1', names: '故宫博物院 → 景山公园 → 什刹海', image: 'historic', count: 3},
-  {day: 'Day 2', names: '天坛公园 → 前门大街 → 大栅栏', image: 'street', count: 3},
-  {day: 'Day 3', names: '颐和园 → 圆明园', image: 'park', count: 2},
-]
+const DAYS = HOME_EXAMPLES[0].days.map((names, index) => ({
+  day: `Day ${index + 1}`, names: names.join(' → '),
+  image: ['historic', 'street', 'park'][index], count: names.length,
+}))
 
 export default function HomePreview() {
   return <section className="four-home-preview" aria-labelledby="home-preview-title" data-testid="home-example-preview">
@@ -17,7 +17,7 @@ export default function HomePreview() {
         <img src={`/place-types/${day.image}.jpg`} alt="" loading="lazy"/><p>{day.names}</p></article>)}</div>
     </div>
     <div className="four-preview-map"><SketchMap detailed/><span>示意地图 · 非实际路线</span></div>
-    <div className="four-preview-list"><h3>北京 · 第 1 天</h3><ol><li><span>1</span>故宫博物院</li><li><span>2</span>景山公园</li><li><span>3</span>什刹海</li></ol><div>每天的先后，一目了然<ArrowRight size={15} aria-hidden="true"/></div></div>
+    <div className="four-preview-list"><h3>北京 · 第 1 天</h3><ol>{HOME_EXAMPLES[0].days[0].map((name, index) => <li key={name}><span>{index + 1}</span>{name}</li>)}</ol><div>每天的先后，一目了然<ArrowRight size={15} aria-hidden="true"/></div></div>
     <p className="four-preview-disclaimer">静态展示示例，不是本次整理结果；图片仅为旅行装饰。</p>
   </section>
 }

@@ -30,7 +30,7 @@ import PlaceEditor from './place-editor'
 import ContextPanel, { type ContextMode } from './context-panel'
 import ChangePreviewPanel from './change-preview-panel'
 import GenerationStages from './generation-stages'
-import GenerationWorkspace from './generation-workspace'
+import GenerationWorkspace, {initialGenerationReading, type GenerationReading} from './generation-workspace'
 import ExperienceHeader from '@/components/experience/experience-header'
 import { forgetBrowserTripReference } from '@/lib/browser-resource-ref'
 import ItineraryPngExport from './itinerary-png-export'
@@ -56,6 +56,11 @@ export default function TripResultPage() {
   const router = useRouter()
   const { user, hydrate, logout } = useAuthStore()
   const [dayIndex, setDayIndex] = useState(0)
+  const [generationReading, setGenerationReading] = useState<GenerationReading>(initialGenerationReading)
+  const generationReadingRef = useRef(generationReading)
+  generationReadingRef.current = generationReading
+  const hasLiveReading = useRef(false)
+  const [readingNotice, setReadingNotice] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [mobile, setMobile] = useState<'ITINERARY' | 'MAP'>('ITINERARY')
   const [activeView, setActiveView] = useState<ResultViewId>('ITINERARY')
@@ -82,6 +87,30 @@ export default function TripResultPage() {
   const editorButtons = useRef(new Map<string, HTMLButtonElement>())
   const left = useRef<HTMLElement>(null)
   const result = trip.result
+  if (!result && trip.progressDraft?.days.length) hasLiveReading.current = true
+  useEffect(() => {
+    if (!result || !hasLiveReading.current) return
+    hasLiveReading.current = false
+    const reading = generationReadingRef.current
+    const index = result.days.findIndex(day => day.activities.some(card => (card.visit_id || card.activity_token) === reading.token))
+    const targetDay = index >= 0 ? index : Math.min(reading.dayIndex, Math.max(0, result.days.length - 1))
+    setDayIndex(targetDay)
+    const card = result.days[targetDay]?.activities.find(card => (card.visit_id || card.activity_token) === reading.token)
+    if (card) setSelected(card.activity_token)
+    else if (reading.token) setReadingNotice('已回到刚才阅读的这一天，可在备选或待确认内容中继续查看。')
+    let frame2 = 0
+    const frame1 = requestAnimationFrame(() => {frame2 = requestAnimationFrame(() => {
+      const element = card ? [...document.querySelectorAll<HTMLElement>('[data-visit-id]')].find(el => el.dataset.visitId === (card.visit_id || card.activity_token)) : null
+      const target = element || document.querySelector<HTMLElement>(`[data-day-heading="${targetDay + 1}"]`)
+      if (!target) return
+      target.scrollIntoView({block: 'start'})
+      const root = target.closest<HTMLElement>('.e-result-page')
+      if (root) root.scrollTop -= Math.max(190, Math.min(350, reading.offset))
+      const focus = element?.querySelector<HTMLElement>('.four-card-copy') || element?.querySelector<HTMLElement>('button') || target
+      focus.focus({preventScroll: true})
+    })})
+    return () => {cancelAnimationFrame(frame1); cancelAnimationFrame(frame2)}
+  }, [result])
   const safeDayIndex = Math.min(
     dayIndex,
     Math.max(0, (result?.days.length || 1) - 1),
@@ -215,6 +244,9 @@ export default function TripResultPage() {
     setEditorDirty(false)
     setDiscard(false)
     setAlternativesRequest(null)
+    setGenerationReading(initialGenerationReading)
+    setReadingNotice('')
+    hasLiveReading.current = false
     dayScroll.current.clear()
   }, [trip.resource])
   useEffect(() => {
@@ -536,7 +568,7 @@ export default function TripResultPage() {
 
   return (
     <main
-      className={`experience e-result-page ${activeView === 'MAP_STAY' ? 'e-map-mode' : ''} e-full-workspace`}
+      className={`experience e-result-page ${activeView === 'MAP_STAY' ? 'e-map-mode' : ''} e-full-workspace ${!result ? 'e-generating' : ''}`}
       onClickCapture={(event) => {
         if (!dirty || !(event.target instanceof Element)) return
         const anchor = event.target.closest(
@@ -552,10 +584,12 @@ export default function TripResultPage() {
     >
       <ExperienceHeader />
       {!result ? (
-        trip.loading ? (
+        trip.loading || (trip.progressDraft && trip.unavailable === 'NONE') ? (
           <GenerationWorkspace phase={trip.phase} progress={trip.progress}
-            snapshot={trip.progressSnapshot} pendingDays={trip.progressPendingDays} notice={trip.notice} cancelling={trip.cancelling}
-            onStop={() => void trip.stopUnderstanding()} />
+            snapshot={trip.progressDraft} streamState={trip.streamState} reading={generationReading}
+            onReadingChange={change => setGenerationReading(current => ({...current, ...change}))}
+            notice={trip.notice} cancelling={trip.cancelling}
+            onStop={() => void trip.stopUnderstanding()} onResume={trip.retry} />
         ) : (
           <section className="e-loading">
             <h1 className={trip.loading ? 'sr-only' : undefined}>
@@ -879,6 +913,7 @@ export default function TripResultPage() {
             </div>
           )}
           <div className="e-page-message">
+            {readingNotice && <p role="status">{readingNotice}</p>}
             {trip.notice && (
               <div
                 className="e-message"

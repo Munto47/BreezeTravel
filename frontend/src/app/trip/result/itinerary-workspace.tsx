@@ -558,7 +558,7 @@ export default function ItineraryWorkspace({
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
-                            <li key={activity.visit_id || activity.activity_token} className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                            <li key={activity.visit_id || activity.activity_token} data-visit-id={activity.visit_id || activity.activity_token} className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
                               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0c789d] text-xs font-bold text-white">{position + 1}</span>
                               <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>

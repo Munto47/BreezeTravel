@@ -994,7 +994,7 @@ export function useTripExperience() {
             continue
           }
         }
-        setStreamState('STREAMING')
+        setStreamState(streamFailures > 0 ? 'POLLING' : 'SYNCING')
         const controller = new AbortController()
         progressController.current = controller
         const cursorBefore = eventCursor.current
@@ -1034,6 +1034,10 @@ export function useTripExperience() {
             },
             controller.signal,
             eventCursor.current,
+            () => {
+              if (!stopped && generation === current.current.generation && reference === current.current.resource)
+                setStreamState('STREAMING')
+            },
           )
           streamFailures =
             eventCursor.current > cursorBefore ? 0 : streamFailures + 1
@@ -1046,6 +1050,7 @@ export function useTripExperience() {
             return
           streamFailures += 1
         } finally {
+          if (!stopped && generation === current.current.generation) setStreamState('POLLING')
           clearTimeout(streamIdleTimer!)
           if (progressController.current === controller)
             progressController.current = null
@@ -2073,6 +2078,7 @@ export function useTripExperience() {
     loadPendingLodgings,
     clearPendingLodgings,
     progressSnapshot: displayedProgress,
+    progressDraft: progressSnapshot,
     progressPendingDays: progressSnapshot?.days.map(day => ({...day, activities: day.activities.filter(card => card.status !== 'READY')})) || [],
     omittedPlaceCount: result?.days.reduce((total, day) => total + day.activities.filter(card => card.status !== 'READY').length, 0) || 0,
     unresolvedDays: result?.days.map(day => ({...day, activities:day.activities.filter(card => card.status !== 'READY')})) || [],
