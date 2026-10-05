@@ -846,3 +846,20 @@ def test_stale_yjs_record_is_retained_while_its_port_remains_occupied(
 
     assert state["processes"]["yjs"]["pid"] == 42
     assert saves == []
+
+
+def test_stream_privacy_headers_preserve_immediate_forwarding(client):
+    from app.api.trip_understandings_v3 import ServerSentEventResponse
+    http, _cache = client
+
+    @http.app.get('/test-stream')
+    async def stream():
+        async def events():
+            yield 'event: progress\ndata: {}\n\n'
+        return ServerSentEventResponse(events(), headers={'Cache-Control': 'no-cache, no-store, no-transform'})
+
+    response = http.get('/test-stream')
+    assert response.headers['Cache-Control'] == 'no-cache, no-store, no-transform'
+    for key, value in runtime.PRIVATE_HEADERS.items():
+        if key != 'Cache-Control':
+            assert response.headers[key] == value

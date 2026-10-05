@@ -285,6 +285,8 @@ def create_app() -> FastAPI:
                 return _message(429, "操作较频繁，请稍后重试", headers={"Retry-After": "60"})
         response = await call_next(request)
         response.headers.update(PRIVATE_HEADERS)
+        if response.headers.get('content-type', '').split(';', 1)[0] == 'text/event-stream':
+            response.headers['Cache-Control'] = 'no-cache, no-store, no-transform'
         return response
 
     @application.get("/health")
