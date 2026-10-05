@@ -190,3 +190,41 @@ async def test_task_persists_selection_and_idempotency_without_exposing_seed(kin
         assert not dispatched
         public = first.accepted.model_dump_json()
         assert "example_preprocessing" not in public and "source_inventory" not in public
+
+
+@pytest.mark.parametrize("kind", ["memory", "postgres"])
+@pytest.mark.asyncio
+async def test_cached_trip_move_delete_undo_and_reopen_do_not_change_the_seed(kind):
+    from datetime import datetime, timezone
+    from app.trip_understanding.models import CreateFullRequest, ActivityMoveCommand, ActivityDeleteCommand, UndoCommand
+    from app.trip_understanding.service import TripUnderstandingApplicationService
+    from tests.test_experience_v3_journey import repository_for, refresh
+    example = catalog()[0]
+    original = exact_plan(example["text"], select_example(example["text"]))
+    model = provider(example["text"])
+    output = await TripUnderstandingPipeline(model, Resolver(), relative_only=True).run(example["text"])
+    now = datetime.now(timezone.utc)
+    async with repository_for(kind) as repo:
+        service = TripUnderstandingApplicationService(repo)
+        accepted = await service.create_full(CreateFullRequest(mode="FULL", source={"type": "TEXT", "text": example["text"]}),
+            owner_user_id=None, capability_hash="a" * 64, idempotency_key="cached-edit", now=now)
+        job = await repo.claim_next(worker_id="cached-editor", now=now, lease_seconds=30)
+        await repo.complete_job(job, output, now=now)
+        resource = await repo.authorize(accepted.accepted.public_resource_id, capability_hash="a" * 64, now=now)
+        resource, stored = await refresh(repo, resource, now)
+        await service.apply_command(resource, ActivityMoveCommand(command_type="ACTIVITY_MOVE",
+            activity_token=stored.result.days[0].activities[0].activity_token, target_day_index=2, target_position=1),
+            expected_etag=stored.opaque_etag, idempotency_key="move", now=now)
+        resource, stored = await refresh(repo, resource, now)
+        assert stored.result.days[1].activities[1].name == "故宫博物院"
+        await service.apply_command(resource, ActivityDeleteCommand(command_type="ACTIVITY_DELETE",
+            activity_token=stored.result.days[1].activities[1].activity_token), expected_etag=stored.opaque_etag,
+            idempotency_key="delete", now=now)
+        resource, stored = await refresh(repo, resource, now)
+        assert sum(len(d.activities) for d in stored.result.days) == 11
+        await service.apply_command(resource, UndoCommand(command_type="UNDO"), expected_etag=stored.opaque_etag,
+            idempotency_key="undo", now=now)
+        resource, stored = await refresh(repo, resource, now)
+        assert stored.result.days[1].activities[1].name == "故宫博物院"
+        assert sum(len(d.activities) for d in stored.result.days) == 12 and not model.adapter.calls
+    assert exact_plan(example["text"], select_example(example["text"])) == original

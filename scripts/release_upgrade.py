@@ -401,7 +401,7 @@ class Upgrade:
         base = ["docker", "run", "--rm", "--name", self.target.name + "-build",
                 "--label", f"breeze.upgrade.release={self.target.name}", f"--memory={BUILD_MEMORY_MIB}m", f"--memory-swap={BUILD_MEMORY_MIB}m", "--cpus=1", "--network", "none",
                 "-v", f"{source}/frontend:/build",
-                "-v", f"{source}/backend/app/trip_understanding/data:/backend/app/trip_understanding/data:ro",
+                "-v", f"{self.target}/src/backend/app/trip_understanding/data:/backend/app/trip_understanding/data:ro",
                 "--env-file", str(self.target / ("private-preview-web.env" if preview else "private-web.env")),
                 "-w", "/build", "--entrypoint"]
         # The source is separate; never install into, mount writable, or mutate
