@@ -73,6 +73,7 @@ class MapLodgingConstraint(MapStop):
 
 class MapRenderPlan(StrictModel):
     routes_changed: bool = True
+    requires_manual_refresh: bool = False
     understanding_id: str
     plan_ref: PlanRevisionRef
     route_config_hash: str = Field(pattern=r"^[0-9a-f]{64}$")

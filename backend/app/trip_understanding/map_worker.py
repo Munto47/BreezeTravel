@@ -186,7 +186,8 @@ class MapRenderWorker:
                             self.repository._reusable_route_facts = {}
                         self.repository._reusable_route_facts[job.understanding_id] = facts
                         renderer = MapRenderer(ReusingRouteProvider(renderer.provider, facts,
-                            reuse_only=not plan.routes_changed and job.request_origin == "INITIAL"))
+                            reuse_only=(plan.requires_manual_refresh or not plan.routes_changed)
+                            and job.request_origin == "INITIAL"))
                     return await renderer.render(
                         plan,
                         observed_at=operation_now(),

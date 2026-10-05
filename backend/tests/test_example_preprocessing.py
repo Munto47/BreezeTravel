@@ -226,10 +226,18 @@ async def test_cached_trip_move_delete_undo_and_reopen_do_not_change_the_seed(ki
     from app.trip_understanding.models import CreateFullRequest, ActivityMoveCommand, ActivityDeleteCommand, UndoCommand
     from app.trip_understanding.service import TripUnderstandingApplicationService
     from tests.test_experience_v3_journey import repository_for, refresh
+    from tests.test_experience_twelve_tasks import TwentyMinuteRoutes
+    from app.trip_understanding.map_render import MapRenderer
+    from app.trip_understanding.map_worker import MapRenderWorker
     example = catalog()[0]
     original = exact_plan(example["text"], select_example(example["text"]))
     model = provider(example["text"])
-    output = await TripUnderstandingPipeline(model, Resolver(), relative_only=True).run(example["text"])
+    class LocatedPlaces(Resolver):
+        async def resolve(self, **query):
+            place = await super().resolve(**query)
+            place.provider_binding["coordinates"] = {"longitude": 116.3 + len(self.calls) / 100, "latitude": 39.9}
+            return place
+    output = await TripUnderstandingPipeline(model, LocatedPlaces(), relative_only=True).run(example["text"])
     now = datetime.now(timezone.utc)
     async with repository_for(kind) as repo:
         service = TripUnderstandingApplicationService(repo)
@@ -237,6 +245,16 @@ async def test_cached_trip_move_delete_undo_and_reopen_do_not_change_the_seed(ki
             owner_user_id=None, capability_hash="a" * 64, idempotency_key="cached-edit", now=now)
         job = await repo.claim_next(worker_id="cached-editor", now=now, lease_seconds=30)
         await repo.complete_job(job, output, now=now)
+        routes = TwentyMinuteRoutes()
+        async def reject_map_failure(*args, **kwargs):
+            import sys
+            raise AssertionError("route projection failed") from sys.exception()
+        repo.fail_map_job = reject_map_failure
+        map_worker = MapRenderWorker(repo, renderer=MapRenderer(routes))
+        while await map_worker.run_once("cached-map", now=now):
+            pass
+        initial_route_calls = routes.calls
+        assert initial_route_calls > 0
         resource = await repo.authorize(accepted.accepted.public_resource_id, capability_hash="a" * 64, now=now)
         resource, stored = await refresh(repo, resource, now)
         await service.apply_command(resource, ActivityMoveCommand(command_type="ACTIVITY_MOVE",
@@ -254,4 +272,12 @@ async def test_cached_trip_move_delete_undo_and_reopen_do_not_change_the_seed(ki
         resource, stored = await refresh(repo, resource, now)
         assert stored.result.days[1].activities[1].name == "故宫博物院"
         assert sum(len(d.activities) for d in stored.result.days) == 12 and not model.adapter.calls
+        while await map_worker.run_once("edited-map"):
+            pass
+        assert routes.calls == initial_route_calls
+        await service.request_map_render(resource, expected_etag=stored.opaque_etag,
+            idempotency_key="explicit-route-update")
+        while await map_worker.run_once("manual-map"):
+            pass
+        assert routes.calls > initial_route_calls
     assert exact_plan(example["text"], select_example(example["text"])) == original

@@ -539,6 +539,7 @@ class PostgresMapRenderRepositoryMixin:
             city=city if isinstance(city, str) else None,
         )
         plan.routes_changed = _json_value(result_row["proposal_json"]).get("routes_changed", True)
+        plan.requires_manual_refresh = _json_value(result_row["proposal_json"]).get("kind") == "USER_EDIT"
         selections = await conn.fetch(
             """
             SELECT s.* FROM trip_stay_selections s
@@ -1362,6 +1363,7 @@ class InMemoryMapRenderRepositoryMixin:
             city=destination,
         )
         plan.routes_changed = getattr(self, "g03_pipeline_inputs", {}).get((understanding_id, revision), {}).get("routes_changed", True)
+        plan.requires_manual_refresh = bool(getattr(self, "g03_pipeline_inputs", {}).get((understanding_id, revision), {}).get("command_type"))
         selection = getattr(self, "stay_selections", {}).get((understanding_id, revision))
         if selection is None:
             return plan
