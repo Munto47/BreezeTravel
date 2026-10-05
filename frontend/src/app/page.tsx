@@ -26,7 +26,7 @@ import './experience.css'
 import {tripWaitClock} from '@/lib/trip-wait-clock'
 
 type Resume = { reference: string; title: string; updated?: string | null }
-type Replacement = {text: string; label: string; kind: 'example' | 'clipboard'}
+type Replacement = {text: string; label: string; kind: 'example' | 'clipboard'; exampleReference?: InputDraft['exampleReference']}
 const EXAMPLE_ICONS = {beijing: Landmark, shenzhen: UsersRound}
 
 export default function HomePage() {
@@ -42,6 +42,7 @@ export default function HomePage() {
   const editSequence = useRef(0)
   const [resume, setResume] = useState<Resume | null>(null)
   const submitted = useRef(false)
+  const exampleReference = useRef<InputDraft['exampleReference']>(undefined)
   const attempt = useRef<InputDraft | null>(null)
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export default function HomePage() {
         typeof draft.text === 'string' &&
         draft.expires > Date.now()
       ) {
+        exampleReference.current = draft.exampleReference
         attempt.current = draft
         setSource(draft.text)
         if (draft.failedResource && !draft.resource)
@@ -63,6 +65,7 @@ export default function HomePage() {
           )
       } else sessionStorage.removeItem(INPUT_KEY)
     } catch {
+      exampleReference.current = undefined
       sessionStorage.removeItem(INPUT_KEY)
     }
     setReady(true)
@@ -130,6 +133,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!ready || busy) return
     if (!source) {
+      exampleReference.current = undefined
       sessionStorage.removeItem(INPUT_KEY)
       return
     }
@@ -140,6 +144,7 @@ export default function HomePage() {
     ) {
       attempt.current = {
         text: source,
+        exampleReference: exampleReference.current,
         demo: false,
         key: createTripRequestKey(),
         expires: Date.now() + 24 * 60 * 60 * 1000,
@@ -150,15 +155,16 @@ export default function HomePage() {
 
   function fillText(next: Replacement) {
     editSequence.current += 1
+    exampleReference.current = next.exampleReference
     setSource(next.text)
     setReplacement(null)
     setError('')
-    setInputNotice(next.kind === 'example' ? `已填入${next.label}，可以先修改，再开始整理。` : '已粘贴文字，可以开始整理。')
+    setInputNotice(next.kind === 'example' ? `已填入${next.label}。示例使用预处理加速，修改内容会重新整理。` : '已粘贴文字，可以开始整理。')
     document.getElementById('trip-source')?.focus()
   }
 
   function chooseExample(example: HomeExample) {
-    const next: Replacement = {text: example.text, label: example.label, kind: 'example'}
+    const next: Replacement = {text: example.text, label: example.label, kind: 'example', exampleReference: {id: example.id, version: example.version}}
     if (source.trim() && source !== example.text) setReplacement(next)
     else fillText(next)
   }
@@ -214,6 +220,7 @@ export default function HomePage() {
       ) {
         attempt.current = {
           text: source,
+          exampleReference: exampleReference.current,
           demo: false,
           key: createTripRequestKey(),
           expires: Date.now() + 24 * 60 * 60 * 1000,
@@ -227,6 +234,7 @@ export default function HomePage() {
         source.trim(),
         submittedAttempt.key,
         controller.signal,
+        submittedAttempt.exampleReference,
       )
       if (attempt.current.key !== submittedAttempt.key) {
         // A concurrent result read acknowledged that this old attempt failed.

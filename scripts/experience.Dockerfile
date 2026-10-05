@@ -20,5 +20,6 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend ./
+COPY backend/app/trip_understanding/data/public-examples.json /app/backend/app/trip_understanding/data/public-examples.json
 ENV NODE_ENV=production EXPERIENCE_WEB_RUNTIME=1 NEXT_TELEMETRY_DISABLED=1
 CMD ["sh", "-c", "node node_modules/next/dist/bin/next build && exec node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port 3106"]

@@ -33,8 +33,9 @@ export default function TripInspector(props: JourneySuggestionProps & {
   const returnFocus = useRef<HTMLElement|null>(null)
   const scroll = useRef(0)
   let items: Item[] = props.unresolvedDays.flatMap((day, index) => day.activities.map(card => ({
-    id: `place:${card.visit_id || card.activity_token}`, title: card.name, description: '未找到有效地点 · 补充名称或重新搜索',
-    kind: 'place' as const, day:index, card,
+    id: `place:${card.visit_id || card.activity_token}`, title: card.name,
+    description: card.semantic_review === 'PENDING' ? '安排待复核 · 对照修改后的原文' : '未找到有效地点 · 补充名称或重新搜索',
+    kind: card.semantic_review === 'PENDING' ? 'source' as const : 'place' as const, day:index, card,
   })))
   props.result.days.forEach((day, index) => {
     if (day.unprocessed_count) items.push({id:`source:${day.day_id || index}`, title:`Day ${index+1} · 原文待整理`,
@@ -48,7 +49,7 @@ export default function TripInspector(props: JourneySuggestionProps & {
   if(serverIssues?.input_version===props.etag.replace(/^"|"$/g,'')) items=serverIssues.issues.map(issue=>({
     id:issue.issue_id,title:issue.title,description:issue.message,day:issue.day_index ?? undefined,
     kind:issue.kind.toLowerCase() as Item['kind'],optional:issue.category==='OPTIONAL',check:issue.check || undefined,
-    card:issue.kind==='PLACE'?props.unresolvedDays.flatMap(day=>day.activities).find(card=>issue.target_visit_ids.includes(card.visit_id || '')):undefined,
+    card:['PLACE','SOURCE'].includes(issue.kind)?props.unresolvedDays.flatMap(day=>day.activities).find(card=>issue.target_visit_ids.includes(card.visit_id || '')):undefined,
   }))
   const dispositions = props.result.issue_dispositions || {}
   const handled = Object.entries(dispositions).filter(([id, value]) => {
@@ -135,7 +136,7 @@ export default function TripInspector(props: JourneySuggestionProps & {
       <div className="inspector-detail" hidden={!active && sourceDay == null}>
         <button className="inspector-back" onClick={back}><ArrowLeft size={16}/>返回列表</button>
         {active && <><h3>{active.title}</h3><p>{active.description}</p></>}
-        {active?.card&&<PendingPlaceDropdown embedded card={active.card} resource={props.resource} disabled={props.disabled} onCommand={props.onCommand} onClose={back}/>}
+        {active?.card&&active.kind==='place'&&<PendingPlaceDropdown embedded card={active.card} resource={props.resource} disabled={props.disabled} onCommand={props.onCommand} onClose={back}/>}
         {active && ['meal','alternative'].includes(active.kind)&&<JourneySuggestions {...props} embedded initialTab={active.kind==='meal'?'dining':'all'} initialDay={active.day} mapDock={false}/>}
         {active?.kind==='lodging'&&props.recovery}
         {(active?.kind==='source'||sourceDay!=null)&&<>

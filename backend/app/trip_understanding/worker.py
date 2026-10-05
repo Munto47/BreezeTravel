@@ -62,9 +62,11 @@ def build_configured_full_pipeline(settings: Settings):
             raise ValueError("custom text requires live providers")
         return build_full_text_pipeline()
     qwen = build_configured_inference_provider(settings)
+    from app.trip_understanding.shared_cache import SharedFactCache
     amap = AmapPlaceResolver(
         api_key=settings.amap_api_key,
         deadline_seconds=settings.trip_understanding_amap_place_deadline_seconds,
+        shared_cache=SharedFactCache(settings.redis_url),
     )
     pipeline = TripUnderstandingPipeline(
         qwen,
@@ -358,6 +360,10 @@ async def run_forever() -> None:
         lease_seconds=settings.trip_understanding_job_lease_seconds,
     )
     next_maintenance = time.monotonic()
+    from app.trip_understanding.shared_cache import prewarm_examples
+    warmup = (asyncio.create_task(prewarm_examples(full_pipeline.place_resolver,
+              settings.trip_understanding_amap_place_max_concurrency))
+              if settings.trip_example_preprocessing_enabled else None)
     try:
         while True:
             processed = await worker.run_once(worker_id)
@@ -376,6 +382,9 @@ async def run_forever() -> None:
             if not processed:
                 await asyncio.sleep(settings.trip_understanding_worker_poll_seconds)
     finally:
+        if warmup is not None:
+            warmup.cancel()
+            await asyncio.gather(warmup, return_exceptions=True)
         try:
             await full_pipeline.aclose()
         finally:

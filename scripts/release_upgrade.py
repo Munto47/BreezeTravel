@@ -400,7 +400,9 @@ class Upgrade:
         frontend = source / "frontend"
         base = ["docker", "run", "--rm", "--name", self.target.name + "-build",
                 "--label", f"breeze.upgrade.release={self.target.name}", f"--memory={BUILD_MEMORY_MIB}m", f"--memory-swap={BUILD_MEMORY_MIB}m", "--cpus=1", "--network", "none",
-                "-v", f"{source}/frontend:/build", "--env-file", str(self.target / ("private-preview-web.env" if preview else "private-web.env")),
+                "-v", f"{source}/frontend:/build",
+                "-v", f"{source}/backend/app/trip_understanding/data:/backend/app/trip_understanding/data:ro",
+                "--env-file", str(self.target / ("private-preview-web.env" if preview else "private-web.env")),
                 "-w", "/build", "--entrypoint"]
         # The source is separate; never install into, mount writable, or mutate
         # the live release. Reuse only identical manifests and validate the copy.
@@ -580,7 +582,7 @@ process.exit(result.status===null?1:result.status);"""
             'TRIP_SEMANTIC_CREDENTIAL_REF', 'TRIP_SEMANTIC_REASONING_EFFORT', 'TRIP_SEMANTIC_OUTPUT_MODE',
             'TRIP_SEMANTIC_DEADLINE_SECONDS', 'TRIP_SEMANTIC_MAX_OUTPUT_TOKENS',
             'TRIP_SEMANTIC_MAX_CALLS', 'TRIP_SEMANTIC_TOTAL_SECONDS', 'TRIP_SEMANTIC_LEGACY_CONFIG',
-            'TRIP_SHORT_STREAM_ENABLED', 'TRIP_SHORT_STREAM_REASONING_EFFORT'}
+            'TRIP_SHORT_STREAM_ENABLED', 'TRIP_SHORT_STREAM_REASONING_EFFORT', 'TRIP_EXAMPLE_PREPROCESSING_ENABLED'}
         if not isinstance(values, dict) or not set(values) <= allowed or not all(isinstance(value,str) and value for value in values.values()):
             raise UpgradeError('Provider configuration contains unsupported fields')
         return values

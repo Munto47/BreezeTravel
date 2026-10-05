@@ -109,8 +109,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ""
         NEXT_PUBLIC_Y_WEBSOCKET_URL: wss://www.breezetravel.cn/yjs

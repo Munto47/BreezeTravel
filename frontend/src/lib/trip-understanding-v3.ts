@@ -62,6 +62,7 @@ export interface DiningContextView {
 }
 
 export interface ActivityCardView extends DiningContextView {
+  semantic_review?: 'CONFIRMED' | 'PENDING'
   verification_pending?: boolean
   source_fragment_id?:string|null
   note?: string
@@ -202,7 +203,7 @@ export interface UserFacingTripResult {
       preference_text?:string|null;
       selection_status?:'UNKNOWN'|'UNSELECTED'|'SELECTED';selected_activity_token?:string|null}>;
     choice_selections?: Array<{choice_group_token:string;branch_token:string;activity_tokens:string[];status:'SELECTED'|'MODIFIED'}>;
-    alternatives?: Array<{name: string; category: string; city?: string | null; replaces_visit_id?: string | null; replaces_name?: string | null; replacement_condition?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
+    alternatives?: Array<{semantic_review?: 'CONFIRMED' | 'PENDING'; name: string; category: string; city?: string | null; replaces_visit_id?: string | null; replaces_name?: string | null; replacement_condition?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
   map: {
     status:
       | 'PREPARING'
@@ -339,7 +340,7 @@ export interface SharedTripActivity {
   name: string
   area_or_address: string
   time_hint: string | null
-  note: '可直接查看' | '地点待确认'
+  note: '可直接查看' | '地点待确认' | '安排待复核'
   details?: Array<{name: string; optional: boolean}>
 }
 
@@ -605,6 +606,7 @@ export async function createFullTripUnderstanding(
   text: string,
   idempotencyKey = requestKey(),
   signal?: AbortSignal,
+  exampleReference?: {id: string; version: number},
 ): Promise<TripUnderstandingAcceptedView> {
   const response = await fetch('/api/v3/trip-understandings', {
     method: 'POST',
@@ -615,7 +617,7 @@ export async function createFullTripUnderstanding(
       'Idempotency-Key': idempotencyKey,
       ...authorizationHeaders(),
     },
-    body: JSON.stringify({ mode: 'FULL', source: { type: 'TEXT', text } }),
+    body: JSON.stringify({ mode: 'FULL', source: { type: 'TEXT', text }, ...(exampleReference ? {example_reference: exampleReference} : {}) }),
   })
   if (!response.ok) {
     if (response.status === 401) throw new Error('LOGIN_REQUIRED')

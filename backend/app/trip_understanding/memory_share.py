@@ -111,7 +111,7 @@ class SharedActivityView(StrictModel):
     name: str
     area_or_address: str
     time_hint: str | None = None
-    note: Literal["可直接查看", "地点待确认"]
+    note: Literal["可直接查看", "地点待确认", "安排待复核"]
     details: list[SourceDetailView] = Field(default_factory=list)
 
 
@@ -195,12 +195,12 @@ def build_share_projection(result: UserFacingTripResult, *, supplementary=None) 
     for index, day in enumerate(result.days, 1):
         def activity_view(activity):
             return SharedActivityView(name=activity.name, area_or_address=activity.area_or_address,
-                time_hint=None, note="可直接查看" if activity.status == "READY" else "地点待确认",
+                time_hint=None, note="安排待复核" if activity.semantic_review == "PENDING" else "可直接查看" if activity.status == "READY" else "地点待确认",
                 details=[detail.model_copy(deep=True) for detail in getattr(activity, "source_details", [])])
         alternatives = []
         for item in getattr(day, "alternatives", []):
             selection = next((s for s in getattr(day, "choice_selections", []) if s.choice_group_token == item.choice_group_token), None)
-            state = ("已调整，原方案供对照" if selection and selection.status == "MODIFIED" else
+            state = ("安排待复核" if item.semantic_review == "PENDING" else "已调整，原方案供对照" if selection and selection.status == "MODIFIED" else
                 "已选择，地点状态见行程" if selection and item.branch_token and selection.branch_token == item.branch_token else "备选，未加入主线")
             alternatives.append(SharedAlternativeView(name=item.name, category=item.category, branch_label=item.branch_label,
                 state=state, details=[detail.model_copy(deep=True) for detail in item.source_details]))

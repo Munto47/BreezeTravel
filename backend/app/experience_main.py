@@ -107,6 +107,8 @@ async def lifespan(app: FastAPI):
     cache = Redis.from_url(cfg.redis_url, socket_connect_timeout=2, socket_timeout=2)
     tasks: list[asyncio.Task] = []
     pipeline = None
+    maps = None
+    warmup = None
     graph_initialized = False
     stop = asyncio.Event()
     app.state.ready = False
@@ -132,6 +134,10 @@ async def lifespan(app: FastAPI):
                 demo_source_routing=True,
                 lease_seconds=cfg.map_render_job_lease_seconds,
             )
+            if cfg.trip_example_preprocessing_enabled:
+                from app.trip_understanding.shared_cache import prewarm_examples
+                warmup = asyncio.create_task(prewarm_examples(pipeline.place_resolver,
+                    cfg.trip_understanding_amap_place_max_concurrency))
             tasks.extend([
                 asyncio.create_task(_work_loop(understanding, stop, cfg.trip_understanding_worker_poll_seconds)),
                 asyncio.create_task(_work_loop(maps, stop, cfg.map_render_worker_poll_seconds)),
@@ -147,6 +153,13 @@ async def lifespan(app: FastAPI):
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        if warmup is not None:
+            warmup.cancel()
+            await asyncio.gather(warmup, return_exceptions=True)
+        if maps is not None:
+            route_cache = getattr(maps.renderer.provider, "shared_cache", None)
+            if route_cache is not None:
+                await route_cache.aclose()
         if pipeline is not None:
             await pipeline.aclose()
         if graph_initialized:

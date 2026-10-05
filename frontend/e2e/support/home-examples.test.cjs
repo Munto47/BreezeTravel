@@ -5,8 +5,8 @@ const vm=require('node:vm')
 const ts=require('typescript')
 test('home examples describe twelve mainline stops within the short streaming limit',()=>{
  const source=fs.readFileSync('src/components/experience/home-examples.ts','utf8')
- const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText
- const context={exports:{}};vm.runInNewContext(compiled,context)
+ const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText
+ const context={exports:{},require:require('node:module').createRequire(require('node:path').resolve('src/components/experience/home-examples.ts'))};vm.runInNewContext(compiled,context)
  const examples=context.exports.HOME_EXAMPLES
  assert.equal(examples.length,2)
  for(const example of examples){

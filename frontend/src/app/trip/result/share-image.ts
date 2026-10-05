@@ -125,7 +125,7 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
       }
       box(x + 10, top + 10, 30, 30, color, 15); text(String(i + 1), x + 19 - (i >= 9 ? 4 : 0), top + 31, '700 16px', '#fff')
       day.names[i].forEach((name, line) => text(name, x + 12, top + 168 + line * 26, '600 19px'))
-      if (card.status !== 'READY') text('地点待确认', x + 12, top + day.cardHeight - 12, '500 16px', '#946015')
+      if (card.status !== 'READY') text(card.semantic_review === 'PENDING' ? '安排待复核' : '地点待确认', x + 12, top + day.cardHeight - 12, '500 16px', '#946015')
       if (i % columns !== columns - 1 && i < day.visible.length - 1) text('›', x + cardWidth + 5, top + 90, '400 23px', '#91a6b2')
     })
     const noteY = y + 83 + Math.ceil(day.visible.length / columns) * (day.cardHeight + gap)

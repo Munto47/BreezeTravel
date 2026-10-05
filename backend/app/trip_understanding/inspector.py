@@ -38,6 +38,10 @@ def build_issues(result, checks=None, *, input_version=''):
         return item
     for index, day in enumerate(result.days):
         for card in day.activities:
+            if card.semantic_review == 'PENDING':
+                add('SOURCE', card.visit_id, card.name + ' · 安排待复核',
+                    '改写后的日序和安排尚未确认，请核对原文。', index, [card.visit_id], actions=['RESTORE_SOURCE'])
+                continue
             if card.status != 'READY':
                 item=add('PLACE', card.visit_id, card.name, '没有有效的地图匹配，请补充名称或重新搜索。',
                     index, [card.visit_id], actions=['SEARCH_PLACE', 'RETRY_MATCH'])

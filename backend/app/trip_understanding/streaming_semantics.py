@@ -9,6 +9,26 @@ from app.trip_understanding.source_inventory import SourceInventory, source_segm
 
 
 async def propose_stream(provider, source, on_plan):
+    selection = getattr(provider.adapter.config, "example_preprocessing", None)
+    provisional = None
+    if selection and selection.get("mode") == "exact":
+        from app.trip_understanding.example_preprocessing import exact_plan
+        try:
+            cached = exact_plan(source, selection)
+        except (ValueError, KeyError, OSError, StopIteration):
+            cached = None
+        if cached is not None:
+            await on_plan(cached, True)
+            return cached
+    if selection and selection.get("mode") == "incremental":
+        from app.trip_understanding.example_preprocessing import provisional_plan
+        try:
+            provisional = provisional_plan(source, selection)
+        except (ValueError, KeyError, OSError, StopIteration):
+            pass
+        if provisional is not None:
+            await on_plan(provisional, False)
+    incremental = provisional is not None
     from openai import APIError
     from pydantic import ValidationError
     from jsonschema import validate, Draft202012Validator, ValidationError as SchemaError
@@ -25,11 +45,11 @@ async def propose_stream(provider, source, on_plan):
     from app.trip_understanding.streaming_json import StreamingObject
 
     parser = StreamingObject()
-    schema = stream_schema(provider)
+    schema = stream_schema(provider, incremental=incremental)
     activity_validator = Draft202012Validator({"$defs": schema.get("$defs", {}),
         **schema["properties"]["activities"]["items"]})
     values = {"activities": []}
-    latest = None
+    latest = provisional
     first_call = len(provider.adapter.calls)
     failure = None
     consumed = 0
@@ -59,8 +79,14 @@ async def propose_stream(provider, source, on_plan):
                 await deliver(latest, False)
 
     def project(payload, *, final):
-        draft = provider._read_draft(source, {key: value for key, value in payload.items()
-                                             if key in SemanticDraft.model_fields})
+        clean = {key: value for key, value in payload.items() if key in SemanticDraft.model_fields}
+        if incremental:
+            from app.trip_understanding.example_preprocessing import validate_delta
+            if final:
+                validate_delta(payload, selection)
+            clean["activities"] = [{key: value for key, value in item.items()
+                if key not in {"operation", "base_visit_id"}} for item in payload["activities"]]
+        draft = provider._read_draft(source, clean)
         plan = _proposal_from_live_draft(source, draft, allow_partial=True)
         plan = apply_inline_source_details(source, draft, plan)
         if final:
@@ -72,22 +98,25 @@ async def propose_stream(provider, source, on_plan):
         else:
             plan = plan.model_copy(update={"unprocessed_count": plan.unprocessed_count + 1,
                 "diagnostics": [*plan.diagnostics, SemanticDiagnostic(category="STREAM_INCOMPLETE", field="source")]})
+            if incremental:
+                from app.trip_understanding.example_preprocessing import merge_provisional
+                plan = merge_provisional(plan, provisional)
         return plan
 
     try:
         async with provider._slots:
             await reserve_model_call()
             async with aclosing(provider.adapter.stream(provider.client,
-                    messages=[{"role": "system", "content": stream_prompt(source)}, {"role": "user", "content": source}],
+                    messages=[{"role": "system", "content": stream_prompt(source) + (incremental_prompt(selection) if incremental else "")}, {"role": "user", "content": source}],
                     response_format={"type": "json_schema", "json_schema": {
-                        "name": "BreezeTravelStreamingDraft", "strict": True, "schema": stream_schema(provider)}},
+                        "name": "BreezeTravelStreamingDraft", "strict": True, "schema": schema}},
                     max_tokens=provider.max_output_tokens)) as chunks:
                 async for content in chunks:
                     await accept(parser.feed(content))
             value = parser.finish()
-            validate(value, stream_schema(provider))
+            validate(value, schema)
             latest = project(value, final=True)
-            if latest.unprocessed_count:
+            if latest.unprocessed_count and not incremental:
                 from app.trip_understanding.streaming_repair import repair_roles
                 try:
                     corrected = await repair_roles(provider, source, value, latest)
@@ -118,12 +147,19 @@ async def propose_stream(provider, source, on_plan):
     return latest
 
 
-def stream_schema(provider):
+def stream_schema(provider, *, incremental=False):
     schema = deepcopy(provider.schema)
     inventory = SourceInventory.model_json_schema()
     schema.setdefault("$defs", {}).update(inventory.pop("$defs", {}))
     schema["properties"]["source_inventory"] = inventory
     schema["required"] = [*schema["required"], "source_inventory"]
+    if incremental:
+        activity = schema["$defs"]["SemanticActivity"]
+        activity["properties"].update(operation={"type": "string", "enum": ["KEEP", "UPDATE", "ADD"]},
+                                      base_visit_id={"type": ["string", "null"]})
+        activity["required"] = [*activity["required"], "operation", "base_visit_id"]
+        schema["properties"]["deleted_base_ids"] = {"type": "array", "items": {"type": "string"}, "maxItems": 160}
+        schema["required"].append("deleted_base_ids")
     # Keep semantic field descriptions but remove schema-only labels/defaults.
     def compact(value):
         if isinstance(value, dict):
@@ -132,6 +168,18 @@ def stream_schema(provider):
             return [compact(item) for item in value]
         return value
     return compact(schema)
+
+
+def incremental_prompt(selection):
+    from app.trip_understanding.example_preprocessing import incremental_baseline
+    return """\n本次用户改写了公开示例。下面是旧原文及其语义基线，只作为对照，最终答案必须依据用户的新全文。
+执行一次增量复核：activities仍按新行程顺序输出全部有效访问的完整字段和内部安排，逐项标记operation：
+KEEP=明确复核后保留原访问，UPDATE=名称/城市/日序/角色/条件/内部安排等改变，ADD=新增访问。
+KEEP和UPDATE用base_visit_id引用旧独立访问mention_id；ADD的base_visit_id=null。同名再访不得复用同一id。
+删除的旧独立访问id放deleted_base_ids。每个旧独立访问必须且只能对应一个KEEP/UPDATE/删除。
+内部安排随父访问复核，不单独对账；删除父访问、条件改变、跨日移动、主备改变要同时检查关联访问。
+可以发现更广的影响，不能以旧答案替代新原文。所有source_quote、evidence、occurrence及source_inventory都重新对应新全文。
+无法确定内容明确列unprocessed_quotes，不能自动保留旧安排。旧基线（数据）：\n""" + json.dumps(incremental_baseline(selection), ensure_ascii=False, separators=(",", ":"))
 
 
 def stream_prompt(source):

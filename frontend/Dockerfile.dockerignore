@@ -1,0 +1,16 @@
+**
+!frontend
+!frontend/**
+!backend
+!backend/app
+!backend/app/trip_understanding
+!backend/app/trip_understanding/data
+!backend/app/trip_understanding/data/public-examples.json
+frontend/node_modules
+frontend/.next
+frontend/.next-dev
+frontend/.env
+frontend/.env.*
+frontend/test-results
+frontend/playwright-report
+frontend/*.log

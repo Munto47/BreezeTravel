@@ -96,7 +96,7 @@ export default function GenerationWorkspace({resource, phase, progress, snapshot
             <div className="live-card-grid">{day.activities.map((card, position) => {
               const token = card.visit_id || card.activity_token
               const ready = card.status === 'READY'
-              const state = ready ? '已确认' : card.verification_pending ? '核验中' : '需要确认'
+              const state = card.semantic_review === 'PENDING' ? '安排待复核' : ready ? '已确认' : card.verification_pending ? '核验中' : '需要确认'
               const expanded = reading.expanded.includes(token)
               return <article className="live-place" key={token} data-generation-token={token} data-day-index={index} data-state={ready ? 'ready' : card.verification_pending ? 'checking' : 'unresolved'}>
                 <div className="live-place-cover"><MapPin size={28} aria-hidden="true"/>{ready && card.photo_url && <img src={card.photo_url} alt="" loading="lazy" onError={event => {event.currentTarget.style.display = 'none'}}/>}<span className="live-place-number">{position + 1}</span><span className="live-place-state">{ready && <Check size={12}/>}<span key={state}>{state}</span></span></div>
@@ -104,11 +104,11 @@ export default function GenerationWorkspace({resource, phase, progress, snapshot
                   const article = event.currentTarget.closest<HTMLElement>('[data-generation-token]')!
                   onReadingChange({dayIndex: index, token, offset: article.getBoundingClientRect().top - feed.current!.getBoundingClientRect().top, following: false, expanded: expanded ? reading.expanded.filter(id => id !== token) : [...reading.expanded, token]})
                 }}><span><strong>{card.name}</strong><small>{card.category || '地点'}{card.source_details?.length ? ` · 内部安排 ${card.source_details.length} 项` : ''}</small></span><ChevronDown size={16}/></button>
-                {expanded && <div className="live-place-detail"><p>{ready ? card.area_or_address : '地点身份尚未确认，确认后会在这里更新。'}</p>{!!card.source_details?.length && <><strong>原文内部安排</strong><ol>{card.source_details.map((detail, n) => <li key={`${detail.name}-${n}`}>{detail.name}{detail.optional ? '（备选）' : ''}</li>)}</ol><small>内部安排未单独核验。</small></>}</div>}
+                {expanded && <div className="live-place-detail"><p>{ready ? card.area_or_address : card.semantic_review === 'PENDING' ? '根据修改后的原文重新整理中，日序与安排仍待复核。' : '地点身份尚未确认，确认后会在这里更新。'}</p>{!!card.source_details?.length && <><strong>原文内部安排</strong><ol>{card.source_details.map((detail, n) => <li key={`${detail.name}-${n}`}>{detail.name}{detail.optional ? '（备选）' : ''}</li>)}</ol><small>内部安排未单独核验。</small></>}</div>}
               </article>
             })}</div>
             {!day.activities.length && <p className="live-day-empty">这一天的主线地点仍在整理。</p>}
-            {!!day.alternatives?.length && <details className="live-alternatives"><summary>备选安排 · {day.alternatives.length} <span>未加入主线</span></summary><ul>{day.alternatives.map((item, n) => <li key={item.activity_token || `${item.name}-${n}`}><strong>{item.name}</strong>{item.replaces_name && <span> · {item.replacement_condition || "条件满足时"}替换{item.replaces_name}</span>}{!!item.source_details?.length && <span> · {item.source_details.map(detail => detail.name).join('、')}</span>}</li>)}</ul></details>}
+            {!!day.alternatives?.length && <details className="live-alternatives"><summary>备选安排 · {day.alternatives.length} <span>未加入主线</span></summary><ul>{day.alternatives.map((item, n) => <li key={item.activity_token || `${item.name}-${n}`}><strong>{item.name}</strong>{item.semantic_review === 'PENDING' && <span> · 安排待复核</span>}{item.replaces_name && <span> · {item.replacement_condition || "条件满足时"}替换{item.replaces_name}</span>}{!!item.source_details?.length && <span> · {item.source_details.map(detail => detail.name).join('、')}</span>}</li>)}</ul></details>}
             {!!day.source_notes?.length && <ul className="live-notes" aria-label="原文说明">{day.source_notes.map(note => <li key={note.note_id}>{note.text}</li>)}</ul>}
             {!!day.unprocessed_count && <p className="live-unresolved">还有 {day.unprocessed_count} 项原文尚未整理，完成后可继续补全。</p>}
           </section>)}

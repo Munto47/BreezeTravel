@@ -927,6 +927,7 @@ class AmapPlaceResolver:
         client: httpx.AsyncClient | None = None,
         success_cache_seconds: float = 900.0,
         success_cache_size: int = 256,
+        shared_cache=None,
     ) -> None:
         if not api_key:
             raise ValueError("Amap API key is required")
@@ -944,6 +945,7 @@ class AmapPlaceResolver:
         self._success_cache_size = max(0, min(success_cache_size, 1024))
         self._success_cache: dict[tuple, tuple[float, PlaceResolutionOutcome]] = {}
         self._inflight: dict[tuple, asyncio.Task] = {}
+        self.shared_cache = shared_cache
 
     async def city_scope(self, city: str, receipt: dict | None = None) -> CityScope | None:
         return await self._city_scopes.get(city, client=self._http_client(), api_key=self.api_key, timeout=self.deadline_seconds, receipt=receipt)
@@ -963,6 +965,8 @@ class AmapPlaceResolver:
             await asyncio.gather(*pending, return_exceptions=True)
         self._inflight.clear()
         self._success_cache.clear()
+        if self.shared_cache is not None:
+            await self.shared_cache.aclose()
         if self._owned_client is not None:
             await self._owned_client.aclose()
             self._owned_client = None
@@ -1201,8 +1205,20 @@ class AmapPlaceResolver:
 
         async def run():
             try:
+                if self.shared_cache is not None:
+                    value = await self.shared_cache.get("amap-poi-v2-identity-v1", key)
+                    if value is not None:
+                        try:
+                            shared = PlaceResolutionOutcome.model_validate(value)
+                        except ValueError:
+                            shared = None
+                        if shared is not None and shared.place is not None:
+                            return self._reused(shared, "SHARED_SUCCESS_CACHE")
                 outcome = await self._resolve_uncached(city=city, atomic_place_name=atomic_place_name,
                     category_hint=category_hint, _allow_lexical_category=_allow_lexical_category)
+                if outcome.place is not None and self.shared_cache is not None:
+                    await self.shared_cache.put("amap-poi-v2-identity-v1", key, outcome.model_dump(mode="json"),
+                                                ttl=self._success_cache_seconds)
                 # Missing/ambiguous/unavailable outcomes never poison later retry.
                 if outcome.place is not None and self._success_cache_seconds and self._success_cache_size:
                     if len(self._success_cache) >= self._success_cache_size:

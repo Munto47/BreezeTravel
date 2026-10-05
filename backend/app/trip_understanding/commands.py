@@ -323,6 +323,8 @@ def apply_public_command(
             changed.update(result.days[night - 1].label for night in constraint.overnight_days)
         else:
             day_index, position, card = _find_card(result.days, command.activity_token)
+            if card.semantic_review == "PENDING":
+                raise CommandTargetChangedError("source arrangement requires semantic review before place confirmation")
             changed.add(result.days[day_index].label)
             if confirmed_place.category == "餐饮":
                 from app.trip_understanding.dining import validate_dining_access, validate_dining_meal_use, meal_evidence_status
@@ -478,6 +480,8 @@ def apply_public_command(
             raise CommandTargetChangedError("choice day is unavailable")
         day = result.days[command.day_index - 1]
         group = [item for item in day.alternatives if item.choice_group_token == command.choice_group_token]
+        if any(item.semantic_review == "PENDING" for item in group):
+            raise CommandTargetChangedError("source choice requires semantic review")
         branches = {item.branch_token for item in group}
         if (len(branches) != 2 or None in branches or command.branch_token not in branches
                 or not all(item.choice_group_selectable for item in group)
@@ -518,6 +522,8 @@ def apply_public_command(
         if len(matches) != 1 or matches[0][0] != command.day_index:
             raise CommandTargetChangedError("alternative is no longer unique in this day's current result")
         member = matches[0][1]
+        if member.semantic_review == "PENDING":
+            raise CommandTargetChangedError("source alternative requires semantic review")
         target = next((card for card in day.activities if card.visit_id == member.replaces_visit_id), None)
         if member.replaces_visit_id and target is None:
             raise CommandTargetChangedError("the visit to replace was deleted or moved; refresh this choice")

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     trip_semantic_total_seconds: int = 600
     trip_semantic_legacy_config: str = ""
     trip_short_stream_enabled: bool = False
+    trip_example_preprocessing_enabled: bool = False
     trip_short_stream_reasoning_effort: Literal["low", "high", "max"] = "low"
 
     # ── 备用 LLM：OpenAI 兼容接口 ────────────────────────────────────

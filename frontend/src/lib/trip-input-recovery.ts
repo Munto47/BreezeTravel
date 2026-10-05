@@ -7,6 +7,7 @@ export type TripInputDraft = {
   demo: boolean
   key: string
   expires: number
+  exampleReference?: {id: string; version: number}
   submittedAt?: number
   resource?: string
   failedResource?: string

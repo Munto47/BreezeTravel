@@ -18,7 +18,7 @@ class StableCompiler:
             mention = activity.mention
             # Source occurrence, not result position or POI identity. Distinct
             # names in a shared quote remain separate occurrences.
-            key = (mention.span_start, mention.span_end, mention.raw_text, mention.mention_id)
+            key = (mention.span_start, mention.span_end, mention.raw_text)
             identifier, token = self.identities.setdefault(key, (activity.activity_id, activity.public_activity_token))
             remap[activity.activity_id] = identifier
             stable.append(activity.model_copy(update={"activity_id": identifier, "public_activity_token": token}))

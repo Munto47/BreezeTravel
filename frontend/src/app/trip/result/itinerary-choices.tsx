@@ -36,7 +36,7 @@ function ChoiceGroup({day, dayIndex, disabled, onApply, token, members}: Props &
   const [position, setPosition] = useState(validSuggestion ? 'source' : '')
   const selection = day.choice_selections?.find(item => item.choice_group_token === token)
   const incomplete = branches.size < 2 || members.some(member => !member.branch_token)
-  const selectable = members.every(member => member.choice_group_selectable === true)
+  const selectable = members.every(member => member.choice_group_selectable === true && member.semantic_review !== 'PENDING')
   const needsConfirmation = selection?.activity_tokens.some(value => !day.activities.some(card => card.activity_token === value && card.status === 'READY'))
   return <section className="my-3 rounded-2xl border border-sky-100 bg-sky-50/40 p-3" data-testid="itinerary-choice-group">
     <h3 className="text-sm font-semibold">{incomplete ? '待补全的备选方案' : branches.size === 2 ? '二选一' : `从 ${branches.size} 个方案中选择一个`}</h3>
@@ -96,8 +96,8 @@ export default function ItineraryChoices(props: Props) {
       <div className="min-w-0">{item.branch_label && <span className="mr-2 text-xs text-slate-500">{item.branch_label}</span>}{item.name}{item.city ? ` · ${item.city}` : ''}
         {item.replaces_visit_id && <p className="mt-1 text-xs text-slate-600">{item.replacement_condition} · 替换「{item.replaces_name}」这次访问</p>}
         <AlternativeDetails item={item}/></div>
-      <button className={action} disabled={props.disabled || !!item.replaces_visit_id && !visits.some(card => card.visit_id === item.replaces_visit_id)} onClick={() => void props.onApply(insertAlternative(item, props.dayIndex, props.day.activities.length))}>
-        {item.replaces_visit_id ? visits.some(card => card.visit_id === item.replaces_visit_id) ? '替换此站，待确认' : '原访问已移出当天' : '加入待确认'}
+      <button className={action} disabled={props.disabled || item.semantic_review === 'PENDING' || !!item.replaces_visit_id && !visits.some(card => card.visit_id === item.replaces_visit_id)} onClick={() => void props.onApply(insertAlternative(item, props.dayIndex, props.day.activities.length))}>
+        {item.semantic_review === 'PENDING' ? '安排待复核' : item.replaces_visit_id ? visits.some(card => card.visit_id === item.replaces_visit_id) ? '替换此站，待确认' : '原访问已移出当天' : '加入待确认'}
       </button>
     </div>)}
   </>

@@ -562,6 +562,7 @@ class TripUnderstandingRepository(
         now: datetime,
         ttl_hours: int,
         source_text: str | None = None,
+        example_reference: dict | None = None,
     ) -> CreateOutcome: ...
 
     async def create_full(
@@ -575,6 +576,7 @@ class TripUnderstandingRepository(
         retention_days: int,
         initial_inference_binding: dict[str, Any] | None = None,
         initial_plan: SourceSemanticPlan | None = None,
+        example_reference: dict | None = None,
     ) -> CreateOutcome: ...
 
     async def preflight_screenshot_batch(
@@ -974,6 +976,7 @@ class PostgresTripUnderstandingRepository(
         now: datetime,
         ttl_hours: int,
         source_text: str | None = None,
+        example_reference: dict | None = None,
     ) -> CreateOutcome:
         if len(idempotency_key) > 200:
             raise ValueError("idempotency key is too long")
@@ -1121,7 +1124,7 @@ class PostgresTripUnderstandingRepository(
                 self._get_source_cipher().encrypt(source_text, source_id=source_id, content_hash=content_hash) if source_text is not None else None,
                 self._get_source_cipher().key_ref if source_text is not None else None,
             )
-            await set_source_execution(conn, source_id, source_text)
+            await set_source_execution(conn, source_id, source_text, example_reference)
             await conn.execute(
                 """
                 INSERT INTO trip_understanding_revisions (
@@ -1199,6 +1202,7 @@ class PostgresTripUnderstandingRepository(
         retention_days: int,
         initial_inference_binding: dict[str, Any] | None = None,
         initial_plan: SourceSemanticPlan | None = None,
+        example_reference: dict | None = None,
     ) -> CreateOutcome:
         if len(idempotency_key) > 200:
             raise ValueError("idempotency key is too long")
@@ -1317,7 +1321,7 @@ class PostgresTripUnderstandingRepository(
                 expires_at,
                 now,
             )
-            await set_source_execution(conn, source_id, source_text)
+            await set_source_execution(conn, source_id, source_text, example_reference)
             await conn.execute(
                 """
                 INSERT INTO trip_understanding_revisions (
@@ -5293,6 +5297,7 @@ class InMemoryTripUnderstandingRepository(
         now: datetime,
         ttl_hours: int,
         source_text: str | None = None,
+        example_reference: dict | None = None,
     ) -> CreateOutcome:
         session = self.sessions.get(capability_hash)
         if session and session["expires_at"] <= now:
@@ -5361,7 +5366,7 @@ class InMemoryTripUnderstandingRepository(
             source_type="TEXT" if source_text is not None else "FIXED_DEMO",
             text=source_text if source_text is not None else DEMO_SOURCE_TEXT,
         )
-        self.execution_configs[(understanding_id, self.jobs[job_id]["input_hash"])] = execution_config(get_settings(), source_text=source_text)
+        self.execution_configs[(understanding_id, self.jobs[job_id]["input_hash"])] = execution_config(get_settings(), source_text=source_text, example_reference=example_reference)
         self.source_expiries[job_id] = expires_at
         self.events[understanding_id] = [
             PublicEventRecord(
@@ -5387,6 +5392,7 @@ class InMemoryTripUnderstandingRepository(
         retention_days: int,
         initial_inference_binding: dict[str, Any] | None = None,
         initial_plan: SourceSemanticPlan | None = None,
+        example_reference: dict | None = None,
     ) -> CreateOutcome:
         if not source_text.strip() or len(source_text) > 50_000:
             raise ValueError("text source is outside the supported size")
@@ -5442,7 +5448,7 @@ class InMemoryTripUnderstandingRepository(
             internal_binding=dict(initial_inference_binding or {}),
             initial_plan=initial_plan,
         )
-        self.execution_configs[(understanding_id, self.jobs[job_id]["input_hash"])] = execution_config(get_settings(), source_text=source_text)
+        self.execution_configs[(understanding_id, self.jobs[job_id]["input_hash"])] = execution_config(get_settings(), source_text=source_text, example_reference=example_reference)
         self.source_expiries[job_id] = now + timedelta(days=retention_days)
         self.events[understanding_id] = [
             PublicEventRecord(

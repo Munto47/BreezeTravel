@@ -28,6 +28,7 @@ class ExecutionConfig(BaseModel):
     total_seconds: int = Field(default=600, ge=1, le=600)
     processing_mode: Literal["legacy", "short_stream"] = "legacy"
     stream_protocol_version: Literal[1] = 1
+    example_preprocessing: dict | None = None
 
     @model_validator(mode="after")
     def validate_endpoint(self):
@@ -41,7 +42,7 @@ class ExecutionConfig(BaseModel):
         return self
 
 
-def execution_config(settings, *, legacy=False, source_text=None):
+def execution_config(settings, *, legacy=False, source_text=None, example_reference=None):
     if legacy:
         value = getattr(settings, "trip_semantic_legacy_config", "")
         if not value:
@@ -59,6 +60,14 @@ def execution_config(settings, *, legacy=False, source_text=None):
         config = config.model_copy(update={"processing_mode": "short_stream", "max_calls": min(2, config.max_calls),
             "reasoning_effort": getattr(settings, "trip_short_stream_reasoning_effort", "low")
                 if config.provider == "KIMI_CODE" else "none"})
+    if (getattr(settings, "trip_example_preprocessing_enabled", False)
+            and config.processing_mode == "short_stream"):
+        from app.trip_understanding.example_preprocessing import select_example
+        try:
+            selection = select_example(source_text, example_reference)
+        except (ValueError, KeyError, OSError):
+            selection = None
+        config = config.model_copy(update={"example_preprocessing": selection})
     return config
 
 

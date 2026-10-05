@@ -30,6 +30,7 @@ services:
     command: sh -c "npm run dev"
     volumes:
       - ./frontend:/app
+      - ./backend/app/trip_understanding/data:/backend/app/trip_understanding/data:ro
       - /app/node_modules    # 匿名卷防止本地 node_modules 覆盖容器内的
       - /app/.next
     environment:

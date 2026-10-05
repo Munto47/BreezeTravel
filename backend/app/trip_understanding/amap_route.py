@@ -244,6 +244,7 @@ class AmapRouteProvider:
         deadline_seconds: float = 6.0,
         max_concurrency: int = 4,
         client: httpx.AsyncClient | None = None,
+        shared_cache=None,
     ) -> None:
         if not api_key:
             raise ValueError("Amap API key is required")
@@ -255,8 +256,28 @@ class AmapRouteProvider:
         self.deadline_seconds = deadline_seconds
         self.client = client
         self.semaphore = asyncio.Semaphore(max_concurrency)
+        self.shared_cache = shared_cache
 
-    async def route(
+    async def route(self, origin, destination, mode, *, observed_at):
+        from app.trip_understanding.route_reuse import route_key
+        key = route_key(origin, destination, mode)
+        if self.shared_cache is not None:
+            value = await self.shared_cache.get("amap-route-v3-v1", key)
+            if value is not None:
+                try:
+                    fact = InternalRouteModeFact.model_validate(value)
+                except ValueError:
+                    fact = None
+                if fact is not None and fact.status == "AVAILABLE" and fact.expires_at > observed_at and fact.mode == mode:
+                    return fact.model_copy(deep=True, update={"external_call_count": 0,
+                        "provider_binding": {**fact.provider_binding, "external_calls": 0, "reused": True}})
+        fact = await self._route_uncached(origin, destination, mode, observed_at=observed_at)
+        if fact.status == "AVAILABLE" and self.shared_cache is not None:
+            await self.shared_cache.put("amap-route-v3-v1", key, fact.model_dump(mode="json"),
+                ttl=(fact.expires_at - datetime.now(fact.expires_at.tzinfo)).total_seconds())
+        return fact
+
+    async def _route_uncached(
         self,
         origin: MapStop,
         destination: MapStop,

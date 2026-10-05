@@ -40,6 +40,7 @@ class ResolutionStatus(str, Enum):
 
 
 class ProposedMention(ActivityTiming):
+    semantic_review: Literal["CONFIRMED", "PENDING"] = "CONFIRMED"
     mention_id: str
     raw_text: str = Field(min_length=1)
     span_start: int = Field(ge=0)
@@ -265,6 +266,7 @@ class DiningAccessView(StrictModel):
 
 
 class ActivityCardView(ActivityTiming):
+    semantic_review: Literal["CONFIRMED", "PENDING"] = "CONFIRMED"
     verification_pending: bool = False
     source_fragment_id: str | None = None
     source_occurrence_id: str | None = None
@@ -306,6 +308,7 @@ class ActivityCardView(ActivityTiming):
 
 
 class ActivityAlternativeView(ActivityTiming):
+    semantic_review: Literal["CONFIRMED", "PENDING"] = "CONFIRMED"
     alternative_id: str = ""
     source_occurrence_id: str | None = None
     name: str = Field(min_length=1, max_length=40)
@@ -653,9 +656,15 @@ class ScreenshotBatchSourceRequest(StrictModel):
 FullSourceRequest = TextSourceRequest
 
 
+class ExampleReference(StrictModel):
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9_-]+$")
+    version: int = Field(ge=1, le=100000)
+
+
 class CreateFullRequest(StrictModel):
     mode: Literal["FULL"]
     source: FullSourceRequest
+    example_reference: ExampleReference | None = None
 
 
 CreateTripUnderstandingRequest = Annotated[

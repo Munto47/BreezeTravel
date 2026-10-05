@@ -72,13 +72,18 @@ class TripUnderstandingApplicationService:
         now: datetime | None = None,
         capability_hash: str | None = None,
     ) -> CreateOutcome:
-        request_hash = canonical_sha256(body.model_dump(mode="json"))
+        request_body = body.model_dump(mode="json")
+        if body.example_reference is None:
+            request_body.pop("example_reference")
+        request_hash = canonical_sha256(request_body)
+        example_reference = body.example_reference.model_dump() if body.example_reference else None
         if owner_user_id is None:
             if capability_hash is None:
                 raise ValueError("anonymous capability is required")
             return await self.repository.create_demo(
                 capability_hash=capability_hash,
                 source_text=body.source.text,
+                example_reference=example_reference,
                 idempotency_key=idempotency_key,
                 request_hash=request_hash,
                 now=now or datetime.now(timezone.utc),
@@ -87,6 +92,7 @@ class TripUnderstandingApplicationService:
         return await self.repository.create_full(
             owner_user_id=owner_user_id,
             source_text=body.source.text,
+            example_reference=example_reference,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
             now=now or datetime.now(timezone.utc),

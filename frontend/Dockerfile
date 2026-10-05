@@ -1,12 +1,13 @@
 FROM node:20.18.3-alpine3.21 AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 
 FROM node:20.18.3-alpine3.21 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend .
+COPY backend/app/trip_understanding/data/public-examples.json /backend/app/trip_understanding/data/public-examples.json
 
 # 构建期注入公开环境变量（NEXT_PUBLIC_* 会被 bake 进 JS bundle）
 ARG NEXT_PUBLIC_API_URL

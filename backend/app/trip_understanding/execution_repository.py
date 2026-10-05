@@ -6,8 +6,8 @@ from app.trip_understanding.errors import JobLeaseLostError, SourceUnavailableEr
 from app.trip_understanding.model_adapter import ExecutionConfig, execution_config
 
 
-async def set_source_execution(conn, source_id, source_text=None):
-    config = execution_config(get_settings(), source_text=source_text)
+async def set_source_execution(conn, source_id, source_text=None, example_reference=None):
+    config = execution_config(get_settings(), source_text=source_text, example_reference=example_reference)
     await conn.execute("""UPDATE trip_understanding_sources
         SET execution_config_json=$2::jsonb,inference_calls_remaining=$3 WHERE source_id=$1""",
                        source_id, config.model_dump_json(), config.max_calls)

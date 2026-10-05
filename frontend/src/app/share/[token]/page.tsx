@@ -175,7 +175,7 @@ export default function SharedItineraryPage() {
             )}
             {!!day.pending_activities?.length && <section className="mt-4 rounded-xl border border-amber-200 p-3">
               <h3 className="text-sm font-semibold text-amber-900">待确认安排 · 不作为已核验主线</h3>
-              {day.pending_activities.map((activity, index) => <div className="mt-2 text-sm" key={index}><p>{activity.name} · 地点待确认</p><SharedDetails items={activity.details} /></div>)}
+              {day.pending_activities.map((activity, index) => <div className="mt-2 text-sm" key={index}><p>{activity.name} · {activity.note}</p><SharedDetails items={activity.details} /></div>)}
             </section>}
             {!!day.meal_arrangements?.length && <section className="mt-4 rounded-xl bg-orange-50 p-3 text-sm leading-6" data-testid="shared-meals">
               <h3 className="font-semibold">原文用餐安排</h3>{day.meal_arrangements.map((meal, index) => <p key={index}>{meal}</p>)}

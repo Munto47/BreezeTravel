@@ -42,7 +42,8 @@ class _LeaseTakeoverRouteProvider:
 def build_configured_renderer(settings: Settings) -> MapRenderer:
     if settings.trip_understanding_provider_mode != "live":
         return MapRenderer()
-    return MapRenderer(AmapRouteProvider(api_key=settings.amap_api_key))
+    from app.trip_understanding.shared_cache import SharedFactCache
+    return MapRenderer(AmapRouteProvider(api_key=settings.amap_api_key, shared_cache=SharedFactCache(settings.redis_url)))
 
 
 def build_configured_stay_engine(settings: Settings) -> StayRecommendationEngine:
@@ -272,6 +273,9 @@ async def run_forever() -> None:
             if not processed:
                 await asyncio.sleep(settings.map_render_worker_poll_seconds)
     finally:
+        cache = getattr(worker.renderer.provider, "shared_cache", None)
+        if cache is not None:
+            await cache.aclose()
         await close_pool()
 
 

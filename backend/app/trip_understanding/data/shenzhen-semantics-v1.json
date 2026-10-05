@@ -1,0 +1,416 @@
+{
+  "version": 1,
+  "plan": {
+    "destination_name": "深圳",
+    "mentions": [
+      {
+        "mention_id": "activity-1",
+        "raw_text": "深圳博物馆历史民俗馆",
+        "span_start": 29,
+        "span_end": 39,
+        "role": "PLANNED",
+        "day_index": 1,
+        "sequence_index": 0,
+        "atomic_place_name": "深圳博物馆历史民俗馆",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-2",
+        "raw_text": "莲花山公园",
+        "span_start": 43,
+        "span_end": 48,
+        "role": "PLANNED",
+        "day_index": 1,
+        "sequence_index": 1,
+        "atomic_place_name": "莲花山公园",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-3",
+        "raw_text": "深圳市民中心广场",
+        "span_start": 62,
+        "span_end": 70,
+        "role": "PLANNED",
+        "day_index": 1,
+        "sequence_index": 2,
+        "atomic_place_name": "深圳市民中心广场",
+        "category_hint": "地点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-4",
+        "raw_text": "深圳科学馆",
+        "span_start": 74,
+        "span_end": 79,
+        "role": "PLANNED",
+        "day_index": 1,
+        "sequence_index": 3,
+        "atomic_place_name": "深圳科学馆",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-5",
+        "raw_text": "深圳市当代艺术与城市规划馆",
+        "span_start": 97,
+        "span_end": 110,
+        "role": "OPTIONAL",
+        "day_index": 1,
+        "sequence_index": 4,
+        "atomic_place_name": "深圳市当代艺术与城市规划馆",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。",
+        "replaces_mention_id": "activity-2",
+        "replacement_condition": "如果下雨"
+      },
+      {
+        "mention_id": "activity-6",
+        "raw_text": "深圳湾公园",
+        "span_start": 139,
+        "span_end": 144,
+        "role": "PLANNED",
+        "day_index": 2,
+        "sequence_index": 0,
+        "atomic_place_name": "深圳湾公园",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-7",
+        "raw_text": "深圳人才公园",
+        "span_start": 147,
+        "span_end": 153,
+        "role": "PLANNED",
+        "day_index": 2,
+        "sequence_index": 1,
+        "atomic_place_name": "深圳人才公园",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-8",
+        "raw_text": "欢乐海岸",
+        "span_start": 157,
+        "span_end": 161,
+        "role": "PLANNED",
+        "day_index": 2,
+        "sequence_index": 2,
+        "atomic_place_name": "欢乐海岸",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-9",
+        "raw_text": "海上世界",
+        "span_start": 165,
+        "span_end": 169,
+        "role": "PLANNED",
+        "day_index": 2,
+        "sequence_index": 3,
+        "atomic_place_name": "海上世界",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-10",
+        "raw_text": "东门老街",
+        "span_start": 179,
+        "span_end": 183,
+        "role": "PLANNED",
+        "day_index": 3,
+        "sequence_index": 0,
+        "atomic_place_name": "东门老街",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-11",
+        "raw_text": "洪湖公园",
+        "span_start": 186,
+        "span_end": 190,
+        "role": "PLANNED",
+        "day_index": 3,
+        "sequence_index": 1,
+        "atomic_place_name": "洪湖公园",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-12",
+        "raw_text": "大芬油画村",
+        "span_start": 194,
+        "span_end": 199,
+        "role": "PLANNED",
+        "day_index": 3,
+        "sequence_index": 2,
+        "atomic_place_name": "大芬油画村",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-13",
+        "raw_text": "仙湖植物园",
+        "span_start": 203,
+        "span_end": 208,
+        "role": "PLANNED",
+        "day_index": 3,
+        "sequence_index": 3,
+        "atomic_place_name": "仙湖植物园",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "activity-14",
+        "raw_text": "世界之窗",
+        "span_start": 210,
+        "span_end": 214,
+        "role": "EXCLUDED",
+        "sequence_index": 0,
+        "atomic_place_name": "世界之窗",
+        "category_hint": "景点",
+        "city_hint": "深圳",
+        "city_evidence": "深圳三日行程草稿，按下面的先后顺序整理。"
+      },
+      {
+        "mention_id": "source-visit-activity-2-VISIT-52-56",
+        "raw_text": "风筝广场",
+        "span_start": 52,
+        "span_end": 56,
+        "role": "REFERENCE",
+        "day_index": 1,
+        "sequence_index": 14,
+        "atomic_place_name": "风筝广场",
+        "category_hint": "景点",
+        "parent_mention_id": "activity-2",
+        "relation_type": "INTERNAL_DETAIL",
+        "detail_kind": "VISIT",
+        "role_evidence": "接着去莲花山公园，在园内风筝广场活动；",
+        "role_evidence_start": 40,
+        "role_evidence_end": 59
+      }
+    ],
+    "day_count": 3,
+    "order_assessment": {
+      "groups": [
+        {
+          "kind": "INITIAL_ORDER",
+          "member_mention_ids": [
+            "activity-1",
+            "activity-2",
+            "activity-3",
+            "activity-4"
+          ],
+          "hard_precedence": [],
+          "scope_start": 21,
+          "scope_end": 80
+        },
+        {
+          "kind": "INITIAL_ORDER",
+          "member_mention_ids": [
+            "activity-6",
+            "activity-7",
+            "activity-8",
+            "activity-9"
+          ],
+          "hard_precedence": [],
+          "scope_start": 131,
+          "scope_end": 170
+        },
+        {
+          "kind": "INITIAL_ORDER",
+          "member_mention_ids": [
+            "activity-10",
+            "activity-11",
+            "activity-12",
+            "activity-13"
+          ],
+          "hard_precedence": [],
+          "scope_start": 171,
+          "scope_end": 209
+        }
+      ]
+    }
+  },
+  "source_inventory": {
+    "segments": [
+      {
+        "segment_index": 0,
+        "classification": "CONTEXT",
+        "items": []
+      },
+      {
+        "segment_index": 1,
+        "classification": "ARRANGEMENTS",
+        "items": [
+          {
+            "quote": "深圳博物馆历史民俗馆",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 1
+          },
+          {
+            "quote": "莲花山公园",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 1
+          },
+          {
+            "quote": "风筝广场",
+            "occurrence": 1,
+            "kind": "INTERNAL",
+            "role": "PLANNED",
+            "day_index": 1,
+            "parent_quote": "莲花山公园",
+            "parent_occurrence": 1
+          }
+        ]
+      },
+      {
+        "segment_index": 2,
+        "classification": "ARRANGEMENTS",
+        "items": [
+          {
+            "quote": "深圳市民中心广场",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 1
+          },
+          {
+            "quote": "深圳科学馆",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 1
+          }
+        ]
+      },
+      {
+        "segment_index": 3,
+        "classification": "ARRANGEMENTS",
+        "items": [
+          {
+            "quote": "莲花山公园",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "REFERENCE",
+            "day_index": 1,
+            "refers_to_occurrence": 1
+          },
+          {
+            "quote": "深圳市当代艺术与城市规划馆",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "OPTIONAL",
+            "day_index": 1
+          }
+        ]
+      },
+      {
+        "segment_index": 4,
+        "classification": "REFERENCES",
+        "reference_target_quote": "深圳市当代艺术与城市规划馆",
+        "reference_target_occurrence": 1,
+        "items": []
+      },
+      {
+        "segment_index": 5,
+        "classification": "ARRANGEMENTS",
+        "items": [
+          {
+            "quote": "深圳湾公园",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 2
+          },
+          {
+            "quote": "深圳人才公园",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 2
+          },
+          {
+            "quote": "欢乐海岸",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 2
+          },
+          {
+            "quote": "海上世界",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 2
+          }
+        ]
+      },
+      {
+        "segment_index": 6,
+        "classification": "ARRANGEMENTS",
+        "items": [
+          {
+            "quote": "东门老街",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 3
+          },
+          {
+            "quote": "洪湖公园",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 3
+          },
+          {
+            "quote": "大芬油画村",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 3
+          },
+          {
+            "quote": "仙湖植物园",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "PLANNED",
+            "day_index": 3
+          }
+        ]
+      },
+      {
+        "segment_index": 7,
+        "classification": "ARRANGEMENTS",
+        "items": [
+          {
+            "quote": "世界之窗",
+            "occurrence": 1,
+            "kind": "VISIT",
+            "role": "EXCLUDED",
+            "day_index": null
+          }
+        ]
+      }
+    ]
+  }
+}

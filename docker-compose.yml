@@ -179,8 +179,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         # Browser requests stay same-origin and are proxied by Next to the
         # backend service. This avoids baking a stale host/LAN address into a

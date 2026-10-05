@@ -541,7 +541,7 @@ export default function ItineraryWorkspace({
                     {day.activities.length > 0 ? <ol className="four-mini-chain" aria-label={`${relativeDayLabel(dayOffset)}折叠地点顺序`}>
                       {day.activities.map((activity, position) => <li key={activity.visit_id || activity.activity_token}>
                         <div className="four-mini-image"><PlacePhoto card={activity}/><span style={{backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length]}}>{position + 1}</span></div>
-                        <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activity.status !== 'READY' ? '地点待确认 · ' : ''}{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}{diningAccessBadge(activity) ? ` · ${diningAccessBadge(activity)}` : ''}</small></div>
+                        <div className="four-mini-copy"><strong>{activity.name}</strong><small>{activity.semantic_review === 'PENDING' ? '安排待复核 · ' : activity.status !== 'READY' ? '地点待确认 · ' : ''}{activityCategoryLabel(activity)}{activity.source_details?.length ? ` · 原文安排 ${activity.source_details.length} 项` : ''}{diningAccessBadge(activity) ? ` · ${diningAccessBadge(activity)}` : ''}</small></div>
                         {position < day.activities.length - 1 && <ChevronRight className="four-mini-arrow" aria-hidden="true"/>}
                       </li>)}
                     </ol> : <p className="four-overview-note">当天尚无已确认的主线地点。</p>}
@@ -565,7 +565,7 @@ export default function ItineraryWorkspace({
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
                                 {!!activity.source_details?.length && <span className="block text-xs text-[#0c789d]">原文安排 · {activity.source_details.length} 项</span>}
                                 {diningAccessBadge(activity) && <span className="block text-xs text-amber-800">{diningAccessBadge(activity)}</span>}
-                                <span className="text-xs text-slate-500">{activityCategoryLabel(activity)} · {activity.status === 'READY' ? '已确认' : '地点待确认'} · 可更改</span>
+                                <span className="text-xs text-slate-500">{activityCategoryLabel(activity)} · {activity.semantic_review === 'PENDING' ? '安排待复核' : activity.status === 'READY' ? '已确认' : '地点待确认'} · 可更改</span>
                               </button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
@@ -738,7 +738,7 @@ export default function ItineraryWorkspace({
                                       ? 'rounded-full bg-emerald-50 px-2 py-1 text-emerald-700'
                                       : 'rounded-full bg-amber-50 px-2 py-1 text-amber-800'}
                                     >
-                                      {activity.status === 'READY' ? '已确认' : '地点待确认'}
+                                      {activity.semantic_review === 'PENDING' ? '安排待复核' : activity.status === 'READY' ? '已确认' : '地点待确认'}
                                     </span>
                                     {!!activity.source_details?.length && <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">原文安排 · {activity.source_details.length} 项</span>}
                                     {diningAccessBadge(activity) && <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800">{diningAccessBadge(activity)}</span>}

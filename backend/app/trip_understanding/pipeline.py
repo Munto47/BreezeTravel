@@ -1368,6 +1368,7 @@ class PublicResultProjector:
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         verification_pending=item.resolver_receipt.get("status") == "PENDING",
+                        semantic_review=mention.semantic_review,
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
                         source_details=details_by_parent.get(mention.mention_id, []),
                     )
@@ -1399,6 +1400,7 @@ class PublicResultProjector:
                     if item.compiled.mention.mention_id == mention.replaces_mention_id), None)
                 replacement = next((card for card in cards if card.activity_token == replacement_token), None)
                 choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint,
+                    semantic_review=mention.semantic_review,
                     source_occurrence_id=source_occurrence_id(source_text, mention),
                     replaces_visit_id=replacement.visit_id if replacement else None,
                     replaces_name=replacement.name if replacement else None,
@@ -1800,6 +1802,8 @@ class TripUnderstandingPipeline:
         guarded_compiled: list[CompiledActivity] = []
         for item in compiled:
             mention = item.mention
+            if mention.semantic_review == "PENDING":
+                item = item.model_copy(update={"eligible_for_place_search": False})
             intersects_confirmation = any(
                 mention.span_start < end and start < mention.span_end
                 for start, end in confirmation_spans
