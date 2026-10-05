@@ -210,7 +210,10 @@ def test_production_worker_explicitly_uses_relative_provider_and_prepared_plan_p
     seen = {}
     monkeypatch.setattr(worker, "ExperienceQwenProvider", lambda **kwargs: seen.update(kwargs) or SimpleNamespace())
     monkeypatch.setattr(worker, "AmapPlaceResolver", lambda **kwargs: SimpleNamespace())
-    settings = SimpleNamespace(trip_understanding_provider_mode="live", qwen_api_key="fixed",
+    from app.config import Settings
+    settings = Settings(_env_file=None, trip_semantic_provider="QWEN", trip_semantic_model="fixed",
+        trip_semantic_base_url="https://fixed.invalid", trip_semantic_credential_ref="qwen_api_key",
+        trip_semantic_reasoning_effort="none", trip_understanding_provider_mode="live", qwen_api_key="fixed",
         qwen_api_url="https://fixed.invalid", trip_understanding_qwen_model="fixed", trip_understanding_qwen_deadline_seconds=60,
         trip_understanding_qwen_max_output_tokens=4096, trip_understanding_qwen_input_cny_per_million=None,
         trip_understanding_qwen_output_cny_per_million=None, amap_api_key="fixed", trip_understanding_amap_place_deadline_seconds=3,

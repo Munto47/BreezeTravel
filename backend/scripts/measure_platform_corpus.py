@@ -23,7 +23,7 @@ from uuid import uuid4
 from dotenv import dotenv_values
 
 from scripts.collect_platform_corpus import ROOT, save_json
-from scripts.platform_corpus_metrics import compare_annotations, summarize_measurements
+from scripts.platform_corpus_metrics import compare_annotations, read_public_projection, semantic_observations, summarize_measurements
 
 
 def runtime_file_hashes(runtime_root: Path = ROOT) -> dict[str, str]:
@@ -70,6 +70,24 @@ def read_corpus(manifest_path: Path, *, limit: int | None = None, case_ids: set[
                 split: str = "development") -> list[dict]:
     folder = manifest_path.resolve().parent
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("provenance") == "authorized_reference":
+        families = {}
+        texts = {}
+        for row in manifest["cases"]:
+            family = row.get("family_id")
+            text = row.get("text")
+            if (not family or not isinstance(text, str) or not text.strip() or not row.get("source_kind")):
+                raise ValueError("Reference inputs require literal text, family and source kind")
+            if family in families and families[family] != row["split"]:
+                raise ValueError("A source family cannot cross development and acceptance splits")
+            if text in texts and texts[text] != family:
+                raise ValueError("Identical source text cannot manufacture another family")
+            families[family], texts[text] = row["split"], family
+        selected = [dict(row, status="COMPLETED", city=row.get("city", "unspecified"))
+                    for row in manifest["cases"] if row["split"] == split and (not case_ids or row["id"] in case_ids)]
+        if case_ids and len(selected) != len(case_ids):
+            raise ValueError("Every requested case must exist in the explicitly selected split")
+        return selected[:limit] if limit else selected
     if manifest.get("provenance") != "platform_generated":
         raise ValueError("Expected a recorded platform-generated corpus")
     if case_ids:
@@ -102,9 +120,6 @@ async def measure(args) -> int:
     runtime_origin = runtime_root
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=runtime_origin, capture_output=True, text=True, check=True).stdout.strip()
     sys.path.insert(0, str(runtime_root / "backend"))
-    from app.trip_understanding.amap_place import AmapPlaceResolver
-    from app.trip_understanding.experience_inference import ExperienceQwenProvider
-    from app.trip_understanding.pipeline import TripUnderstandingPipeline
 
     cases = read_corpus(args.manifest, limit=args.limit, case_ids=set(args.case_ids.split(",")) if args.case_ids else None,
         split=args.split)
@@ -119,17 +134,27 @@ async def measure(args) -> int:
         save_json(label_snapshot, {"annotations": list(labels.values())})
     for case in cases:
         label = labels.get(case["id"])
-        if label and (label.get("source_sha256") != case["output_sha256"] or
-            label.get("annotation_status") != "reviewed" or label.get("annotator_type") not in {"human", "owner", "independent_agent"}):
+        source_matches = (label is not None and (label.get("source_text") == case["text"] if "source_kind" in case
+                          else label.get("source_sha256") == case["output_sha256"]))
+        if label and (not source_matches or
+            label.get("annotation_status") != "reviewed" or label.get("annotator_type") not in {"human", "owner", "independent_agent", "implementation_agent"}):
             raise ValueError("Gold annotations must match the unchanged source and be independently reviewed")
+    if getattr(args, "formal", False):
+        from scripts.visit_matching import validate_acceptance_corpus
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        if "excluded_families" not in manifest:
+            raise ValueError("formal corpus must declare development and demo source families")
+        validate_acceptance_corpus(cases, labels, set(manifest["excluded_families"]))
     values = dotenv_values(args.config_env, interpolate=False)
-    model = ExperienceQwenProvider(api_key=values.get("QWEN_API_KEY") or "", base_url=values.get("QWEN_API_URL") or "",
-        model=values.get("TRIP_UNDERSTANDING_QWEN_MODEL") or "",
-        enable_source_visits=True,
-        deadline_seconds=float(values.get("TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS") or 60),
-        max_output_tokens=int(values.get("TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS") or 4096),
-        input_cny_per_million=float(values["TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION"]) if values.get("TRIP_UNDERSTANDING_QWEN_INPUT_CNY_PER_MILLION") else None,
-        output_cny_per_million=float(values["TRIP_UNDERSTANDING_QWEN_OUTPUT_CNY_PER_MILLION"]) if values.get("TRIP_UNDERSTANDING_QWEN_OUTPUT_CNY_PER_MILLION") else None)
+    from app.config import Settings
+    from app.trip_understanding.worker import build_configured_full_pipeline, build_configured_inference_provider
+
+    settings = Settings(_env_file=None, **{key.lower(): value for key, value in values.items() if value not in (None, "")},
+                        **({} if "TRIP_UNDERSTANDING_PROVIDER_MODE" in values else {"trip_understanding_provider_mode": "live"}))
+    if settings.trip_understanding_provider_mode != "live":
+        raise ValueError("Live measurement requires the configured live provider")
+    configured_pipeline = build_configured_full_pipeline(settings) if args.mode == "full" else None
+    model = configured_pipeline.inference_provider if configured_pipeline else build_configured_inference_provider(settings)
     if args.prompt_path:
         model.prompt = args.prompt_path.read_text(encoding="utf-8")
         if not model.prompt.strip():
@@ -145,26 +170,23 @@ async def measure(args) -> int:
     capture_context = {"case_id": None, "repeat": 0, "call": 0}
     original_create = model.client.chat.completions.create
     thinking_budget = getattr(args, "thinking_budget", None)
+    if thinking_budget is not None:
+        raise ValueError("Legacy thinking-budget override is retired; configure the semantic adapter explicitly")
     async def recorded_create(**kwargs):
-        if thinking_budget is not None:
-            # Explicit private experiment, with the runtime answer cap and deadline
-            # unchanged. No account, service or production model configuration changes.
-            kwargs["extra_body"] = {**(kwargs.get("extra_body") or {}),
-                "enable_thinking": True, "thinking_budget": thinking_budget}
         capture_context["call"] += 1
         path = raw_directory / f"{capture_context['case_id']}-r{capture_context['repeat']}-call{capture_context['call']:02d}.json"
         if path.exists():
             raise ValueError("Refusing to overwrite an existing raw model call")
         record = {"case_id": capture_context["case_id"], "repeat": capture_context["repeat"], "call": capture_context["call"],
-            "provenance": "platform_generated_input_actual_runtime_response", "messages": kwargs.get("messages"),
-            "model": kwargs.get("model"), "max_tokens": kwargs.get("max_tokens"), "status": "STARTED",
+            "provenance": "actual_runtime_response", "messages": kwargs.get("messages"),
+            "model": kwargs.get("model"), "reasoning_effort": kwargs.get("reasoning_effort"), "max_tokens": kwargs.get("max_tokens"), "status": "STARTED",
             "temperature": kwargs.get("temperature"), "extra_body": kwargs.get("extra_body"),
             "response_format": kwargs.get("response_format")}
         if args.record_raw_calls:
             save_json(path, record)
         try:
             response = await original_create(**kwargs)
-            record.update(status="COMPLETED", choices=[{"finish_reason": choice.finish_reason,
+            record.update(status="COMPLETED", reported_model=getattr(response, "model", None), choices=[{"finish_reason": choice.finish_reason,
                 "content": choice.message.content} for choice in response.choices],
                 usage=response.usage.model_dump() if response.usage else None)
             return response
@@ -176,23 +198,30 @@ async def measure(args) -> int:
                 save_json(path, record)
     if args.record_raw_calls or thinking_budget is not None:
         model.client.chat.completions.create = recorded_create
-    resolver = AmapPlaceResolver(api_key=values.get("AMAP_API_KEY") or "") if args.mode == "full" else None
-    pipeline = TripUnderstandingPipeline(model, resolver) if resolver else None
+    pipeline = configured_pipeline
+    resolver = pipeline.place_resolver if pipeline else None
     report = {"schema_version": "platform-corpus-measurement-v1", "mode": args.mode, "source_commit": commit,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "runtime_root": str(runtime_root), "runtime_origin": str(runtime_origin), "selected_split": args.split,
+        "formal_acceptance": bool(getattr(args, "formal", False)),
         "source_isolation": "CALLER_SELECTED_CHECKOUT", "prompt_override": bool(args.prompt_path),
         "raw_calls_recorded": args.record_raw_calls,
         "thinking_budget_override": thinking_budget,
         "answer_token_cap": model.max_output_tokens,
-        "model": model.model, "provenance": "platform_generated", "measurement": "SEMANTIC_AND_POI_NO_API_OR_ROUTES" if resolver else "SEMANTIC_ONLY",
-        "cases": [], "gold_source": "independent_annotations" if labels else "NONE"}
+        "execution_config": model.adapter.config.model_dump() if hasattr(model, "adapter") else None, "model": model.model, "provenance": json.loads(args.manifest.read_text(encoding="utf-8"))["provenance"],
+        "source_families": len({case.get("family_id", case["id"]) for case in cases}),
+        "source_kinds": sorted({case.get("source_kind", "platform_generated") for case in cases}),
+        "measurement": "SEMANTIC_AND_POI_NO_API_OR_ROUTES" if resolver else "SEMANTIC_ONLY",
+        "cases": [], "gold_source": "reviewed_annotations" if labels else "NONE",
+        "annotator_types": sorted({label["annotator_type"] for label in labels.values()})}
     def save():
         report["summary"] = summarize_measurements(report["cases"])
         report["by_city"] = {city: summarize_measurements([row for row in report["cases"] if row["city"] == city])
                              for city in sorted({row["city"] for row in report["cases"]})}
         report["by_split"] = {split: summarize_measurements([row for row in report["cases"] if row["split"] == split])
                               for split in sorted({row["split"] for row in report["cases"]})}
+        report["by_source_kind"] = {kind: summarize_measurements([row for row in report["cases"] if row["source_kind"] == kind])
+                                    for kind in sorted({row["source_kind"] for row in report["cases"]})}
         report["repeat_stability"] = []
         for case_id in sorted({row["case_id"] for row in report["cases"]}):
             repeated = [row for row in report["cases"] if row["case_id"] == case_id]
@@ -209,24 +238,25 @@ async def measure(args) -> int:
         for repeat in range(1, args.repeat + 1):
             for case in cases:
                 started = time.perf_counter()
+                call_start = len(model.adapter.calls) if hasattr(model, "adapter") else None
                 capture_context.update(case_id=case["id"], repeat=repeat, call=0)
                 row = {"case_id": case["id"], "city": case["city"], "family_id": case["family_id"], "split": case["split"],
-                    "repeat": repeat, "source_sha256": case["output_sha256"], "status": "FAILED", "gold_status": "NOT_ANNOTATED"}
+                    "repeat": repeat, "source_kind": case.get("source_kind", "platform_generated"),
+                    "status": "FAILED", "gold_status": "NOT_ANNOTATED"}
                 try:
                     output = await pipeline.run(case["text"]) if pipeline else None
                     proposal = output.proposal if output else await model.propose(case["text"])
+                    # Record spend before projection/scoring: a downstream
+                    # readback failure does not undo successful model calls.
+                    row["usage"] = {key: proposal.binding.get(key) for key in
+                        ("external_calls", "repair_call_count", "input_tokens", "output_tokens", "estimated_cost_cny")}
                     places = {activity.compiled.mention.mention_id: activity.place for activity in output.activities} if output else {}
-                    observations = [{"name": item.atomic_place_name, "day_index": item.day_index, "role": item.role.value,
-                        "sequence_index": item.sequence_index, "branch_label": getattr(item, "branch_label", None),
-                        "span_start": item.span_start, "span_end": item.span_end,
-                        "parent_mention_id": getattr(item, "parent_mention_id", None), "relation_type": getattr(item, "relation_type", None),
-                        "poi_id": places[item.mention_id].canonical_place_id if places.get(item.mention_id) else None}
-                        for item in proposal.mentions]
-                    row.update(status="COMPLETED", observations=observations, usage={key: proposal.binding.get(key) for key in
-                        ("external_calls", "repair_call_count", "input_tokens", "output_tokens", "estimated_cost_cny")},
+                    observations = await read_public_projection(output, case["text"]) if output else semantic_observations(proposal, places)
+                    row.update(status="COMPLETED", observations=observations,
                         unprocessed_count=proposal.unprocessed_count, semantic_diagnostic_counts=proposal.binding.get("semantic_diagnostic_counts", {}),
                         diagnostics=[item.model_dump() for item in getattr(proposal, "diagnostics", [])])
                     if output:
+                        row["visibility_scope"] = "PUBLIC_FIELDS_AFTER_IN_MEMORY_READBACK_NOT_BROWSER"
                         coverage = getattr(output.public_result, "coverage", None)
                         row["coverage"] = coverage.model_dump() if coverage else None
                         row["resolution"] = output.resolution_receipt
@@ -236,9 +266,16 @@ async def measure(args) -> int:
                     category = getattr(error, "category", None)
                     row["error_category"] = category if isinstance(category, str) and category.isupper() else type(error).__name__
                     binding = getattr(error, "provider_binding", {})
-                    row["usage"] = {key: binding.get(key) for key in ("external_calls", "repair_call_count", "input_tokens", "output_tokens")}
+                    if binding or "usage" not in row:
+                        row["usage"] = {key: binding.get(key) for key in ("external_calls", "repair_call_count", "input_tokens", "output_tokens")}
                     if case["id"] in labels:
                         row.update(compare_annotations(labels[case["id"]], []))
+                from app.trip_understanding.model_adapter import usage_summary
+                from scripts.visit_matching import whole_article_passed
+                if call_start is not None:
+                    row["transport_calls"] = model.adapter.calls[call_start:]
+                    row["usage"] = usage_summary(row["transport_calls"])
+                row["whole_article_correct"] = whole_article_passed(row)
                 row["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 2)
                 report["cases"].append(row)
                 save()
@@ -264,10 +301,10 @@ def main():
         help="Save original request messages and actual model JSON privately for validator attribution")
     parser.add_argument("--freeze-runtime", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--labels", type=Path)
+    parser.add_argument("--formal", action="store_true", help="Require all thirty reviewed independent four-city articles before any call")
     parser.add_argument("--prompt-path", type=Path,
         help="Private experiment only: override this provider instance's prompt without modifying runtime files")
-    parser.add_argument("--thinking-budget", type=int, choices=(512, 1024, 2048),
-        help="Private same-model experiment only: enable bounded thinking; retain runtime answer cap and deadline")
+    parser.add_argument("--thinking-budget", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mode", choices=("semantic", "full"), default="semantic")
     parser.add_argument("--repeat", type=int, choices=(1, 2, 3, 4, 5), default=1)

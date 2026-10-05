@@ -328,8 +328,8 @@ async def repair_focused_semantics(provider, source, draft, proposal, calls, tar
     calls.append(call)
     started = time.perf_counter()
     try:
-        response = await provider.client.chat.completions.create(model=provider.model, temperature=0,
-            max_tokens=min(provider.max_output_tokens, 4096), extra_body={"enable_thinking": False},
+        response = await provider.complete(
+            max_tokens=min(provider.max_output_tokens, 4096),
             response_format={"type": "json_schema", "json_schema": {"name": "BreezeTravelSemanticPatch",
                 "strict": True, "schema": patch_schema(provider.schema)}}, messages=[
                 {"role": "system", "content": FOCUSED_PROMPT},

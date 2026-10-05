@@ -315,7 +315,10 @@ class PostgresSupplementRepositoryMixin:
                 raise SupplementRejectedError("SUPPLEMENT_ALREADY_DISPATCHED")
             if source["inference_calls_remaining"] <= 0:
                 raise InferenceAllowanceExceeded("MODEL_CALL_BUDGET_EXHAUSTED")
-            deadline = source["inference_deadline_at"] or min(checked + timedelta(minutes=10), source["retention_until"])
+            from app.trip_understanding.execution_repository import source_budget_seconds
+            deadline = source["inference_deadline_at"] or min(checked + timedelta(seconds=source_budget_seconds(source)), source["retention_until"])
+            if deadline <= checked:
+                raise InferenceAllowanceExceeded("MODEL_CALL_DEADLINE_EXCEEDED")
             await conn.execute("UPDATE trip_understanding_sources SET inference_calls_remaining=inference_calls_remaining-1,inference_deadline_at=$2 WHERE source_id=$1",
                 source["source_id"], deadline)
             await conn.execute("UPDATE trip_understanding_jobs SET supplement_dispatched_at=$2 WHERE job_id=$1", job.job_id, checked)

@@ -93,9 +93,10 @@ async def repair_lodging_metadata(provider: ExperienceQwenProvider, source: str,
     calls.append(call)
     started = time.perf_counter()
     try:
-        response = await provider.client.chat.completions.create(
-            model=provider.model, temperature=0, max_tokens=min(provider.max_output_tokens, 1536),
-            response_format={"type": "json_object"}, extra_body={"enable_thinking": False},
+        response = await provider.complete(
+            max_tokens=min(provider.max_output_tokens, 1536),
+            response_format={"type": "json_schema", "json_schema": {
+                "name": "BreezeTravelLodgingMetadata", "strict": True, "schema": LodgingMetadataResponse.model_json_schema()}},
             messages=[{"role": "system", "content": LODGING_METADATA_PROMPT},
                 {"role": "user", "content": json.dumps({"activities": inputs}, ensure_ascii=False)}],
         )

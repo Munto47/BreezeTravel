@@ -15,6 +15,10 @@ from app.trip_understanding.landmark_hints import landmark_hint, verified_techni
 from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
 
+def _compact(value):
+    return re.sub(r"[\s（）()·—_-]", "", value)
+
+
 async def ranked_candidates(provider, *, city: str, query: str, category_hint: str | None):
     city = city.strip().removesuffix("市")
     query = query.strip()
@@ -57,10 +61,9 @@ async def ranked_candidates(provider, *, city: str, query: str, category_hint: s
             continue
         category = signals.category
         tier = _name_match_tier(row, canonical_name=canonical, safe_aliases=aliases, city=city)
-        compact = lambda value: re.sub(r"[\s（）()·—_-]", "", value)
         # A gate is a distinct destination. A nearby bus stop, department or
         # monument cannot supply its identity even when search ranks it first.
-        if gate and compact(name) != compact(query):
+        if gate and _compact(name) != _compact(query):
             continue
         # A named neighbourhood is a valid destination, including an area
         # specified for lunch. It is never represented as a restaurant.
@@ -69,7 +72,7 @@ async def ranked_candidates(provider, *, city: str, query: str, category_hint: s
             and name == query.removesuffix("商圈")
             and expected in {None, PlaceCategory.FOOD})
         visitor = expected in {None, PlaceCategory.ATTRACTION} and _visitor_type_compatible(row, canonical)
-        if expected == PlaceCategory.ATTRACTION and compact(name) == compact(query):
+        if expected == PlaceCategory.ATTRACTION and _compact(name) == _compact(query):
             visitor = visitor or (query.endswith("大学") and row.get("typecode") == "141201"
                 and row.get("type") == "科教文化服务;学校;高等院校")
             visitor = visitor or (bool(gate) and row.get("typecode") == "991000"
@@ -77,6 +80,8 @@ async def ranked_candidates(provider, *, city: str, query: str, category_hint: s
         visitor = visitor or (expected in {None, PlaceCategory.ATTRACTION}
             and _product_semantic_technical_category_is_compatible(row, atomic=canonical,
                 expected_category=PlaceCategory.ATTRACTION))
+        visitor = visitor or (expected == PlaceCategory.ATTRACTION
+            and get_city_knowledge().technical_type_matches(row, city=city, name=canonical))
         if visitor:
             category = PlaceCategory.ATTRACTION
         if area_match:

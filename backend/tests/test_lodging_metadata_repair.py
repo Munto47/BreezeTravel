@@ -146,7 +146,8 @@ async def test_failed_hotel_repair_retains_the_first_result_and_never_retries(fa
     assert result.mentions[0].lodging_role_uncertain and result.unprocessed_count == 1
     assert result.binding["outcome"] == "PARTIAL_RESULT"
     assert result.binding["calls"][-1]["outcome"] == ("PROVIDER_UNAVAILABLE" if failure == "network" else "DEADLINE_EXCEEDED")
-    assert result.binding["input_tokens"] is None and result.binding["estimated_cost_cny"] is None
+    assert result.binding["input_tokens"] == 200 and result.binding["input_tokens_unknown_calls"] == 1
+    assert result.binding["estimated_cost_cny"] is None
 
 
 @pytest.mark.asyncio

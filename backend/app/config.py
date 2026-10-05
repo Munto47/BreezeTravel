@@ -27,6 +27,19 @@ class Settings(BaseSettings):
     kimi_model: str = "kimi-for-coding"
     kimi_parse_deadline_seconds: float = 180.0
     kimi_parse_max_output_tokens: int = 8192
+    # Itinerary semantics are configured independently of chat and suggestions.
+    trip_semantic_provider: Literal["KIMI_CODE", "QWEN"] = "KIMI_CODE"
+    trip_semantic_base_url: str = "https://api.kimi.com/coding/v1"
+    trip_semantic_model: str = "k3-256k"
+    trip_semantic_credential_ref: Literal["kimi_for_code", "qwen_api_key", "trip_semantic_api_key"] = "kimi_for_code"
+    trip_semantic_api_key: str = ""
+    trip_semantic_reasoning_effort: Literal["none", "low", "high", "max"] = "high"
+    trip_semantic_output_mode: Literal["json_schema", "json_object"] = "json_schema"
+    trip_semantic_deadline_seconds: float = 180.0
+    trip_semantic_max_output_tokens: int = 8192
+    trip_semantic_max_calls: int = 31
+    trip_semantic_total_seconds: int = 600
+    trip_semantic_legacy_config: str = ""
 
     # ── 备用 LLM：OpenAI 兼容接口 ────────────────────────────────────
     # 支持 OpenAI 官方 / SiliconFlow / 其他兼容服务

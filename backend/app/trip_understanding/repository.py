@@ -12,6 +12,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 from uuid import uuid4
 
+from app.trip_understanding.execution_repository import (
+    PostgresExecutionRepositoryMixin, InMemoryExecutionRepositoryMixin, set_source_execution,
+)
+from app.trip_understanding.model_adapter import execution_config
 from app.config import get_settings
 from app.db.connection import get_pool
 from app.trip_understanding.failures import safe_failure_binding, public_failure_message
@@ -791,6 +795,7 @@ class TripUnderstandingRepository(
 
 
 class PostgresTripUnderstandingRepository(
+    PostgresExecutionRepositoryMixin,
     PostgresSupplementRepositoryMixin,
     PostgresRelativeRouteRepositoryMixin,
     PostgresReadbackMixin,
@@ -1100,6 +1105,7 @@ class PostgresTripUnderstandingRepository(
                 self._get_source_cipher().encrypt(source_text, source_id=source_id, content_hash=content_hash) if source_text is not None else None,
                 self._get_source_cipher().key_ref if source_text is not None else None,
             )
+            await set_source_execution(conn, source_id)
             await conn.execute(
                 """
                 INSERT INTO trip_understanding_revisions (
@@ -1295,6 +1301,7 @@ class PostgresTripUnderstandingRepository(
                 expires_at,
                 now,
             )
+            await set_source_execution(conn, source_id)
             await conn.execute(
                 """
                 INSERT INTO trip_understanding_revisions (
@@ -2365,6 +2372,7 @@ class PostgresTripUnderstandingRepository(
                 expires_at,
                 now,
             )
+            await set_source_execution(conn, source_id)
             await conn.execute(
                 """
                 INSERT INTO trip_understanding_revisions (
@@ -4725,12 +4733,14 @@ class PostgresTripUnderstandingRepository(
                     raise JobLeaseLostError("inference owner authority expired")
             if source["inference_calls_remaining"] <= 0:
                 raise InferenceAllowanceExceeded("MODEL_CALL_BUDGET_EXHAUSTED")
-            deadline = source["inference_deadline_at"] or min(checked_at + timedelta(minutes=10), source["retention_until"])
+            from app.trip_understanding.execution_repository import source_budget_seconds
+            deadline = source["inference_deadline_at"] or min(checked_at + timedelta(seconds=source_budget_seconds(source)), source["retention_until"])
             if deadline <= checked_at:
                 raise InferenceAllowanceExceeded("MODEL_CALL_DEADLINE_EXCEEDED")
             await conn.execute("""UPDATE trip_understanding_sources
                 SET inference_calls_remaining=inference_calls_remaining-1, inference_deadline_at=$2
                 WHERE source_id=$1""", source["source_id"], deadline)
+            await conn.execute("UPDATE trip_understanding_jobs SET inference_dispatched_at=COALESCE(inference_dispatched_at,$2) WHERE job_id=$1", job.job_id, checked_at)
 
     async def renew_lease(
         self,
@@ -5140,6 +5150,7 @@ class PostgresTripUnderstandingRepository(
 
 
 class InMemoryTripUnderstandingRepository(
+    InMemoryExecutionRepositoryMixin,
     InMemoryRelativeRouteRepositoryMixin,
     InMemoryReadbackMixin,
     InMemoryG03RepositoryMixin,
@@ -5149,6 +5160,7 @@ class InMemoryTripUnderstandingRepository(
     InMemoryMemoryShareRepositoryMixin,
 ):
     def __init__(self) -> None:
+        self.execution_configs = {}
         self.sessions: dict[str, dict[str, Any]] = {}
         self.resources: dict[str, dict[str, Any]] = {}
         self.resources_by_understanding: dict[str, str] = {}
@@ -5307,6 +5319,7 @@ class InMemoryTripUnderstandingRepository(
             source_type="TEXT" if source_text is not None else "FIXED_DEMO",
             text=source_text if source_text is not None else DEMO_SOURCE_TEXT,
         )
+        self.execution_configs[(understanding_id, self.jobs[job_id]["input_hash"])] = execution_config(get_settings())
         self.source_expiries[job_id] = expires_at
         self.events[understanding_id] = [
             PublicEventRecord(
@@ -5387,6 +5400,7 @@ class InMemoryTripUnderstandingRepository(
             internal_binding=dict(initial_inference_binding or {}),
             initial_plan=initial_plan,
         )
+        self.execution_configs[(understanding_id, self.jobs[job_id]["input_hash"])] = execution_config(get_settings())
         self.source_expiries[job_id] = now + timedelta(days=retention_days)
         self.events[understanding_id] = [
             PublicEventRecord(
@@ -5968,6 +5982,7 @@ class InMemoryTripUnderstandingRepository(
             ),
             partial_source=document.partial,
         )
+        self.execution_configs[(understanding_id, self.jobs[job_id]["input_hash"])] = execution_config(get_settings())
         self.source_expiries[job_id] = now + timedelta(days=retention_days)
         self.events[understanding_id] = [
             PublicEventRecord(
@@ -7007,13 +7022,15 @@ class InMemoryTripUnderstandingRepository(
             raise JobLeaseLostError("inference dispatch authority is no longer current")
         await self.load_source(job, now=now)
         key = (job.understanding_id, job.input_hash)
-        remaining, deadline = self.inference_allowances.get(key, (31, None))
+        config = self.execution_configs.get(key)
+        remaining, deadline = self.inference_allowances.get(key, (config.max_calls if config else 31, None))
         if remaining <= 0:
             raise InferenceAllowanceExceeded("MODEL_CALL_BUDGET_EXHAUSTED")
-        deadline = deadline or min(now + timedelta(minutes=10), self.source_expiries[job.job_id])
+        deadline = deadline or min(now + timedelta(seconds=config.total_seconds if config else 600), self.source_expiries[job.job_id])
         if deadline <= now:
             raise InferenceAllowanceExceeded("MODEL_CALL_DEADLINE_EXCEEDED")
         self.inference_allowances[key] = (remaining - 1, deadline)
+        item["inference_dispatched_at"] = item.get("inference_dispatched_at") or now
 
     async def renew_lease(
         self,

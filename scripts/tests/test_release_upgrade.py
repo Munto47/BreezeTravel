@@ -57,6 +57,11 @@ class UpgradeTests(unittest.TestCase):
             "REDIS_URL": "redis://redis:6379/8", "JWT_SECRET_KEY": "private-jwt-key",
             "QWEN_API_KEY": "private-model-key", "AMAP_API_KEY": "private-map-key",
             "TRIP_UNDERSTANDING_QWEN_MODEL": "qwen3.5-plus",
+            "TRIP_SEMANTIC_PROVIDER": "QWEN", "TRIP_SEMANTIC_BASE_URL": "https://model.invalid/v1",
+            "TRIP_SEMANTIC_MODEL": "qwen3.5-plus", "TRIP_SEMANTIC_CREDENTIAL_REF": "qwen_api_key",
+            "TRIP_SEMANTIC_REASONING_EFFORT": "none", "TRIP_SEMANTIC_OUTPUT_MODE": "json_schema",
+            "TRIP_SEMANTIC_LEGACY_CONFIG": json.dumps(dict(provider="QWEN", base_url="https://model.invalid/v1",
+                model="qwen3.5-plus", credential_ref="qwen_api_key", reasoning_effort="none")),
             "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY": "private-cookie-key",
             "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY": "private-encryption-key"}
         self.operation.containers = {kind: {"Image": kind + "-image"} for kind in ("api", "web", "yjs")}
@@ -183,8 +188,8 @@ class UpgradeTests(unittest.TestCase):
         for key in ("private-jwt-key", "private-cookie-key", "private-encryption-key"):
             self.assertIn(key, content)
         self.assertIn("AUTO_MIGRATE=false", content)
-        self.assertIn("TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS=60.0", content)
-        self.assertIn("TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS=4096", content)
+        self.assertIn("TRIP_SEMANTIC_DEADLINE_SECONDS=60.0", content)
+        self.assertIn("TRIP_SEMANTIC_MAX_OUTPUT_TOKENS=4096", content)
 
     def test_public_preview_configuration_passes_actual_settings_validation(self):
         sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))

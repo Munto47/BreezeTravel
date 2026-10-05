@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, ClipboardPaste, FileText, Sparkles, Map, Landmark, Building2, UsersRound, Utensils, CornerDownLeft } from 'lucide-react'
+import { ArrowRight, ClipboardPaste, FileText, Sparkles, Map, Landmark, UsersRound, CornerDownLeft } from 'lucide-react'
 import ExperienceHeader from '@/components/experience/experience-header'
 import HomeDecor from '@/components/experience/home-decor'
 import HomePreview from '@/components/experience/home-preview'
@@ -26,7 +26,7 @@ import './experience.css'
 
 type Resume = { reference: string; title: string; updated?: string | null }
 type Replacement = {text: string; label: string; kind: 'example' | 'clipboard'}
-const EXAMPLE_ICONS = [Landmark, Building2, UsersRound, Utensils]
+const EXAMPLE_ICONS = {beijing: Landmark, shenzhen: UsersRound}
 
 export default function HomePage() {
   const router = useRouter()
@@ -292,7 +292,7 @@ export default function HomePage() {
         </form>
         <div className="four-example-choices" aria-label="填入文字示例">
           <span>试试这些示例：</span>
-          {HOME_EXAMPLES.map((example,index) => {const Icon = EXAMPLE_ICONS[index]; return <button key={example.id} type="button" data-testid={index === 0 ? 'start-demo' : `home-example-${example.id}`} disabled={!ready || busy || pasteBusy} onClick={() => chooseExample(example)}><Icon size={18} aria-hidden="true"/>{example.label}</button>})}
+          {HOME_EXAMPLES.map((example,index) => {const Icon = EXAMPLE_ICONS[example.id]; return <button key={example.id} type="button" data-testid={index === 0 ? 'start-demo' : `home-example-${example.id}`} disabled={!ready || busy || pasteBusy} onClick={() => chooseExample(example)}><Icon size={18} aria-hidden="true"/>{example.label}</button>})}
         </div>
         {resume && <div className="four-resume-entry"><span><CornerDownLeft size={15} aria-hidden="true"/>{resume.title}</span><Link href={`/trip/result#trip=${encodeURIComponent(resume.reference)}`}>继续上次行程<ArrowRight size={15} aria-hidden="true"/></Link></div>}
         <ol className="four-how-it-works" aria-label="整理行程的三个步骤">

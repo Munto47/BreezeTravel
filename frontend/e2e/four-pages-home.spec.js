@@ -31,7 +31,7 @@ for (const width of [1440, 390]) test(`four-page home: real text entry, labelled
   await expect(page.getByTestId('source-character-count')).toHaveText('0 / 50,000')
   await expect(page.getByTestId('trip-source-text')).toHaveAttribute('maxlength','50000')
   await expect(page.getByRole('button',{name:'粘贴内容',exact:true})).toBeVisible()
-  await expect(page.getByLabel('填入文字示例').getByRole('button')).toHaveCount(4)
+  await expect(page.getByLabel('填入文字示例').getByRole('button')).toHaveCount(2)
   await expect(page.locator('input[type=file]')).toHaveCount(0)
   await expect(page.getByText('示意地图 · 非实际路线')).toBeVisible()
   await expect(page.getByTestId('home-example-preview')).toContainText('静态展示示例，不是本次整理结果')
@@ -46,11 +46,12 @@ for (const width of [1440, 390]) test(`four-page home: real text entry, labelled
   expect(creates).toHaveLength(0)
 })
 
-for (const id of ['start-demo','home-example-shanghai','home-example-family','home-example-food']) test(`example ${id} fills text then submits FULL once with same-key failure recovery`, async ({page}) => {
+for (const id of ['start-demo','home-example-shenzhen']) test(`example ${id} fills text then submits FULL once with same-key failure recovery`, async ({page}) => {
   const creates = await fixture(page)
   await page.getByTestId(id).click()
   const text = await page.getByTestId('trip-source-text').inputValue()
-  expect(text.length).toBeGreaterThan(30)
+  expect(text.length).toBeGreaterThanOrEqual(300)
+  expect(text.length).toBeLessThanOrEqual(600)
   expect(text).not.toMatch(/https?:|\d{1,2}:\d{2}/)
   expect(creates).toHaveLength(0)
   await page.getByTestId('create-full-trip').dblclick()
@@ -99,7 +100,7 @@ test('clipboard denial or over-limit content preserves the typed source without 
 
 test('successful anonymous TEXT creation remembers only its public reference', async ({page}) => {
   const creates = await fixture(page,{accepted:true})
-  await page.getByTestId('home-example-shanghai').click()
+  await page.getByTestId('home-example-shenzhen').click()
   await page.getByTestId('create-full-trip').click()
   await expect(page).toHaveURL(/\/trip\/result#trip=home-controlled-reference/)
   expect(creates).toHaveLength(1)

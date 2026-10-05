@@ -15,6 +15,42 @@ class SemanticReplacement(StrictModel):
     evidence: str = Field(min_length=1, max_length=2000)
 
 
+def is_replacement_reference(source, proposal, start, end):
+    """An explicitly bound replacement can restate its default, not revisit it."""
+    by_id = {m.mention_id: m for m in proposal.mentions}
+    for alternative in proposal.mentions:
+        target = by_id.get(alternative.replaces_mention_id)
+        if target is None or not alternative.replacement_condition:
+            continue
+        left = max(source.rfind(mark, 0, alternative.span_start) for mark in '\n。；;！!？?') + 1
+        if not (target.span_end <= left <= start < end <= alternative.span_start):
+            continue
+        before = source[left:start]
+        after = source[end:alternative.span_start]
+        if (source[start:end] == target.raw_text and alternative.replacement_condition in before
+                and re.search(r'(?:把|将)\s*(?:这次|本次)?\s*$', before)
+                and re.fullmatch(r'\s*(?:的(?:安排|行程|游览))?\s*(?:替换成|替换为|换成|换为)\s*', after)):
+            return True
+    return False
+
+
+def is_implicit_default_reference(source, proposal, segment, quote, *, day_index=None):
+    """A narrow return-to-default sentence adds no named destination."""
+    if not re.fullmatch(r'\s*(?:晴天|否则|不下雨时|没有下雨时|天气好的话)?[，,]?\s*仍(?:然)?(?:按|走)原(?:来|先|定)的?'
+                        r'(?:公园)?(?:计划|安排|路线)(?:走|进行)?[。；;\s]*', segment['text']):
+        return False
+    previous = max((m for m in proposal.mentions if not m.parent_mention_id and m.span_end <= segment['start']),
+                   key=lambda m: m.span_end, default=None)
+    if previous is None or previous.replaces_mention_id is None:
+        return False
+    target = next((m for m in proposal.mentions if m.mention_id == previous.replaces_mention_id), None)
+    between = source[previous.span_end:segment['start']]
+    return (target is not None and (target.raw_text == quote or bool(re.fullmatch(
+                r'原(?:来|先|定)的?(?:公园)?(?:计划|安排|路线)', quote)))
+            and (day_index is None or target.day_index == day_index)
+            and not re.search(r'[。\n]', between))
+
+
 def bind_conditional_replacements(source, draft, mentions):
     """Never promote roles, guess a target, or let one invalid row erase others."""
     from app.trip_understanding.experience_inference import SourceAnchorIndex
@@ -47,7 +83,8 @@ def bind_conditional_replacements(source, draft, mentions):
                 or not alternative.atomic_place_name or alternative.parent_mention_id or target.day_index != alternative.day_index
                 or target.day_index is None or target.mention_id == alternative.mention_id
                 or target.choice_group_id or alternative.choice_group_id
-                or not left <= target.span_start < target.span_end <= alternative.span_start < alternative.span_end <= right):
+                or not target.span_end <= alternative.span_start
+                or not left <= alternative.span_start < alternative.span_end <= right):
                 raise ValueError("incompatible visits")
             evidence = source[left:right]
             if evidence.count(row.condition_quote) != 1 or not re.match(r"^(?:如果|假如|要是|若).+", row.condition_quote):
@@ -75,9 +112,14 @@ def bind_conditional_replacements(source, draft, mentions):
             # With intervening visits, the condition must name the target again.
             condition_text = source[condition_start:clause_right]
             target_name, alternative_name = re.escape(target.atomic_place_name), re.escape(alternative.atomic_place_name or "")
-            explicit_target = bool(re.search(r"(?:把|将)\s*" + target_name
-                + r"\s*(?:替换成|替换为|换成|换为)\s*" + alternative_name, condition_text)
+            explicit_target = bool(re.search(r"(?:把|将)\s*(?:这次|本次)?\s*" + target_name
+                + r"\s*(?:的(?:安排|行程|游览))?\s*(?:替换成|替换为|换成|换为)\s*" + alternative_name, condition_text)
                 or re.search(r"(?:用|以)\s*" + alternative_name + r"\s*(?:替换|替代)\s*" + target_name, condition_text))
+            # The evidence may quote just the replacement sentence. Its
+            # explicit operator must then name the already anchored default;
+            # implicit references still require evidence covering that visit.
+            if target.span_start < left and not explicit_target:
+                raise ValueError("default outside implicit evidence")
             before = source[condition_start:alternative.span_start]
             after = source[alternative.span_end:clause_right]
             implicit_operator = bool(re.search(r"(?:改去|改成|改为|换成|换为)\s*$", before)

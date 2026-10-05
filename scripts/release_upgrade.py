@@ -46,11 +46,11 @@ def has_live_model_call(bindings: list, expected_model: str) -> bool:
     for binding in bindings:
         if not isinstance(binding, dict) or binding.get("model") != expected_model:
             continue
-        count, calls = binding.get("external_calls"), binding.get("calls")
+        count, calls = binding.get("external_calls"), binding.get("transport_calls", binding.get("calls"))
         if type(count) is not int or count <= 0 or not isinstance(calls, list) or len(calls) != count:
             continue
-        if any(isinstance(call, dict) and isinstance(call.get("reported_model"), str)
-               and call["reported_model"].strip() for call in calls):
+        if any(isinstance(call, dict) and call.get("reported_model") == expected_model
+               and call.get("requested_model", expected_model) == expected_model for call in calls):
             return True
     return False
 
@@ -551,15 +551,17 @@ process.exit(result.status===null?1:result.status);"""
         values.update(AUTO_MIGRATE="false", REQUIRE_SCHEMA_CHECK="true", CHECKPOINT_BOOTSTRAP_ON_START="false",
                       EXPERIENCE_WORKERS_ENABLED="true", RUNTIME_PROFILE="public", DEMO_MODE="false",
                       AMAP_MOCK="false", TRIP_UNDERSTANDING_PROVIDER_MODE="live",
-                      TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS=str(self.args.model_deadline_seconds),
-                      TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS=str(self.args.model_max_output_tokens))
-        if values.get('KIMI_FOR_CODE'):
-            values.update(KIMI_PARSE_DEADLINE_SECONDS=str(self.args.model_deadline_seconds),
-                          KIMI_PARSE_MAX_OUTPUT_TOKENS=str(self.args.model_max_output_tokens))
+                      TRIP_SEMANTIC_DEADLINE_SECONDS=str(self.args.model_deadline_seconds),
+                      TRIP_SEMANTIC_MAX_OUTPUT_TOKENS=str(self.args.model_max_output_tokens))
         if not live:
             values["TRIP_UNDERSTANDING_COOKIE_NAME"] = "bt_upgrade_preview"
             values["CORS_ORIGIN_REGEX"] = rf"^http://127\.0\.0\.1:{self.ports['web']}$"
-        required = ("KIMI_FOR_CODE" if values.get('KIMI_FOR_CODE') else "QWEN_API_KEY", "AMAP_API_KEY", "JWT_SECRET_KEY", "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY", "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY")
+        reference = values.get("TRIP_SEMANTIC_CREDENTIAL_REF", "")
+        explicit = ("TRIP_SEMANTIC_PROVIDER", "TRIP_SEMANTIC_BASE_URL", "TRIP_SEMANTIC_MODEL",
+                    "TRIP_SEMANTIC_REASONING_EFFORT", "TRIP_SEMANTIC_OUTPUT_MODE", "TRIP_SEMANTIC_LEGACY_CONFIG")
+        if reference not in {"kimi_for_code", "qwen_api_key", "trip_semantic_api_key"} or any(not values.get(key) for key in explicit):
+            raise UpgradeError("Release requires explicit itinerary and legacy model configuration")
+        required = (reference.upper(), "AMAP_API_KEY", "JWT_SECRET_KEY", "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY", "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY")
         if any(not values.get(key) for key in required):
             raise UpgradeError("Real preview/live configuration requires existing provider and identity keys")
         self.private_env(self.target / "private-api.env", values)
@@ -573,10 +575,13 @@ process.exit(result.status===null?1:result.status);"""
         if not path.is_file() or path.is_symlink() or path.parent != Path(str(self.target)+'-input'):
             raise UpgradeError('Provider configuration must be a private file in this release input directory')
         values=json.loads(path.read_text())
-        if set(values) != {'KIMI_FOR_CODE','KIMI_API_URL','KIMI_MODEL'} or not all(isinstance(value,str) and value for value in values.values()):
+        allowed = {'KIMI_FOR_CODE', 'QWEN_API_KEY', 'TRIP_SEMANTIC_API_KEY',
+            'TRIP_SEMANTIC_PROVIDER', 'TRIP_SEMANTIC_BASE_URL', 'TRIP_SEMANTIC_MODEL',
+            'TRIP_SEMANTIC_CREDENTIAL_REF', 'TRIP_SEMANTIC_REASONING_EFFORT', 'TRIP_SEMANTIC_OUTPUT_MODE',
+            'TRIP_SEMANTIC_DEADLINE_SECONDS', 'TRIP_SEMANTIC_MAX_OUTPUT_TOKENS',
+            'TRIP_SEMANTIC_MAX_CALLS', 'TRIP_SEMANTIC_TOTAL_SECONDS', 'TRIP_SEMANTIC_LEGACY_CONFIG'}
+        if not isinstance(values, dict) or not set(values) <= allowed or not all(isinstance(value,str) and value for value in values.values()):
             raise UpgradeError('Provider configuration contains unsupported fields')
-        if values['KIMI_API_URL']!='https://api.kimi.com/coding/v1' or values['KIMI_MODEL']!='kimi-for-coding':
-            raise UpgradeError('Unsupported Kimi Code endpoint or model')
         return values
 
     def migrate(self) -> None:
@@ -737,7 +742,7 @@ process.exit(result.status===null?1:result.status);"""
             WHERE u.public_resource_id='{resource}'),'{{}}'::json)"""))
         bindings = report.pop("model_bindings", [])
         provider={**self.environment,**self.provider_configuration()}
-        expected_model=provider.get('KIMI_MODEL','kimi-for-coding') if provider.get('KIMI_FOR_CODE') else provider.get('TRIP_UNDERSTANDING_QWEN_MODEL','')
+        expected_model=provider.get('TRIP_SEMANTIC_MODEL','')
         real_model = isinstance(bindings, list) and has_live_model_call(bindings, expected_model)
         if set(report) != {"new_in_preview", "saved", "complete", "edited"} or not all(v is True for v in report.values()) or not real_model:
             raise UpgradeError("Preview trip has not completed real model generation, complete readback, account save and a persisted edit")

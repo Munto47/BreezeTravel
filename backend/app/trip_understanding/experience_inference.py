@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from openai import APIError
-from app.llm import AsyncOpenAI
+from openai import AsyncOpenAI
 from pydantic import Field, ValidationError, field_validator
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
@@ -69,7 +69,9 @@ class SemanticActivity(ActivityTiming):
     # Typed live wire, but local row validation must preserve valid siblings.
     source_details: list[Any] = Field(default_factory=list, max_length=MAX_TRIP_ACTIVITIES,
         json_schema_extra={"items": inline_details_schema()},
-        description="只属于本次父地点访问的原文内部参观/游乐体验、入口、出口及只看外观/取物用途，按执行顺序列出。"
+        description="只列原文明示具名的内部地点、游乐项目或演出，以及入口、出口及只看外观/取物用途，按执行顺序列出。"
+        "有独立名称的湖泊、桥廊等自然或人文景观也保留，即使动作只是看、沿其散步；"
+        "无专名的花草水鸟、建筑风貌、展览主题、山顶等方位、散步拍照说明不生成VISIT；没有具名项目时填[]。"
         "每项evidence逐字引用包含该父访问及动作的唯一原文，location的source_quote在evidence内唯一；"
         "不填父索引，不把内部项目另列独立主站。optional只表示该内部项目自身可选，不继承父备选；无详情填[]。")
     day_index: int | None = Field(default=None, ge=1, le=14)
@@ -88,6 +90,13 @@ class SemanticActivity(ActivityTiming):
     time_evidence: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=40)
     city_evidence: str | None = Field(default=None, max_length=500)
+
+    @field_validator('lodging_excluded_nights', mode='before')
+    @classmethod
+    def empty_lodging_exclusions(cls, value):
+        # This optional list has the same meaning when omitted or null. Keep
+        # every nonempty value subject to the existing night/evidence checks.
+        return [] if value is None else value
 
 
 class SemanticDraft(StrictModel):
@@ -1340,9 +1349,13 @@ def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActiv
         header = BASIC_CITY_HEADER_RE.match(source)
         first_day = re.search(r"第[^。\n]{1,5}天|(?:Day|D)\s*\d+|\d{1,2}月\d{1,2}日", source, re.I)
         document_evidence = bool(first_day and right <= first_day.start())
+        first_place = min((begin for begin, _finish in place_spans), default=len(source))
+        trip_title_evidence = (right <= first_place and bool(re.search(
+            re.escape(city) + r'(?:市)?[^。！？!?\n]{0,30}(?:[一二两三四五六七八九十\d]+(?:日游|天)|旅游攻略|旅行攻略|旅游路线|亲子游)',
+            visible)))
         header_evidence = bool(header and header.group("city").removesuffix("市") == city
             and left <= header.start("city") < header.start("city") + len(city) <= right)
-        if ((document_evidence or header_evidence)
+        if ((document_evidence or header_evidence or trip_title_evidence)
             and not any(city_offsets(name, 0, len(source)) for name in DOMESTIC_CITY_NAMES if name != city)):
             # A source-bound, single-city preamble scopes all days regardless
             # of its wording. Local day headings cannot borrow this scope.
@@ -1628,8 +1641,19 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
     # numbered body heading can ground details without moving or duplicating it.
     named = [mention for mention in roots if mention.day_index == day
         and mention.atomic_place_name == normalized_place_label(item.parent_source_quote or "")]
+    numbered_section = False
     if len(named) == 1:
+        from app.trip_understanding.source_visit_sections import numbered_visit_anchor, narrative_visit_anchor
+
         candidate = named[0]
+        section_anchor = numbered_visit_anchor(source, candidate, preceding, start)
+        if section_anchor:
+            parent = candidate.model_copy(update={"span_start": section_anchor[0], "span_end": section_anchor[1]})
+            numbered_section = True
+        else:
+            narrative_anchor = narrative_visit_anchor(source, candidate, preceding, start)
+            if narrative_anchor:
+                parent = candidate.model_copy(update={"span_start": narrative_anchor[0], "span_end": narrative_anchor[1]})
         title_left = source.rfind("\n", 0, candidate.span_start) + 1
         title = source[title_left:candidate.span_start]
         heading = re.search(label_pattern, title, re.I)
@@ -1703,14 +1727,14 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
     # A walking verb inside an explicit local internal route does not leave
     # the parent. Retain all other travel, exit and external-location guards.
     scope_gap = re.sub(r"((?:^|[，,：:])\s*(?:园|馆|寺|院|区)(?:内|里|中)[^。；;\n]{0,120})走到", r"\1", gap)
-    if (len(gap) > 500 or re.search(label_pattern, gap, re.I) or re.search(r"\n[ \t]*\n", gap)
-        or gap.count("\n") > 1
+    if (len(gap) > 500 or re.search(label_pattern, gap, re.I)
+        or not numbered_section and (re.search(r"\n[ \t]*\n", gap) or gap.count("\n") > 1)
         or re.search(r"前往|走到|步行到|离开|出园|出馆|(?:之后|随后|然后|接着)去", scope_gap)
         or re.search(r"(?:乘车|乘坐|搭乘|坐车|驾车|打车|骑行|地铁|公交)[^，,。；;\n]{0,20}(?:去|到|抵达)", gap)
         or re.search(r"附近|周边|隔壁|对面", gap)
         or scope_gap != gap and re.search(r"(?:园|馆|校|区)外|外面", gap)):
         return None
-    if "\n" in gap:
+    if "\n" in gap and not numbered_section:
         body = gap.rsplit("\n", 1)[1]
         if re.match(r"[ \t]*(?:#{1,6}\s+|(?:其他|全程|全篇|参考|说明|总结|补充)[^\n:：]{0,12}[:：]|"
                     r"(?:方案|版本)[ \t]*[A-Za-zＡ-Ｚａ-ｚ一二三123][ \t]*[:：])", body):
@@ -1725,7 +1749,34 @@ def _validated_internal_parent(source: str, anchors: SourceAnchorIndex, item: Se
         return None
     relation_text = source[max(parent.span_start, parent.span_end - 1):start]
     internal_scope = re.search(r"(?:园|馆|寺|院|区|镇|城|府)(?:内|里|中)|内部|(?:重点|必看|必逛|必玩)(?:参观|游览|看)?\s*[:：]", relation_text)
+    if numbered_section and re.search(r"(?m)^[ \t]*(?:必打卡景点|园内路线|馆内路线|必看景点)[：:\s]*$", gap):
+        internal_scope = True
     local_visit = re.search(r"(?:参观|游览|游玩|打卡|登上|登|上|逛|看)[^。；;\n]{0,35}$", before)
+    # A parent's parenthetical itinerary can name the location before its
+    # action ("青溪公园（翠玉湖划船）"). Check the whole enclosure and
+    # affirmative action, not just the text preceding the child's name.
+    if not local_visit:
+        enclosure = re.match(r"[ \t]*[（(](?P<body>[^（）()\n。；;]+)[）)]", source[parent.span_end:])
+        if enclosure and parent.span_end + enclosure.start('body') <= start < end <= parent.span_end + enclosure.end('body'):
+            action = re.match(r"[ \t]*(?:划船|泛舟|散步|漫步|拍照|游览|参观|游玩)(?=$|[，,、。；;）)\s]|看|然后|再)",
+                              source[end:parent.span_end + enclosure.end()])
+            prefix = source[parent.span_end + enclosure.start('body'):start]
+            if action and not re.search(r"不|没|未|取消|避免|无需|不用|介绍|说明|推荐|背景|例如|比如|曾经|过去", prefix):
+                local_visit = True
+    # Natural guide prose can put the action after a parenthesized route:
+    # “沿中轴线（甲殿、乙殿）游览”. Each model-supplied named member
+    # still needs this exact parent's local scope and source evidence.
+    if not local_visit:
+        clause_start = max(source.rfind(mark, parent.span_end, start) for mark in "\n，,。；;") + 1
+        clause_end = min((p for mark in "\n，,。；;" if (p := source.find(mark, end)) >= 0), default=len(source))
+        for route in re.finditer(r"沿[^（）()\n，,。；;]{1,20}[（(](?P<members>[^（）()\n，,。；;]+)[）)](?:逐一)?(?:游览|参观|游玩)",
+                                 source[max(parent.span_end, clause_start):clause_end]):
+            base = max(parent.span_end, clause_start)
+            denied = re.search(r"不(?:再|会|打算|准备)?|无需|不用|避免|取消|并非|不是",
+                               source[max(base, base + route.start() - 8):base + route.start()])
+            if not denied and base + route.start('members') <= start < end <= base + route.end('members'):
+                local_visit = True
+                break
     if not internal_scope and not local_visit and not inferred_parent and not _is_parent_visit_detail(
             source, item.place_name, start, end, day, preceding):
         return None
@@ -2537,8 +2588,11 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
     """Known nouns are coverage questions, never automatic planned visits."""
     covered = [(mention.span_start, mention.span_end) for mention in proposal.mentions]
     from app.trip_understanding.source_inventory import inventory_covers
+    from app.trip_understanding.conditional_replacement import is_replacement_reference
+    from app.trip_understanding.source_visit_sections import is_section_reference
 
     reviewed_references = set()
+    roots = [m for m in proposal.mentions if not m.parent_mention_id]
     inventory_covers(source, proposal, proposal.binding.get('_source_inventory'),
                      covered_references=reviewed_references)
     covered.extend(reviewed_references)
@@ -2553,6 +2607,8 @@ def _with_coverage_diagnostics(source: str, draft: SemanticDraft, proposal: Sour
     diagnostics = [SemanticDiagnostic(category="KNOWN_PLACE_UNCLASSIFIED", field="source.coverage",
         span_start=hint["span_start"], span_end=hint["span_end"])
         for hint in hints if not explicit_reference_context(source, hint["span_start"], hint["span_end"])
+        and not is_replacement_reference(source, proposal, hint['span_start'], hint['span_end'])
+        and not any(is_section_reference(source, root, roots, (hint['span_start'], hint['span_end'])) for root in roots)
         and not any(left <= hint["span_start"] < hint["span_end"] <= right
                                      for left, right in covered)]
     if not diagnostics:
@@ -2693,6 +2749,7 @@ class ExperienceQwenProvider:
         input_cny_per_million: float | None = None,
         output_cny_per_million: float | None = None,
         client: Any | None = None,
+        execution_config=None,
         enable_day_sections: bool = True,
         enable_role_evidence: bool = False,
         enable_source_visits: bool = False,
@@ -2705,7 +2762,12 @@ class ExperienceQwenProvider:
         if deadline_seconds <= 0 or max_output_tokens < 256:
             raise ValueError("Invalid inference budget")
         self.model = model
-        self.provider_name = "KIMI_CODE" if model.startswith("kimi-") else "QWEN"
+        from app.trip_understanding.model_adapter import ExecutionConfig, SemanticModelAdapter
+        config = execution_config or ExecutionConfig(provider="QWEN", base_url=base_url, model=model,
+            credential_ref="qwen_api_key", reasoning_effort="none", deadline_seconds=deadline_seconds,
+            max_output_tokens=max_output_tokens)
+        self.adapter = SemanticModelAdapter(config)
+        self.provider_name = config.provider
         self.enable_day_sections = enable_day_sections
         # Live workers and live measurements enable the bounded supplement.
         # Historical raw replays may only contain the original answer pair.
@@ -2752,6 +2814,10 @@ class ExperienceQwenProvider:
         )
         self._slots = asyncio.Semaphore(1)
 
+    async def complete(self, *, messages, response_format, max_tokens):
+        return await self.adapter.complete(self.client, messages=messages,
+            response_format=response_format, max_tokens=max_tokens)
+
     def _read_draft(self, source: str, payload: object) -> SemanticDraft:
         if isinstance(payload, str):
             try:
@@ -2776,6 +2842,19 @@ class ExperienceQwenProvider:
         return self._read_draft(source, payload)
 
     async def propose(self, source_text: str) -> SourceSemanticPlan:
+        from app.trip_understanding.model_adapter import usage_summary
+        start = len(self.adapter.calls)
+        try:
+            result = await self._propose_serialized(source_text)
+        except InferenceProviderUnavailableError as exc:
+            calls = self.adapter.calls[start:]
+            exc.provider_binding.update(usage_summary(calls), execution_config=self.adapter.config.model_dump(), transport_calls=calls)
+            raise
+        calls = self.adapter.calls[start:]
+        return result.model_copy(update={"binding": {**result.binding, **usage_summary(calls),
+            "execution_config": self.adapter.config.model_dump(), "transport_calls": calls}})
+
+    async def _propose_serialized(self, source_text: str) -> SourceSemanticPlan:
         # The deadline measures a Provider run, excluding queue backpressure.
         async with self._slots:
             if self.enable_day_sections and len(source_text) >= 900 and 2 <= _explicit_day_count(source_text) <= 14:
@@ -2809,7 +2888,7 @@ class ExperienceQwenProvider:
                 [{"name": item["name"], "start": item["span_start"], "end": item["span_end"]} for item in source_places],
                 ensure_ascii=False)) if source_places else ""
         messages = [
-            {"role": "system", "content": self.prompt + place_context + "\n" + task_instruction + "\nJSON Schema:\n" + json.dumps(self.schema, ensure_ascii=False)},
+            {"role": "system", "content": self.prompt + place_context + "\n" + task_instruction},
             {"role": "user", "content": source_text},
         ]
         failure = "INVALID_STRUCTURED_OUTPUT"
@@ -2836,16 +2915,15 @@ class ExperienceQwenProvider:
                     calls.append(call)
                     call_started = time.perf_counter()
                     try:
-                        response = await self.client.chat.completions.create(
-                            model=self.model, messages=messages, temperature=SEMANTIC_TEMPERATURE,
+                        response = await self.complete(
+                            messages=messages,
                             max_tokens=self.max_output_tokens,
-                            # First extraction and its bounded repair use the
-                            # same server-enforced contract. Unsupported schema
-                            # requests fail through APIError; never downgrade.
+                            # The adapter supplies this contract through the
+                            # selected native-schema or JSON mode. Every reply
+                            # still passes the same local business validation.
                             response_format={"type": "json_schema", "json_schema": {
                                 "name": "BreezeTravelSemanticDraft", "strict": True, "schema": self.schema,
                             }},
-                            extra_body={"enable_thinking": False},
                         )
                     finally:
                         call["latency_ms"] = round((time.perf_counter() - call_started) * 1000, 2)
@@ -3096,6 +3174,9 @@ class ExperienceQwenProvider:
 
             try:
                 proposal = apply_inline_source_details(source_text, final_draft, proposal)
+                from app.trip_understanding.detail_review import apply_detail_reviews
+
+                proposal = apply_detail_reviews(source_text, proposal)
             except InferenceProviderUnavailableError as exc:
                 if str(exc) != INPUT_CAPACITY_EXCEEDED:
                     raise
@@ -3145,7 +3226,6 @@ class ExperienceQwenProvider:
             "focused_repair_enabled": self.enable_focused_repair,
             "compact_wire_enabled": self.enable_compact_wire,
             "deadline_ms": round(max(0, available_seconds) * 1000), "max_output_tokens": self.max_output_tokens,
-            "temperature": 0.6 if self.provider_name == "KIMI_CODE" else SEMANTIC_TEMPERATURE,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),
             "fallback_used": bool(degraded_timing or grounded_days or semantic_partial_used), "degraded_timing_activities": degraded_timing,
             "semantic_partial_recovery": semantic_partial_used,

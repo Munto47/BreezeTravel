@@ -349,6 +349,17 @@ def apply_source_visit_supplement(
             or source[parent.span_start:parent.span_end] != parent.raw_text):
             reject(index, diagnostic_span)
             continue
+        from app.trip_understanding.semantic_recovery import explicit_reference_context
+
+        if (row.kind == 'VISIT' and len(evidence_spans) == 1
+                and evidence_spans[0][0] <= parent.span_start < parent.span_end <= span[0] < span[1] <= evidence_spans[0][1]
+                and not re.search(r'[。；;\n]', source[parent.span_end:span[0]])
+                and not any(m.mention_id != parent.mention_id and parent.span_end <= m.span_start < span[0] for m in roots)
+                and explicit_reference_context(source, *span) == 'VENUE_ADDRESS_REFERENCE'):
+            # The source explicitly locates the retained venue in a building;
+            # rejecting a proposed child does not mean that address was lost.
+            # Other unsupported details still remain unfinished.
+            continue
         selected = None
         name = source[span[0]:span[1]] if isinstance(row, SourceVisitPurpose) else row.source_quote
         if isinstance(row, SourceVisitLocation):
@@ -356,7 +367,8 @@ def apply_source_visit_supplement(
             if row.kind == "VISIT" and name == parent.atomic_place_name:
                 # Describing this already retained visit again adds no child.
                 # A different occurrence still cannot borrow this parent's ID.
-                if span == (parent.span_start, parent.span_end) and not row.optional:
+                if (span == (parent.span_start, parent.span_end)
+                        and (not row.optional or parent.role == ActivityRole.OPTIONAL)):
                     continue
                 reject(index, diagnostic_span)
                 continue

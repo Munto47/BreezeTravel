@@ -13,7 +13,7 @@ from app.trip_understanding.pipeline import PublicResultProjector, TripUnderstan
 
 
 def source():
-    return "旅行背景：" + "准备充分。" * 190 + "\nDay1：星河公园。\nDay2：月光桥。"
+    return "北京旅行背景：" + "准备充分。" * 190 + "\nDay1：星河公园。\nDay2：月光桥。"
 
 
 class ScopedClient:
@@ -188,7 +188,7 @@ async def test_observed_structure_dispatches_all_fourteen_scopes_without_droppin
 @pytest.mark.asyncio
 async def test_reanchored_day_inputs_keep_previous_tail_and_original_place_spans():
     previous_tail = "返回酒店，为第二天的高强度步行养精蓄锐。"
-    text = "旅行背景：" + "准备充分。" * 190 + "\n第一天：星河公园。" + previous_tail + "\n\n第二天：月光桥。"
+    text = "北京旅行背景：" + "准备充分。" * 190 + "\n第一天：星河公园。" + previous_tail + "\n\n第二天：月光桥。"
 
     class ProseReferenceClient(ScopedClient):
         async def create(self, **kwargs):
@@ -273,7 +273,7 @@ async def test_optional_only_day_survives_pipeline_independently_of_observation_
 
 @pytest.mark.asyncio
 async def test_day_sections_keep_each_city_and_guard_the_source_district():
-    text = "旅行背景：" + "准备充分。" * 190 + "\nDay1：上海浦东新区：星河公园。\nDay2：北京东城区：月光桥。"
+    text = "北京旅行背景：" + "准备充分。" * 190 + "\nDay1：上海浦东新区：星河公园。\nDay2：北京东城区：月光桥。"
 
     class CityClient(ScopedClient):
         async def create(self, **kwargs):

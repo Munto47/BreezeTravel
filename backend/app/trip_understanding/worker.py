@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import os
 import socket
@@ -8,6 +9,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+from app.trip_understanding.model_adapter import execution_config, record_model_calls
 from app.config import Settings, get_settings
 from app.db.connection import close_pool
 from app.trip_understanding.amap_place import AmapPlaceResolver
@@ -43,22 +45,14 @@ class _LeaseTakeoverInferenceProvider:
         )
 
 
-def build_configured_inference_provider(settings: Settings):
-    """One configuration path for production and opt-in measurements."""
+def build_configured_inference_provider(settings: Settings, config=None):
+    """Use explicit itinerary configuration, independent of other model clients."""
+    config = config or execution_config(settings)
+    key = getattr(settings, config.credential_ref, "")
     return ExperienceQwenProvider(
-        api_key=settings.kimi_for_code or settings.qwen_api_key,
-        base_url=settings.kimi_api_url if settings.kimi_for_code else settings.qwen_api_url,
-        model=settings.generative_model(settings.trip_understanding_qwen_model),
-        deadline_seconds=settings.kimi_parse_deadline_seconds if settings.kimi_for_code else settings.trip_understanding_qwen_deadline_seconds,
-        max_output_tokens=settings.kimi_parse_max_output_tokens if settings.kimi_for_code else settings.trip_understanding_qwen_max_output_tokens,
-        enable_source_visits=True,
-        relative_only=True,
-        input_cny_per_million=(
-            None if settings.kimi_for_code else settings.trip_understanding_qwen_input_cny_per_million
-        ),
-        output_cny_per_million=(
-            None if settings.kimi_for_code else settings.trip_understanding_qwen_output_cny_per_million
-        ),
+        api_key=key, base_url=config.base_url, model=config.model,
+        deadline_seconds=config.deadline_seconds, max_output_tokens=config.max_output_tokens,
+        execution_config=config, enable_source_visits=True, relative_only=True,
     )
 
 
@@ -72,7 +66,7 @@ def build_configured_full_pipeline(settings: Settings):
         api_key=settings.amap_api_key,
         deadline_seconds=settings.trip_understanding_amap_place_deadline_seconds,
     )
-    return TripUnderstandingPipeline(
+    pipeline = TripUnderstandingPipeline(
         qwen,
         amap,
         relative_only=True,
@@ -80,6 +74,9 @@ def build_configured_full_pipeline(settings: Settings):
             settings.trip_understanding_amap_place_max_concurrency
         ),
     )
+
+    pipeline.uses_execution_config = True
+    return pipeline
 
 
 class TripUnderstandingWorker:
@@ -99,6 +96,19 @@ class TripUnderstandingWorker:
         self.lease_takeover_pipeline = TripUnderstandingPipeline(
             _LeaseTakeoverInferenceProvider(), getattr(self.full_pipeline, "place_resolver", None),
         )
+
+    async def _execution_pipeline(self, job, now):
+        if not getattr(self.full_pipeline, "uses_execution_config", False):
+            return self.full_pipeline, None
+        try:
+            config, _ = await self.repository.load_execution(job, now=now)
+            provider = build_configured_inference_provider(get_settings(), config)
+        except ValueError as exc:
+            raise InferenceProviderUnavailableError("EXECUTION_CONFIG_UNAVAILABLE",
+                provider_binding={"external_calls": 0}, external_call_count=0) from exc
+        pipeline = copy.copy(self.full_pipeline)
+        pipeline.inference_provider = provider
+        return pipeline, provider
 
     async def _heartbeat(self, job, now_provider) -> None:
         interval_seconds = max(0.01, min(10.0, self.lease_seconds / 3))
@@ -151,8 +161,10 @@ class TripUnderstandingWorker:
         if job.job_type == "SUPPLEMENT":
             await self._run_supplement(job, operation_now)
             return True
+        owned_provider = None
         try:
             async def execute_pipeline():
+                nonlocal owned_provider
                 source = await self.repository.load_source(job, now=observed_at)
                 source_binding = dict(source.internal_binding)
                 collaboration_guard_active = (
@@ -179,10 +191,10 @@ class TripUnderstandingWorker:
                 )
                 if source.source_type == "FIXED_DEMO":
                     pipeline = self.demo_pipeline
-                elif job.attempt > 1 and source.initial_plan is None:
+                elif job.attempt > 1 and source.initial_plan is None and await self.repository.has_dispatched_inference(job):
                     pipeline = self.lease_takeover_pipeline
                 else:
-                    pipeline = self.full_pipeline
+                    pipeline, owned_provider = await self._execution_pipeline(job, operation_now())
 
                 async def persist_progress(update):
                     if source_binding:
@@ -224,7 +236,10 @@ class TripUnderstandingWorker:
                 async def reserve_call():
                     await self.repository.reserve_inference_call(job, now=operation_now())
 
-                with inference_allowance(reserve_call):
+                async def record_call(record):
+                    await self.repository.record_model_call(job, record)
+
+                with inference_allowance(reserve_call), record_model_calls(record_call):
                     return (
                         await pipeline.run(source.text, **pipeline_options),
                         source_binding,
@@ -273,6 +288,9 @@ class TripUnderstandingWorker:
                 now=operation_now(),
             )
             logger.warning("trip understanding job failed safely")
+        finally:
+            if owned_provider is not None:
+                await owned_provider.aclose()
         return True
 
     async def _run_supplement(self, job, operation_now):
@@ -282,16 +300,20 @@ class TripUnderstandingWorker:
         from app.trip_understanding.supplement_provider import BoundedSupplementProvider
 
         usage = {}
+        owned_provider = None
         try:
             async def execute():
-                nonlocal usage
+                nonlocal usage, owned_provider
                 work = await self.repository.load_supplement_work(job, now=operation_now())
-                provider = self.supplement_provider or BoundedSupplementProvider(self.full_pipeline.inference_provider)
+                pipeline, owned_provider = await self._execution_pipeline(job, operation_now())
+                provider = self.supplement_provider or BoundedSupplementProvider(pipeline.inference_provider)
                 async def reserve():
                     await self.repository.reserve_inference_call(job, now=operation_now())
-                with inference_allowance(reserve):
+                async def record_call(record):
+                    await self.repository.record_model_call(job, record)
+                with inference_allowance(reserve), record_model_calls(record_call):
                     rows, usage = await provider.propose(work)
-                    patch = await build_supplement_patch(work.source, work.plan, work.result, rows, self.full_pipeline)
+                    patch = await build_supplement_patch(work.source, work.plan, work.result, rows, pipeline)
                 return work, patch
             work, patch = await self._run_with_heartbeat(job, execute(), operation_now)
             await self.repository.complete_supplement_job(job, work, patch, now=operation_now(), provider_binding=usage)
@@ -310,6 +332,9 @@ class TripUnderstandingWorker:
                 category, usage = exc.category, exc.provider_binding
             await self.repository.fail_supplement_job(job, category=category, now=operation_now(), provider_binding=usage)
             logger.warning("supplement did not complete; saved trip preserved")
+        finally:
+            if owned_provider is not None:
+                await owned_provider.aclose()
 
 
 async def run_forever() -> None:

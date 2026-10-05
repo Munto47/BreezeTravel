@@ -4,8 +4,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from app.trip_understanding import amap_place
-from app.trip_understanding._three_city_place_lexicon import PlaceLexiconEntry, ThreeCityPlaceLexicon
+from app.trip_understanding import amap_place, ranked_places
+from app.trip_understanding.city_knowledge import CityEntity, CityKnowledge
 
 
 def _tier(query: str, name: str, *, aliases: tuple[str, ...] = (), provider_alias: str = ""):
@@ -43,15 +43,17 @@ def test_existing_explicit_provider_alias_still_matches():
     assert _tier("紫禁城", "故宫博物院", provider_alias="紫禁城") == "SAFE_ALIAS_EXACT"
 
 
-def _entry(*, aliases: tuple[str, ...] = ()) -> PlaceLexiconEntry:
-    return PlaceLexiconEntry(
-        entry_id="synthetic-star-museum", city="北京", canonical_name="星河博物馆",
-        aliases=aliases, category="attraction", district="东城区", sources=(), verified_at="2026-09-06",
+def _entry(*, aliases: tuple[str, ...] = ()) -> CityEntity:
+    return CityEntity(
+        entity_id="synthetic-star-museum", city="北京", canonical_name="星河博物馆", kind='poi',
+        aliases=aliases, category="attraction", district="东城区", sources=(), review_status='name_verified',
     )
 
 
 async def _resolve(monkeypatch, *, query: str, name: str, entries=()):
-    monkeypatch.setattr(amap_place, "get_three_city_place_lexicon", lambda: ThreeCityPlaceLexicon(entries=entries))
+    knowledge = CityKnowledge(entities=tuple(entries))
+    monkeypatch.setattr(amap_place, "get_city_knowledge", lambda: knowledge)
+    monkeypatch.setattr(ranked_places, "get_city_knowledge", lambda: knowledge)
     requests = []
 
     async def reply(request):

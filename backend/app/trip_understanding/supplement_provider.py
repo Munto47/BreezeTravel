@@ -48,8 +48,8 @@ class BoundedSupplementProvider:
         binding["external_calls"] = 1
         try:
             async with asyncio.timeout(provider.deadline_seconds):
-                response = await provider.client.chat.completions.create(model=provider.model, temperature=0,
-                    max_tokens=provider.max_output_tokens, extra_body={"enable_thinking": False},
+                response = await provider.complete(
+                    max_tokens=provider.max_output_tokens,
                     response_format={"type": "json_schema", "json_schema": {"name": "BreezeTravelBoundedSupplement", "strict": True, "schema": schema}},
                     messages=[{"role": "system", "content": PROMPT}, {"role": "user", "content": json.dumps(context, ensure_ascii=False)}])
             usage = getattr(response, "usage", None)

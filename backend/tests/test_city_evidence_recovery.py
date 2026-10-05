@@ -72,7 +72,7 @@ async def test_independent_invalid_city_quote_gets_one_bounded_repair():
 
 @pytest.mark.asyncio
 async def test_repair_timeout_keeps_original_safe_names_and_city_warning():
-    first = {"destination": "北京", "activities": [row("故宫博物院")]}
+    first = {"destination": "北京", "activities": [row("故宫博物院", city="上海", evidence="上海城市核心")]}
     output, places = await run("北京一日游。\nDay1｜城市核心：故宫博物院。", first, TimeoutError())
     assert places.calls == []
     assert [card.name for card in output.public_result.days[0].activities] == ["故宫博物院"]
@@ -186,9 +186,10 @@ async def test_filtered_missing_name_row_keeps_time_repair_on_its_original_occur
 @pytest.mark.parametrize("other_defect", ["missing_name", "invalid_time"])
 async def test_a_still_invalid_second_answer_cannot_supply_a_city_repair(other_defect):
     source = "北京一日游。\nDay1：故宫博物院，景山公园。"
-    first = {"destination": "北京", "activities": [row("故宫博物院"), row("景山公园", evidence="北京一日游")]}
+    first = {"destination": "北京", "activities": [row("故宫博物院", city="上海", evidence="上海城市核心"), row("景山公园", evidence="北京一日游")]}
     second = copy.deepcopy(first)
     second["activities"][0]["city_evidence"] = "北京一日游"
+    second["activities"][0]["city"] = "北京"
     if other_defect == "missing_name":
         second["activities"][1].pop("place_name")
     else:
@@ -196,7 +197,7 @@ async def test_a_still_invalid_second_answer_cannot_supply_a_city_repair(other_d
     output, places = await run(source, first, second)
     assert places.calls == [("北京", "景山公园")]
     assert output.proposal.mentions[0].city_hint is None
-    assert output.proposal.mentions[0].city_evidence == "城市核心"
+    assert output.proposal.mentions[0].city_evidence == first["activities"][0]["city_evidence"]
     assert output.public_result.coverage.complete is False
     assert any(issue.category == "UNSUPPORTED_CITY_REMOVED" for issue in output.proposal.diagnostics)
 

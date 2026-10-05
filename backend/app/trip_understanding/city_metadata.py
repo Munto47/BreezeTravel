@@ -86,19 +86,30 @@ def apply_city_metadata(source: str, draft: SemanticDraft, proposal: SourceSeman
         # An explicit (null, null) clears only fields previously rejected.
         if bool(patch.city) != bool(patch.city_evidence):
             continue
-        rows = list(current_draft.activities)
-        rows[patch.index] = rows[patch.index].model_copy(update={"city": patch.city, "city_evidence": patch.city_evidence})
-        candidate = current_draft.model_copy(update={"activities": rows})
-        try:
-            checked = _proposal_from_live_draft(source, candidate, allow_partial=True)
-        except ValueError:
-            continue
-        if (not _same_visit_facts(current_plan, checked) or any(
-                issue.category == "UNSUPPORTED_CITY_REMOVED" and issue.field == f"activities[{patch.index}].city"
-                for issue in checked.diagnostics)):
-            continue
-        current_draft, current_plan = candidate, checked
-        accepted += 1
+        evidences = [patch.city_evidence]
+        item = current_draft.activities[patch.index]
+        # A city correction can quote a POI or a day label that has no city,
+        # despite an explicit document preamble. Validate that preamble as an
+        # alternate anchor for the same asserted city. The existing validator
+        # still rejects mixed-city scope, origin cities and names inside POIs.
+        first_day = re.search(r'(?m)^[ \t#*_]*(?:第\s*[一二两三四五六七八九十\d]+\s*天|(?:Day|D)\s*\d+)', source, re.I)
+        if patch.city and first_day is not None and 0 < first_day.start() <= 500:
+            evidences.append(source[:first_day.start()].strip())
+        for evidence in evidences:
+            rows = list(current_draft.activities)
+            rows[patch.index] = item.model_copy(update={"city": patch.city, "city_evidence": evidence})
+            candidate = current_draft.model_copy(update={"activities": rows})
+            try:
+                checked = _proposal_from_live_draft(source, candidate, allow_partial=True)
+            except ValueError:
+                continue
+            if (not _same_visit_facts(current_plan, checked) or any(
+                    issue.category == "UNSUPPORTED_CITY_REMOVED" and issue.field == f"activities[{patch.index}].city"
+                    for issue in checked.diagnostics)):
+                continue
+            current_draft, current_plan = candidate, checked
+            accepted += 1
+            break
     return current_draft, current_plan, accepted
 
 
@@ -117,9 +128,10 @@ async def repair_city_metadata(provider: ExperienceQwenProvider, source: str, dr
     calls.append(call)
     started = time.perf_counter()
     try:
-        response = await provider.client.chat.completions.create(
-            model=provider.model, temperature=0, max_tokens=min(provider.max_output_tokens, 4096),
-            response_format={"type": "json_object"}, extra_body={"enable_thinking": False},
+        response = await provider.complete(
+            max_tokens=min(provider.max_output_tokens, 4096),
+            response_format={"type": "json_schema", "json_schema": {
+                "name": "BreezeTravelCityMetadata", "strict": True, "schema": CityMetadataResponse.model_json_schema()}},
             messages=[{"role": "system", "content": CITY_METADATA_PROMPT},
                       {"role": "user", "content": json.dumps({"source": source, "activities": inputs}, ensure_ascii=False)}],
         )

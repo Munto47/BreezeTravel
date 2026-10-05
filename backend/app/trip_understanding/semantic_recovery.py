@@ -14,6 +14,34 @@ if TYPE_CHECKING:
     from app.trip_understanding.models import InferenceProposal
 
 
+def _ticket_reference_table(source: str, start: int, end: int) -> bool:
+    """A contiguous, explicitly labelled ticket table is not another visit.
+
+    Every preceding row and the whole current row must contain only ticket
+    metadata. A new heading, narrative, condition or visit ends this scope.
+    This does not waive a separate occurrence of the same name in a route.
+    """
+    line_start = source.rfind('\n', 0, start) + 1
+    line_end = source.find('\n', end)
+    line_end = len(source) if line_end < 0 else line_end
+    headings = list(re.finditer(r'(?m)^[ \t]*(?:景点)?(?:预约信息|门票信息|门票及预约信息|门票预约信息)[ \t]*[:：]?[ \t]*$', source[:line_start]))
+    if not headings:
+        return False
+    body = source[headings[-1].end():line_end].strip('\r\n')
+    clock = r'\d{1,2}[:：]\d{2}'
+    clause = (r'(?:免费|无需预约|免预约|需预约|需要预约|需提前预约|提前[一二两三四五六七八九十\d]+天预约|'
+              r'(?:门票|联票|票价|成人票|儿童票|学生票)?\s*\d+(?:\.\d+)?元(?:起|/人)?|'
+              r'全天开放|' + clock + r'放票|' + clock + r'\s*[-—至]\s*' + clock + r'(?:开放)?)')
+    for line in body.splitlines():
+        match = re.fullmatch(r'\s*[^：:，,。；;！？!?\n]{1,40}[：:]\s*(' + clause + r'(?:[，,、]\s*' + clause + r')*)[。.]?\s*', line)
+        if match is None:
+            return False
+    # Match the name column, never a word that happened to occur in metadata.
+    colon = re.search(r'[:：]', source[line_start:line_end])
+    return bool(body and colon and not source[line_start:start].strip()
+                and not source[end:line_start + colon.start()].strip())
+
+
 def explicit_reference_context(source: str, start: int, end: int) -> str | None:
     """Identify narrow non-visit uses of a known noun, without assigning visits.
 
@@ -25,6 +53,13 @@ def explicit_reference_context(source: str, start: int, end: int) -> str | None:
     before = source[left:start].replace("**", "").strip()
     after = source[end:right].replace("**", "").strip()
     sentence = before + source[start:end] + after
+    if _ticket_reference_table(source, start, end):
+        return 'TICKET_METADATA_REFERENCE'
+    address_suffix = r'(?:(?:里|内)?的(?:这一个|这个|这一家|这家|这一)?|(?:这一个|这个|这一家|这家|这一))(?:馆|分馆|店)'
+    if (re.search(r'(?:选(?:的是)?|位于|地址[：:为])[^，,。；;]{0,20}$', before)
+            and (re.match(address_suffix + r'(?:[，,。；;]|$)', after)
+                 or re.search(address_suffix + r'$', source[start:end]) and re.match(r'(?:[，,。；;]|$)', after))):
+        return 'VENUE_ADDRESS_REFERENCE'
     # Local grammar must describe the noun, not introduce the next visit.
     if (re.search(r"(?:俯瞰|眺望|远眺|遥望)\s*$", before)
             and re.match(r"(?:的)?全景(?:[，,]|$)", after)

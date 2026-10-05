@@ -101,8 +101,7 @@ def aggregate_binding(provider, bindings: list[dict], started: float, **extra) -
         "external_calls": len(calls), "repair_call_count": sum(binding.get("repair_call_count", 0) for binding in bindings),
         "input_tokens": inputs, "output_tokens": outputs, "estimated_cost_cny": cost, "calls": calls,
         "latency_ms": round((time.perf_counter() - started) * 1000, 2),
-        "deadline_ms": round(provider.deadline_seconds * 1000), "max_output_tokens": provider.max_output_tokens,
-        "temperature": 0.6 if getattr(provider, 'provider_name', '') == 'KIMI_CODE' else 0, **extra}
+        "deadline_ms": round(provider.deadline_seconds * 1000), "max_output_tokens": provider.max_output_tokens, **extra}
 
 
 async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> SourceSemanticPlan:
@@ -116,10 +115,11 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
     sections = []
     try:
         async with asyncio.timeout(min(12, provider.deadline_seconds / 3)):
-            response = await provider.client.chat.completions.create(model=provider.model,
-                messages=[{"role": "system", "content": STRUCTURE_PROMPT + "\n" + json.dumps(DayStructure.model_json_schema(), ensure_ascii=False)},
+            response = await provider.complete(
+                messages=[{"role": "system", "content": STRUCTURE_PROMPT},
                           {"role": "user", "content": source}],
-                temperature=0, max_tokens=1024, response_format={"type": "json_object"}, extra_body={"enable_thinking": False})
+                max_tokens=1024, response_format={"type": "json_schema", "json_schema": {
+                    "name": "BreezeTravelDayStructure", "strict": True, "schema": DayStructure.model_json_schema()}})
         usage = getattr(response, "usage", None)
         plan_call.update(input_tokens=getattr(usage, "prompt_tokens", None), output_tokens=getattr(usage, "completion_tokens", None))
         content = response.choices[0].message.content or ""

@@ -13,13 +13,9 @@ import httpx
 
 from app.constraints.amap_types import (
     classify_amap_type_signals,
-    typecodes_for_category,
 )
 from app.schemas.place import PlaceCategory
 from app.trip_understanding._three_city_place_lexicon import (
-    LexiconMatchTier,
-    PlaceLexiconLookup,
-    get_three_city_place_lexicon,
     normalize_city_name,
     normalize_place_name,
     venue_kind,
@@ -1239,6 +1235,17 @@ class AmapPlaceResolver:
             peers = [candidate for candidate in candidates if candidate.tier == first.tier]
             receipt = {**receipt, "auto_selection_policy": "UNIQUE_HIGHEST_IDENTITY_TIER"}
             hint = landmark_hint(city, atomic_place_name)
+            entry = get_city_knowledge().query_lookup(city=city, name=atomic_place_name).unique
+            if entry and entry.district:
+                peers = [candidate for candidate in peers
+                    if _normalized_district(str(candidate.raw.get("adname") or "")) == _normalized_district(entry.district)]
+            if first.tier == "CANONICAL_EXACT" and atomic_place_name.endswith(("路", "街", "巷", "胡同")):
+                reviewed_peers = tuple(candidate for candidate in peers
+                    if entry and candidate.raw.get("adname") == entry.district)
+                if _reviewed_visitor_street(reviewed_peers, city=city, name=atomic_place_name):
+                    visitor = next(candidate for candidate in reviewed_peers if candidate.raw.get("typecode") != "190301")
+                    return self._resolved_outcome(visitor, {**receipt,
+                        "selection_tier": "CANONICAL_EXACT_REVIEWED_VISITOR_STREET"})
             if first.tier == "CANONICAL_EXACT" and hint and hint.typecode == "190301":
                 # A reviewed road district can reject a conflicting provider
                 # segment without removing it from manual search suggestions.
