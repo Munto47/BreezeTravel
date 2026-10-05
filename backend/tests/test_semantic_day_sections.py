@@ -1,5 +1,6 @@
 """Whole-document context, literal day scopes, partial results and call accounting."""
 import json
+import asyncio
 from pathlib import Path
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -58,6 +59,32 @@ async def test_model_day_sections_rebind_original_spans_and_count_every_call():
     assert result.binding["external_calls"] == len(client.calls) == 3
     assert result.binding["input_tokens"] == 30 and result.binding["output_tokens"] == 60
     assert result.binding["day_scopes_completed"] == 2
+
+
+@pytest.mark.asyncio
+async def test_structure_uses_configured_output_allowance_within_shared_deadline(monkeypatch):
+    from app.trip_understanding.model_adapter import ExecutionConfig
+
+    client = ScopedClient()
+    config = ExecutionConfig(provider="KIMI_CODE", base_url="https://test.invalid",
+        model="k3-256k", credential_ref="kimi_for_code", reasoning_effort="high",
+        deadline_seconds=90, max_output_tokens=4096)
+    scoped = ExperienceQwenProvider(api_key="test", base_url=config.base_url,
+        model=config.model, client=client, execution_config=config)
+    limits = []
+    timeout = asyncio.timeout
+
+    def observe_timeout(seconds):
+        limits.append(seconds)
+        return timeout(seconds)
+
+    monkeypatch.setattr(asyncio, "timeout", observe_timeout)
+    result = await scoped.propose(source())
+    assert result.binding["day_scopes_completed"] == 2
+    assert client.calls[0]["max_tokens"] == 4096
+    assert client.calls[0]["reasoning_effort"] == "high"
+    assert limits[0] == 30
+    assert all(0 < limit <= 90 for limit in limits)
 
 
 @pytest.mark.asyncio

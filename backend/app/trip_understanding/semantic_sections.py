@@ -114,11 +114,13 @@ async def propose_by_day(provider: ExperienceQwenProvider, source: str) -> Sourc
     bindings = [{"calls": [plan_call]}]
     sections = []
     try:
-        async with asyncio.timeout(min(12, provider.deadline_seconds / 3)):
+        # Structure analysis shares the task's deadline and output allowance.
+        # A short legacy cap can expire before a reasoning model answers.
+        async with asyncio.timeout(min(deadline_at - time.perf_counter(), provider.deadline_seconds / 3)):
             response = await provider.complete(
                 messages=[{"role": "system", "content": STRUCTURE_PROMPT},
                           {"role": "user", "content": source}],
-                max_tokens=1024, response_format={"type": "json_schema", "json_schema": {
+                max_tokens=provider.max_output_tokens, response_format={"type": "json_schema", "json_schema": {
                     "name": "BreezeTravelDayStructure", "strict": True, "schema": DayStructure.model_json_schema()}})
         usage = getattr(response, "usage", None)
         plan_call.update(input_tokens=getattr(usage, "prompt_tokens", None), output_tokens=getattr(usage, "completion_tokens", None))

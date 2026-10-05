@@ -2761,12 +2761,12 @@ class ExperienceQwenProvider:
             raise ValueError("Live inference requires configured HTTPS credentials and model")
         if deadline_seconds <= 0 or max_output_tokens < 256:
             raise ValueError("Invalid inference budget")
-        self.model = model
         from app.trip_understanding.model_adapter import ExecutionConfig, SemanticModelAdapter
         config = execution_config or ExecutionConfig(provider="QWEN", base_url=base_url, model=model,
             credential_ref="qwen_api_key", reasoning_effort="none", deadline_seconds=deadline_seconds,
             max_output_tokens=max_output_tokens)
         self.adapter = SemanticModelAdapter(config)
+        self.model = config.model
         self.provider_name = config.provider
         self.enable_day_sections = enable_day_sections
         # Live workers and live measurements enable the bounded supplement.
@@ -2779,8 +2779,8 @@ class ExperienceQwenProvider:
         # Production and direct measurement entry points use relative order.
         # Explicit False is reserved for replaying the historical time contract.
         self.relative_only = relative_only
-        self.deadline_seconds = deadline_seconds
-        self.max_output_tokens = max_output_tokens
+        self.deadline_seconds = config.deadline_seconds
+        self.max_output_tokens = config.max_output_tokens
         self.rates = (input_cny_per_million, output_cny_per_million)
         self.prompt = PROMPT_PATH.read_text(encoding="utf-8")
         self.schema = SemanticDraft.model_json_schema()
@@ -2810,7 +2810,7 @@ class ExperienceQwenProvider:
             self.prompt += "\n" + FORMAT_INSTRUCTION
         self._owned = client is None
         self.client = client or AsyncOpenAI(
-            api_key=api_key, base_url=base_url, timeout=deadline_seconds, max_retries=0,
+            api_key=api_key, base_url=config.base_url, timeout=config.deadline_seconds, max_retries=0,
         )
         self._slots = asyncio.Semaphore(1)
 

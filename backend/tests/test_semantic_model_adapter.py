@@ -54,6 +54,15 @@ def test_json_only_adapter_keeps_full_schema_and_does_not_change_validation_cont
     assert '"required": ["day"]' in request["messages"][0]["content"]
 
 
+def test_execution_snapshot_owns_provider_identity_and_limits():
+    from app.trip_understanding.experience_inference import ExperienceQwenProvider
+    snapshot = config(deadline_seconds=90, max_output_tokens=1024)
+    provider = ExperienceQwenProvider(api_key="controlled", base_url="https://unused.invalid", model="ignored",
+        deadline_seconds=30, max_output_tokens=4096, execution_config=snapshot, client=Client(None))
+    assert provider.model == snapshot.model
+    assert provider.deadline_seconds == 90 and provider.max_output_tokens == 1024
+
+
 def test_k3_rejects_disabled_reasoning_and_provider_inference():
     for changes in ({"reasoning_effort":"none"}, {"provider":"QWEN"}):
         with pytest.raises(ValueError):
