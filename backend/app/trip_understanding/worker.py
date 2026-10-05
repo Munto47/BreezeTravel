@@ -192,11 +192,22 @@ class TripUnderstandingWorker:
                 if source.source_type == "FIXED_DEMO":
                     pipeline = self.demo_pipeline
                 elif job.attempt > 1 and source.initial_plan is None and await self.repository.has_dispatched_inference(job):
+                    if await self.repository.recover_interrupted_progress(job, now=operation_now()):
+                        raise JobLeaseLostError("interrupted job retained its saved preview")
                     pipeline = self.lease_takeover_pipeline
                 else:
                     pipeline, owned_provider = await self._execution_pipeline(job, operation_now())
 
+                progress_sequence = job.progress_sequence
+                progress_lock = asyncio.Lock()
+
                 async def persist_progress(update):
+                    nonlocal progress_sequence
+                    async with progress_lock:
+                        progress_sequence += 1
+                        await persist_ordered_progress(update.model_copy(update={"update_sequence": progress_sequence}))
+
+                async def persist_ordered_progress(update):
                     if source_binding:
                         update = update.model_copy(
                             update={

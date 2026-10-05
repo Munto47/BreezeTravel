@@ -28,7 +28,9 @@ class InventorySegment(StrictModel):
     segment_index: int = Field(ge=0, le=159, strict=True)
     items: list[InventoryItem] = Field(max_length=160)
     unresolved: bool = Field(default=False, strict=True)
-    classification: Literal['ARRANGEMENTS', 'CONTEXT'] | None = None
+    classification: Literal['ARRANGEMENTS', 'CONTEXT', 'REFERENCES'] | None = None
+    reference_target_quote: str | None = Field(default=None, max_length=100)
+    reference_target_occurrence: int = Field(default=1, ge=1, le=160, strict=True)
 
 
 class SourceInventory(StrictModel):
@@ -42,6 +44,36 @@ def source_segments(source: str) -> list[dict]:
         if match[0].strip():
             segments.append(dict(index=len(segments), start=match.start(), end=match.end(), text=match[0]))
     return segments
+
+
+def bind_implicit_references(source, proposal, raw):
+    """Bind an empty reference clause only through its validated replacement."""
+    from copy import deepcopy
+    from app.trip_understanding.conditional_replacement import is_implicit_default_reference
+    from app.trip_understanding.source_visit_supplement import _literal_spans
+
+    if raw is None:
+        return raw
+    inventory = SourceInventory.model_validate(raw)
+    segments = source_segments(source)
+    corrected = deepcopy(raw)
+    for row, wire in zip(inventory.segments, corrected['segments'], strict=True):
+        if (row.classification != 'ARRANGEMENTS' or row.items or row.unresolved
+                or row.segment_index >= len(segments)):
+            continue
+        scope = segments[row.segment_index]
+        candidates = [m for m in proposal.mentions if not m.parent_mention_id and m.role == 'PLANNED'
+            and is_implicit_default_reference(source, proposal, scope, m.raw_text, day_index=m.day_index)]
+        if len(candidates) != 1:
+            continue
+        target = candidates[0]
+        spans = _literal_spans(source, target.raw_text)
+        span = (target.span_start, target.span_end)
+        if span not in spans:
+            continue
+        wire.update(classification='REFERENCES', reference_target_quote=target.raw_text,
+                    reference_target_occurrence=spans.index(span) + 1)
+    return corrected
 
 
 def inventory_covers(source, proposal, raw, *, covered_references: set | None = None) -> bool:
@@ -72,6 +104,20 @@ def inventory_covers(source, proposal, raw, *, covered_references: set | None = 
         segment = segments[row.segment_index]
         if row.unresolved:
             return False
+        if row.classification == 'REFERENCES':
+            if row.items or not row.reference_target_quote:
+                return False
+            try:
+                target_span = anchors.locate(row.reference_target_quote, row.reference_target_occurrence)
+            except ValueError:
+                return False
+            target = next((m for m in roots.values() if (m.span_start, m.span_end) == target_span), None)
+            if (target is None or not is_implicit_default_reference(source, proposal, segment,
+                    target.raw_text, day_index=target.day_index)):
+                return False
+            reference_targets.add(target.mention_id)
+            reference_spans.add((segment['start'], segment['end']))
+            continue
         if row.classification == 'ARRANGEMENTS' and not row.items:
             return False
         if not row.items:
@@ -134,6 +180,11 @@ def inventory_covers(source, proposal, raw, *, covered_references: set | None = 
                     or not _cancelled_or_conditional(source, start, end, segment['text'], True)):
                     return False
             candidates = []
+            expected_day = item.day_index
+            if expected_day is None and item.kind in {'INTERNAL', 'ENTRY', 'EXIT'} and parent_span is not None:
+                owners = [m for m in roots.values() if (m.span_start, m.span_end) == parent_span]
+                if len(owners) == 1:
+                    expected_day = owners[0].day_index
             for mention in proposal.mentions:
                 purpose = item.kind in {'EXTERIOR_ONLY', 'PICKUP_ONLY'}
                 target = roots.get(mention.parent_mention_id) if purpose else mention
@@ -141,7 +192,7 @@ def inventory_covers(source, proposal, raw, *, covered_references: set | None = 
                     and is_section_reference(source, target, list(roots.values()), target_span))
                 if target is None or ((target.span_start, target.span_end) != target_span and not section_reference):
                     continue
-                if mention.day_index != item.day_index:
+                if mention.day_index != expected_day:
                     continue
                 role = (target.role.value if purpose else
                         'PLANNED' if mention.parent_mention_id and mention.role == 'REFERENCE' else mention.role.value)

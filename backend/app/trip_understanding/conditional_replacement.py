@@ -27,7 +27,10 @@ def is_replacement_reference(source, proposal, start, end):
             continue
         before = source[left:start]
         after = source[end:alternative.span_start]
-        if (source[start:end] == target.raw_text and alternative.replacement_condition in before
+        right = min((p for mark in '\n。；;！!？?' if (p := source.find(mark, alternative.span_end)) >= 0), default=len(source))
+        # The binder accepts a source-grounded condition within this clause.
+        # Reuse that scope: models may quote the full replacement sentence.
+        if (source[start:end] == target.raw_text and alternative.replacement_condition in source[left:right]
                 and re.search(r'(?:把|将)\s*(?:这次|本次)?\s*$', before)
                 and re.fullmatch(r'\s*(?:的(?:安排|行程|游览))?\s*(?:替换成|替换为|换成|换为)\s*', after)):
             return True
@@ -44,11 +47,18 @@ def is_implicit_default_reference(source, proposal, segment, quote, *, day_index
     if previous is None or previous.replaces_mention_id is None:
         return False
     target = next((m for m in proposal.mentions if m.mention_id == previous.replaces_mention_id), None)
-    between = source[previous.span_end:segment['start']]
+    # The validated replacement clause can describe what to do at its venue
+    # after the venue name. The following default reference starts after that
+    # clause, not necessarily immediately after the name.
+    clause_end = min((p for mark in '\n。；;！!？?'
+        if (p := source.find(mark, previous.span_end)) >= 0), default=len(source))
+    if clause_end > segment['start']:
+        return False
+    between = source[clause_end:segment['start']]
     return (target is not None and (target.raw_text == quote or bool(re.fullmatch(
                 r'原(?:来|先|定)的?(?:公园)?(?:计划|安排|路线)', quote)))
             and (day_index is None or target.day_index == day_index)
-            and not re.search(r'[。\n]', between))
+            and not between.strip('。；;\n\r \t'))
 
 
 def bind_conditional_replacements(source, draft, mentions):

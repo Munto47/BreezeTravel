@@ -354,6 +354,9 @@ def test_cancel_api_handles_empty_draft_progress_and_replay() -> None:
     assert stopped_empty.status_code == 200
     assert stopped_empty.json()["status"] == "STOPPED_EMPTY"
     assert "etag" not in stopped_empty.headers
+    events = client.get(empty['events_url'])
+    assert 'no-transform' in events.headers['Cache-Control']
+    assert events.headers['X-Accel-Buffering'] == 'no'
     cancelled_result = client.get(empty["result_url"])
     assert cancelled_result.status_code == 409
     assert cancelled_result.json()["detail"]["code"] == "UNDERSTANDING_CANCELLED"

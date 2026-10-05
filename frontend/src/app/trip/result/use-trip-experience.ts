@@ -46,6 +46,7 @@ function cumulativeProgress(
   current: api.TripUnderstandingProgressMetrics,
   candidate: api.TripUnderstandingProgressMetrics,
 ): api.TripUnderstandingProgressMetrics {
+  if (typeof candidate.semantic_complete === 'boolean') return candidate
   return {
     day_count: Math.max(current.day_count, candidate.day_count),
     card_count: Math.max(current.card_count, candidate.card_count),
@@ -309,6 +310,7 @@ export function useTripExperience() {
             return null
           if (response.status === 202) {
             const body = response.body as api.TripUnderstandingProgressView
+            if (body.event_cursor < eventCursor.current) return null
             eventCursor.current = Math.max(
               eventCursor.current,
               body.event_cursor,

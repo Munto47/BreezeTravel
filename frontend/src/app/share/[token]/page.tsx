@@ -180,6 +180,7 @@ export default function SharedItineraryPage() {
             {!!day.meal_arrangements?.length && <section className="mt-4 rounded-xl bg-orange-50 p-3 text-sm leading-6" data-testid="shared-meals">
               <h3 className="font-semibold">原文用餐安排</h3>{day.meal_arrangements.map((meal, index) => <p key={index}>{meal}</p>)}
             </section>}
+            {!!day.notes?.length && <ul aria-label="原文说明" className="mt-4 text-sm leading-6 text-slate-600">{day.notes.map((note, index) => <li key={index}>{note}</li>)}</ul>}
             {!!day.alternatives?.length && <section className="mt-4 rounded-xl bg-sky-50 p-3" data-testid="shared-alternatives">
               <h3 className="text-sm font-semibold">原文备选与方案 · 未选择的内容不属于主线</h3>
               {day.alternatives.map((item, index) => <div className="mt-3 text-sm leading-6" key={index}>

@@ -47,6 +47,11 @@
 .four-preview-trip-day li b {flex:0 0 18px; height:18px; background:#268ffc; border-radius:50%; color:white; font-size:11px; text-align:center; line-height:18px; font-weight:600;}
 .four-preview-trip-day li span {overflow-wrap:anywhere; flex:1;}
 .four-preview-trip-day li small {font-size:11px; color:#268579; flex-shrink:0;}
+.four-preview-trip-day details {min-width:0;flex:1;overflow-wrap:anywhere;}
+.four-preview-trip-day summary {cursor:pointer;min-height:44px;display:flex;align-items:center;}
+.four-preview-trip-day details p {font-size:12px;color:#70849b;margin:0 0 8px;}
+.four-preview-trip-day details ul {padding-left:16px;margin:4px 0 10px;}
+.four-preview-trip-day details li {display:list-item;font-size:12px;line-height:1.7;}
 .four-preview-trip-day > p {color:#70849b; font-size:13px;}
 .four-preview-alternatives {display:flex; gap:7px 10px; flex-wrap:wrap; font-size:12px; margin-top:12px; color:#6286a4;}
 .four-preview-alternatives span {background:#eff5fb; border-radius:5px; padding:1px 5px;}

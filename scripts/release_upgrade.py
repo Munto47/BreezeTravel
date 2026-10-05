@@ -579,7 +579,8 @@ process.exit(result.status===null?1:result.status);"""
             'TRIP_SEMANTIC_PROVIDER', 'TRIP_SEMANTIC_BASE_URL', 'TRIP_SEMANTIC_MODEL',
             'TRIP_SEMANTIC_CREDENTIAL_REF', 'TRIP_SEMANTIC_REASONING_EFFORT', 'TRIP_SEMANTIC_OUTPUT_MODE',
             'TRIP_SEMANTIC_DEADLINE_SECONDS', 'TRIP_SEMANTIC_MAX_OUTPUT_TOKENS',
-            'TRIP_SEMANTIC_MAX_CALLS', 'TRIP_SEMANTIC_TOTAL_SECONDS', 'TRIP_SEMANTIC_LEGACY_CONFIG'}
+            'TRIP_SEMANTIC_MAX_CALLS', 'TRIP_SEMANTIC_TOTAL_SECONDS', 'TRIP_SEMANTIC_LEGACY_CONFIG',
+            'TRIP_SHORT_STREAM_ENABLED', 'TRIP_SHORT_STREAM_REASONING_EFFORT'}
         if not isinstance(values, dict) or not set(values) <= allowed or not all(isinstance(value,str) and value for value in values.values()):
             raise UpgradeError('Provider configuration contains unsupported fields')
         return values

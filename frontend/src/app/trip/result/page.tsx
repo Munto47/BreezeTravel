@@ -188,7 +188,7 @@ export default function TripResultPage() {
         : trip.writeStatus === 'FAILED'
           ? '上次修改未保存'
           : accountSaved
-            ? '已保存到账号'
+            ? result?.coverage?.complete === false ? '已保存到账号 · 部分待补全' : '已保存到账号'
             : result?.coverage?.complete === false ? '部分待补全' : '已整理'
   const progressTitle =
     trip.phase === 'CHECKING_PLACES'

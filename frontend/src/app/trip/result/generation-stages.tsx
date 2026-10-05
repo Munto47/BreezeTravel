@@ -24,7 +24,8 @@ export default function GenerationStages({ phase, progress, complete = false }: 
     const timer=window.setInterval(()=>setTip(index=>(index+1)%TIPS.length),2500)
     return ()=>window.clearInterval(timer)
   }, [reading, complete])
-  const current = complete ? 4 : phase === 'RECEIVED' ? 1 : phase === 'CARDS_AVAILABLE' ? 2
+  const understanding = progress.semantic_complete === false
+  const current = complete ? 4 : understanding ? 1 : phase === 'RECEIVED' ? 1 : phase === 'CARDS_AVAILABLE' ? 2
     : progress.places_total > 0 && progress.places_checked >= progress.places_total ? 3 : 2
   const labels = ['接收文字', '整理逐日安排', '核验地点', '生成行程']
   return (
@@ -42,12 +43,12 @@ export default function GenerationStages({ phase, progress, complete = false }: 
     <ol className="soft-generation-stages" aria-label="整理进度" aria-live="polite" data-testid="generation-stages">
       {labels.map((label, index) => {
         const done = index < current
-        const active = index === current
+        const active = index === current || understanding && index === 2 && phase !== 'RECEIVED'
         const Icon = done ? Check : active ? LoaderCircle : Circle
         return <li key={label} data-state={done ? 'done' : active ? 'active' : 'pending'} aria-current={active ? 'step' : undefined}>
           <span className="soft-stage-dot"><Icon aria-hidden="true" className={active ? 'animate-spin motion-reduce:animate-none' : ''} /></span>
           <span>{index === 3 && active ? '收尾中' : label}</span>
-          {index === 2 && active && progress.places_total > 0 && <small>{progress.places_checked}/{progress.places_total}</small>}
+          {index === 2 && active && progress.places_total > 0 && <small>{progress.places_checked}{progress.places_total_final !== false ? `/${progress.places_total}` : ' 项已核验'}</small>}
         </li>
       })}
     </ol>

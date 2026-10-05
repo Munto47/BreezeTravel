@@ -6,8 +6,8 @@ from app.trip_understanding.errors import JobLeaseLostError, SourceUnavailableEr
 from app.trip_understanding.model_adapter import ExecutionConfig, execution_config
 
 
-async def set_source_execution(conn, source_id):
-    config = execution_config(get_settings())
+async def set_source_execution(conn, source_id, source_text=None):
+    config = execution_config(get_settings(), source_text=source_text)
     await conn.execute("""UPDATE trip_understanding_sources
         SET execution_config_json=$2::jsonb,inference_calls_remaining=$3 WHERE source_id=$1""",
                        source_id, config.model_dump_json(), config.max_calls)
@@ -22,6 +22,20 @@ def source_budget_seconds(source):
 
 
 class PostgresExecutionRepositoryMixin:
+    async def recover_interrupted_progress(self, job, *, now):
+        from app.trip_understanding.models import PublicResourceRecord
+        pool = await self._get_pool()
+        row = await pool.fetchrow("""SELECT understanding_id,public_resource_id,state,current_result_id
+            FROM trip_understandings WHERE understanding_id=$1 AND EXISTS (
+                SELECT 1 FROM trip_understanding_events WHERE understanding_id=$1
+                AND jsonb_typeof(public_payload_json->'snapshot')='object')""", job.understanding_id)
+        if row is None:
+            return False
+        await self.cancel_understanding(PublicResourceRecord(**dict(row)),
+            idempotency_key=f"interrupted:{job.job_id}:{job.attempt}", request_hash=job.input_hash,
+            now=now, interrupted_job=job)
+        return True
+
     async def load_execution(self, job, *, now):
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
@@ -65,6 +79,18 @@ class PostgresExecutionRepositoryMixin:
 
 
 class InMemoryExecutionRepositoryMixin:
+    async def recover_interrupted_progress(self, job, *, now):
+        from app.trip_understanding.models import PublicResourceRecord
+        if not any(e.payload.snapshot is not None for e in self.events.get(job.understanding_id, [])):
+            return False
+        public_id = self.resources_by_understanding[job.understanding_id]
+        row = self.resources[public_id]
+        await self.cancel_understanding(PublicResourceRecord(understanding_id=job.understanding_id,
+            public_resource_id=public_id, state=row['state'], current_result_id=row.get('current_result_id')),
+            idempotency_key=f"interrupted:{job.job_id}:{job.attempt}", request_hash=job.input_hash,
+            now=now, interrupted_job=job)
+        return True
+
     async def has_dispatched_inference(self, job):
         return self.jobs[job.job_id].get("inference_dispatched_at") is not None
 

@@ -351,7 +351,7 @@ def apply_source_visit_supplement(
             continue
         from app.trip_understanding.semantic_recovery import explicit_reference_context
 
-        if (row.kind == 'VISIT' and len(evidence_spans) == 1
+        if (row.kind in {'VISIT', 'ENTRY', 'EXIT'} and len(evidence_spans) == 1
                 and evidence_spans[0][0] <= parent.span_start < parent.span_end <= span[0] < span[1] <= evidence_spans[0][1]
                 and not re.search(r'[。；;\n]', source[parent.span_end:span[0]])
                 and not any(m.mention_id != parent.mention_id and parent.span_end <= m.span_start < span[0] for m in roots)

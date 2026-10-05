@@ -265,6 +265,7 @@ class DiningAccessView(StrictModel):
 
 
 class ActivityCardView(ActivityTiming):
+    verification_pending: bool = False
     source_fragment_id: str | None = None
     source_occurrence_id: str | None = None
     note: str = Field(default="", max_length=600)
@@ -760,6 +761,8 @@ class TripUnderstandingProgressMetrics(StrictModel):
     card_count: int = Field(default=0, ge=0)
     places_checked: int = Field(default=0, ge=0)
     places_total: int = Field(default=0, ge=0)
+    semantic_complete: bool | None = None
+    places_total_final: bool | None = None
 
 
 class TripUnderstandingProgressView(StrictModel):
@@ -775,6 +778,7 @@ class TripUnderstandingProgressView(StrictModel):
 
 
 class PipelineProgressUpdate(StrictModel):
+    update_sequence: int | None = Field(default=None, ge=1)
     phase: Literal["CARDS_AVAILABLE", "CHECKING_PLACES"]
     message: Literal["日期和卡片已整理", "正在核对地点"]
     progress: TripUnderstandingProgressMetrics
@@ -791,6 +795,8 @@ class PublicEventPayload(StrictModel):
         "卡片已可用",
         "已停止整理，保留当前卡片",
         "已停止整理，没有可保留的卡片",
+        "整理意外中断，已保留当前内容，可继续编辑或补全",
+        "整理意外中断，没有可保留的内容",
         "这次没有整理完成，可以重新尝试",
         "这次整理的内容超过 160 项上限，请分成多份行程后再试。",
         "这次整理的行程超过 14 天上限，请分成多份行程后再试。",
@@ -1082,6 +1088,7 @@ class TravelDataDeletionOutcome(StrictModel):
 
 
 class TripUnderstandingJobRecord(StrictModel):
+    progress_sequence: int = Field(default=0, ge=0)
     job_type: Literal["UNDERSTAND", "SUPPLEMENT"] = "UNDERSTAND"
     job_id: str
     understanding_id: str

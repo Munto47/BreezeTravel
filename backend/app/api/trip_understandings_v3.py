@@ -1651,7 +1651,7 @@ async def stream_trip_understanding_events(
     return ServerSentEventResponse(
         generate(),
         headers={
-            "Cache-Control": "no-cache, no-store",
+            "Cache-Control": "no-cache, no-store, no-transform",
             "X-Accel-Buffering": "no",
         },
     )

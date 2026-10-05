@@ -1367,6 +1367,7 @@ class PublicResultProjector:
                         lodging_excluded_nights=mention.lodging_excluded_nights,
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
+                        verification_pending=item.resolver_receipt.get("status") == "PENDING",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
                         source_details=details_by_parent.get(mention.mention_id, []),
                     )
@@ -1410,6 +1411,14 @@ class PublicResultProjector:
                     meal_role=mention.meal_role, source_details=details_by_parent.get(mention.mention_id, []),
                     **timing_values(mention),
                     choice_group_token=group_token(mention.choice_group_id), branch_token=group_token(mention.branch_id)))
+            if include_alternatives:
+                from app.trip_understanding.models import SourceNoteView
+                for item in activities:
+                    mention = item.compiled.mention
+                    if mention.role == ActivityRole.EXCLUDED and (mention.day_index or 1) == day_index:
+                        label = '已取消' if mention.day_index is not None else '已取消（原文未指定 Day）'
+                        source_notes.append(SourceNoteView(note_id=item.compiled.public_activity_token,
+                            text=f"{label}：{mention.atomic_place_name or mention.raw_text}"[:600], position=len(cards)))
             day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
                                         activities=cards, alternatives=choices, meal_slots=meal_slots,
                                         unprocessed_count=(unprocessed_by_day or {}).get(day_index, 0), source_notes=source_notes))
@@ -1718,7 +1727,15 @@ class TripUnderstandingPipeline:
         collaboration_guard_tokens: Sequence[str] | None = None,
         collaboration_city_guard_token: str | None = None,
         prepared_plan: SourceSemanticPlan | None = None,
+        progressive_places: bool = False,
     ) -> PipelineOutput:
+        config = getattr(getattr(self.inference_provider, "adapter", None), "config", None)
+        if prepared_plan is None and getattr(config, "processing_mode", "legacy") == "short_stream":
+            from app.trip_understanding.streaming_pipeline import run_streaming
+            return await run_streaming(self, source_text, requires_confirmation_spans=requires_confirmation_spans,
+                partial_source=partial_source, progress_callback=progress_callback,
+                collaboration_guard_tokens=collaboration_guard_tokens,
+                collaboration_city_guard_token=collaboration_city_guard_token)
         confirmation_spans = tuple(requires_confirmation_spans)
         if any(
             start < 0 or end <= start or end > len(source_text)
@@ -1984,7 +2001,7 @@ class TripUnderstandingPipeline:
                         if slot_type == "RESOLVE" and task is not None and task.done()
                     )
                     reached = {value for value in milestones if value <= checked}
-                    if progress_callback is not None and reached - emitted_milestones:
+                    if progress_callback is not None and (progressive_places or reached - emitted_milestones):
                         emitted_milestones.update(reached)
                         completed_receipts = []
                         for task in tasks_by_key.values():
@@ -2001,6 +2018,27 @@ class TripUnderstandingPipeline:
                                     "provider_unavailable": provider_unavailable,
                                 }
                             )
+                        live_snapshot = draft_snapshot
+                        preview_places = {}
+                        if progressive_places:
+                            live_activities = list(draft_activities)
+                            for index, (kind, task, _owner, _key) in enumerate(resolution_slots):
+                                if kind != "RESOLVE" or task is None or not task.done() or task.cancelled() or task.exception():
+                                    continue
+                                outcome, _unavailable = task.result()
+                                outcome = _guard_source_district(source_text, compiled[index].mention, outcome)
+                                live_activities[index] = ResolvedActivity(compiled=compiled[index], place=outcome.place,
+                                    resolution_status=ResolutionStatus.AUTO_MATCHED if outcome.place else ResolutionStatus.NEEDS_CONFIRMATION,
+                                    resolver_receipt=outcome.receipt)
+                                if outcome.place is not None:
+                                    preview_places[compiled[index].public_activity_token] = {
+                                        "canonical_place_id": outcome.place.canonical_place_id,
+                                        "resolution_status": "AUTO_MATCHED", "resolver_receipt": outcome.receipt}
+                            live_snapshot = self.projector.project(proposal.destination_name, proposal.destination_basis,
+                                                                   live_activities, **projection_options)
+                            live_snapshot = live_snapshot.model_copy(update={"status": "PARTIAL_RESULT", "available_actions": [],
+                                "days": [day.model_copy(update={"activities": [card.model_copy(update={"available_actions": []})
+                                    for card in day.activities]}) for day in live_snapshot.days]})
                         await progress_callback(
                             PipelineProgressUpdate(
                                 phase="CHECKING_PLACES",
@@ -2008,8 +2046,9 @@ class TripUnderstandingPipeline:
                                 progress=progress_metrics.model_copy(
                                     update={"places_checked": min(checked, attempted_count)}
                                 ),
-                                snapshot=draft_snapshot,
+                                snapshot=live_snapshot,
                                 internal_binding={
+                                    "preview_places": preview_places,
                                     "inference": dict(proposal.binding),
                                     "place_resolution": {
                                         "status": "IN_PROGRESS",

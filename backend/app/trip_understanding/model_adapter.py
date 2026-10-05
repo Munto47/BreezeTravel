@@ -26,6 +26,8 @@ class ExecutionConfig(BaseModel):
     max_output_tokens: int = Field(default=8192, ge=256)
     max_calls: int = Field(default=31, ge=1, le=31)
     total_seconds: int = Field(default=600, ge=1, le=600)
+    processing_mode: Literal["legacy", "short_stream"] = "legacy"
+    stream_protocol_version: Literal[1] = 1
 
     @model_validator(mode="after")
     def validate_endpoint(self):
@@ -39,19 +41,25 @@ class ExecutionConfig(BaseModel):
         return self
 
 
-def execution_config(settings, *, legacy=False):
+def execution_config(settings, *, legacy=False, source_text=None):
     if legacy:
         value = getattr(settings, "trip_semantic_legacy_config", "")
         if not value:
             raise ValueError("legacy semantic execution configuration is missing")
         return ExecutionConfig.model_validate_json(value)
-    return ExecutionConfig(
+    config = ExecutionConfig(
         provider=settings.trip_semantic_provider, base_url=settings.trip_semantic_base_url,
         model=settings.trip_semantic_model, credential_ref=settings.trip_semantic_credential_ref,
         reasoning_effort=settings.trip_semantic_reasoning_effort, output_mode=settings.trip_semantic_output_mode,
         deadline_seconds=settings.trip_semantic_deadline_seconds, max_output_tokens=settings.trip_semantic_max_output_tokens,
         max_calls=settings.trip_semantic_max_calls, total_seconds=settings.trip_semantic_total_seconds,
     )
+    if (getattr(settings, "trip_short_stream_enabled", False) and source_text is not None
+            and 0 < len(source_text) <= 500):
+        config = config.model_copy(update={"processing_mode": "short_stream", "max_calls": min(2, config.max_calls),
+            "reasoning_effort": getattr(settings, "trip_short_stream_reasoning_effort", "low")
+                if config.provider == "KIMI_CODE" else "none"})
+    return config
 
 
 _usage_sink = ContextVar("semantic_usage_sink", default=None)
@@ -123,6 +131,56 @@ class SemanticModelAdapter:
             record["latency_ms"] = round((time.perf_counter() - started) * 1000, 2)
             if sink:
                 await sink(dict(record))
+
+    async def stream(self, client, *, messages, response_format, max_tokens):
+        """Account for one request through normal completion or interrupted IO."""
+        options = self.request_options(messages=messages, response_format=response_format, max_tokens=max_tokens)
+        record = {"call_id": uuid4().hex, "provider": self.config.provider,
+                  "requested_model": options["model"], "reasoning_effort": options.get("reasoning_effort", "none"),
+                  "output_mode": options["response_format"]["type"], "max_output_tokens": options["max_tokens"],
+                  "status": "DISPATCHING", "input_tokens": None, "output_tokens": None,
+                  "reasoning_tokens": None, "reported_model": None, "finish_reason": None}
+        sink = _usage_sink.get()
+        if sink:
+            await sink(dict(record))
+        self.calls.append(record)
+        started = time.perf_counter()
+        stream = None
+        try:
+            from app.trip_understanding.inference_allowance import remaining_call_seconds
+            remaining = remaining_call_seconds()
+            timeout = self.config.deadline_seconds if remaining is None else min(self.config.deadline_seconds, remaining)
+            async with asyncio.timeout(timeout):
+                stream = await client.chat.completions.create(**options, stream=True,
+                                                            stream_options={"include_usage": True})
+                async for chunk in stream:
+                    record["reported_model"] = getattr(chunk, "model", None) or record["reported_model"]
+                    usage = getattr(chunk, "usage", None)
+                    if usage is not None:
+                        record.update(input_tokens=usage.prompt_tokens, output_tokens=usage.completion_tokens,
+                            reasoning_tokens=getattr(getattr(usage, "completion_tokens_details", None), "reasoning_tokens", None))
+                    for choice in chunk.choices:
+                        if choice.index != 0:
+                            continue
+                        if choice.finish_reason is not None:
+                            record["finish_reason"] = choice.finish_reason
+                        if choice.delta.content:
+                            record.setdefault("first_content_ms", round((time.perf_counter() - started) * 1000, 2))
+                            yield choice.delta.content
+            if record["finish_reason"] != "stop":
+                raise ValueError("STREAM_NOT_COMPLETED")
+            record["status"] = "RECEIVED"
+        except BaseException as exc:
+            record.update(status="FAILED", error_category=type(exc).__name__)
+            raise
+        finally:
+            try:
+                if stream is not None:
+                    await stream.close()
+            finally:
+                record["latency_ms"] = round((time.perf_counter() - started) * 1000, 2)
+                if sink:
+                    await sink(dict(record))
 
 
 def usage_summary(calls):

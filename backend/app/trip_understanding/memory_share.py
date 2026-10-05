@@ -129,6 +129,7 @@ class SharedDayView(StrictModel):
     pending_activities: list[SharedActivityView] = Field(default_factory=list)
     alternatives: list[SharedAlternativeView] = Field(default_factory=list)
     meal_arrangements: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
     pending_count: int = Field(default=0, ge=0)
     unprocessed_count: int = Field(default=0, ge=0)
 
@@ -208,7 +209,8 @@ def build_share_projection(result: UserFacingTripResult, *, supplementary=None) 
         whole_lodgings.extend(whole)
         days.append(SharedDayView(label=f"Day {index}", activities=[activity_view(a) for a in day.activities if a.status == "READY" and a not in whole],
             pending_activities=pending, pending_count=len(pending), unprocessed_count=getattr(day, "unprocessed_count", 0),
-            alternatives=alternatives, meal_arrangements=_shared_meals(day)))
+            alternatives=alternatives, meal_arrangements=_shared_meals(day),
+            notes=[note.text for note in day.source_notes]))
     warnings = []
     coverage = getattr(result, "coverage", None)
     if coverage and not coverage.complete or any(day.unprocessed_count for day in days):

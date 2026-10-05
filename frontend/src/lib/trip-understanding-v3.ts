@@ -17,6 +17,8 @@ export interface TripUnderstandingProgressView {
 }
 
 export interface TripUnderstandingProgressMetrics {
+  semantic_complete?: boolean | null
+  places_total_final?: boolean | null
   day_count: number
   card_count: number
   places_checked: number
@@ -60,6 +62,7 @@ export interface DiningContextView {
 }
 
 export interface ActivityCardView extends DiningContextView {
+  verification_pending?: boolean
   source_fragment_id?:string|null
   note?: string
   visit_id?: string
@@ -351,6 +354,7 @@ export interface ShareProjectionView {
     pending_activities?: SharedTripActivity[]
     alternatives?: Array<{name: string; category: string; branch_label: string | null; state: string; details?: Array<{name: string; optional: boolean}>}>
     meal_arrangements?: string[]
+    notes?: string[]
     pending_count?: number
     unprocessed_count?: number
   }>
@@ -699,6 +703,8 @@ export async function readTripUnderstandingResult(
         ? Number(pending.event_cursor)
         : 0,
       progress: {
+        semantic_complete: typeof metric.semantic_complete === 'boolean' ? metric.semantic_complete : null,
+        places_total_final: typeof metric.places_total_final === 'boolean' ? metric.places_total_final : null,
         day_count: numberOrZero(metric.day_count),
         card_count: numberOrZero(metric.card_count),
         places_checked: numberOrZero(metric.places_checked),
