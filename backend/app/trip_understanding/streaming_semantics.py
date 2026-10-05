@@ -178,6 +178,7 @@ KEEP=明确复核后保留原访问，UPDATE=名称/城市/日序/角色/条件/
 KEEP和UPDATE用base_visit_id引用旧独立访问mention_id；ADD的base_visit_id=null。同名再访不得复用同一id。
 删除的旧独立访问id放deleted_base_ids。每个旧独立访问必须且只能对应一个KEEP/UPDATE/删除。
 内部安排随父访问复核，不单独对账；删除父访问、条件改变、跨日移动、主备改变要同时检查关联访问。
+source_inventory中的内部项目用kind=INTERNAL、role=PLANNED或OPTIONAL表达原文意图；REFERENCE仅用于引用既有访问的文字，不能用于正在参观的内部项目。
 可以发现更广的影响，不能以旧答案替代新原文。所有source_quote、evidence、occurrence及source_inventory都重新对应新全文。
 无法确定内容明确列unprocessed_quotes，不能自动保留旧安排。旧基线（数据）：\n""" + json.dumps(incremental_baseline(selection), ensure_ascii=False, separators=(",", ":"))
 

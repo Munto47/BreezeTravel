@@ -146,8 +146,19 @@ def merge_provisional(plan, provisional):
 
 def incremental_baseline(selection):
     example, plan = seed_plan(selection["id"], selection["version"])
-    return {"source": example["text"], "visits": [m.model_dump(mode="json", exclude_defaults=True)
-            for m in plan.mentions], "order": plan.order_assessment.model_dump(mode="json")}
+    # Internal nodes use REFERENCE in the compiler graph. On the model wire,
+    # their own source intent is PLANNED/OPTIONAL, not a reference-only clause.
+    visits = []
+    for mention in plan.mentions:
+        if mention.parent_mention_id:
+            continue
+        value = mention.model_dump(mode="json", exclude_defaults=True)
+        value["source_details"] = [dict(kind=child.detail_kind, source_quote=child.raw_text,
+            optional=child.role == "OPTIONAL", evidence=child.role_evidence)
+            for child in plan.mentions if child.parent_mention_id == mention.mention_id]
+        visits.append(value)
+    return {"source": example["text"], "visits": visits,
+            "order": plan.order_assessment.model_dump(mode="json")}
 
 
 def validate_delta(payload, selection):

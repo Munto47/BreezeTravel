@@ -68,6 +68,15 @@ def test_selection_is_new_task_configuration_and_requires_a_reliable_baseline():
                             example_reference=reference).example_preprocessing is None
 
 
+def test_incremental_baseline_uses_source_intent_for_internal_arrangements():
+    from app.trip_understanding.example_preprocessing import incremental_baseline
+    baseline = incremental_baseline({"id": "beijing", "version": 1})
+    assert all(not visit.get("parent_mention_id") for visit in baseline["visits"])
+    details = [detail for visit in baseline["visits"] for detail in visit["source_details"]]
+    assert {detail["source_quote"] for detail in details} == {"太和殿", "御花园", "长廊"}
+    assert all(detail["optional"] is False and detail["evidence"] for detail in details)
+
+
 @pytest.mark.parametrize("change", [
     lambda s: s.replace("接着去大芬油画村，", ""),
     lambda s: s.replace("大芬油画村", "深圳美术馆"),
