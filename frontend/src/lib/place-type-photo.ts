@@ -15,7 +15,7 @@ export function placePhotoType(card: Pick<ActivityCardView, 'name' | 'category'>
   if (/酒店|宾馆|旅馆|民宿/.test(name)) return 'hotel'
   if (/(?:路|街|巷|胡同)(?:步行街|街区|商圈)?$/.test(name)) return 'street'
   if (/故宫|天坛|雍和宫|颐和园|圆明园|长城|古建|古镇|古城|会址|祠堂|寺庙|寺$|寺院|宫殿|庙$|城墙/.test(name)) return 'historic'
-  if (/博物馆|博物院|美术馆|艺术馆|纪念馆|展览馆|科技馆/.test(name)) return 'museum'
+  if (/博物馆|博物院|美术馆|艺术馆|纪念馆|展览馆|科技馆|科学馆|规划馆|油画村/.test(name)) return 'museum'
   if (/CCTV|央视|大裤衩|中国尊|大厦|大楼|摩天|商城|购物中心|金融中心|商务中心|写字楼|环球中心|上海中心|东方明珠|国贸|体育场|体育馆/i.test(name)) return 'modern'
   if (/(?:山|山脉|山峰|峰|峡谷|山风景区|山景区)$/.test(name)) return 'mountain'
   if (/滨江|滨河|滨海|湖畔|河畔|海滩|沙滩|海岸|瀑布|水库|(?:湖|江|河|海|泉)$/.test(name)) return 'water'
@@ -43,6 +43,10 @@ export function placeTypePhoto(card: PhotoCard, offset = photoOffset(placePhotoK
   const type = placePhotoType(card)
   const suffix = offset === 0 ? '' : `-${String(offset + 1).padStart(2, '0')}`
   return type ? { type, src: `/place-types/${type}${suffix}.jpg`, label: PLACE_PHOTO_LABELS[type] } : null
+}
+
+export function placeCoverPhoto(card: PhotoCard) {
+  return placeTypePhoto(card) || {type: 'illustration' as const, src: '/place-types/street.jpg', label: '旅行配图'}
 }
 
 // Allocate within this itinerary, never in mutable global/browser state.

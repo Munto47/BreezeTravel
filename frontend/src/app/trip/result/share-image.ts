@@ -1,6 +1,6 @@
 import type {ActivityCardView, UserFacingTripResult} from '@/lib/trip-understanding-v3'
 import type {SourceLodgingCard} from '@/lib/confirmed-trip-view'
-import {allocatePlacePhotos, placePhotoKey} from '@/lib/place-type-photo'
+import {allocatePlacePhotos, placePhotoKey, placeCoverPhoto} from '@/lib/place-type-photo'
 import {DAY_COLORS} from './result-presentation'
 
 function lines(ctx: CanvasRenderingContext2D, text: string, width: number) {
@@ -32,7 +32,7 @@ function loadPhoto(src: string): Promise<HTMLImageElement | null> {
 /** A shareable itinerary, independent from the editor and its check messages. */
 export async function renderShareImage(result: UserFacingTripResult, sourceLodgings: SourceLodgingCard[], resource?: string) {
   await document.fonts.ready
-  const cards = result.days.flatMap(day => day.activities.filter(card => card.status === 'READY'))
+  const cards = result.days.flatMap(day => day.activities)
   const allocation = allocatePlacePhotos(cards)
   const photos = new Map<string, {image: HTMLImageElement | null; illustration: boolean}>()
   // Bound decoding/connections for the 160-place case; one fetch per unique photo.
@@ -48,7 +48,7 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
       let image = card.photo_url ? await load(card.photo_url) : null
       if(!image && card.photo_url && resource) image=await load(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/photo?activity_token=${encodeURIComponent(card.activity_token)}`)
       const illustration = !image
-      const fallback = allocation.get(placePhotoKey(card))
+      const fallback = allocation.get(placePhotoKey(card)) || placeCoverPhoto(card)
       if (!image && fallback) image = await load(fallback.src)
       photos.set(card.activity_token, {image, illustration})
     }

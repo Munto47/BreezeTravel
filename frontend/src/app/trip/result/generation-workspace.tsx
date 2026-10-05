@@ -6,6 +6,7 @@ import {ArrowDown, ArrowLeft, Check, ChevronDown, MapPin, Square, Wifi} from 'lu
 import type {TripUnderstandingProgressMetrics, TripUnderstandingProgressView, UserFacingTripResult} from '@/lib/trip-understanding-v3'
 import './generation-workspace.css'
 import GenerationSource from './generation-source'
+import PlacePhoto, {PlacePhotoProvider} from './place-photo'
 
 export type GenerationReading = {dayIndex: number; token: string | null; offset: number; expanded: string[]; following: boolean}
 export const initialGenerationReading: GenerationReading = {dayIndex: 0, token: null, offset: 0, expanded: [], following: true}
@@ -77,7 +78,7 @@ export default function GenerationWorkspace({resource, phase, progress, snapshot
     setUnseen(0)
     if (feed.current) feed.current.scrollTop = feed.current.scrollHeight
   }
-  return <section className="live-generation" data-testid="generation-workspace">
+  return <PlacePhotoProvider days={days}><section className="live-generation" data-testid="generation-workspace">
     <div className="live-topline"><Link href="/" className="live-back"><ArrowLeft size={16}/>返回首页</Link><span className="live-connection" role="status"><Wifi size={14}/>{connection}</span></div>
     <header className="live-heading"><div><span className="live-eyebrow">你的行程 · 实时整理</span><h1>{heading}</h1><p>地点一出现就可以展开阅读，确认结果会更新在同一张卡片上。</p></div><div className="live-actions"><Link href="/my-trips">后台继续</Link><button type="button" disabled={cancelling} onClick={onStop}><Square size={13}/>{cancelling ? '正在停止…' : '停止整理'}</button></div></header>
     {!!cards.length && <div className="live-statusbar" role="status">
@@ -99,7 +100,7 @@ export default function GenerationWorkspace({resource, phase, progress, snapshot
               const state = card.semantic_review === 'PENDING' ? '安排待复核' : ready ? '已确认' : card.verification_pending ? '核验中' : '需要确认'
               const expanded = reading.expanded.includes(token)
               return <article className="live-place" key={token} data-generation-token={token} data-day-index={index} data-state={ready ? 'ready' : card.verification_pending ? 'checking' : 'unresolved'}>
-                <div className="live-place-cover"><MapPin size={28} aria-hidden="true"/>{ready && card.photo_url && <img src={card.photo_url} alt="" loading="lazy" onError={event => {event.currentTarget.style.display = 'none'}}/>}<span className="live-place-number">{position + 1}</span><span className="live-place-state">{ready && <Check size={12}/>}<span key={state}>{state}</span></span></div>
+                <div className="live-place-cover"><MapPin size={28} aria-hidden="true"/><PlacePhoto card={card}/><span className="live-place-number">{position + 1}</span><span className="live-place-state">{ready && <Check size={12}/>}<span key={state}>{state}</span></span></div>
                 <button type="button" className="live-place-toggle" aria-expanded={expanded} onClick={event => {
                   const article = event.currentTarget.closest<HTMLElement>('[data-generation-token]')!
                   onReadingChange({dayIndex: index, token, offset: article.getBoundingClientRect().top - feed.current!.getBoundingClientRect().top, following: false, expanded: expanded ? reading.expanded.filter(id => id !== token) : [...reading.expanded, token]})
@@ -117,5 +118,5 @@ export default function GenerationWorkspace({resource, phase, progress, snapshot
         {!reading.following && <button type="button" className="live-follow" onClick={follow}><ArrowDown size={15}/>{unseen ? `新增 ${unseen} 个地点，查看新增内容` : '跟随最新内容'}</button>}
       </div>
     </div>
-  </section>
+  </section></PlacePhotoProvider>
 }

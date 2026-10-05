@@ -22,9 +22,10 @@ function createLiveGenerationServer() {
     const event={id,type,payload};events.push(event)
     for(const res of connections)res.write(`id: ${id}\nevent: ${type}\ndata: ${JSON.stringify(payload)}\n\n`)
   }
-  function advance(count,ready,detail=false,review=false) {
+  function advance(count,ready,detail=false,review=false,photo=null) {
     current={status:'PROCESSING',message:'正在整理',phase:'CHECKING_PLACES',event_cursor:nextId+1,retry_after_ms:500,
       progress:{day_count:Math.max(1,Math.ceil(count/4)),card_count:count,places_checked:ready,places_total:count,semantic_complete:false,places_total_final:false},snapshot:snapshot(count,ready,detail,review)}
+    if (photo && count) current.snapshot.days[0].activities[0].photo_url=photo
     send('progress',current)
   }
   function finish(cancelled=false) {
@@ -41,7 +42,7 @@ function createLiveGenerationServer() {
     if(path==='/__control'){
       let body='';for await(const chunk of req)body+=chunk;const command=JSON.parse(body||'{}')
       if(command.action==='reset')reset()
-      if(command.action==='advance')advance(command.count,command.ready,command.detail,command.review)
+      if(command.action==='advance')advance(command.count,command.ready,command.detail,command.review,command.photo)
       if(command.action==='finish')finish()
       if(command.action==='disconnect')for(const stream of connections)stream.end()
       if(command.action==='duplicate'&&events.length){const event=events[events.length-1];send(event.type,event.payload,event.id)}
