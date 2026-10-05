@@ -38,7 +38,7 @@ async def propose_stream(provider, source, on_plan):
     from app.trip_understanding.inline_source_details import apply_inline_source_details
     from app.trip_understanding.models import SemanticDiagnostic
     from app.trip_understanding.semantic_supplement import mark_source_visits_pending
-    from app.trip_understanding.source_inventory import inventory_covers, bind_implicit_references
+    from app.trip_understanding.source_inventory import inventory_covers, bind_implicit_references, bind_internal_source_roles
     from app.trip_understanding.model_adapter import usage_summary
     from app.trip_understanding.inference_allowance import reserve_model_call
     from app.trip_understanding.errors import InferenceProviderUnavailableError
@@ -52,6 +52,7 @@ async def propose_stream(provider, source, on_plan):
     latest = provisional
     first_call = len(provider.adapter.calls)
     failure = None
+    validation_failure = None
     consumed = 0
 
     async def deliver(plan, complete):
@@ -90,7 +91,8 @@ async def propose_stream(provider, source, on_plan):
         plan = _proposal_from_live_draft(source, draft, allow_partial=True)
         plan = apply_inline_source_details(source, draft, plan)
         if final:
-            inventory = bind_implicit_references(source, plan, payload.get("source_inventory"))
+            inventory = bind_internal_source_roles(source, plan, payload.get("source_inventory"))
+            inventory = bind_implicit_references(source, plan, inventory)
             plan = plan.model_copy(update={"binding": {**plan.binding, "_source_inventory": inventory}})
             if not inventory_covers(source, plan, inventory):
                 plan = mark_source_visits_pending(source, plan)
@@ -127,6 +129,13 @@ async def propose_stream(provider, source, on_plan):
                     pass
     except (APIError, TimeoutError, ValueError, ValidationError, SchemaError) as exc:
         failure = type(exc).__name__
+        if isinstance(exc, SchemaError):
+            validation_failure = {"kind": "SCHEMA", "path": list(exc.absolute_path), "rule": exc.validator}
+            if exc.validator == "required" and isinstance(exc.instance, dict):
+                validation_failure["missing_fields"] = [key for key in exc.validator_value if key not in exc.instance]
+        elif isinstance(exc, ValidationError):
+            validation_failure = {"kind": "FIELDS", "errors": [
+                {"type": item["type"], "path": list(item["loc"])} for item in exc.errors(include_input=False)]}
         # A malformed tail may share a network chunk with valid complete rows.
         # Preserve those rows too, without interpreting the incomplete tail.
         try:
@@ -139,6 +148,8 @@ async def propose_stream(provider, source, on_plan):
         "transport_calls": calls, "stream_complete": failure is None}
     if failure:
         binding["stream_failure"] = failure
+        if validation_failure:
+            binding["stream_validation"] = validation_failure
     if latest is None:
         raise InferenceProviderUnavailableError("STREAM_NO_VALID_CONTENT", provider_binding=binding,
                                                external_call_count=len(calls))

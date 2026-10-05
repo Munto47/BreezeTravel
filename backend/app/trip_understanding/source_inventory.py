@@ -76,6 +76,47 @@ def bind_implicit_references(source, proposal, raw):
     return corrected
 
 
+def bind_internal_source_roles(source, proposal, raw):
+    """Translate graph reference roles only for already validated internal visits."""
+    from copy import deepcopy
+    from app.trip_understanding.experience_inference import SourceAnchorIndex
+    if raw is None:
+        return raw
+    inventory = SourceInventory.model_validate(raw)
+    segments = source_segments(source)
+    corrected = deepcopy(raw)
+    roots = {m.mention_id: m for m in proposal.mentions if not m.parent_mention_id}
+    anchors = SourceAnchorIndex(source)
+    for row, wire in zip(inventory.segments, corrected['segments'], strict=True):
+        if row.segment_index >= len(segments):
+            continue
+        segment = segments[row.segment_index]
+        for item, item_wire in zip(row.items, wire['items'], strict=True):
+            if item.kind != 'INTERNAL' or item.role != 'REFERENCE' or not item.parent_quote:
+                continue
+            try:
+                left, right = SourceAnchorIndex(segment['text']).locate(item.quote, item.occurrence)
+                parent_span = anchors.locate(item.parent_quote, item.parent_occurrence)
+            except ValueError:
+                continue
+            matches = []
+            for child in proposal.mentions:
+                parent = roots.get(child.parent_mention_id)
+                if (parent is None or child.role != 'REFERENCE' or child.detail_kind != 'VISIT'
+                    or (child.span_start, child.span_end) != (segment['start'] + left, segment['start'] + right)
+                    or (parent.span_start, parent.span_end) != parent_span
+                    or item.day_index not in (None, child.day_index)
+                    or child.day_index != parent.day_index
+                    or child.role_evidence_start is None or child.role_evidence_end is None
+                    or source[child.role_evidence_start:child.role_evidence_end] != child.role_evidence
+                    or parent.raw_text not in child.role_evidence or child.raw_text not in child.role_evidence):
+                    continue
+                matches.append(child)
+            if len(matches) == 1:
+                item_wire['role'] = 'PLANNED'
+    return corrected
+
+
 def inventory_covers(source, proposal, raw, *, covered_references: set | None = None) -> bool:
     from app.trip_understanding.experience_inference import SourceAnchorIndex
     from app.trip_understanding.semantic_recovery import explicit_reference_context

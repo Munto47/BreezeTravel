@@ -77,6 +77,24 @@ def test_incremental_baseline_uses_source_intent_for_internal_arrangements():
     assert all(detail["optional"] is False and detail["evidence"] for detail in details)
 
 
+def test_internal_graph_role_requires_the_same_validated_child_parent_and_day():
+    from copy import deepcopy
+    from app.trip_understanding.source_inventory import bind_internal_source_roles, inventory_covers
+    example = catalog()[0]
+    plan = exact_plan(example["text"], select_example(example["text"]))
+    raw = deepcopy(plan.binding['_source_inventory'])
+    row = next(i for segment in raw['segments'] for i in segment['items'] if i['quote'] == '太和殿')
+    row['role'] = 'REFERENCE'
+    assert not inventory_covers(example['text'], plan, raw)
+    assert inventory_covers(example['text'], plan, bind_internal_source_roles(example['text'], plan, raw))
+    assert row['role'] == 'REFERENCE'
+    row['parent_quote'] = '颐和园'
+    assert not inventory_covers(example['text'], plan, bind_internal_source_roles(example['text'], plan, raw))
+    row['parent_quote'] = '故宫博物院'
+    row['day_index'] = 2
+    assert not inventory_covers(example['text'], plan, bind_internal_source_roles(example['text'], plan, raw))
+
+
 @pytest.mark.parametrize("change", [
     lambda s: s.replace("接着去大芬油画村，", ""),
     lambda s: s.replace("大芬油画村", "深圳美术馆"),
