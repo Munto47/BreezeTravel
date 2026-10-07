@@ -90,7 +90,7 @@
   .experience.e-full-workspace .mobile-map-tool > button {background:white;border-radius:24px;min-height:44px;}
   .experience.e-full-workspace .e-map-controls {top:66px;bottom:auto;right:12px;}
   .experience.e-full-workspace .e-map-controls button {height:44px;width:44px;}
-  .experience.e-full-workspace .fluid-map-place-edit {left:12px;right:auto;bottom:calc(var(--map-sheet-height,80px) + 64px);}
+  .experience.e-full-workspace .fluid-map-place-edit {left:12px;right:auto;transform:none;bottom:calc(var(--map-sheet-height,80px) + 64px);}
   .experience.e-full-workspace .trip-inspector,.experience.e-full-workspace #inspector-editor-slot:not(:empty) {position:fixed;inset:calc(var(--mobile-visible-top,0px) + var(--mobile-safe-top)) 0 auto;width:100%;height:calc(var(--mobile-visible-height,100dvh) - var(--mobile-safe-top));max-height:none;z-index:60;border-radius:16px 16px 0 0;background:white;box-sizing:border-box;padding-bottom:var(--mobile-safe-bottom);overflow:auto;}
   .experience.e-full-workspace .trip-inspector > header {padding:10px 16px 4px;}
   .experience.e-full-workspace .trip-inspector header button,.experience.e-full-workspace .trip-inspector nav button {min-height:44px;min-width:44px;}

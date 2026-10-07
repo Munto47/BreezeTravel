@@ -83,6 +83,7 @@ for(const width of [360,390,430]) test(`mobile content and map remain usable at 
   await directory.getByTestId('map-directory-place').filter({hasText:'景山公园'}).click()
   await expect(page.locator('.e-map-marker[aria-label="查看景山公园"]')).toHaveAttribute('aria-pressed','true')
   await expect(page.locator('.e-map-marker[aria-label="查看景山公园"]')).toHaveText('2')
+  expect((await page.locator('.fluid-map-place-edit').boundingBox()).x).toBeGreaterThanOrEqual(12)
   await expect.poll(()=>page.evaluate(()=>window.__mobileMap.pans.at(-1)?.y)).toBeLessThan(0)
   await page.getByRole('button',{name:'展开完整地点列表'}).click()
   await expect(directory).toHaveAttribute('data-sheet','full')
