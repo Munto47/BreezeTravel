@@ -1,5 +1,13 @@
 /** Chronological DOM order, paired rows with traffic outside each pair. */
-export function serpentineLayout(width: number, count: number, minimumCardHeight = 0, minimumRowGap = 0) {
+export function serpentineLayout(width: number, count: number, minimumCardHeight = 0, minimumRowGap = 0, mobile = false) {
+  if (mobile) {
+    const cardHeight = Math.max(112, minimumCardHeight)
+    const rowGap = Math.max(44, minimumRowGap)
+    const point = (index: number) => ({x: 0, y: index * (cardHeight + rowGap), row: index, reverse: false})
+    return {width, columns: 1, cardWidth: width, cardHeight, point,
+      rowAt: (y: number, itemCount: number) => Math.max(0, Math.min(itemCount, Math.floor(y / (cardHeight + rowGap)))),
+      height: count ? count * (cardHeight + rowGap) - rowGap + 8 : 0}
+  }
   const compact = width < 600
   const padding = compact ? 16 : 36
   const gap = compact ? 12 : 18

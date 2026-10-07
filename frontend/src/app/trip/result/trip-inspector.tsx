@@ -2,6 +2,7 @@
 
 import {useEffect, useRef, useState, type ReactNode} from 'react'
 import {ArrowLeft, ChevronRight, Sparkles, X} from 'lucide-react'
+import {useCompactScreen, useMobilePanel} from './mobile-ui'
 import JourneySuggestions, {type JourneySuggestionProps} from './journey-suggestions'
 import PendingPlaceDropdown from './pending-place-dropdown'
 import SourceRestoreEditor from './source-restore-editor'
@@ -14,8 +15,18 @@ export default function TripInspector(props: JourneySuggestionProps & {
   unresolvedDays: UserFacingTripResult['days']; recovery: ReactNode; suspended?: boolean; onSourceAdd:(day:number)=>void
   onFocusTarget:(day:number,visit?:string)=>void
   onSupplementSaved:()=>void
+  onPendingCountChange?:(count:number)=>void
 }) {
   const [open, setOpen] = useState(false)
+  const mobile = useCompactScreen()
+  useMobilePanel(open && !props.suspended, () => setOpen(false), props.disabled)
+  const panel = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if(!open || !mobile || props.suspended)return
+    const opener = document.activeElement as HTMLElement | null
+    panel.current?.querySelector<HTMLElement>('button')?.focus({preventScroll:true})
+    return () => {if(opener?.isConnected)opener.focus({preventScroll:true})}
+  }, [open, mobile, props.suspended])
   const [tab, setTab] = useState<'pending'|'optional'|'handled'>('pending')
   const [activeIssueId, setActiveIssueId] = useState<string|null>(null)
   const [sourceDay, setSourceDay] = useState<number|null>(null)
@@ -61,6 +72,7 @@ export default function TripInspector(props: JourneySuggestionProps & {
     ? props.supplementary.days.flatMap(day => day.items.filter(item => item.role === 'EXCLUDED')
       .map(item => ({name: item.name, day: day.day_index}))) : []
   const pending = items.filter(item => !handledIds.has(item.id) && !item.optional && item.check?.label !== '可以更好')
+  useEffect(() => props.onPendingCountChange?.(pending.length), [pending.length, props.onPendingCountChange])
   const optional = items.filter(item => !handledIds.has(item.id) && (item.optional || item.check?.label === '可以更好'))
   const active = items.find(item => targetToken ? item.card?.activity_token === targetToken || item.card?.visit_id === targetToken : item.id === activeIssueId)
   const updating = props.map?.status === 'PREPARING' || props.checking
@@ -96,7 +108,14 @@ export default function TripInspector(props: JourneySuggestionProps & {
   return <>
     <button className="e-button" data-testid="journey-suggestions-toggle" aria-expanded={open}
       onClick={()=>{setDayFilter(null);setOpen(value=>!value)}}><Sparkles size={17}/>检查与建议{pending.length>0 && <span className="inspector-count">{pending.length}</span>}</button>
-    <aside id="trip-inspector" className="trip-inspector" hidden={!open || props.suspended} aria-label="检查与建议">
+    <aside ref={panel} role={mobile ? 'dialog' : undefined} aria-modal={mobile || undefined} onKeyDown={event => {
+      if (!mobile) return
+      if (event.key === 'Escape' && !props.disabled) {event.stopPropagation(); setOpen(false)}
+      if (event.key !== 'Tab') return
+      const buttons = [...(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]),input,select,textarea,summary,a[href]') || [])].filter(el => el.getClientRects().length)
+      if (event.shiftKey && document.activeElement === buttons[0]) {event.preventDefault(); buttons.at(-1)?.focus()}
+      else if (!event.shiftKey && document.activeElement === buttons.at(-1)) {event.preventDefault(); buttons[0]?.focus()}
+    }} id="trip-inspector" className="trip-inspector" hidden={!open || props.suspended} aria-label="检查与建议">
       <header><div><Sparkles size={19}/><h2>检查与建议</h2></div><button aria-label="关闭检查侧栏" onClick={()=>setOpen(false)}><X size={18}/></button></header>
       <p className="inspector-background" role="status">{updating?'正在后台更新 · 已保存的修改可继续查看':'行程修改自动保存'}</p>
       {feedback&&<p className="inspector-background" role="status">{feedback}</p>}
@@ -112,7 +131,7 @@ export default function TripInspector(props: JourneySuggestionProps & {
         {(tab==='pending'?pending:tab==='optional'?optional:[]).filter(item=>dayFilter == null || item.day === dayFilter).map(item=><button key={item.id} data-issue-id={item.id} className="inspector-item" onClick={event=>select(item,event.currentTarget)}>
           <span><strong>{item.title}</strong><small>{item.day != null?`Day ${item.day+1} · `:''}{item.description}</small></span><ChevronRight size={16}/>
         </button>)}
-        {tab==='pending'&&!pending.length&&<p className="inspector-empty">{props.checking?'正在检查行程…':'暂无需要你决定的事项。'}</p>}
+        {tab==='pending'&&!pending.length&&<p className="inspector-empty">{props.checking?'正在检查行程…':!props.checks ? '尚未检查，请稍后重试。' : '暂无需要你决定的事项。'}</p>}
         <div hidden={tab!=='optional'}><JourneySuggestions {...props} embedded mapDock={false}/></div>
         {tab==='handled'&&!handled.length&&!excluded.length&&<p className="inspector-empty">暂无已处理事项。</p>}
         {tab==='handled'&&!!excluded.length&&<section aria-label="原文已取消的安排">

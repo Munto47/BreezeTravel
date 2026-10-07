@@ -22,7 +22,8 @@ type MapInstance = {
     padding?: number[],
     maxZoom?: number,
   ): void
-  setCenter(center: [number, number]): void
+  setCenter(center: [number, number], immediately?: boolean, duration?: number): void
+  panBy?(x: number, y: number, duration?: number): void
   addControl?(control: unknown): void
   resize?(): void
   zoomIn?(): void
@@ -95,6 +96,7 @@ export default function RouteMap({
   previewCandidate = null,
   simulationPosition = null,
   dayColor = '#0c789d',
+  occlusion,
 }: {
   view: MapRenderView | null
   day: UserFacingTripResult['days'][number] | undefined
@@ -106,9 +108,12 @@ export default function RouteMap({
   focusSelected: boolean
   previewCandidate?: PlaceCandidateView | null
   simulationPosition?: { longitude: number; latitude: number } | null
+  occlusion?: {top: number; bottom: number}
   dayColor?: string
 }) {
   const container = useRef<HTMLDivElement>(null)
+  const paddingRef = useRef(occlusion)
+  paddingRef.current = occlusion
   const map = useRef<MapInstance | null>(null)
   const sdk = useRef<MapSDK | null>(null)
   const markers = useRef(new Map<string, HTMLElement>())
@@ -288,7 +293,7 @@ export default function RouteMap({
     // route geometry and rotating write tokens must not move the viewport.
     const fitKey = visibleDays.map(day => day.day_id || day.label).join('|')
     if (tilesReady && (points.length || lodgingPoints.length) && fittedDay.current !== fitKey) {
-      instance.setFitView(overlays, false, [160, 100, 100, 390], 15)
+      instance.setFitView(overlays, false, paddingRef.current ? [paddingRef.current.top, 50, paddingRef.current.bottom, 24] : [160, 100, 100, 390], 15)
       fittedDay.current = fitKey
     }
     return () => {
@@ -369,6 +374,16 @@ export default function RouteMap({
   }, [ready, simulationPosition])
 
   useEffect(() => {
+    if (!visible || !ready || !occlusion || !map.current) return
+    map.current.resize?.()
+    const point = points.find(point => point.activity_token === selected)
+    if (point?.position) {
+      map.current.setCenter([point.position.longitude, point.position.latitude], true)
+      map.current.panBy?.(0, (occlusion.top - occlusion.bottom) / 2, 0)
+    }
+  }, [visible, ready, selected, points, occlusion?.top, occlusion?.bottom])
+
+  useEffect(() => {
     if (visible) {
       const timer = setTimeout(() => {
         map.current?.resize?.()
@@ -404,7 +419,7 @@ export default function RouteMap({
                 map.current?.setFitView(
                   currentOverlays.current,
                   false,
-                  [60, 60, 60, 60],
+                  paddingRef.current ? [paddingRef.current.top, 50, paddingRef.current.bottom, 24] : [60, 60, 60, 60],
                   15,
                 )
             }}

@@ -33,6 +33,12 @@ export default function HomePage() {
   const router = useRouter()
   const { user, hydrate, isHydrated } = useAuthStore()
   const [source, setSource] = useState('')
+  const input = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const resize = () => {const element=input.current; if(!element || !window.matchMedia('(max-width:1023px)').matches)return; element.style.height='180px'; element.style.height=`${Math.max(180, Math.min(element.scrollHeight, (window.visualViewport?.height || window.innerHeight)/2))}px`}
+    resize(); window.visualViewport?.addEventListener('resize', resize)
+    return () => window.visualViewport?.removeEventListener('resize', resize)
+  }, [source])
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -286,7 +292,7 @@ export default function HomePage() {
         </div>
         <form onSubmit={start} className="four-input-panel">
           <label className="sr-only" htmlFor="trip-source">你的攻略或行程</label>
-          <textarea id="trip-source" data-testid="trip-source-text" value={source}
+          <textarea ref={input} id="trip-source" data-testid="trip-source-text" value={source}
             maxLength={50000} disabled={!ready || busy}
             onChange={event => {editSequence.current += 1; setSource(event.target.value); setError(''); setInputNotice('')}}
             placeholder={'例如：北京三日游。第1天先去故宫，再到景山公园……\n把想去的地点和大致顺序贴在这里，剩下的慢慢完善。'}

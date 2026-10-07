@@ -49,6 +49,9 @@ import {
 } from './presentation'
 import '../../experience.css'
 import './inspector.css'
+import AccessibleDialog from './accessible-dialog'
+import {MobileDayNavigation} from './mobile-ui'
+import MobileSourceDialog from './mobile-source-dialog'
 
 export default function TripResultPage() {
   const trip = useTripExperience()
@@ -56,6 +59,11 @@ export default function TripResultPage() {
   const router = useRouter()
   const { user, hydrate, logout } = useAuthStore()
   const [dayIndex, setDayIndex] = useState(0)
+  const [mobileActions, setMobileActions] = useState(false)
+  const [mobileInfo, setMobileInfo] = useState(false)
+  const [mobileSource, setMobileSource] = useState(false)
+  const [problemCount, setProblemCount] = useState(0)
+  const cardScroll = useRef(0)
   const [generationReading, setGenerationReading] = useState<GenerationReading>(initialGenerationReading)
   const generationReadingRef = useRef(generationReading)
   generationReadingRef.current = generationReading
@@ -352,7 +360,9 @@ export default function TripResultPage() {
       }
       closeContext()
     }
+    if (narrow && activeView === 'ITINERARY') cardScroll.current = window.scrollY
     setActiveView(next)
+    if (narrow) requestAnimationFrame(() => window.scrollTo({top: next === 'ITINERARY' ? cardScroll.current : 0, behavior: 'instant'}))
   }
   function editCard(
     card: ActivityCardView,
@@ -688,6 +698,45 @@ export default function TripResultPage() {
         )
       ) : (
         <>
+          {narrow && <header className="mobile-trip-header">
+            <div className="mobile-trip-topline">
+              <Link href="/" aria-label="返回首页" className="mobile-back">‹</Link>
+              <button className="mobile-trip-title" onClick={() => setMobileInfo(true)} title={`${title} · ${result.days.length} 天`}>{title} · {result.days.length} 天</button>
+              <button className="mobile-problems" aria-label="检查与建议" onClick={() => window.dispatchEvent(new CustomEvent('trip-inspector-open'))}>检查{problemCount > 0 && <span>{problemCount}</span>}</button>
+              <button aria-label="更多行程操作" onClick={() => setMobileActions(true)}><MoreHorizontal aria-hidden="true"/></button>
+            </div>
+            <ResultNavigation activeView={activeView} onChange={changeResultView}/>
+            {activeView === 'ITINERARY' && <MobileDayNavigation count={result.days.length} current={safeDayIndex} active={!contextOpen} onChange={setDayIndex}/>}
+            {displayMap && ['NEEDS_UPDATE','UNAVAILABLE','PREPARING'].includes(displayMap.status) && <div className="mobile-route-status" role="status">
+              <span>{displayMap.status === 'PREPARING' ? '路线准备中' : displayMap.status === 'NEEDS_UPDATE' ? '路线需要更新' : '路线暂不可用'}</span>
+              {displayMap.status !== 'PREPARING' && displayMap.available_actions.includes('RENDER_MAP') && <button disabled={disabled || dirty} onClick={() => void (displayMap.status === 'UNAVAILABLE' ? trip.retryMap() : trip.renderMap())}>{displayMap.status === 'UNAVAILABLE' ? '重试路线' : '更新路线'}</button>}
+            </div>}
+            {['WRITING','UNKNOWN','FAILED'].includes(trip.writeStatus) && <p className="mobile-write-status" role="status">{persistence}</p>}
+          </header>}
+          {narrow && mobileInfo && <AccessibleDialog titleId="mobile-trip-info" onClose={() => {if (assumption) closeContext(); else setMobileInfo(false)}} dismissDisabled={disabled}>
+            <h2 id="mobile-trip-info">{title} · {result.days.length} 天</h2>
+            <p>{result.days.reduce((n, day) => n + day.activities.filter(card => card.status === 'READY').length, 0)} 个已确认地点 · {trip.omittedPlaceCount} 个待确认</p><p>{persistence}</p>
+            {assumption ? <form onSubmit={event => {event.preventDefault(); if (assumptionValue.trim() !== assumption.value) void trip.command({command_type:'ASSUMPTION_SET', key:assumption.key, value:assumptionValue.trim()}).then(ok => {if(ok)closeContext(true)})}}>
+              <label className="e-field">{assumption.label}<input value={assumptionValue} maxLength={100} required disabled={disabled} onChange={event => setAssumptionValue(event.target.value)}/></label>
+              <div className="e-panel-actions"><button type="button" className="e-button" disabled={disabled} onClick={() => closeContext()}>取消</button><button className="e-button" disabled={disabled || !assumptionValue.trim() || assumptionValue.trim() === assumption.value}>应用修改</button></div>
+              {discard && <div role="alert"><p>放弃未保存的修改？</p><button type="button" className="e-button" onClick={() => setDiscard(false)}>继续编辑</button><button type="button" className="e-button" onClick={() => closeContext(true)}>放弃修改</button></div>}
+            </form> : <div className="mobile-actions-list">{result.assumptions.filter(item => item.key !== 'calendar').map(item => <button key={item.key} className="e-button" disabled={disabled || !item.editable} onClick={() => {setAssumptionValue(item.value); openContext({kind:'assumption',key:item.key})}}>{item.label} · {item.value}</button>)}<button className="e-button" onClick={() => setMobileInfo(false)}>关闭</button></div>}
+          </AccessibleDialog>}
+          {narrow && mobileActions && <AccessibleDialog titleId="mobile-actions-title" onClose={() => setMobileActions(false)} dismissDisabled={disabled}>
+            <div className="mobile-actions-heading"><h2 id="mobile-actions-title">行程操作</h2><button className="e-button" disabled={disabled} onClick={() => setMobileActions(false)}>关闭</button></div>
+            <p role="status">{persistence}</p>
+            <div className="mobile-actions-list">
+              <button className="e-button" disabled={disabled || dirty || accountSaved} onClick={() => void saveToAccount()}>{accountSaved ? '已保存到账号' : '保存到账号'}</button>
+              <button className="e-button" disabled={disabled || dirty || !result.can_undo} onClick={() => void trip.command({command_type:'UNDO'})}>撤销</button>
+              <button className="e-button" disabled={disabled || dirty || !result.can_redo} onClick={() => void trip.command({command_type:'REDO'})}>重做</button>
+              <button className="e-button" onClick={() => setMobileSource(true)}>查看原文</button>
+              {accountSaved && <button className="e-button" disabled={disabled || dirty || sharing} onClick={() => void shareTrip()}>分享行程</button>}
+              <ItineraryPngExport resource={trip.resource} result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty}/>
+              <button className="e-button" disabled={disabled || dirty || sourceDeleted} onClick={() => openContext({kind:'privacy', target:'SOURCE'})}>删除导入文字</button>
+              <button className="e-button" disabled={disabled || dirty} onClick={() => openContext({kind:'privacy', target:'TRIP'})}>删除行程</button>
+            </div>
+            {mobileSource && <MobileSourceDialog resource={trip.resource} onClose={() => setMobileSource(false)}/>}
+          </AccessibleDialog>}
           <section className="e-trip-head">
             <div className="e-trip-title">
               <div className="e-title-line">
@@ -816,6 +865,7 @@ export default function TripResultPage() {
                   {accountSaved ? '已保存到账号' : '保存到账号'}
                 </button>
                 <TripInspector
+                  onPendingCountChange={setProblemCount}
                   onSupplementSaved={trip.retry}
                   onSourceAdd={index=>openContext({kind:'place',activityToken:null,dayIndex:index,editorMode:'ADD'})}
                   onFocusTarget={focusIssueTarget}
@@ -924,6 +974,7 @@ export default function TripResultPage() {
                 }
               >
                 {trip.notice}
+                {narrow && !trip.pending && result.can_undo && <button type="button" className="e-text-button" disabled={disabled || dirty} onClick={() => void trip.command({command_type:'UNDO'})}>撤销</button>}
                 {trip.pending && (
                   <button
                     type="button"
@@ -941,7 +992,7 @@ export default function TripResultPage() {
               </div>
             )}
           </div>
-          <ResultNavigation activeView={activeView} onChange={changeResultView} />
+          {!narrow && <ResultNavigation activeView={activeView} onChange={changeResultView} />}
           {displayMap && (
             <div className="e-horizontal-result-shell">
               <div data-testid="result-view-itinerary" hidden={activeView !== 'ITINERARY'}>
@@ -951,6 +1002,7 @@ export default function TripResultPage() {
                   className="mx-auto max-w-[1600px] px-4 pb-28 pt-5 lg:px-8 lg:pb-12 lg:pl-24"
                 >
                   <ItineraryWorkspace
+                    onSelect={narrow ? (token, index) => {setSelected(token); setDayIndex(index)} : undefined}
                     resource={trip.resource}
                     onRender={() => void trip.renderMap()}
                     toolbar={<ItineraryPngExport resource={trip.resource} result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
@@ -983,6 +1035,7 @@ export default function TripResultPage() {
               <div data-testid="result-view-map-stay" hidden={activeView !== 'MAP_STAY'}>
                 <MapStayWorkspace
                   active={activeView === 'MAP_STAY'}
+                  suspended={contextOpen || mobileActions || mobileInfo}
                   result={result}
                   pendingDays={trip.unresolvedDays}
                   mapView={displayMap}

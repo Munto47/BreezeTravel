@@ -1,4 +1,6 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+import {MobileViewport} from './trip/result/mobile-ui'
+import './mobile.css'
 import './globals.css'
 import ToastContainer from '@/components/ui/ToastContainer'
 
@@ -14,6 +16,8 @@ export const metadata: Metadata = {
   description: '粘贴旅行攻略文字，整理每天的地点与先后顺序，查看地图，保存并导出清晰的行程卡片。',
 }
 
+export const viewport: Viewport = {width: 'device-width', initialScale: 1, viewportFit: 'cover'}
+
 export default function RootLayout({
   children,
 }: {
@@ -22,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="bg-gray-100 font-sans" suppressHydrationWarning>
+        <MobileViewport />
         {children}
         <ToastContainer />
       </body>

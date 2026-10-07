@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import {useMobilePanel} from './mobile-ui'
 
 export default function ExperienceDialog({
   title,
@@ -15,15 +16,17 @@ export default function ExperienceDialog({
   children: ReactNode
 }) {
   const dialog = useRef<HTMLDivElement>(null)
+  useMobilePanel(true, onClose, busy)
   const close = useRef(onClose)
   close.current = onClose
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const mobile = window.matchMedia('(max-width:1023px)').matches
+    if (!mobile) document.body.style.overflow = 'hidden'
     dialog.current?.querySelector<HTMLElement>('button, input, select')?.focus()
     return () => {
-      document.body.style.overflow = previous
+      if (!mobile) document.body.style.overflow = previous
       if (opener?.isConnected) opener.focus()
     }
   }, [])

@@ -7,6 +7,7 @@ import type {TripUnderstandingProgressMetrics, TripUnderstandingProgressView, Us
 import './generation-workspace.css'
 import GenerationSource from './generation-source'
 import PlacePhoto, {PlacePhotoProvider} from './place-photo'
+import {useCompactScreen} from './mobile-ui'
 
 export type GenerationReading = {dayIndex: number; token: string | null; offset: number; expanded: string[]; following: boolean}
 export const initialGenerationReading: GenerationReading = {dayIndex: 0, token: null, offset: 0, expanded: [], following: true}
@@ -25,6 +26,7 @@ export default function GenerationWorkspace({resource, phase, progress, snapshot
   onResume: () => void
 }) {
   const feed = useRef<HTMLDivElement>(null)
+  const mobile = useCompactScreen()
   const previous = useRef(new Set<string>())
   const readingRef = useRef(reading)
   readingRef.current = reading
@@ -87,7 +89,10 @@ export default function GenerationWorkspace({resource, phase, progress, snapshot
     </div>}
     {notice && <p className="live-notice" role="alert">{notice}</p>}
     {streamState === 'PAUSED' && <button type="button" className="four-secondary" onClick={onResume}>重新连接进度</button>}
-    <GenerationSource key={resource} resource={resource} hasCards={!!cards.length}/>
+    <details className="live-mobile-details" open={mobile ? undefined : true}>
+      <summary>查看整理详情与原文</summary>
+      <GenerationSource key={resource} resource={resource} hasCards={!!cards.length}/>
+    </details>
     <div className={`live-layout${cards.length || days.some(day => day.alternatives?.length || day.source_notes?.length) ? '' : ' is-empty'}`}>
       {!!cards.length && <nav className="live-days" aria-label="浏览逐日预览"><span>行程目录</span>{days.map((day, index) => <button key={day.label} type="button" aria-current={reading.dayIndex === index ? 'true' : undefined} onClick={() => chooseDay(index)}>Day {index + 1}<small>{day.activities.length} 个地点</small></button>)}<p>可展开阅读；完成或停止后开放编辑。</p></nav>}
       <div className="live-feed-wrap">

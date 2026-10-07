@@ -59,6 +59,7 @@ export default function ItineraryPngExport({
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [busy, setBusy] = useState(false)
+  const generating = useRef(false)
   const [error, setError] = useState('')
   currentEtag.current = etag
   currentDisabled.current = disabled
@@ -75,6 +76,8 @@ export default function ItineraryPngExport({
   }, [etag, previewUrl])
 
   const createPreview = async () => {
+    if (generating.current || currentDisabled.current) return
+    generating.current = true
     const startingEtag = currentEtag.current
     setBusy(true)
     setError('')
@@ -97,6 +100,7 @@ export default function ItineraryPngExport({
             ? '补充安排尚未读取，请稍后再导出。' : '暂时无法生成图片，请稍后重试。',
       )
     } finally {
+      generating.current = false
       setBusy(false)
     }
   }
@@ -148,6 +152,7 @@ export default function ItineraryPngExport({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={previewUrl} alt="行程横链导出预览" className="h-auto w-full max-w-full" />
           </div>
+          <p className="mt-3 text-sm text-slate-600">如浏览器未开始下载，可长按预览图片保存，或在 Safari／Chrome 中打开后下载。</p>
           <button data-testid="download-itinerary-png" type="button" onClick={download} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2"><Download className="h-4 w-4" aria-hidden="true" />下载 PNG</button>
         </AccessibleDialog>
       )}

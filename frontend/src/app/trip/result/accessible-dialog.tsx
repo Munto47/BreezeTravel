@@ -8,6 +8,8 @@ import {
   useRef,
 } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
+import {createPortal} from 'react-dom'
+import {useMobilePanel} from './mobile-ui'
 
 
 const FOCUSABLE_SELECTOR = [
@@ -42,6 +44,7 @@ export default function AccessibleDialog({
   const internalPanelRef = useRef<HTMLDivElement | null>(null)
   const openerRef = useRef<HTMLElement | null>(null)
   const reduceMotion = useReducedMotion()
+  useMobilePanel(true, onClose, dismissDisabled)
 
   useEffect(() => {
     if (!openerRef.current) {
@@ -73,10 +76,12 @@ export default function AccessibleDialog({
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape' && !dismissDisabled) {
       event.preventDefault()
+      event.stopPropagation()
       onClose()
       return
     }
     if (event.key !== 'Tab') return
+    event.stopPropagation()
     const focusable = Array.from(
       internalPanelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) || [],
     ).filter((element) => element.getClientRects().length > 0)
@@ -96,9 +101,11 @@ export default function AccessibleDialog({
     }
   }
 
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div className="experience mobile-dialog-portal" style={{display:'contents'}}>
     <motion.div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-4 backdrop-blur-sm sm:items-center"
+      className="mobile-dialog-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-4 backdrop-blur-sm sm:items-center"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -124,5 +131,6 @@ export default function AccessibleDialog({
         {children}
       </motion.div>
     </motion.div>
+    </div>, document.body,
   )
 }

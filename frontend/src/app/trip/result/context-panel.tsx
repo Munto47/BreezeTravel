@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import {useMobilePanel} from './mobile-ui'
 
 export type ContextMode =
   | { kind: 'timeline' }
@@ -35,6 +36,7 @@ export default function ContextPanel({
   children: ReactNode
 }) {
   const panel = useRef<HTMLElement>(null)
+  useMobilePanel(true, onClose, busy)
   const [fullScreen, setFullScreen] = useState(false)
   const close = useRef(onClose)
   close.current = onClose
@@ -50,7 +52,7 @@ export default function ContextPanel({
     return () => query.removeEventListener('change', update)
   }, [])
   useEffect(() => {
-    if (!fullScreen && !modal) return
+    if (fullScreen || !modal) return
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {

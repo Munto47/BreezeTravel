@@ -1,8 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, Search } from 'lucide-react'
 import './map-workspace.css'
+import {useCompactScreen} from './mobile-ui'
+import {confirmedDays} from '@/lib/confirmed-trip-view'
+import AccessibleDialog from './accessible-dialog'
 
 import type {
   MapRenderView,
@@ -21,6 +24,7 @@ type GeometryPoint = { longitude: number; latitude: number }
 
 export default function MapStayWorkspace({
   active,
+  suspended = false,
   result,
   pendingDays = [],
   mapView,
@@ -39,6 +43,7 @@ export default function MapStayWorkspace({
   onCommand,
 }: {
   active: boolean
+  suspended?: boolean
   result: UserFacingTripResult
   pendingDays?: UserFacingTripResult['days']
   mapView: MapRenderView | null
@@ -56,6 +61,27 @@ export default function MapStayWorkspace({
   resource: string
   onCommand: (command: import('@/lib/trip-understanding-v3').TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
 }) {
+  const mobile = useCompactScreen()
+  const [sheet, setSheet] = useState<'collapsed' | 'half' | 'full'>('collapsed')
+  const [sheetHeight, setSheetHeight] = useState(80)
+  const directory = useRef<HTMLElement>(null)
+  const gesture = useRef<number | null>(null)
+  const suppressSheetClick = useRef(false)
+  const expandSheet = () => setSheet(window.innerHeight < 540 ? 'full' : 'half')
+  useEffect(() => {
+    const element = directory.current
+    if (!element) return
+    const observer = new ResizeObserver(() => setSheetHeight(element.getBoundingClientRect().height))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [mobile])
+  useEffect(() => {
+    const collapse = () => setSheet('collapsed')
+    window.addEventListener('trip-mobile-panel-open', collapse)
+    window.addEventListener('trip-inspector-open', collapse)
+    if (suspended) collapse()
+    return () => {window.removeEventListener('trip-mobile-panel-open', collapse); window.removeEventListener('trip-inspector-open', collapse)}
+  }, [suspended])
   const directoryScroll = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
@@ -64,8 +90,11 @@ export default function MapStayWorkspace({
   const [editing,setEditing]=useState(false)
   useEffect(()=>setEditing(false),[selected,active])
   const currentDay = result.days[dayIndex]
+  const mapDays = useMemo(() => mobile ? confirmedDays(result.days) : result.days, [mobile, result.days])
   const [mapScope, setMapScope] = useState<'all' | 'day'>('all')
   useEffect(() => setMapScope('all'), [resource])
+  const previousDay = useRef(dayIndex)
+  useEffect(() => {if (previousDay.current !== dayIndex && !active) setMapScope('day'); previousDay.current = dayIndex}, [dayIndex, active])
   const [directoryOpen, setDirectoryOpen] = useState(false)
   const [simulationPosition, setSimulationPosition] = useState<GeometryPoint | null>(null)
   const updateSimulationPosition = useCallback(
@@ -102,6 +131,7 @@ export default function MapStayWorkspace({
       if (status !== 'all' && card.status !== status) setStatus('all')
     }
     onSelect(token)
+    if (mobile) {expandSheet(); setDirectoryOpen(true)}
   }
 
   useEffect(() => {
@@ -109,25 +139,44 @@ export default function MapStayWorkspace({
   }, [])
   useEffect(() => {
     const container = directoryScroll.current
-    if (!active || !directoryOpen || !container) return
+    if (!active || !(mobile ? sheet !== 'collapsed' : directoryOpen) || !container) return
     const item = container.querySelector<HTMLElement>('[data-testid="map-directory-place"][aria-pressed="true"]')
     if (!item) return
     const outer = container.getBoundingClientRect(), inner = item.getBoundingClientRect()
     if (inner.top < outer.top) container.scrollTop += inner.top - outer.top
     else if (inner.bottom > outer.bottom) container.scrollTop += inner.bottom - outer.bottom
-  }, [active, selected, pendingToken, directoryOpen, query, category, status, mapScope, dayIndex])
+  }, [active, selected, pendingToken, directoryOpen, query, category, status, mapScope, dayIndex, sheet, mobile])
 
 
   return (
     <PlacePhotoProvider days={result.days}>
-    <section data-testid="map-theater" data-map-status={mapView?.status || result.map.status} id="map-stay-view" aria-label="地图" className="fluid-map-workspace">
-      <aside id="map-place-directory" data-testid="map-place-directory" data-open={directoryOpen} className="map-place-directory" aria-label="本行程地点列表">
+    <section data-testid="map-theater" data-map-status={mapView?.status || result.map.status} id="map-stay-view" aria-label="地图" className="fluid-map-workspace" style={{'--map-sheet-height': `${sheetHeight}px`} as import('react').CSSProperties}>
+      <aside ref={directory} data-sheet={sheet} id="map-place-directory" data-testid="map-place-directory" data-open={directoryOpen} className="map-place-directory" aria-label="本行程地点列表">
+        <div className="mobile-drawer-head">
+          <button className="mobile-drawer-title" type="button" aria-expanded={sheet !== 'collapsed'} aria-label="查看地点列表"
+            onPointerDown={event => {gesture.current=event.clientY; event.currentTarget.setPointerCapture(event.pointerId)}}
+            onPointerUp={event => {
+              const distance = (gesture.current ?? event.clientY) - event.clientY
+              gesture.current=null
+              suppressSheetClick.current = Math.abs(distance) > 30
+              if (distance > 30) sheet === 'collapsed' ? expandSheet() : setSheet('full')
+              if (distance < -30) setSheet(sheet === 'full' && window.innerHeight >= 540 ? 'half' : 'collapsed')
+            }}
+            onPointerCancel={() => {gesture.current=null; suppressSheetClick.current=false}}
+            onClick={() => {if(suppressSheetClick.current){suppressSheetClick.current=false;return} sheet === 'collapsed' ? expandSheet() : setSheet('collapsed')}}>
+            <strong>{mapScope === 'all' ? '全部行程' : relativeDayLabel(dayIndex)} · {listedCount} 个地点</strong>
+            <small>{sheet === 'collapsed' ? '点击或上滑查看地点' : selected ? currentDay?.activities.find(card => card.activity_token === selected)?.name || '选择地点查看地图' : '选择地点查看地图'}</small>
+          </button>
+          {sheet !== 'full' && <button type="button" aria-label="展开完整地点列表" onClick={() => setSheet('full')}>展开</button>}
+          {sheet === 'full' && <button type="button" className="mobile-drawer-half" aria-label="半屏查看地点列表" onClick={expandSheet}>半屏</button>}
+          {sheet !== 'collapsed' && <button type="button" aria-label="收起地点列表" onClick={() => setSheet('collapsed')}>收起</button>}
+        </div>
         <div className="map-directory-heading"><h2>地点列表</h2><button className="e-button e-button-quiet map-directory-close" type="button" onClick={() => setDirectoryOpen(false)}>收起</button></div>
         <div className="map-directory-scopes" aria-label="地点列表范围">
           <button type="button" aria-pressed={mapScope === 'all'} onClick={() => setMapScope('all')}>全部 {directoryDays.reduce((n, day) => n + day.activities.length, 0)}</button>
           {result.days.map((day, index) => <button key={index} type="button" aria-pressed={mapScope === 'day' && index === dayIndex} onClick={() => {setMapScope('day'); onDayChange(index); setSimulationPosition(null)}}>{relativeDayLabel(index)}</button>)}
         </div>
-        <label className="map-directory-search"><Search size={16} aria-hidden="true"/><input aria-label="搜索本行程地点" placeholder="搜索本行程的地点…" value={query} onChange={event => setQuery(event.target.value)} type="search"/></label>
+        <label className="map-directory-search"><Search size={16} aria-hidden="true"/><input aria-label="搜索本行程地点" placeholder="搜索本行程的地点…" value={query} onChange={event => setQuery(event.target.value)} onFocus={() => {if(mobile)setSheet('full')}} type="search"/></label>
         <div className="map-directory-filters">
           <label>类别<select aria-label="地点类别" value={category} onChange={event => setCategory(event.target.value)}><option value="all">全部类别</option>{categories.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
           <label>状态<select aria-label="地点确认状态" value={status} onChange={event => setStatus(event.target.value)}><option value="all">全部状态</option><option value="READY">已确认</option><option value="NEEDS_CONFIRMATION">待确认</option></select></label>
@@ -137,8 +186,8 @@ export default function MapStayWorkspace({
           <h3><span style={{background: DAY_COLORS[day.index % DAY_COLORS.length]}}/>{relativeDayLabel(day.index)} <small>{day.activities.length} 个地点</small></h3>
           {day.activities.map(card => <div key={card.activity_token}>
             <button data-testid="map-directory-place" data-day-index={day.index} data-confirmation={card.status} type="button" aria-pressed={selected === card.activity_token || pendingToken === card.activity_token}
-              onClick={() => {onDayChange(day.index); if (card.status === 'READY') {setPendingToken(null); onSelect(card.activity_token)} else {setPendingToken(card.activity_token)} }}>
-              <span className="map-directory-number" style={{backgroundColor: DAY_COLORS[day.index % DAY_COLORS.length]}}>{card.status === 'READY' ? result.days[day.index].activities.indexOf(card) + 1 : '?'}</span>
+              onClick={() => {onDayChange(day.index); if (card.status === 'READY') {setPendingToken(null); onSelect(card.activity_token); if(mobile)expandSheet()} else {setPendingToken(card.activity_token)} }}>
+              <span className="map-directory-number" style={{backgroundColor: DAY_COLORS[day.index % DAY_COLORS.length]}}>{card.status === 'READY' ? mapDays[day.index].activities.findIndex(item => item.activity_token === card.activity_token) + 1 : '?'}</span>
               {card.status === 'READY' && <span className="map-directory-photo" aria-hidden="true"><PlacePhoto card={card}/></span>}
               <span className="map-directory-place-copy"><strong>{card.name}</strong><small>{card.category} · {card.status === 'READY' ? '已确认' : '待确认'}</small></span>
             </button>
@@ -151,13 +200,14 @@ export default function MapStayWorkspace({
         <button data-testid="map-directory-toggle" type="button" aria-expanded={directoryOpen} aria-controls="map-place-directory" onClick={() => setDirectoryOpen(value => !value)} className="map-directory-toggle e-button"><List size={16} aria-hidden="true"/>{directoryOpen ? '收起地点' : '查看地点'}</button>
           <RouteMap
             view={mapView}
-            day={currentDay}
-            days={mapScope === 'all' ? result.days : undefined}
+            day={mapDays[dayIndex]}
+            days={mapScope === 'all' ? mapDays : undefined}
             selected={selected}
             onSelect={selectCard}
             mode={routeMode}
             visible={active}
             focusSelected
+            occlusion={mobile ? {top:64, bottom:sheetHeight + 12} : undefined}
             simulationPosition={simulationPosition}
             dayColor={dayColor}
           />
@@ -174,7 +224,7 @@ export default function MapStayWorkspace({
             onClick={() => { setMapScope('day'); setSimulationPosition(null); onDayChange(index) }}><span className="fluid-day-dot" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{relativeDayLabel(index)}</button>)}
         </div>
         <div className="fluid-map-tools">
-          <details className="fluid-map-popover" name={`map-tools-${resource}`}><summary>路线</summary><div className="fluid-map-popover-content" data-testid="map-route-tools">
+          <MapTool title="路线" name={`map-tools-${resource}`} mobile={mobile} disabled={disabled}><div className="fluid-map-popover-content" data-testid="map-route-tools">
                     {!!currentRoutes.length && (
           <details open={mapUnavailable || undefined} className="grid gap-2" aria-label="路线文字摘要"><summary className="min-h-11 cursor-pointer text-sm text-slate-600">路线摘要</summary>
             {currentRoutes.map((route, index) => {
@@ -227,17 +277,29 @@ export default function MapStayWorkspace({
         <RoutePlayback active={active} view={mapView} day={currentDay} mode={routeMode} onPosition={updateSimulationPosition} />
 
 
-          </div></details>
-          <details className="fluid-map-popover" name={`map-tools-${resource}`} data-testid="stay-panel"><summary>住宿</summary><div className="fluid-map-popover-content" aria-label="住宿建议">
+          </div></MapTool>
+          <MapTool title="住宿" name={`map-tools-${resource}`} testId="stay-panel" mobile={mobile} disabled={disabled}><div className="fluid-map-popover-content" aria-label="住宿建议">
             <button data-testid="retry-stay" type="button" className="e-button" disabled={disabled || currentStay.status === 'PREPARING'} onClick={onRefreshStay}>{currentStay.status === 'PREPARING' ? '正在准备住宿…' : '更新住宿建议'}</button>
                       <p className="mt-2 text-sm leading-6 text-slate-600">{currentStay.message}</p>
           {currentStay.area_summary && <p className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-slate-700">{currentStay.area_summary}</p>}
           <StayCandidates stay={currentStay} days={result.days} disabled={disabled} onSelect={onSelectStay}/>
 
-          </div></details>
+          </div></MapTool>
         </div>
       </div>
     </section>
     </PlacePhotoProvider>
   )
+}
+
+function MapTool({title, name, testId, mobile, disabled, children}: {title:string;name:string;testId?:string;mobile:boolean;disabled:boolean;children:ReactNode}) {
+  const [open,setOpen]=useState(false)
+  if (!mobile) return <details className="fluid-map-popover" name={name} data-testid={testId}><summary>{title}</summary>{children}</details>
+  return <div className="mobile-map-tool" data-testid={testId}>
+    <button type="button" className="e-button" onClick={() => setOpen(true)}>{title}</button>
+    {open && <AccessibleDialog titleId={`map-tool-${title}`} onClose={() => setOpen(false)} dismissDisabled={disabled}>
+      <header className="mobile-actions-heading"><h2 id={`map-tool-${title}`}>{title}</h2><button type="button" className="e-button" disabled={disabled} onClick={() => setOpen(false)}>关闭</button></header>
+      {children}
+    </AccessibleDialog>}
+  </div>
 }

@@ -42,6 +42,8 @@ import PlacePhoto, { PlacePhotoProvider } from './place-photo'
 import AccessibleDialog from './accessible-dialog'
 import { DAY_ACCENTS, DAY_COLORS, activityCategoryLabel, transportConnectorFor, connectorPresentation, dayRouteSummary, relativeDayLabel } from './result-presentation'
 import './itinerary-workspace.css'
+import {useCompactScreen} from './mobile-ui'
+import {confirmedDays} from '@/lib/confirmed-trip-view'
 import {diningAccessBadge} from './dining-access'
 
 
@@ -84,6 +86,7 @@ type ItineraryWorkspaceProps = {
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdd: (dayIndex: number, position: number) => void
   onAlternatives?: (dayIndex: number, trigger: HTMLButtonElement) => void
+  onSelect?: (token: string, dayIndex: number) => void
   renderDaySuggestion?: (dayIndex: number) => ReactNode
 }
 
@@ -104,9 +107,12 @@ export default function ItineraryWorkspace({
   onCommand,
   onAdd,
   onAlternatives,
+  onSelect,
   renderDaySuggestion,
 }: ItineraryWorkspaceProps) {
   const reduceMotion = useReducedMotion()
+  const mobile = useCompactScreen()
+  const [moveDialog, setMoveDialog] = useState<{item: CardLocation; dayIndex: number; position: number} | null>(null)
   const [localDays, setLocalDays] = useState(days)
   const [dragged, setDragged] = useState<DraggedCard | null>(null)
   const touchTarget = useRef<DropTarget | 'TRASH' | null>(null)
@@ -141,13 +147,13 @@ export default function ItineraryWorkspace({
         // Use rendered text height: names wrap naturally, and drag geometry
         // receives the same height as the visible cards and connectors.
         heights[day] = Math.ceil(Math.max(0, ...Array.from(lane.querySelectorAll<HTMLElement>('[data-testid="activity-card"]')).map(card =>
-          (card.querySelector<HTMLElement>('.four-card-photo')?.offsetHeight || 0) +
+          (mobile ? 0 : card.querySelector<HTMLElement>('.four-card-photo')?.offsetHeight || 0) +
           (card.querySelector<HTMLElement>('.four-card-copy')?.scrollHeight || 0) +
-          (card.querySelector<HTMLElement>('.four-pending-confirm')?.offsetHeight || 0) + 2)))
+          (card.querySelector<HTMLElement>('.four-pending-confirm')?.offsetHeight || 0) + (mobile ? 18 : 2))))
         const labels = Array.from(lane.querySelectorAll<HTMLElement>('.serpentine-route-label'))
         // During drag the connectors are hidden; keep the measured gap so
         // the drop geometry cannot collapse while the pointer is moving.
-        if (labels.length && lane.clientWidth >= 600) gaps[day] = Math.ceil(Math.max(...labels.map(label => label.offsetHeight))) + 8
+        if (labels.length && (mobile || lane.clientWidth >= 600)) gaps[day] = Math.ceil(Math.max(...labels.map(label => label.offsetHeight))) + 8
       })
       const merge = (previous: Record<number, number>, next: Record<number, number>) =>
         Object.entries(next).some(([day, value]) => previous[Number(day)] !== value) ? {...previous, ...next} : previous
@@ -162,12 +168,12 @@ export default function ItineraryWorkspace({
       lane.querySelectorAll('.four-card-copy,.four-card-photo,.four-pending-confirm,.serpentine-route-label').forEach(element => observer.observe(element))
     })
     return () => observer.disconnect()
-  }, [localDays, layoutMode, collapsedDays, mapView, routesPending, operationPending])
+  }, [localDays, layoutMode, collapsedDays, mapView, routesPending, operationPending, mobile])
   const captureDropGeometry = () => {
     pointerDropTarget.current = null
     dragGeometry.current.clear()
     laneScrollers.current.forEach((lane, dayIndex) => {
-      if (lane.clientWidth) dragGeometry.current.set(dayIndex, serpentineLayout(lane.clientWidth, localDays[dayIndex-1].activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0))
+      if (lane.clientWidth) dragGeometry.current.set(dayIndex, serpentineLayout(lane.clientWidth, localDays[dayIndex-1].activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0, mobile))
     })
   }
   const targetAt = (x: number, y: number): DropTarget | null => {
@@ -180,11 +186,11 @@ export default function ItineraryWorkspace({
       const count = localDays[dayIndex-1].activities.length
       const row = layout.rowAt(y-box.top,count)
       const first = row*layout.columns, last = Math.min(count, first+layout.columns)
-      const reverse = row%2 === 1
+      const reverse = !mobile && row%2 === 1
       let position=first
       for(let index=first;index<last;index++) {
         const center=layout.point(index).x+layout.cardWidth/2
-        if(reverse ? x-box.left < center : x-box.left > center) position++
+        if(mobile ? y-box.top > layout.point(index).y + layout.cardHeight/2 : reverse ? x-box.left < center : x-box.left > center) position++
       }
       return {dayIndex,position:Math.min(position,count)}
     }
@@ -247,8 +253,8 @@ export default function ItineraryWorkspace({
   }
 
   useEffect(() => {
-    setLocalDays(days)
-  }, [days])
+    setLocalDays(mobile ? confirmedDays(days) : days)
+  }, [days, mobile])
 
   const rememberTrigger = (element: HTMLElement) => {
     lastTriggerRef.current = element
@@ -263,6 +269,7 @@ export default function ItineraryWorkspace({
 
   const openDetails = (item: CardLocation, element: HTMLElement) => {
     rememberTrigger(element)
+    onSelect?.(item.card.activity_token, item.dayIndex - 1)
     setPendingPlace(current=>current?.card.activity_token===item.card.activity_token?null:item)
   }
 
@@ -350,13 +357,17 @@ export default function ItineraryWorkspace({
         command_type: 'ACTIVITY_MOVE',
         activity_token: item.card.activity_token,
         target_day_index: targetDayIndex,
-        target_position: targetPosition,
+        target_position: mobile ? (() => {
+          const stored = days[targetDayIndex - 1].activities.filter(card => card.activity_token !== item.card.activity_token)
+          const next = stored.filter(card => card.status === 'READY')[targetPosition]
+          return next ? stored.findIndex(card => card.activity_token === next.activity_token) : stored.length
+        })() : targetPosition,
       })
       if (outcome.status === 'APPLIED') {
-        if (outcome.days) setLocalDays(outcome.days)
+        if (outcome.days) setLocalDays(mobile ? confirmedDays(outcome.days) : outcome.days)
         finishOperation(successMessage, targetDayIndex)
       } else if (outcome.status === 'SYNCED') {
-        setLocalDays(outcome.days || before)
+        setLocalDays(outcome.days ? mobile ? confirmedDays(outcome.days) : outcome.days : before)
         finishOperation(`${item.card.name} 的调整未能确认，已读取服务端最新行程。`, targetDayIndex)
       } else {
         finishOperation(`${item.card.name} 的调整已提交，正在确认服务端保存结果。`, targetDayIndex)
@@ -385,10 +396,10 @@ export default function ItineraryWorkspace({
         activity_token: item.card.activity_token,
       })
       if (outcome.status === 'APPLIED') {
-        if (outcome.days) setLocalDays(outcome.days)
+        if (outcome.days) setLocalDays(mobile ? confirmedDays(outcome.days) : outcome.days)
         finishOperation(`${item.card.name} 已删除，${relativeDayLabel(item.dayIndex - 1)}仍然保留。`, item.dayIndex)
       } else if (outcome.status === 'SYNCED') {
-        setLocalDays(outcome.days || before)
+        setLocalDays(outcome.days ? mobile ? confirmedDays(outcome.days) : outcome.days : before)
         restoreOperationFocus(
           `${item.card.name} 的删除未能确认，已读取服务端最新行程。`,
           item.dayIndex,
@@ -466,7 +477,7 @@ export default function ItineraryWorkspace({
       className="soft-workspace serpentine-workspace four-itinerary mt-2"
     >
       <div className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <div className="itinerary-toolbar mb-4 flex flex-wrap items-center justify-end gap-2">
           <button type="button" className="e-button" aria-label={layoutMode === 'CHAIN' ? '切换为列表' : '切换为横链'}
             title={layoutMode === 'CHAIN' ? '列表' : '横链'} aria-pressed={layoutMode === 'LIST'}
             onClick={() => setLayoutMode(layoutMode === 'CHAIN' ? 'LIST' : 'CHAIN')}>
@@ -488,8 +499,8 @@ export default function ItineraryWorkspace({
             const sourceIndex = dragged && dropTarget ? day.activities.findIndex(card => card.activity_token === dragged.card.activity_token) : -1
             const rawInsertion = dragged && dropTarget?.dayIndex === dayIndex ? dropTarget.position : null
             const insertion = rawInsertion === null ? null : rawInsertion - (sourceIndex >= 0 && sourceIndex < rawInsertion ? 1 : 0)
-            const originalLayout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0)
-            const layout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length - (sourceIndex >= 0 ? 1 : 0) + (insertion !== null ? 1 : 0), cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0)
+            const originalLayout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length, cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0, mobile)
+            const layout = serpentineLayout(laneWidths[dayIndex] || 900, day.activities.length - (sourceIndex >= 0 ? 1 : 0) + (insertion !== null ? 1 : 0), cardHeights[dayIndex] || 0, rowGaps[dayIndex] || 0, mobile)
             // A dragged card vacates its slot; retain the day height so later dates do not jump.
             if (dragged) layout.height = Math.max(layout.height, originalLayout.height)
             const previewPosition = (position: number) => {
@@ -550,11 +561,14 @@ export default function ItineraryWorkspace({
                   </div>}
 
                   <div id={`day-content-${dayIndex}`} className="four-day-content" hidden={collapsed}>
+                    {(!!day.source_notes?.length || !!day.meal_slots?.length) && <details className="mobile-day-notes" open={mobile ? undefined : true}>
+                    <summary>原文备注与用餐 · {(day.source_notes?.length || 0) + (day.meal_slots?.length || 0)} 项</summary>
                     {!!day.source_notes?.length && <p className="four-source-notes">{day.source_notes.map(note=>note.text).join(' · ')}</p>}
                     {!!day.meal_slots?.length && <p className="four-source-notes">{[...new Set(day.meal_slots.map(slot=>slot.preference_text).filter(Boolean))].join(' · ')}</p>}
+                    </details>}
                     {!day.activities.length && (pendingCount > 0 || !day.unprocessed_count) && <p className="py-4 text-sm text-slate-500">{pendingCount > 0 ? `这一天已安排 ${pendingCount} 个地点，待确认后显示卡片。` : day.alternatives?.length ? '这一天的地点仍是备选，可展开查看后决定。' : '这一天暂未找到可展示的地点。可以搜索添加，其他日期不受影响。'}</p>}
 
-                    {layoutMode === 'LIST' ? (
+                    {layoutMode === 'LIST' && !mobile ? (
                       <ol className="mt-3 grid gap-3" aria-label={`${relativeDayLabel(dayOffset)} 地点列表`}>
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
@@ -595,7 +609,7 @@ export default function ItineraryWorkspace({
                         data-testid={`serpentine-canvas-${dayIndex}`} data-columns={layout.columns}
                         style={{height:layout.height}}
                       >
-                        {!dragged && <SerpentineConnectors day={day} layout={layout} mapView={mapView} pending={operationPending || routesPending} />}
+                        {!dragged && <SerpentineConnectors day={day} layout={layout} mapView={mapView} pending={operationPending || routesPending} mobile={mobile} />}
                         {insertion !== null && <div className="serpentine-placeholder" style={placeStyle(insertion)} data-testid="drop-preview"><strong>{dragged?.card.name}</strong><span>放在这里</span></div>}
 
                         {day.activities.map((activity, position) => {
@@ -623,14 +637,14 @@ export default function ItineraryWorkspace({
                                   setDropTarget(targetAt(event.clientX,event.clientY))
                                 }}
                                 onDrop={(event) => { event.preventDefault(); if (dropTarget) void handleDrop(dropTarget.dayIndex, dropTarget.position) }}
-                                style={{ opacity: dragged?.card.activity_token === activity.activity_token ? 0.2 : 1 }}
+                                style={{ opacity: dragged?.card.activity_token === activity.activity_token ? 0.2 : 1, '--mobile-card-width': `${layout.cardWidth}px`} as import('react').CSSProperties}
                                 animate={{ rotate: dragged && dropTarget?.dayIndex === dayIndex && position >= dropTarget.position ? 1.4 : 0, scale: dragged && dragged.card.activity_token !== activity.activity_token ? 0.985 : 1 }}
                                 className="soft-activity-card overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_28px_-20px_rgba(15,23,42,0.6)]"
                                 transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 36 }}
                               >
                                 <div data-testid={`card-grab-${dayIndex}-${position}`} className={`fluid-card-grab four-card-photo relative h-20 overflow-hidden bg-gradient-to-br ${accent[0]} ${accent[1]}`}
                                     onPointerDown={(event) => {
-                                      if (locked || event.button !== 0) return
+                                      if (mobile || locked || event.button !== 0) return
                                       event.preventDefault()
                                       // Native HTML drag takes over touch and cancels pointer capture.
                                       event.currentTarget.draggable = false
@@ -683,6 +697,50 @@ export default function ItineraryWorkspace({
                                     type="button"
                                     draggable={!locked}
                                     data-testid={`drag-handle-${dayIndex}-${position}`}
+                                    onPointerDown={(event) => {
+                                      if (!mobile || locked || event.button !== 0) return
+                                      event.preventDefault(); event.stopPropagation()
+                                      // Native HTML drag takes over touch and cancels pointer capture.
+                                      event.currentTarget.draggable = false
+                                      rememberTrigger(event.currentTarget.querySelector<HTMLElement>('button') || event.currentTarget)
+                                      event.currentTarget.setPointerCapture(event.pointerId)
+                                      touchTarget.current = null
+                                      captureDropGeometry()
+                                      setDragged(item)
+                                      pointerPosition.current = {x:event.clientX,y:event.clientY}
+                                      setTouchPoint(pointerPosition.current)
+                                    }}
+                                    onPointerMove={(event) => {
+                                      if (!dragged || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+                                      pointerPosition.current = {x:event.clientX,y:event.clientY}
+                                      setTouchPoint(pointerPosition.current)
+                                      const element = document.elementFromPoint(event.clientX,event.clientY)
+                                      if (element?.closest('[data-trash]')) {
+                                        touchTarget.current = 'TRASH'
+                                        setDropTarget(null)
+                                        return
+                                      }
+                                      const target = targetAt(event.clientX,event.clientY)
+                                      touchTarget.current = target
+                                      setDropTarget(target)
+                                      if(event.clientY > window.innerHeight-80) window.scrollBy(0,18)
+                                      if(event.clientY < 100) window.scrollBy(0,-18)
+                                    }}
+                                    onPointerUp={(event) => {
+                                      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+                                      event.currentTarget.releasePointerCapture(event.pointerId)
+                                      event.currentTarget.draggable = false
+                                      pointerPosition.current = null
+                                      if (!dragged) return
+                                      const target = document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-trash]')
+                                        ? 'TRASH' : targetAt(event.clientX,event.clientY)
+                                      setTouchPoint(null)
+                                      if(target === 'TRASH') { setDragged(null); setDropTarget(null); void applyDelete(item) }
+                                      else if(target) void handleDrop(target.dayIndex,target.position)
+                                      else { setDragged(null); setDropTarget(null) }
+                                      touchTarget.current = null
+                                    }}
+                                    onPointerCancel={(event) => { event.currentTarget.draggable = false; setDragged(null); setDropTarget(null); setTouchPoint(null); touchTarget.current=null }}
                                     onDragStart={(event) => {
                                       rememberTrigger(event.currentTarget)
                                       captureDropGeometry()
@@ -760,7 +818,7 @@ export default function ItineraryWorkspace({
                                   onClick={event => { rememberTrigger(event.currentTarget); setPendingPlace(null); setCardMenu(current => current?.card.activity_token === activity.activity_token ? null : item) }}><MoreHorizontal aria-hidden="true"/></button>
                                 {cardMenu?.card.activity_token === activity.activity_token && <div className="four-card-menu-options" role="group" aria-label={`${activity.name}操作`}>
                                   <button type="button" onClick={() => { setCardMenu(null); openDetails(item, lastTriggerRef.current!) }}>{activity.status === 'READY' ? '查看详情' : '确认地点'}</button>
-                                  <button type="button" onClick={() => { setCardMenu(null); openMove(item, lastTriggerRef.current || undefined) }}>移动地点</button>
+                                  <button type="button" onClick={() => { setCardMenu(null); mobile ? setMoveDialog({item, dayIndex, position}) : openMove(item, lastTriggerRef.current || undefined) }}>移动地点</button>
                                   <button type="button" onClick={() => { setCardMenu(null); openDelete(item, lastTriggerRef.current || undefined) }}>删除地点</button>
                                 </div>}
                               </div>
@@ -825,6 +883,19 @@ export default function ItineraryWorkspace({
 
       <p className="sr-only" aria-live="polite" aria-atomic="true" data-testid="itinerary-live-status">{announcement}</p>
 
+      {moveDialog && <AccessibleDialog titleId="mobile-move-title" onClose={() => setMoveDialog(null)} dismissDisabled={locked} returnFocusRef={lastTriggerRef}>
+        <h2 id="mobile-move-title">移动 {moveDialog.item.card.name}</h2>
+        <label className="e-field">目标日期<select aria-label="目标日期" value={moveDialog.dayIndex} disabled={locked} onChange={event => setMoveDialog({...moveDialog, dayIndex: Number(event.target.value), position: 0})}>
+          {localDays.map((day,index) => <option key={day.label} value={index+1}>Day {index+1}</option>)}
+        </select></label>
+        <label className="e-field">放置位置<select aria-label="放置位置" value={moveDialog.position} disabled={locked} onChange={event => setMoveDialog({...moveDialog, position: Number(event.target.value)})}>
+          {Array.from({length: localDays[moveDialog.dayIndex-1].activities.length + (moveDialog.dayIndex === moveDialog.item.dayIndex ? 0 : 1)},(_,index) => <option key={index} value={index}>第 {index+1} 站</option>)}
+        </select></label>
+        <div className="e-panel-actions"><button type="button" disabled={locked} className="e-button" onClick={() => setMoveDialog(null)}>取消</button><button type="button" disabled={locked} className="e-button e-button-primary" onClick={async () => {
+          const applied = await applyMove(moveDialog.item, moveDialog.dayIndex, moveDialog.position, '地点已移动。路线需要更新。')
+          if (applied || (moveDialog.dayIndex === moveDialog.item.dayIndex && moveDialog.position === moveDialog.item.position)) setMoveDialog(null)
+        }}>确认移动</button></div>
+      </AccessibleDialog>}
       <AnimatePresence>
         {dialog?.kind === 'DELETE' && (
           <AccessibleDialog key="delete-activity" titleId="delete-activity-title" descriptionId="delete-activity-description" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef} dismissDisabled={locked}>
@@ -888,19 +959,20 @@ function removeCard(days: DayView[], activityToken: string): DayView[] {
 }
 
 
-function SerpentineConnectors({day,layout,mapView,pending}: {day:DayView;layout:ReturnType<typeof serpentineLayout>;mapView:MapRenderView;pending:boolean}) {
+function SerpentineConnectors({day,layout,mapView,pending,mobile}: {day:DayView;layout:ReturnType<typeof serpentineLayout>;mapView:MapRenderView;pending:boolean;mobile:boolean}) {
   return <div className="serpentine-connections">
     {day.activities.slice(0,-1).map((card,index)=>{
       const edge=serpentineEdge(layout,index)
+      if (mobile) {edge.x=layout.width/2; edge.y=layout.point(index).y+layout.cardHeight+(layout.point(index+1).y-layout.point(index).y-layout.cardHeight)/2}
       const connector=transportConnectorFor(day,card,day.activities[index+1],mapView,pending)
       const available=connector.status==='AVAILABLE'
       const Icon=available ? connector.mode==='walking' ? Footprints : BusFront : ArrowRight
       const {label,warning}=connectorPresentation(connector)
       return <div key={index} data-testid="transport-connector" data-connector-status={connector.status} data-connection-status={available?connector.connectionStatus:undefined} data-turn={edge.turn} aria-label={`${label}${warning?` · ${warning}`:''}`}>
-        <svg className="serpentine-edge" width={layout.width} height={layout.height} aria-hidden="true">
+        {!mobile && <svg className="serpentine-edge" width={layout.width} height={layout.height} aria-hidden="true">
           <path data-testid="order-arc" d={edge.path} fill="none" stroke="currentColor" strokeWidth="1.4"/>
           <path d={`M ${edge.arrowX-3} ${edge.arrowY-edge.arrowDirection*7} l 3 ${edge.arrowDirection*5} l 3 ${-edge.arrowDirection*5}`} fill="none" stroke="currentColor" strokeWidth="1.4"/>
-        </svg>
+        </svg>}
         <span className={`serpentine-route-label ${available?'is-available':''} ${warning?'is-unverified':''}`} style={{left:edge.x,top:edge.y}}><Icon aria-hidden="true"/><span>{label}</span>{warning&&<small className="route-connection-warning">{warning}</small>}</span>
       </div>
     })}

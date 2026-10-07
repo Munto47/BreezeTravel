@@ -1,6 +1,8 @@
 'use client'
 
 import {createPortal} from 'react-dom'
+import AccessibleDialog from './accessible-dialog'
+import {useCompactScreen} from './mobile-ui'
 import { useEffect, useRef, useState } from 'react'
 import { PROVINCES } from '@/data/cities'
 import { queryTripPlaceCandidates, queryPendingLodgingCandidates, type ActivityCardView, type LodgingRecoveryIntent, type PlaceCandidateView, type TripSupplementaryView, type TripUnderstandingCommand } from '@/lib/trip-understanding-v3'
@@ -18,8 +20,9 @@ type Props = {
 } & ({card:ActivityCardView; recovery?:never} | {card?:never; recovery:{hotel:PendingHotel;intent:LodgingRecoveryIntent;etag:string;onInvalidated:()=>void}})
 
 export default function PendingPlaceDropdown({card,recovery,resource,disabled,onCommand,onClose,embedded=false}: Props) {
+  const mobile = useCompactScreen()
   const [slot,setSlot]=useState<HTMLElement|null>(null)
-  useEffect(()=>{if(!embedded){setSlot(document.getElementById('inspector-editor-slot'));window.dispatchEvent(new CustomEvent('trip-inspector-open'))}},[embedded])
+  useEffect(()=>{if(!embedded && !window.matchMedia('(max-width: 1023px)').matches){setSlot(document.getElementById('inspector-editor-slot'));window.dispatchEvent(new CustomEvent('trip-inspector-open'))}},[embedded])
   const target = recovery?.hotel || card!
   const draftKey = `${resource}:${card?.visit_id || card?.activity_token || recovery?.hotel.pending_token}`
   const [query,setQuery]=useState(searchDrafts.get(draftKey)?.query ?? (target.name==='地点待确认'?'':target.name))
@@ -134,5 +137,8 @@ export default function PendingPlaceDropdown({card,recovery,resource,disabled,on
     })}</div>
     {message&&<p role="status">{message}</p>}
   </div>
+  if (mobile && !embedded) return <AccessibleDialog titleId="mobile-place-title" onClose={onClose} dismissDisabled={locked}>
+    <h2 id="mobile-place-title" className="sr-only">修改地点 {target.name}</h2>{content}
+  </AccessibleDialog>
   return slot ? createPortal(content,slot) : content
 }
