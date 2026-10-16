@@ -1199,9 +1199,31 @@ def _public_activity_city(activity: ResolvedActivity) -> str | None:
     return None
 
 
-def _is_optional_anonymous_meal(mention: ProposedMention) -> bool:
-    return bool(mention.role == ActivityRole.OPTIONAL and not mention.atomic_place_name
-                and (mention.meal_role or mention.category_hint == "餐饮"))
+def _is_optional_anonymous_meal(mention: ProposedMention, source_text: str | None = None) -> bool:
+    if mention.role != ActivityRole.OPTIONAL or mention.atomic_place_name:
+        return False
+    if mention.meal_role or mention.category_hint == "餐饮":
+        return True
+    if (not source_text or mention.category_hint not in {None, "地点"}
+            or source_text[mention.span_start:mention.span_end] != mention.raw_text):
+        return False
+    # An explicit anonymous meal still has a note exit when optional model
+    # category fields are absent. Whole action phrases cannot name a venue.
+    quote = mention.raw_text.replace("**", "").strip()
+    if not re.fullmatch(r"(?:(?:早上|上午|中午|下午|傍晚|晚上|晚间)\s*)?"
+                        r"(?:用餐|就餐|吃饭|(?:吃|用|享用)?(?:早|午|晚)(?:饭|餐))", quote):
+        return False
+    left = max(source_text.rfind(mark, 0, mention.span_start) for mark in "\n。！？；;，,") + 1
+    right = min((pos for mark in "\n。！？；;，," if (pos := source_text.find(mark, mention.span_end)) >= 0),
+                default=len(source_text))
+    before = source_text[left:mention.span_start].replace("**", "").rstrip(" 【「『*_`")
+    after = source_text[mention.span_end:right].strip(" 】」』*_` ")
+    if after or re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|不可|不要|别|取消|不|未|没)"
+                          r"(?:了|再|打算|计划|想|准备|建议)*"
+                          r"(?:(?:在|去|到)[^，,。；;\n]{0,45})?"
+                          r"(?:早上|上午|中午|下午|傍晚|晚上|晚间)*$", before):
+        return False
+    return True
 
 
 def _optional_meal_note_text(mention: ProposedMention, source_text: str | None) -> str | None:
@@ -1260,7 +1282,7 @@ class PublicResultProjector:
         alternatives = [activity.compiled for activity in activities
                         if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL
                         and (not _is_internal_detail(activity.compiled.mention)
-                             or _is_optional_anonymous_meal(activity.compiled.mention))
+                             or _is_optional_anonymous_meal(activity.compiled.mention, source_text))
                         and activity.compiled.mention.mention_id not in unassigned_alternative_ids]
         details_by_parent: dict[str, list[SourceDetailView]] = {}
         for child in sorted((item.compiled.mention for item in activities), key=_source_detail_order):
@@ -1413,7 +1435,7 @@ class PublicResultProjector:
             for alternative in alternatives:
                 mention = alternative.mention
                 name = mention.atomic_place_name
-                if _is_optional_anonymous_meal(mention) and mention.day_index == day_index:
+                if _is_optional_anonymous_meal(mention, source_text) and mention.day_index == day_index:
                     from app.trip_understanding.models import SourceNoteView
 
                     text = _optional_meal_note_text(mention, source_text)
@@ -1546,13 +1568,13 @@ def _projection_omissions(
     notes = {(day_index, note.note_id): note.text
         for day_index, day in enumerate(result.days, 1) for note in day.source_notes}
     visible_meals = {_optional_meal_note_key(item.mention, text)
-        for item in compiled if _is_optional_anonymous_meal(item.mention)
+        for item in compiled if _is_optional_anonymous_meal(item.mention, source_text)
         if (text := notes.get((item.mention.day_index, item.public_activity_token))) is not None}
     issues = []
     missing_days = set(range(len(result.days) + 1, plan.day_count + 1))
     for item in compiled:
         mention = item.mention
-        if _is_optional_anonymous_meal(mention):
+        if _is_optional_anonymous_meal(mention, source_text):
             # Undated meals retain their existing supplementary-content exit.
             if mention.day_index is None:
                 continue

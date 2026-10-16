@@ -136,6 +136,76 @@ async def test_optional_meal_without_public_exit_stays_unfinished():
 
 
 @pytest.mark.asyncio
+async def test_optional_meal_with_missing_model_category_keeps_source_note_and_order():
+    source = ("广州两日游。\nDay1：先到沙面，再去陈家祠。\n"
+              "晚餐：可选，如果还有空，晚上吃饭，门店待选，不吃辣。\nDay2：先到越秀公园，再去广州塔。")
+    rows = [{"source_quote": name, "place_name": name, "role": "PLANNED", "day_index": day}
+            for name, day in [("沙面", 1), ("陈家祠", 1), ("越秀公园", 2), ("广州塔", 2)]]
+    rows.insert(2, {"source_quote": "晚上吃饭", "place_name": None, "role": "OPTIONAL", "day_index": 1})
+    plan = proposal_from_draft(source, SemanticDraft.model_validate({"destination": "广州", "activities": rows}),
+                               allow_partial=True)
+    meal = plan.mentions[2]
+    assert meal.category_hint == "地点" and meal.meal_role is None
+    output, places = await build_result(source, plan=plan)
+    assert [[card.name for card in day.activities] for day in output.public_result.days] == [
+        ["沙面", "陈家祠"], ["越秀公园", "广州塔"]]
+    assert places.names == ["沙面", "陈家祠", "越秀公园", "广州塔"]
+    note, = output.public_result.days[0].source_notes
+    assert note.text == "备选用餐：晚餐：可选，如果还有空，晚上吃饭，门店待选，不吃辣"
+    assert note.position == 2
+    assert all(not day.meal_slots for day in output.public_result.days)
+    assert output.public_result.days[1].source_notes == []
+    assert output.proposal.mentions[2].role == "OPTIONAL" and output.proposal.mentions[2].day_index == 1
+    assert output.public_result.coverage.complete
+    omitted, _ = await build_result(source, plan=plan, projector=DropMealNotes())
+    assert not omitted.public_result.coverage.complete
+    assert omitted.public_result.coverage.unprocessed_count == 1
+
+
+@pytest.mark.asyncio
+async def test_untyped_optional_meal_keeps_an_independent_day_and_condition():
+    source = "广州\nDay1：沙面。\nDay2：越秀公园。\n午餐：若行程允许，可以用餐，门店待选，不吃辣。\n随后去广州塔。"
+    plan = proposal_from_draft(source, SemanticDraft.model_validate({"destination": "广州", "activities": [
+        {"source_quote": "沙面", "place_name": "沙面", "role": "PLANNED", "day_index": 1},
+        {"source_quote": "越秀公园", "place_name": "越秀公园", "role": "PLANNED", "day_index": 2},
+        {"source_quote": "用餐", "place_name": None, "role": "OPTIONAL", "day_index": 2},
+        {"source_quote": "广州塔", "place_name": "广州塔", "role": "PLANNED", "day_index": 2},
+    ]}), allow_partial=True)
+    output, places = await build_result(source, plan=plan)
+    assert output.public_result.days[0].source_notes == []
+    note, = output.public_result.days[1].source_notes
+    assert note.text == "备选用餐：午餐：若行程允许，可以用餐，门店待选，不吃辣"
+    assert note.position == 1
+    assert all(not day.meal_slots for day in output.public_result.days)
+    assert places.names == ["沙面", "越秀公园", "广州塔"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("clause,quote", [
+    ("如果还有空，饭后散步。", "饭后散步"),
+    ("如果还有空，晚餐后散步。", "晚餐"),
+    ("如果还有空，吃饭后散步。", "吃饭"),
+    ("如果还有空，晚餐后的自由活动。", "自由活动"),
+    ("晚餐：不吃饭。", "吃饭"),
+    ("晚餐：不要去吃饭。", "吃饭"),
+    ("晚餐：不在这里吃饭。", "吃饭"),
+    ("晚餐：不要在晚上吃饭。", "吃饭"),
+    ("晚餐：取消晚上吃饭。", "晚上吃饭"),
+    ("晚餐：参观吃饭博物馆。", "吃饭"),
+    ("如果还有空，看看饭后公园。", "饭后公园"),
+])
+async def test_untyped_anonymous_nonmeal_and_negated_actions_do_not_become_meal_notes(clause, quote):
+    source = SOURCE.replace("如果散步后还有空，晚上吃饭，门店待选。", clause)
+    plan = meal_plan(source, quote=quote)
+    plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": "地点", "meal_role": None})
+        if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
+    output, places = await build_result(source, plan=plan)
+    assert not any("备选用餐" in note.text for day in output.public_result.days for note in day.source_notes)
+    assert [slot.meal_role for slot in output.public_result.days[0].meal_slots] == ["LUNCH"]
+    assert places.names == ["沙面", "越秀公园"]
+
+
+@pytest.mark.asyncio
 async def test_oversized_optional_meal_is_not_silently_truncated():
     quote = "晚上吃饭，" + "餐饮偏好" * 160
     source = SOURCE.replace("晚上吃饭", quote)
@@ -147,7 +217,8 @@ async def test_oversized_optional_meal_is_not_silently_truncated():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
-async def test_optional_meal_notes_survive_save_edit_undo_redo_source_deletion_and_share(kind):
+@pytest.mark.parametrize("typed", [True, False])
+async def test_optional_meal_notes_survive_save_edit_undo_redo_source_deletion_and_share(kind, typed):
     async with repository_for(kind) as repo:
         now = datetime.now(timezone.utc)
         service = TripUnderstandingApplicationService(repo)
@@ -155,7 +226,11 @@ async def test_optional_meal_notes_survive_save_edit_undo_redo_source_deletion_a
             "source": {"type": "TEXT", "text": SOURCE}}), owner_user_id="experience-owner",
             idempotency_key="optional-meal-create", now=now)
         job = await repo.claim_next(worker_id="optional-meal-test", now=now, lease_seconds=60)
-        output, _ = await build_result(plan=meal_plan(evidence="如果散步后还有空，晚上吃饭，门店待选"))
+        plan = meal_plan(evidence="如果散步后还有空，晚上吃饭，门店待选")
+        if not typed:
+            plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": None, "meal_role": None})
+                if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
+        output, _ = await build_result(plan=plan)
         await repo.complete_job(job, output, now=now)
 
         async def read():
