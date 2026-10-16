@@ -21,6 +21,37 @@ def source_budget_seconds(source):
     return config.total_seconds
 
 
+def retired_kimi_supplement_execution(value, settings):
+    """Select an explicit replacement only for retained Kimi semantics."""
+    if value is None:
+        try:
+            previous = execution_config(settings, legacy=True)
+        except ValueError:
+            return None
+    else:
+        previous = ExecutionConfig.model_validate_json(value) if isinstance(value, str) else ExecutionConfig.model_validate(value)
+    if previous.provider != "KIMI_CODE" or settings.trip_semantic_provider != "QWEN":
+        return None
+    current = execution_config(settings)
+    if not getattr(settings, current.credential_ref, ""):
+        return None
+    return {"execution_config": current.model_dump(mode="json"),
+        "execution_reason": "RETIRED_KIMI_TO_QWEN", "inference_deadline_at": None}
+
+
+def supplement_execution_config(value, source_value, settings):
+    if value.get("execution_reason") == "RETIRED_KIMI_TO_QWEN":
+        config = ExecutionConfig.model_validate(value["execution_config"])
+        if config.provider != "QWEN":
+            raise ValueError("retired semantic replacement must be explicitly configured Qwen")
+        return config
+    config = (execution_config(settings, legacy=True) if source_value is None else
+        ExecutionConfig.model_validate_json(source_value) if isinstance(source_value, str) else ExecutionConfig.model_validate(source_value))
+    if config.provider == "KIMI_CODE":
+        raise ValueError("retired semantic provider requires an explicitly configured replacement")
+    return config
+
+
 class PostgresExecutionRepositoryMixin:
     async def recover_interrupted_progress(self, job, *, now):
         from app.trip_understanding.models import PublicResourceRecord
@@ -37,6 +68,8 @@ class PostgresExecutionRepositoryMixin:
         return True
 
     async def load_execution(self, job, *, now):
+        if job.job_type == "SUPPLEMENT":
+            return await self.load_supplement_execution(job, now=now)
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
             row = await conn.fetchrow("""SELECT s.execution_config_json,s.source_id,s.deleted_at,s.retention_until,
@@ -97,6 +130,14 @@ class InMemoryExecutionRepositoryMixin:
     async def load_execution(self, job, *, now):
         await self.load_source(job, now=now)
         key = (job.understanding_id, job.input_hash)
+        if job.job_type == "SUPPLEMENT":
+            item = self.jobs[job.job_id]
+            if (item["status"] != "RUNNING" or item["lease_owner"] != job.lease_owner
+                    or item["attempt"] != job.attempt or item["lease_until"] <= now):
+                raise JobLeaseLostError("supplement execution lease expired or changed")
+            config = self.execution_configs.get(key)
+            return supplement_execution_config(item.get("supplement_outcome_json", {}),
+                config.model_dump() if config else None, get_settings()), item.get("supplement_dispatched_at") is not None
         if key not in self.execution_configs:
             self.execution_configs[key] = execution_config(get_settings(), legacy=True)
         return self.execution_configs[key], await self.has_dispatched_inference(job)

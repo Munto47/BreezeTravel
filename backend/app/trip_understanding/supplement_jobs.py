@@ -5,12 +5,13 @@ import hashlib
 import json
 import secrets
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Literal
 from uuid import uuid4
 
 from pydantic import Field
 
+from app.config import get_settings
 from app.trip_understanding.bounded_supplement import SupplementPatch
 from app.trip_understanding.errors import (
     IdempotencyConflictError, JobLeaseLostError, ResourceAccessDeniedError, ResourceGoneError,
@@ -19,6 +20,7 @@ from app.trip_understanding.errors import (
 from app.trip_understanding.inference_allowance import InferenceAllowanceExceeded
 from app.trip_understanding.models import PublicResourceRecord, SourceSemanticPlan, StrictModel, UserFacingTripResult
 from app.trip_understanding.supplement_context import open_source_plan
+from app.trip_understanding.execution_repository import retired_kimi_supplement_execution, supplement_execution_config
 
 
 class SupplementRequest(StrictModel):
@@ -75,6 +77,30 @@ def _request_hash(etag, retry):
     return hashlib.sha256(json.dumps({"etag": etag, "retry": retry}, sort_keys=True).encode()).hexdigest()
 
 
+def _definite_retired_provider_failure(row):
+    if row["status"] != "FAILED":
+        return False
+    calls = _json(row["model_calls_json"])
+    if row["last_error_category"] == "EXECUTION_CONFIG_UNAVAILABLE":
+        return not calls and row["supplement_dispatched_at"] is None
+    if row["last_error_category"] != "SUPPLEMENT_PROVIDER_FAILED" or len(calls) != 1:
+        return False
+    call = next(iter(calls.values()))
+    return (call.get("provider") == "KIMI_CODE" and call.get("status") == "FAILED"
+        and call.get("error_category") in {"AuthenticationError", "PermissionDeniedError"})
+
+
+async def _retired_provider_extra_request(conn, understanding_id):
+    if await conn.fetchval("""SELECT EXISTS(SELECT 1 FROM trip_understanding_jobs
+        WHERE understanding_id=$1 AND job_type='SUPPLEMENT' AND (status='SUCCEEDED'
+            OR supplement_outcome_json->>'execution_reason'='RETIRED_KIMI_TO_QWEN'))""", understanding_id):
+        return False
+    previous = await conn.fetch("""SELECT status,last_error_category,model_calls_json,supplement_dispatched_at
+        FROM trip_understanding_jobs WHERE understanding_id=$1 AND job_type='SUPPLEMENT'
+        ORDER BY created_at DESC,job_id DESC LIMIT 2""", understanding_id)
+    return len(previous) == 2 and all(_definite_retired_provider_failure(row) for row in previous)
+
+
 def supplement_mutation(commit, current):
     from app.trip_understanding.commands import (
         PublicCommandMutation, refresh_choice_selection_tokens, refresh_dining_access, refresh_meal_slot_tokens,
@@ -110,7 +136,7 @@ def supplemented_plan(commit):
 async def finish_supplement(conn, commit, *, etag, now):
     outcome = {"added_count": len(commit.patch.validation.accepted), "rejected": commit.patch.validation.rejected,
         "result_etag": etag, "usage": commit.provider_binding}
-    await conn.execute("""UPDATE trip_understanding_jobs SET status='SUCCEEDED',supplement_outcome_json=$2::jsonb,
+    await conn.execute("""UPDATE trip_understanding_jobs SET status='SUCCEEDED',supplement_outcome_json=supplement_outcome_json || $2::jsonb,
         lease_owner=NULL,lease_until=NULL,finished_at=$3,updated_at=$3 WHERE job_id=$1""",
         commit.job.job_id, json.dumps(outcome), now)
 
@@ -210,7 +236,10 @@ async def lock_supplement(conn, job, *, now, require_base=True):
     if (source is None or source["deleted_at"] is not None or source["encrypted_content"] is None
             or source["retention_until"] <= checked or source["content_hash"].strip() != job.input_hash):
         raise SourceUnavailableError("supplement source is no longer available")
-    if source["inference_deadline_at"] is not None and source["inference_deadline_at"] <= checked:
+    outcome = _json(row["supplement_outcome_json"])
+    deadline = (datetime.fromisoformat(outcome["inference_deadline_at"]) if outcome.get("inference_deadline_at") else None
+        ) if outcome.get("execution_reason") == "RETIRED_KIMI_TO_QWEN" else source["inference_deadline_at"]
+    if deadline is not None and deadline <= checked:
         raise InferenceAllowanceExceeded("MODEL_CALL_DEADLINE_EXCEEDED")
     if require_base:
         etag = await conn.fetchval("SELECT opaque_etag FROM trip_understanding_results WHERE result_id=$1", aggregate["current_result_id"])
@@ -259,12 +288,14 @@ class PostgresSupplementRepositoryMixin:
                 raise RevisionConflictError("supplement request base differs")
             if "retained_source_plan" not in _json(current["proposal_json"]):
                 raise SupplementRejectedError("SOURCE_CONTEXT_UNAVAILABLE")
-            if current["inference_deadline_at"] is not None and current["inference_deadline_at"] <= checked:
+            execution = retired_kimi_supplement_execution(current["execution_config_json"], get_settings())
+            if execution is None and current["inference_deadline_at"] is not None and current["inference_deadline_at"] <= checked:
                 raise SupplementRejectedError("MODEL_CALL_DEADLINE_EXCEEDED")
-            if current["inference_calls_remaining"] <= 0:
+            if execution is None and current["inference_calls_remaining"] <= 0:
                 raise SupplementRejectedError("MODEL_CALL_BUDGET_EXHAUSTED")
             count = current["supplement_requests"]
-            if count >= 2 or retry != (count == 1):
+            extra_request = count >= 2 and execution is not None and await _retired_provider_extra_request(conn, resource.understanding_id)
+            if (count >= 2 and not extra_request) or retry != (count >= 1):
                 raise SupplementRejectedError("RETRY_REQUIRED" if count == 1 and not retry else "SUPPLEMENT_LIMIT")
             if await conn.fetchval("""SELECT EXISTS(SELECT 1 FROM trip_understanding_jobs
                 WHERE understanding_id=$1 AND job_type='SUPPLEMENT' AND status IN ('QUEUED','RUNNING'))""", resource.understanding_id):
@@ -272,16 +303,27 @@ class PostgresSupplementRepositoryMixin:
             job_id = str(uuid4())
             await conn.execute("""INSERT INTO trip_understanding_jobs(job_id,understanding_id,revision,job_type,status,
                 input_hash,supplement_round,base_public_resource_id,base_etag,base_owner_user_id,base_anonymous_session_id,
-                available_at,created_at,updated_at) VALUES($1,$2,$3,'SUPPLEMENT','QUEUED',$4,$5,$6,$7,$8,$9,$10,$10,$10)""",
+                available_at,created_at,updated_at,supplement_outcome_json)
+                VALUES($1,$2,$3,'SUPPLEMENT','QUEUED',$4,$5,$6,$7,$8,$9,$10,$10,$10,$11::jsonb)""",
                 job_id, resource.understanding_id, aggregate["current_revision"], current["content_hash"], count + 1,
-                resource.public_resource_id, expected_etag, aggregate["owner_user_id"], aggregate["anonymous_session_id"], checked)
-            await conn.execute("UPDATE trip_understanding_sources SET supplement_requests=supplement_requests+1 WHERE source_id=$1", current["source_id"])
+                resource.public_resource_id, expected_etag, aggregate["owner_user_id"], aggregate["anonymous_session_id"], checked,
+                json.dumps(execution or {}))
+            if not extra_request:
+                await conn.execute("UPDATE trip_understanding_sources SET supplement_requests=supplement_requests+1 WHERE source_id=$1", current["source_id"])
             view = SupplementStateView(status="QUEUED", message="正在准备补全，现有行程可以继续查看", job_id=job_id,
                 base_etag=expected_etag, available_actions=["CANCEL"])
             await conn.execute("""INSERT INTO trip_understanding_idempotency_records(scope,key_hash,request_hash,state,response_status,response_json,
                 response_headers_json,created_at,completed_at) VALUES($1,$2,$3,'COMPLETED',202,$4::jsonb,'{}'::jsonb,$5,$5)""",
                 scope, key, request_hash, view.model_dump_json(), checked)
             return view
+
+    async def load_supplement_execution(self, job, *, now):
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", f"trip-understanding-resource:{job.understanding_id}")
+            row, _, source, _ = await lock_supplement(conn, job, now=now)
+            return supplement_execution_config(_json(row["supplement_outcome_json"]),
+                source["execution_config_json"], get_settings()), row["supplement_dispatched_at"] is not None
 
     async def load_supplement_work(self, job, *, now):
         pool = await self._get_pool()
@@ -313,15 +355,24 @@ class PostgresSupplementRepositoryMixin:
             row, _, source, checked = await lock_supplement(conn, job, now=now)
             if row["supplement_dispatched_at"] is not None:
                 raise SupplementRejectedError("SUPPLEMENT_ALREADY_DISPATCHED")
-            if source["inference_calls_remaining"] <= 0:
-                raise InferenceAllowanceExceeded("MODEL_CALL_BUDGET_EXHAUSTED")
-            from app.trip_understanding.execution_repository import source_budget_seconds
-            deadline = source["inference_deadline_at"] or min(checked + timedelta(seconds=source_budget_seconds(source)), source["retention_until"])
+            outcome = _json(row["supplement_outcome_json"])
+            replacement = outcome.get("execution_reason") == "RETIRED_KIMI_TO_QWEN"
+            if replacement:
+                config = supplement_execution_config(outcome, source["execution_config_json"], get_settings())
+                deadline = min(checked + timedelta(seconds=min(config.deadline_seconds, config.total_seconds)), source["retention_until"])
+            else:
+                if source["inference_calls_remaining"] <= 0:
+                    raise InferenceAllowanceExceeded("MODEL_CALL_BUDGET_EXHAUSTED")
+                from app.trip_understanding.execution_repository import source_budget_seconds
+                deadline = source["inference_deadline_at"] or min(checked + timedelta(seconds=source_budget_seconds(source)), source["retention_until"])
             if deadline <= checked:
                 raise InferenceAllowanceExceeded("MODEL_CALL_DEADLINE_EXCEEDED")
-            await conn.execute("UPDATE trip_understanding_sources SET inference_calls_remaining=inference_calls_remaining-1,inference_deadline_at=$2 WHERE source_id=$1",
-                source["source_id"], deadline)
-            await conn.execute("UPDATE trip_understanding_jobs SET supplement_dispatched_at=$2 WHERE job_id=$1", job.job_id, checked)
+            if not replacement:
+                await conn.execute("UPDATE trip_understanding_sources SET inference_calls_remaining=inference_calls_remaining-1,inference_deadline_at=$2 WHERE source_id=$1",
+                    source["source_id"], deadline)
+            await conn.execute("""UPDATE trip_understanding_jobs SET supplement_dispatched_at=$2,
+                supplement_outcome_json=supplement_outcome_json || $3::jsonb WHERE job_id=$1""", job.job_id, checked,
+                json.dumps({"inference_deadline_at": deadline.isoformat()} if replacement else {}))
             return max(0, (deadline - await conn.fetchval("SELECT clock_timestamp()")).total_seconds())
 
     async def fail_supplement_job(self, job, *, category, now, provider_binding=None):
@@ -332,7 +383,7 @@ class PostgresSupplementRepositoryMixin:
             await conn.fetchrow("SELECT job_id FROM trip_understanding_jobs WHERE job_id=$1 FOR UPDATE", job.job_id)
             checked = await conn.fetchval("SELECT GREATEST($1::timestamptz,clock_timestamp())", now)
             await conn.execute("""UPDATE trip_understanding_jobs SET status='FAILED',last_error_category=$5,
-                supplement_outcome_json=$6::jsonb,lease_owner=NULL,lease_until=NULL,finished_at=$4,updated_at=$4
+                supplement_outcome_json=supplement_outcome_json || $6::jsonb,lease_owner=NULL,lease_until=NULL,finished_at=$4,updated_at=$4
                 WHERE job_id=$1 AND job_type='SUPPLEMENT' AND status='RUNNING' AND lease_owner=$2 AND attempt=$3 AND lease_until>$4""",
                 job.job_id, job.lease_owner, job.attempt, checked, category, json.dumps({"usage": provider_binding or {}}))
 
@@ -357,10 +408,14 @@ class PostgresSupplementRepositoryMixin:
                 ON r.source_id=s.source_id WHERE r.understanding_id=$1 AND r.revision=$2""", resource.understanding_id, aggregate["current_revision"])
             row = await conn.fetchrow("SELECT * FROM trip_understanding_jobs WHERE understanding_id=$1 AND job_type='SUPPLEMENT' ORDER BY created_at DESC,job_id DESC LIMIT 1", resource.understanding_id)
             checked = await conn.fetchval("SELECT GREATEST($1::timestamptz,clock_timestamp())", now)
+            execution = retired_kimi_supplement_execution(source["execution_config_json"], get_settings()) if source else None
+            extra_request = (source is not None and source["supplement_requests"] >= 2 and execution is not None
+                and await _retired_provider_extra_request(conn, resource.understanding_id))
             allowed = (source is not None and source["deleted_at"] is None and source["encrypted_content"] is not None
                 and source["retention_until"] > checked and "retained_source_plan" in _json(source["proposal_json"])
-                and source["inference_calls_remaining"] > 0 and source["supplement_requests"] < 2
-                and (source["inference_deadline_at"] is None or source["inference_deadline_at"] > checked))
+                and (source["supplement_requests"] < 2 or extra_request)
+                and (execution is not None or source["inference_calls_remaining"] > 0
+                    and (source["inference_deadline_at"] is None or source["inference_deadline_at"] > checked)))
             actions = (["REQUEST" if source["supplement_requests"] == 0 else "RETRY"] if allowed else [])
             if row is None:
                 return SupplementStateView(status="AVAILABLE" if allowed else "UNAVAILABLE",
