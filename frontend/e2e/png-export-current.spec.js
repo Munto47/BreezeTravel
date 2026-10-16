@@ -268,3 +268,58 @@ test('same-version route and lodging detail updates invalidate the exported prev
   await page.getByTestId('export-itinerary-png').click()
   expect(await capture(page, info, 'same-version-stay.png')).toContain('已核实酒店通勤 25 分钟')
 })
+
+test('selected lodging returns to PNG after an empty preparing summary', async ({page}, info) => {
+  await page.setContent('<div id="root"></div>')
+  await page.addScriptTag({path: path.resolve(__dirname, '../node_modules/react/umd/react.development.js')})
+  await page.addScriptTag({path: path.resolve(__dirname, '../node_modules/react-dom/umd/react-dom.development.js')})
+  await page.addScriptTag({content: componentBundle()})
+  const result = fixture()
+  const restoredStay = structuredClone(result.stay)
+  result.stay = {...result.stay, status: 'PREPARING', candidates: [], segments: []}
+  await page.evaluate(({result}) => {
+    window.pngDrawn = []
+    const fill = CanvasRenderingContext2D.prototype.fillText
+    CanvasRenderingContext2D.prototype.fillText = function(text, x, y, ...rest) {
+      window.pngDrawn.push({text: String(text), x, y, width: this.measureText(String(text)).width, canvasWidth: this.canvas.width, canvasHeight: this.canvas.height})
+      return fill.call(this, text, x, y, ...rest)
+    }
+    window.pngProps = {result, resource: 'fixed', etag: 'same-version', disabled: false, mapView: null,
+      supplementary: {status: 'AVAILABLE', days: []}, stayView: structuredClone(result.stay)}
+    window.pngRoot = ReactDOM.createRoot(document.getElementById('root'))
+    window.renderPng = () => window.pngRoot.render(React.createElement(window.PngExport, window.pngProps))
+    window.renderPng()
+  }, {result})
+  await expect(page.getByTestId('export-itinerary-png')).toBeEnabled()
+  await page.evaluate(stay => {
+    window.pngProps = {...window.pngProps, stayView: stay}
+    window.renderPng()
+  }, restoredStay)
+  await page.getByTestId('export-itinerary-png').click()
+  const restored = await capture(page, info, 'restored-selected-stay.png')
+  for (const value of ['已经选择的完整酒店名称', '北京固定酒店完整地址', '第 1 晚（Day 1 → Day 2）',
+    '住宿通勤仅有部分资料，尚未完整核实']) expect(restored).toContain(value)
+  expect(restored).not.toContain('未选择酒店不能导出')
+  expect(restored).not.toContain('999')
+
+  for (const status of ['PREPARING', 'UNAVAILABLE']) {
+    await page.evaluate(({stay, status}) => {
+      const known = structuredClone(stay)
+      known.status = 'AVAILABLE'
+      known.segments[0].status = 'AVAILABLE'
+      known.segments[0].candidates[0].max_single_leg_minutes = 12
+      known.segments[0].candidates[0].commute_summary = '旧酒店通勤 12 分钟'
+      window.pngProps = {...window.pngProps, result: {...window.pngProps.result, stay: known},
+        stayView: {...known, status, candidates: [], segments: []}}
+      window.pngDrawn = []
+      window.renderPng()
+    }, {stay: restoredStay, status})
+    await expect(page.getByTestId('png-preview')).toHaveCount(0)
+    await page.getByTestId('export-itinerary-png').click()
+    const unavailable = await capture(page, info, `retained-stay-${status.toLowerCase()}.png`)
+    expect(unavailable).toContain('已经选择的完整酒店名称')
+    expect(unavailable).toContain(status === 'PREPARING' ? '住宿建议仍在准备，通勤尚需核对' : '住宿通勤资料暂不可用')
+    expect(unavailable).not.toContain('未选择酒店不能导出')
+    expect(unavailable).not.toContain('12 分钟')
+  }
+})

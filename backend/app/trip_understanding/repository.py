@@ -7041,7 +7041,9 @@ class InMemoryTripUnderstandingRepository(
     ) -> TripUnderstandingJobRecord | None:
         exhausted = [item for item in self.jobs.values()
             if item.get('job_type', 'UNDERSTAND') == 'UNDERSTAND' and item['status'] == 'RUNNING'
-            and item['lease_until'] is not None and item['lease_until'] <= now and item['attempt'] >= item['max_attempts']]
+            and item['lease_until'] is not None and item['lease_until'] <= now and item['attempt'] >= item['max_attempts']
+            and (aggregate := self.resources.get(self.resources_by_understanding.get(item['understanding_id']))) is not None
+            and aggregate['state'] == 'PROCESSING' and aggregate['current_revision'] == item['revision']]
         for item in sorted(exhausted, key=lambda row: (row['lease_until'], row['job_id']))[:16]:
             public_id = self.resources_by_understanding.get(item['understanding_id'])
             aggregate = self.resources.get(public_id)

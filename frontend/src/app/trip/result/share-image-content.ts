@@ -13,13 +13,15 @@ export type ShareImageContentOptions = {
 export function exportResultWithStay(result: UserFacingTripResult, latest?: StaySuggestionView | null): UserFacingTripResult {
   if (!latest) return result
   const candidates = [...latest.candidates, ...(latest.segments || []).flatMap(segment => segment.candidates)]
+  const stay = ['AVAILABLE', 'LIMITED'].includes(latest.status) || candidates.some(candidate => candidate.selected)
+    ? latest : result.stay
   const update = (candidate: StaySuggestionView['candidates'][number]) => {
     const detail = candidates.find(item => item.candidate_token === candidate.candidate_token)
     return detail ? {...candidate, ...detail, selected: candidate.selected} : candidate
   }
-  return {...result, stay: {...result.stay, status: latest.status,
-    candidates: result.stay.candidates.map(update),
-    segments: result.stay.segments?.map(segment => ({...segment,
+  return {...result, stay: {...stay, status: latest.status,
+    candidates: stay.candidates.map(update),
+    segments: stay.segments?.map(segment => ({...segment,
       status: ['NEEDS_UPDATE', 'PREPARING', 'UNAVAILABLE'].includes(latest.status) ? latest.status :
         latest.segments?.find(item => item.segment_token === segment.segment_token)?.status || latest.status,
       candidates: segment.candidates.map(update),

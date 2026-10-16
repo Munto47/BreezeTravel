@@ -59,6 +59,35 @@ async def test_final_interruption_retains_preview_or_fails_and_releases_creation
 
 
 @pytest.mark.asyncio
+async def test_historical_exhausted_jobs_do_not_fill_current_cleanup_batch():
+    async with repository_for("memory") as repo:
+        now = datetime.now(timezone.utc)
+        created = await create(repo, "current-after-history", now)
+        for attempt in range(3):
+            job = await repo.claim_next(worker_id=f"stopped-{attempt}",
+                now=now + timedelta(seconds=attempt * 3), lease_seconds=2)
+        historical = {}
+        for index in range(16):
+            understanding_id = f"historical-understanding-{index}"
+            old = dict(repo.jobs[job.job_id], job_id=f"historical-job-{index}",
+                understanding_id=understanding_id, lease_until=now - timedelta(seconds=20 - index))
+            historical[old["job_id"]] = dict(old)
+            repo.jobs[old["job_id"]] = old
+            if index % 2 == 0:
+                public_id = f"historical-resource-{index}"
+                repo.resources_by_understanding[understanding_id] = public_id
+                repo.resources[public_id] = dict(repo.resources[created.accepted.public_resource_id],
+                    understanding_id=understanding_id, public_resource_id=public_id,
+                    current_revision=job.revision + 1)
+        expired_at = now + timedelta(seconds=9)
+        assert await repo.claim_next(worker_id="cleanup", now=expired_at, lease_seconds=2) is None
+        resource = await repo.authorize(created.accepted.public_resource_id, capability_hash="a" * 64, now=expired_at)
+        assert resource.state == "FAILED"
+        assert repo.jobs[job.job_id]["status"] == "FAILED"
+        assert all(repo.jobs[key] == value for key, value in historical.items())
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
 async def test_delete_during_exhaustion_cleanup_cannot_recreate_trip(kind, monkeypatch):
     async with repository_for(kind) as repo:
