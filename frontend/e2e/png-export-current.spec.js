@@ -38,7 +38,7 @@ function fixture(capacity = false) {
 }
 
 async function show(page, options = {}) {
-  const state = {result: fixture(options.capacity), version: 0, writes: []}
+  const state = {result: options.result || fixture(options.capacity), version: 0, writes: []}
   if (options.stall) state.result.days.forEach(day => day.activities.forEach(card => {card.photo_url = `https://photos.invalid/${card.activity_token}.jpg`}))
   await page.addInitScript(() => {
     window.pngDrawn = []
@@ -129,6 +129,60 @@ test('PNG contains actual confirmation counts, dining, lodging and source limita
   expect(text).not.toContain('未选择酒店不能导出')
   expect(text).not.toContain('999')
   expect(text).not.toContain('18:00')
+})
+
+test('PNG prints the same source note once without merging separate days, positions, choices or conditions', async ({page}, info) => {
+  const result = fixture()
+  const dinner = '可选，如果还有空，晚上吃饭，门店待选，不吃辣'
+  const unknown = '可选，如果天气凉爽，附近休息，地点待选'
+  result.days[0].source_notes = [
+    {note_id: 'source-dinner', position: 1, text: `备选用餐：${dinner}`},
+    {note_id: 'source-unknown', position: 1, text: `原文备选：${unknown}`},
+    {note_id: 'source-repeat-before', position: 0, text: '原文备选：如果有空，休息一下'},
+    {note_id: 'source-repeat-after', position: 2, text: '原文备选：如果有空，休息一下'},
+    {note_id: 'source-day', position: 2, text: '原文备选：跨日保留的同文安排'},
+    {note_id: 'source-choice-a', position: 1, text: '方案 A · 备选用餐：如果下雨，室内用餐'},
+    {note_id: 'source-snapshot', position: 1, text: '原文备选：如果下雨，留在室内'},
+    {note_id: 'source-cancelled', position: 2, text: '已取消：取消的旧广场'},
+    {note_id: 'source-role', position: 2, text: '原文备选：角色不同的同文安排'},
+    {note_id: 'source-legacy', position: 2, text: '原文备选：旧响应缺少来源关联'},
+  ]
+  const supplementary = {status: 'AVAILABLE', days: [
+    {day_index: 1, day_label: 'Day 1', items: [
+      {source_note_id: 'source-dinner', name: dinner, role: 'OPTIONAL'},
+      {source_note_id: 'source-unknown', name: unknown, role: 'OPTIONAL'},
+      {source_note_id: 'source-repeat-before', name: '如果有空，休息一下', role: 'OPTIONAL'},
+      {source_note_id: 'source-repeat-after', name: '如果有空，休息一下', role: 'OPTIONAL'},
+      {source_note_id: 'source-choice-a', name: '方案 A · 如果下雨，室内用餐', role: 'OPTIONAL'},
+      {source_note_id: 'source-choice-b', name: '方案 B · 如果下雨，室内用餐', role: 'OPTIONAL'},
+      {source_note_id: 'source-snapshot', name: '如果晴天，外出散步', role: 'OPTIONAL'},
+      {source_note_id: 'source-cancelled', name: '取消的旧广场', role: 'EXCLUDED'},
+      {source_note_id: 'source-role', name: '角色不同的同文安排', role: 'EXCLUDED'},
+      {name: '旧响应缺少来源关联', role: 'OPTIONAL'},
+    ]},
+    {day_index: 2, day_label: 'Day 2', items: [
+      {source_note_id: 'source-day', name: '跨日保留的同文安排', role: 'OPTIONAL'},
+    ]},
+  ]}
+  await show(page, {result, supplementary})
+  await page.getByTestId('export-itinerary-png').click()
+  const text = await capture(page, info, 'source-notes-once.png')
+  const count = value => text.split(value).length - 1
+  expect(count(dinner)).toBe(1)
+  expect(count(unknown)).toBe(1)
+  expect(count('如果有空，休息一下')).toBe(2)
+  expect(count('跨日保留的同文安排')).toBe(2)
+  expect(count('如果下雨，室内用餐')).toBe(2)
+  expect(text).toContain('方案 A · 备选用餐：如果下雨，室内用餐')
+  expect(text).toContain('原文备选：方案 B · 如果下雨，室内用餐')
+  expect(text).toContain('如果下雨，留在室内')
+  expect(text).toContain('如果晴天，外出散步')
+  expect(count('取消的旧广场')).toBe(1)
+  expect(text).toContain('原文备选：角色不同的同文安排')
+  expect(text).toContain('原文已取消：角色不同的同文安排')
+  expect(count('旧响应缺少来源关联')).toBe(2)
+  expect(text.indexOf(dinner)).toBeLessThan(text.indexOf('Day 2\n'))
+  expect(text.lastIndexOf('跨日保留的同文安排')).toBeGreaterThan(text.indexOf('Day 2\n'))
 })
 
 for (const stall of [false, true]) test(`all 160 visits and 14 days export with ${stall ? 'stalled' : 'working'} photographs`, async ({page}, info) => {

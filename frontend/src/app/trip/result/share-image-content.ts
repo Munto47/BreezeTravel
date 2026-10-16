@@ -56,6 +56,15 @@ function details(card: Pick<ActivityCardView, 'source_details'>) {
     ...card.source_details.map((detail, index) => `${index + 1}. ${detail.name}${detail.optional ? '（备选）' : ''}`)]
 }
 
+function sourceNoteContainsSupplement(day: UserFacingTripResult['days'][number], item: TripSupplementaryView['days'][number]['items'][number]) {
+  if (!item.source_note_id) return false
+  return (day.source_notes || []).some(note => {
+    if (note.note_id !== item.source_note_id) return false
+    const label = item.role === 'EXCLUDED' ? /^已取消：/ : /^(.*? · )?(?:备选用餐|原文备选)：/
+    return label.test(note.text) && note.text.replace(label, item.role === 'EXCLUDED' ? '' : '$1') === item.name
+  })
+}
+
 export function shareDayNotes(result: UserFacingTripResult, index: number, options: ShareImageContentOptions = {}) {
   const day = result.days[index]
   const notes: string[] = []
@@ -81,7 +90,8 @@ export function shareDayNotes(result: UserFacingTripResult, index: number, optio
   if (day.unprocessed_count) notes.push(`原文未整理：${day.unprocessed_count} 处`)
   if (options.supplementary?.status === 'AVAILABLE') {
     for (const group of options.supplementary.days.filter(group => group.day_index === index + 1))
-      notes.push(...group.items.map(item => `${item.role === 'EXCLUDED' ? '原文已取消' : '原文备选'}：${item.name}`))
+      notes.push(...group.items.filter(item => !sourceNoteContainsSupplement(day, item))
+        .map(item => `${item.role === 'EXCLUDED' ? '原文已取消' : '原文备选'}：${item.name}`))
   }
   if (options.mapView && day.activities.length > 1) {
     const summary = dayRouteSummary(day, options.mapView)

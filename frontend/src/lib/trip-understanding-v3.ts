@@ -433,6 +433,7 @@ export interface TripSupplementaryView {
       name: string
       time_hint: string | null
       role: 'OPTIONAL' | 'EXCLUDED'
+      source_note_id?: string | null
     }>
   }>
 }

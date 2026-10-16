@@ -54,6 +54,7 @@ class SupplementaryItem(StrictModel):
     name: str
     time_hint: str | None = None
     role: Literal["OPTIONAL", "EXCLUDED"]
+    source_note_id: str | None = None
 
 
 class SupplementaryDay(StrictModel):
@@ -155,6 +156,23 @@ def _with_source_relationships(mentions, structure):
     return result
 
 
+def _note_source_key(mention):
+    return (mention.get("day_index"), mention.get("sequence_index"), mention.get("role"),
+        mention.get("mention_text"), mention.get("atomic_place_name"))
+
+
+def _retained_note_tokens(mentions, result):
+    """Relate retained source facts only to unambiguous, still-visible notes."""
+    visible = {(index, note.note_id) for index, day in enumerate(result.days, 1)
+        for note in day.source_notes} if result else set()
+    candidates = {}
+    for mention in mentions:
+        token = mention.get("public_activity_token")
+        if (mention.get("day_index"), token) in visible:
+            candidates.setdefault(_note_source_key(mention), set()).add(token)
+    return {key: next(iter(tokens)) for key, tokens in candidates.items() if len(tokens) == 1}
+
+
 class _ReadbackProjection:
     async def get_source_view(self, resource, *, now):
         data = await self._read_import(resource, now=now)
@@ -189,6 +207,7 @@ class _ReadbackProjection:
     async def get_supplementary_view(self, resource, *, now, include_pending_lodgings=False):
         data = await self._read_import(resource, now=now)
         groups = {}
+        note_tokens = _retained_note_tokens(data.mentions, data.result)
         if data.status == "AVAILABLE":
             for mention in data.mentions:
                 if mention["role"] not in {"OPTIONAL", "EXCLUDED"}:
@@ -210,7 +229,8 @@ class _ReadbackProjection:
                 if "http://" in name.lower() or "https://" in name.lower():
                     name = "备选安排" if mention["role"] == "OPTIONAL" else "已取消安排"
                 groups.setdefault(index, SupplementaryDay(day_index=index, day_label=label, items=[])).items.append(
-                    SupplementaryItem(name=name, time_hint=(mention.get("time_hint") or None), role=mention["role"]))
+                    SupplementaryItem(name=name, time_hint=(mention.get("time_hint") or None), role=mention["role"],
+                        source_note_id=note_tokens.get(_note_source_key(mention))))
         pending = []
         if include_pending_lodgings and data.status == "AVAILABLE" and data.result:
             active = {item.pending_token for item in data.result.pending_lodgings}
@@ -312,8 +332,11 @@ class PostgresReadbackMixin(_ReadbackProjection):
                 plan = open_source_plan(self._get_source_cipher(), _json(proposal), source_id=row["source_id"],
                     source_hash=content_hash, envelope=row["encrypted_content"])
                 if plan is not None and supports_details:
+                    note_tokens = _retained_note_tokens([*mentions, *current], result)
                     mentions = [dict(role=m.role.value, day_index=m.day_index, sequence_index=m.sequence_index,
                         mention_text=m.raw_text, atomic_place_name=m.atomic_place_name, time_hint=None,
+                        public_activity_token=note_tokens.get((m.day_index, m.sequence_index, m.role.value,
+                            m.raw_text, m.atomic_place_name)),
                         parent_mention_id=m.parent_mention_id, relation_type=m.relation_type,
                         source_note_text=(_optional_anonymous_note_text(m, text, include_role_label=False)
                             if _is_optional_anonymous_arrangement(m) else None),
