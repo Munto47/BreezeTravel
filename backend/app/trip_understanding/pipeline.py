@@ -1199,39 +1199,21 @@ def _public_activity_city(activity: ResolvedActivity) -> str | None:
     return None
 
 
-def _is_optional_anonymous_meal(mention: ProposedMention, source_text: str | None = None) -> bool:
-    if mention.role != ActivityRole.OPTIONAL or mention.atomic_place_name:
-        return False
-    if mention.meal_role or mention.category_hint == "餐饮":
-        return True
-    if (not source_text or mention.category_hint not in {None, "地点"}
-            or source_text[mention.span_start:mention.span_end] != mention.raw_text):
-        return False
-    # An explicit anonymous meal still has a note exit when optional model
-    # category fields are absent. Whole action phrases cannot name a venue.
-    quote = mention.raw_text.replace("**", "").strip()
-    if not re.fullmatch(r"(?:(?:早上|上午|中午|下午|傍晚|晚上|晚间)\s*)?"
-                        r"(?:用餐|就餐|吃饭|(?:吃|用|享用)?(?:早|午|晚)(?:饭|餐))", quote):
-        return False
-    left = max(source_text.rfind(mark, 0, mention.span_start) for mark in "\n。！？；;，,") + 1
-    right = min((pos for mark in "\n。！？；;，," if (pos := source_text.find(mark, mention.span_end)) >= 0),
-                default=len(source_text))
-    before = source_text[left:mention.span_start].replace("**", "").rstrip(" 【「『*_`")
-    after = source_text[mention.span_end:right].strip(" 】」』*_` ")
-    if after or re.search(r"(?:不再|没有|并未|尚未|无需|无须|不必|不可|不要|别|取消|不|未|没)"
-                          r"(?:了|再|打算|计划|想|准备|建议)*"
-                          r"(?:(?:在|去|到)[^，,。；;\n]{0,45})?"
-                          r"(?:早上|上午|中午|下午|傍晚|晚上|晚间)*$", before):
-        return False
-    return True
+def _is_optional_anonymous_arrangement(mention: ProposedMention) -> bool:
+    return mention.role == ActivityRole.OPTIONAL and not mention.atomic_place_name
 
 
-def _optional_meal_note_text(mention: ProposedMention, source_text: str | None) -> str | None:
+def _optional_anonymous_note_text(
+    mention: ProposedMention, source_text: str | None, *, include_role_label: bool = True,
+) -> str | None:
     from app.trip_understanding.source_meal_context import source_meal_block
 
     text = mention.raw_text
-    if source_text and source_text[mention.span_start:mention.span_end] == text:
-        text = source_meal_block(source_text, mention.span_start, mention.span_end) or text
+    if source_text is not None:
+        if (not 0 <= mention.span_start < mention.span_end <= len(source_text)
+                or source_text[mention.span_start:mention.span_end] != text):
+            return None
+        text = source_meal_block(source_text, mention.span_start, mention.span_end, max_length=None) or text
         start, end = mention.role_evidence_start, mention.role_evidence_end
         if start is not None and end is not None and 0 <= start <= mention.span_start < mention.span_end <= end <= len(source_text):
             evidence = source_text[start:end]
@@ -1243,12 +1225,15 @@ def _optional_meal_note_text(mention: ProposedMention, source_text: str | None) 
     text = re.sub(r"\d+(?:\.\d+)?(?:\s*[-–~至]\s*\d+(?:\.\d+)?)?\s*(?:小时|分钟)", "", text)
     text = re.sub(r"\d+\s*月\s*\d+\s*日|\d{1,2}[:：]\d{2}", "", text).strip()
     label = f"{mention.branch_label} · " if mention.branch_label else ""
-    note = f"{label}备选用餐：{text}"
-    # An oversized preference remains unfinished instead of silently losing its tail.
-    return note if text and len(note) <= 600 else None
+    kind = "备选用餐" if mention.meal_role or mention.category_hint == "餐饮" else "原文备选"
+    note = f"{label}{kind}：{text}"
+    # An oversized source item remains unfinished instead of silently losing its tail.
+    if not text or len(note) > 600:
+        return None
+    return note if include_role_label else f"{label}{text}"
 
 
-def _optional_meal_note_key(mention: ProposedMention, text: str) -> tuple:
+def _optional_anonymous_note_key(mention: ProposedMention, text: str) -> tuple:
     return (mention.day_index, mention.choice_group_id, mention.branch_id, mention.span_start, text)
 
 
@@ -1282,7 +1267,7 @@ class PublicResultProjector:
         alternatives = [activity.compiled for activity in activities
                         if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL
                         and (not _is_internal_detail(activity.compiled.mention)
-                             or _is_optional_anonymous_meal(activity.compiled.mention, source_text))
+                             or _is_optional_anonymous_arrangement(activity.compiled.mention))
                         and activity.compiled.mention.mention_id not in unassigned_alternative_ids]
         details_by_parent: dict[str, list[SourceDetailView]] = {}
         for child in sorted((item.compiled.mention for item in activities), key=_source_detail_order):
@@ -1431,17 +1416,17 @@ class PublicResultProjector:
             choices = []
             seen_choices: set[tuple] = set()
             sequence_by_token = {item.compiled.public_activity_token: item.compiled.mention.sequence_index for item in daily}
-            seen_optional_meals: set[tuple] = set()
+            seen_optional_notes: set[tuple] = set()
             for alternative in alternatives:
                 mention = alternative.mention
                 name = mention.atomic_place_name
-                if _is_optional_anonymous_meal(mention, source_text) and mention.day_index == day_index:
+                if _is_optional_anonymous_arrangement(mention) and mention.day_index == day_index:
                     from app.trip_understanding.models import SourceNoteView
 
-                    text = _optional_meal_note_text(mention, source_text)
-                    key = _optional_meal_note_key(mention, text) if text else None
-                    if key is not None and key not in seen_optional_meals:
-                        seen_optional_meals.add(key)
+                    text = _optional_anonymous_note_text(mention, source_text)
+                    key = _optional_anonymous_note_key(mention, text) if text else None
+                    if key is not None and key not in seen_optional_notes:
+                        seen_optional_notes.add(key)
                         position = sum(sequence_by_token[card.activity_token] < mention.sequence_index for card in cards)
                         source_notes.append(SourceNoteView(note_id=alternative.public_activity_token,
                             text=text, position=position))
@@ -1567,19 +1552,19 @@ def _projection_omissions(
         for day in result.days for card in (*day.activities, *day.alternatives) for detail in card.source_details)
     notes = {(day_index, note.note_id): note.text
         for day_index, day in enumerate(result.days, 1) for note in day.source_notes}
-    visible_meals = {_optional_meal_note_key(item.mention, text)
-        for item in compiled if _is_optional_anonymous_meal(item.mention, source_text)
+    visible_anonymous_notes = {_optional_anonymous_note_key(item.mention, text)
+        for item in compiled if _is_optional_anonymous_arrangement(item.mention)
         if (text := notes.get((item.mention.day_index, item.public_activity_token))) is not None}
     issues = []
     missing_days = set(range(len(result.days) + 1, plan.day_count + 1))
     for item in compiled:
         mention = item.mention
-        if _is_optional_anonymous_meal(mention, source_text):
-            # Undated meals retain their existing supplementary-content exit.
-            if mention.day_index is None:
+        if _is_optional_anonymous_arrangement(mention):
+            text = _optional_anonymous_note_text(mention, source_text)
+            # Undated arrangements retain their existing supplementary-content exit.
+            if mention.day_index is None and text is not None:
                 continue
-            text = _optional_meal_note_text(mention, source_text)
-            if text is None or _optional_meal_note_key(mention, text) not in visible_meals:
+            if text is None or _optional_anonymous_note_key(mention, text) not in visible_anonymous_notes:
                 issues.append(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field="source_notes",
                     span_start=mention.span_start, span_end=mention.span_end))
             continue

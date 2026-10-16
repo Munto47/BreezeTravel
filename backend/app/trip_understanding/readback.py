@@ -193,16 +193,24 @@ class _ReadbackProjection:
             for mention in data.mentions:
                 if mention["role"] not in {"OPTIONAL", "EXCLUDED"}:
                     continue
-                if mention["role"] == "OPTIONAL" and mention.get("parent_mention_id") and mention.get("relation_type") == "INTERNAL_DETAIL":
+                anonymous_optional = mention["role"] == "OPTIONAL" and not mention.get("atomic_place_name")
+                if (mention["role"] == "OPTIONAL" and mention.get("parent_mention_id")
+                        and mention.get("relation_type") == "INTERNAL_DETAIL" and not anonymous_optional):
                     continue
                 index = mention.get("day_index")
                 label = (data.result.days[index - 1].label if data.result and index and index <= len(data.result.days)
                     else f"Day {index}" if index else "未指定日期")
                 name = mention.get("atomic_place_name") or mention["mention_text"]
+                if anonymous_optional and "source_note_text" in mention:
+                    name = mention["source_note_text"]
+                    if name is None:
+                        continue
+                else:
+                    name = name[:80]
                 if "http://" in name.lower() or "https://" in name.lower():
                     name = "备选安排" if mention["role"] == "OPTIONAL" else "已取消安排"
                 groups.setdefault(index, SupplementaryDay(day_index=index, day_label=label, items=[])).items.append(
-                    SupplementaryItem(name=name[:80], time_hint=(mention.get("time_hint") or None), role=mention["role"]))
+                    SupplementaryItem(name=name, time_hint=(mention.get("time_hint") or None), role=mention["role"]))
         pending = []
         if include_pending_lodgings and data.status == "AVAILABLE" and data.result:
             active = {item.pending_token for item in data.result.pending_lodgings}
@@ -297,17 +305,28 @@ class PostgresReadbackMixin(_ReadbackProjection):
             # additions. Manual edits never become new source facts.
             proposal = await conn.fetchval("SELECT proposal_json FROM trip_understanding_revisions WHERE understanding_id=$1 AND revision=$2",
                 resource.understanding_id, row["current_revision"])
-            if supports_details and row["source_type"] == "TEXT" and row["encrypted_content"] and "retained_source_plan" in _json(proposal):
+            if row["source_type"] == "TEXT" and row["encrypted_content"] and "retained_source_plan" in _json(proposal):
                 from app.trip_understanding.supplement_context import open_source_plan
                 from app.trip_understanding.source_occurrence import source_occurrence_id
+                from app.trip_understanding.pipeline import _is_optional_anonymous_arrangement, _optional_anonymous_note_text
                 plan = open_source_plan(self._get_source_cipher(), _json(proposal), source_id=row["source_id"],
                     source_hash=content_hash, envelope=row["encrypted_content"])
-                if plan is not None:
+                if plan is not None and supports_details:
                     mentions = [dict(role=m.role.value, day_index=m.day_index, sequence_index=m.sequence_index,
                         mention_text=m.raw_text, atomic_place_name=m.atomic_place_name, time_hint=None,
                         parent_mention_id=m.parent_mention_id, relation_type=m.relation_type,
+                        source_note_text=(_optional_anonymous_note_text(m, text, include_role_label=False)
+                            if _is_optional_anonymous_arrangement(m) else None),
                         source_occurrence_id=source_occurrence_id(text, m)) for m in plan.mentions]
                     structure = []
+                elif plan is not None:
+                    anonymous_notes = {(m.day_index, m.sequence_index, m.raw_text):
+                        _optional_anonymous_note_text(m, text, include_role_label=False)
+                        for m in plan.mentions if _is_optional_anonymous_arrangement(m)}
+                    mentions = [dict(m, **({"source_note_text": anonymous_notes[key]}
+                        if m["role"] == "OPTIONAL" and not m["atomic_place_name"]
+                        and (key := (m["day_index"], m["sequence_index"], m["mention_text"])) in anonymous_notes else {}))
+                        for m in mentions]
             return _ImportView("AVAILABLE", text, result, _with_source_relationships(mentions, structure),
                 {item["public_activity_token"]: item["canonical_place_id"] for item in current}, [dict(item) for item in current])
 

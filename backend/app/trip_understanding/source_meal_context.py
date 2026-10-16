@@ -11,7 +11,7 @@ _HEADING = re.compile(
 )
 
 
-def source_meal_block(source: str, start: int, end: int) -> str | None:
+def source_meal_block(source: str, start: int, end: int, *, max_length: int | None = 1000) -> str | None:
     """Only this item's explicit meal heading can extend a shortened quote.
 
     A quoted multiline meal stays intact. Unquoted following lines, other list
@@ -34,4 +34,4 @@ def source_meal_block(source: str, start: int, end: int) -> str | None:
         return None
     label_end = left + heading.end('label') + (2 if heading.group('bold') else 0)
     value = (heading.group('label') + source[label_end:right]).strip().rstrip('。')
-    return value if len(value) <= 1000 else None
+    return value if max_length is None or len(value) <= max_length else None

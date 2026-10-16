@@ -7224,6 +7224,8 @@ class InMemoryTripUnderstandingRepository(
                 "updated_at": now,
             }
         )
+        from app.trip_understanding.pipeline import _is_optional_anonymous_arrangement, _optional_anonymous_note_text
+
         self.source_readback_mentions[job.understanding_id] = [
             {"public_activity_token": item.compiled.public_activity_token,
              "mention_text": item.compiled.mention.raw_text,
@@ -7233,6 +7235,8 @@ class InMemoryTripUnderstandingRepository(
              "role": item.compiled.mention.role.value,
              "parent_mention_id": item.compiled.mention.parent_mention_id,
              "relation_type": item.compiled.mention.relation_type,
+             "source_note_text": (_optional_anonymous_note_text(item.compiled.mention, source.text, include_role_label=False)
+                 if _is_optional_anonymous_arrangement(item.compiled.mention) else None),
              "time_hint": item.compiled.mention.time_hint,
              "canonical_place_id": item.place.canonical_place_id if item.place else None}
             for item in output.activities

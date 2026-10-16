@@ -1,11 +1,13 @@
-"""Optional anonymous meals retain their source role across public projections."""
+"""Optional anonymous arrangements retain their source role across public projections."""
 from datetime import datetime, timezone
 
 import pytest
 
 from app.trip_understanding.experience_inference import SemanticDraft, proposal_from_draft
-from app.trip_understanding.models import ActivityMoveCommand, CreateFullRequest, RedoCommand, UndoCommand
-from app.trip_understanding.pipeline import PublicResultProjector, TripUnderstandingPipeline
+from app.trip_understanding.models import (
+    ActivityMoveCommand, CreateFullRequest, DestinationBasis, RedoCommand, ResolvedActivity, UndoCommand,
+)
+from app.trip_understanding.pipeline import EvidenceCompiler, PublicResultProjector, TripUnderstandingPipeline, _projection_omissions
 from app.trip_understanding.service import TripUnderstandingApplicationService
 from tests.semantic_page_replays import FixedReplayPlaces
 from tests.test_anonymous_meal_context import fixture
@@ -86,9 +88,13 @@ async def test_saved_shanghai_semantics_keep_branch_meal_without_promoting_it():
 
 
 @pytest.mark.asyncio
-async def test_repeated_quote_deduplicates_only_same_source_position_and_branch():
+@pytest.mark.parametrize("typed", [True, False])
+async def test_repeated_quote_deduplicates_only_same_source_position_and_branch(typed):
     source = SOURCE.replace("随后去越秀公园。", "随后去越秀公园。\n晚上吃饭。")
     plan = meal_plan(source)
+    if not typed:
+        plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": None, "meal_role": None})
+            if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
     meal = next(item for item in plan.mentions if item.role == "OPTIONAL")
     repeated = meal.model_copy(update={"mention_id": "duplicate", "sequence_index": meal.sequence_index + 1})
     other_branch = meal.model_copy(update={"mention_id": "other-branch", "branch_id": "b", "branch_label": "方案 B"})
@@ -98,8 +104,9 @@ async def test_repeated_quote_deduplicates_only_same_source_position_and_branch(
     plan = plan.model_copy(update={"mentions": [*plan.mentions, repeated, other_branch, second_visit]})
     output, _ = await build_result(source, plan=plan)
     notes = output.public_result.days[0].source_notes
+    label = "备选用餐" if typed else "原文备选"
     assert [(note.text, note.position) for note in notes] == [
-        ("备选用餐：晚上吃饭", 1), ("方案 B · 备选用餐：晚上吃饭", 1), ("备选用餐：晚上吃饭", 2)]
+        (f"{label}：晚上吃饭", 1), (f"方案 B · {label}：晚上吃饭", 1), (f"{label}：晚上吃饭", 2)]
     assert output.public_result.coverage.complete
 
 
@@ -136,12 +143,13 @@ async def test_optional_meal_without_public_exit_stays_unfinished():
 
 
 @pytest.mark.asyncio
-async def test_optional_meal_with_missing_model_category_keeps_source_note_and_order():
+@pytest.mark.parametrize("quote", ["晚上吃饭", "晚餐"])
+async def test_optional_meal_with_missing_model_category_keeps_source_note_and_order(quote):
     source = ("广州两日游。\nDay1：先到沙面，再去陈家祠。\n"
               "晚餐：可选，如果还有空，晚上吃饭，门店待选，不吃辣。\nDay2：先到越秀公园，再去广州塔。")
     rows = [{"source_quote": name, "place_name": name, "role": "PLANNED", "day_index": day}
             for name, day in [("沙面", 1), ("陈家祠", 1), ("越秀公园", 2), ("广州塔", 2)]]
-    rows.insert(2, {"source_quote": "晚上吃饭", "place_name": None, "role": "OPTIONAL", "day_index": 1})
+    rows.insert(2, {"source_quote": quote, "place_name": None, "role": "OPTIONAL", "day_index": 1})
     plan = proposal_from_draft(source, SemanticDraft.model_validate({"destination": "广州", "activities": rows}),
                                allow_partial=True)
     meal = plan.mentions[2]
@@ -151,7 +159,7 @@ async def test_optional_meal_with_missing_model_category_keeps_source_note_and_o
         ["沙面", "陈家祠"], ["越秀公园", "广州塔"]]
     assert places.names == ["沙面", "陈家祠", "越秀公园", "广州塔"]
     note, = output.public_result.days[0].source_notes
-    assert note.text == "备选用餐：晚餐：可选，如果还有空，晚上吃饭，门店待选，不吃辣"
+    assert note.text == "原文备选：晚餐：可选，如果还有空，晚上吃饭，门店待选，不吃辣"
     assert note.position == 2
     assert all(not day.meal_slots for day in output.public_result.days)
     assert output.public_result.days[1].source_notes == []
@@ -174,7 +182,7 @@ async def test_untyped_optional_meal_keeps_an_independent_day_and_condition():
     output, places = await build_result(source, plan=plan)
     assert output.public_result.days[0].source_notes == []
     note, = output.public_result.days[1].source_notes
-    assert note.text == "备选用餐：午餐：若行程允许，可以用餐，门店待选，不吃辣"
+    assert note.text == "原文备选：午餐：若行程允许，可以用餐，门店待选，不吃辣"
     assert note.position == 1
     assert all(not day.meal_slots for day in output.public_result.days)
     assert places.names == ["沙面", "越秀公园", "广州塔"]
@@ -194,25 +202,80 @@ async def test_untyped_optional_meal_keeps_an_independent_day_and_condition():
     ("晚餐：参观吃饭博物馆。", "吃饭"),
     ("如果还有空，看看饭后公园。", "饭后公园"),
 ])
-async def test_untyped_anonymous_nonmeal_and_negated_actions_do_not_become_meal_notes(clause, quote):
+async def test_untyped_anonymous_actions_keep_neutral_source_notes_without_becoming_meals(clause, quote):
     source = SOURCE.replace("如果散步后还有空，晚上吃饭，门店待选。", clause)
-    plan = meal_plan(source, quote=quote)
+    plan = meal_plan(source, quote=quote, evidence=clause.rstrip("。"))
     plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": "地点", "meal_role": None})
         if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
     output, places = await build_result(source, plan=plan)
-    assert not any("备选用餐" in note.text for day in output.public_result.days for note in day.source_notes)
+    note, = output.public_result.days[0].source_notes
+    assert note.text == "原文备选：" + clause.rstrip("。")
+    assert note.position == 1
+    assert output.public_result.days[0].alternatives == []
     assert [slot.meal_role for slot in output.public_result.days[0].meal_slots] == ["LUNCH"]
     assert places.names == ["沙面", "越秀公园"]
 
 
 @pytest.mark.asyncio
-async def test_oversized_optional_meal_is_not_silently_truncated():
+@pytest.mark.parametrize("typed", [True, False])
+async def test_oversized_optional_meal_is_not_silently_truncated(typed):
     quote = "晚上吃饭，" + "餐饮偏好" * 160
     source = SOURCE.replace("晚上吃饭", quote)
-    output, _ = await build_result(source, plan=meal_plan(source, quote=quote))
+    plan = meal_plan(source, quote=quote)
+    if not typed:
+        plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": None, "meal_role": None})
+            if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
+    output, _ = await build_result(source, plan=plan)
     assert output.public_result.days[0].source_notes == []
     assert output.public_result.coverage.complete is False
     assert output.public_result.coverage.unprocessed_count >= 1
+
+
+@pytest.mark.parametrize("source_text", ["", SOURCE.replace("晚上吃饭", "夜间吃饭")])
+@pytest.mark.parametrize("typed", [True, False])
+@pytest.mark.parametrize("day", [1, None])
+def test_anonymous_optional_without_a_valid_source_anchor_is_a_projection_omission(source_text, typed, day):
+    plan = meal_plan(day=day)
+    if not typed:
+        plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": None, "meal_role": None})
+            if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
+    compiled, _, _ = EvidenceCompiler().compile(SOURCE, plan)
+    result = PublicResultProjector().project("广州", DestinationBasis.EXPLICIT,
+        [ResolvedActivity(compiled=item, resolution_status="NOT_ELIGIBLE") for item in compiled],
+        include_alternatives=True, source_text=source_text)
+    assert result.days[0].source_notes == []
+    issues = _projection_omissions(plan, compiled, result, source_text=source_text)
+    assert [(issue.category, issue.field) for issue in issues] == [("PUBLIC_PROJECTION_OMISSION", "source_notes")]
+
+
+@pytest.mark.parametrize("typed", [True, False])
+def test_legacy_projector_without_source_text_keeps_saved_anonymous_quote(typed):
+    plan = meal_plan()
+    if not typed:
+        plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": None, "meal_role": None})
+            if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
+    compiled, _, _ = EvidenceCompiler().compile(SOURCE, plan)
+    result = PublicResultProjector().project("广州", DestinationBasis.EXPLICIT,
+        [ResolvedActivity(compiled=item, resolution_status="NOT_ELIGIBLE") for item in compiled],
+        include_alternatives=True)
+    note, = result.days[0].source_notes
+    assert note.text == ("备选用餐" if typed else "原文备选") + "：晚上吃饭"
+    assert _projection_omissions(plan, compiled, result) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("day", [1, None])
+@pytest.mark.parametrize("length", [400, 700])
+async def test_optional_heading_with_oversized_source_block_stays_unfinished(day, length):
+    source = SOURCE.replace("如果散步后还有空，晚上吃饭，门店待选。", "晚餐：可选，" + "偏好" * length + "。")
+    plan = meal_plan(source, day=day, quote="晚餐")
+    plan = plan.model_copy(update={"mentions": [mention.model_copy(update={"category_hint": None, "meal_role": None})
+        if mention.role == "OPTIONAL" else mention for mention in plan.mentions]})
+    output, places = await build_result(source, plan=plan)
+    assert output.public_result.days[0].source_notes == []
+    assert not output.public_result.coverage.complete
+    assert output.public_result.coverage.unprocessed_count == 1
+    assert places.names == ["沙面", "越秀公园"]
 
 
 @pytest.mark.asyncio
@@ -241,6 +304,7 @@ async def test_optional_meal_notes_survive_save_edit_undo_redo_source_deletion_a
         resource, stored = await read()
         expected = stored.result.days[0].source_notes
         assert len(expected) == 1
+        assert expected[0].text.startswith("备选用餐：" if typed else "原文备选：")
         for key, command in [
             ("move", ActivityMoveCommand(command_type="ACTIVITY_MOVE",
                 activity_token=stored.result.days[0].activities[-1].activity_token, target_day_index=1, target_position=0)),
@@ -267,15 +331,21 @@ async def test_optional_meal_notes_survive_save_edit_undo_redo_source_deletion_a
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["memory", "postgres"])
-async def test_undated_optional_meal_keeps_supplementary_exit(kind):
+@pytest.mark.parametrize("typed", [True, False])
+@pytest.mark.parametrize("with_places", [True, False])
+async def test_undated_optional_meal_keeps_supplementary_exit(kind, typed, with_places):
     async with repository_for(kind) as repo:
-        source = SOURCE + "\n补充：有空吃点心。"
+        clause = "晚餐：可选，如果游览结束还有空且同行者愿意，再讨论在哪里吃饭，门店待选；同行者不吃辣、不吃香菜、不喝酒，优先有清淡菜品的店，实际点单前还要确认是否有适合所有人的选择；如没有合适选择就各自回去休息"
+        source = SOURCE + "\n补充：\n" + clause + "。"
         plan = meal_plan(source)
         original = next(item for item in plan.mentions if item.role == "OPTIONAL")
-        start = source.index("有空吃点心")
+        start = source.index("晚餐")
         undated = original.model_copy(update={"mention_id": "undated-meal", "day_index": None,
-            "raw_text": "有空吃点心", "span_start": start, "span_end": start + 5, "meal_role": "SNACK"})
-        plan = plan.model_copy(update={"mentions": [*plan.mentions, undated]})
+            "raw_text": "晚餐", "span_start": start, "span_end": start + 2,
+            "branch_label": "方案 B", "branch_id": "b"})
+        if not typed:
+            undated = undated.model_copy(update={"category_hint": None, "meal_role": None})
+        plan = plan.model_copy(update={"mentions": [*plan.mentions, undated] if with_places else [undated]})
         output, _ = await build_result(source, plan=plan)
         now = datetime.now(timezone.utc)
         service = TripUnderstandingApplicationService(repo)
@@ -287,6 +357,55 @@ async def test_undated_optional_meal_keeps_supplementary_exit(kind):
         resource = await repo.authorize(created.accepted.public_resource_id, capability_hash=None,
             user_id="experience-owner", now=now)
         supplementary = await repo.get_supplementary_view(resource, now=now)
+        expected = "方案 B · " + clause
+        assert len(expected) > 80
         assert [(item.name, item.role) for day in supplementary.days if day.day_index is None
-                for item in day.items] == [("有空吃点心", "OPTIONAL")]
-        assert not any("有空吃点心" in note.text for day in output.public_result.days for note in day.source_notes)
+                for item in day.items] == [(expected, "OPTIONAL")]
+        assert not any(clause in note.text for day in output.public_result.days for note in day.source_notes)
+        assert output.public_result.coverage.complete is with_places
+        assert output.public_result.coverage.unprocessed_count == 0
+        if with_places:
+            stored = await repo.get_result(resource)
+            await service.apply_command(resource, ActivityMoveCommand(command_type="ACTIVITY_MOVE",
+                activity_token=stored.result.days[0].activities[-1].activity_token, target_day_index=1, target_position=0),
+                expected_etag=stored.opaque_etag, idempotency_key="undated-meal-move", now=now)
+            resource = await repo.authorize(created.accepted.public_resource_id, capability_hash=None,
+                user_id="experience-owner", now=now)
+        assert await repo.get_supplementary_view(resource, now=now) == supplementary
+        stored = await repo.get_result(resource)
+        share, _ = await repo.create_share(resource, "experience-owner", stored.result,
+            idempotency_key="undated-meal-share", expires_in_days=1, signing_key="fixed-share-key", now=now,
+            supplementary=supplementary)
+        path, secret = share.share_url.split("#s=")
+        ref = path.rsplit("/", 1)[1]
+        session = await repo.exchange_share_secret(ref, secret, now=now)
+        shared = await repo.read_share(ref, session.capability, now=now)
+        assert shared.unassigned_alternatives == [expected]
+        await repo.delete_source(resource, user_id="experience-owner", idempotency_key="undated-meal-delete-source",
+            request_hash="c" * 64, now=now)
+        deleted = await repo.get_supplementary_view(resource, now=now)
+        assert deleted.status == "DELETED" and deleted.days == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["memory", "postgres"])
+async def test_oversized_undated_heading_is_not_returned_as_a_complete_supplementary_item(kind):
+    async with repository_for(kind) as repo:
+        source = SOURCE.replace("如果散步后还有空，晚上吃饭，门店待选。", "晚餐：可选，" + "餐饮偏好" * 300 + "。")
+        plan = meal_plan(source, quote="晚餐", day=None)
+        output, places = await build_result(source, plan=plan)
+        now = datetime.now(timezone.utc)
+        service = TripUnderstandingApplicationService(repo)
+        created = await service.create_full(CreateFullRequest.model_validate({"mode": "FULL",
+            "source": {"type": "TEXT", "text": source}}), owner_user_id="experience-owner",
+            idempotency_key="oversized-undated-create", now=now)
+        job = await repo.claim_next(worker_id="oversized-undated-test", now=now, lease_seconds=60)
+        await repo.complete_job(job, output, now=now)
+        resource = await repo.authorize(created.accepted.public_resource_id, capability_hash=None,
+            user_id="experience-owner", now=now)
+        stored = await repo.get_result(resource)
+        assert not stored.result.coverage.complete and stored.result.coverage.unprocessed_count == 1
+        assert stored.result.days[0].source_notes == []
+        supplementary = await repo.get_supplementary_view(resource, now=now)
+        assert supplementary.status == "AVAILABLE" and supplementary.days == []
+        assert places.names == ["沙面", "越秀公园"]
