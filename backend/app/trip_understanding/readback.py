@@ -8,6 +8,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
+from uuid import NAMESPACE_URL, uuid5
 
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.exceptions import InvalidTag
@@ -55,6 +56,7 @@ class SupplementaryItem(StrictModel):
     time_hint: str | None = None
     role: Literal["OPTIONAL", "EXCLUDED"]
     source_note_id: str | None = None
+    source_alternative_id: str | None = None
 
 
 class SupplementaryDay(StrictModel):
@@ -168,9 +170,36 @@ def _retained_note_tokens(mentions, result):
     candidates = {}
     for mention in mentions:
         token = mention.get("public_activity_token")
-        if (mention.get("day_index"), token) in visible:
+        matches_undated = False
+        if result and mention.get("day_index") is None and mention.get("role") == "EXCLUDED" and token:
+            matches = [note for day in result.days for note in day.source_notes if note.note_id == token]
+            expected = "已取消（原文未指定 Day）：" + (mention.get("atomic_place_name") or mention["mention_text"])
+            matches_undated = len(matches) == 1 and matches[0].text == expected
+        if (mention.get("day_index"), token) in visible or matches_undated:
             candidates.setdefault(_note_source_key(mention), set()).add(token)
     return {key: next(iter(tokens)) for key, tokens in candidates.items() if len(tokens) == 1}
+
+
+def _retained_alternative_ids(mentions, result):
+    candidates = {}
+    if not result:
+        return candidates
+    for mention in mentions:
+        day = mention.get("day_index")
+        if (mention.get("role") != "OPTIONAL" or not mention.get("atomic_place_name")
+                or day is None or not 1 <= day <= len(result.days)):
+            continue
+        occurrence = mention.get("source_occurrence_id")
+        token = mention.get("public_activity_token")
+        stable_id = uuid5(NAMESPACE_URL, "alternative:" + token).hex if token else None
+        retained_id = mention.get("source_alternative_id")
+        matches = [item for item in result.days[day - 1].alternatives if (
+            occurrence == item.source_occurrence_id if occurrence and item.source_occurrence_id else
+            token and (item.activity_token == token or item.alternative_id == stable_id)
+            or retained_id and item.alternative_id == retained_id)]
+        if len(matches) == 1:
+            candidates.setdefault(_note_source_key(mention), set()).add(matches[0].alternative_id)
+    return {key: next(iter(ids)) for key, ids in candidates.items() if len(ids) == 1}
 
 
 class _ReadbackProjection:
@@ -208,6 +237,7 @@ class _ReadbackProjection:
         data = await self._read_import(resource, now=now)
         groups = {}
         note_tokens = _retained_note_tokens(data.mentions, data.result)
+        alternative_ids = _retained_alternative_ids(data.mentions, data.result)
         if data.status == "AVAILABLE":
             for mention in data.mentions:
                 if mention["role"] not in {"OPTIONAL", "EXCLUDED"}:
@@ -230,7 +260,8 @@ class _ReadbackProjection:
                     name = "备选安排" if mention["role"] == "OPTIONAL" else "已取消安排"
                 groups.setdefault(index, SupplementaryDay(day_index=index, day_label=label, items=[])).items.append(
                     SupplementaryItem(name=name, time_hint=(mention.get("time_hint") or None), role=mention["role"],
-                        source_note_id=note_tokens.get(_note_source_key(mention))))
+                        source_note_id=note_tokens.get(_note_source_key(mention)),
+                        source_alternative_id=alternative_ids.get(_note_source_key(mention))))
         pending = []
         if include_pending_lodgings and data.status == "AVAILABLE" and data.result:
             active = {item.pending_token for item in data.result.pending_lodgings}
@@ -333,9 +364,12 @@ class PostgresReadbackMixin(_ReadbackProjection):
                     source_hash=content_hash, envelope=row["encrypted_content"])
                 if plan is not None and supports_details:
                     note_tokens = _retained_note_tokens([*mentions, *current], result)
+                    alternative_ids = _retained_alternative_ids([*mentions, *current], result)
                     mentions = [dict(role=m.role.value, day_index=m.day_index, sequence_index=m.sequence_index,
                         mention_text=m.raw_text, atomic_place_name=m.atomic_place_name, time_hint=None,
                         public_activity_token=note_tokens.get((m.day_index, m.sequence_index, m.role.value,
+                            m.raw_text, m.atomic_place_name)),
+                        source_alternative_id=alternative_ids.get((m.day_index, m.sequence_index, m.role.value,
                             m.raw_text, m.atomic_place_name)),
                         parent_mention_id=m.parent_mention_id, relation_type=m.relation_type,
                         source_note_text=(_optional_anonymous_note_text(m, text, include_role_label=False)

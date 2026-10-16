@@ -205,7 +205,7 @@ export interface UserFacingTripResult {
       preference_text?:string|null;
       selection_status?:'UNKNOWN'|'UNSELECTED'|'SELECTED';selected_activity_token?:string|null}>;
     choice_selections?: Array<{choice_group_token:string;branch_token:string;activity_tokens:string[];status:'SELECTED'|'MODIFIED'}>;
-    alternatives?: Array<{semantic_review?: 'CONFIRMED' | 'PENDING'; name: string; category: string; city?: string | null; replaces_visit_id?: string | null; replaces_name?: string | null; replacement_condition?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
+    alternatives?: Array<{alternative_id?: string; semantic_review?: 'CONFIRMED' | 'PENDING'; name: string; category: string; city?: string | null; replaces_visit_id?: string | null; replaces_name?: string | null; replacement_condition?: string | null; branch_label?: string | null; branch_token?: string | null; choice_group_token?: string | null; choice_group_selectable?: boolean; activity_token?: string | null; insertion_position?:number|null; source_details?: ActivityCardView['source_details']}> }>
   map: {
     status:
       | 'PREPARING'
@@ -434,6 +434,7 @@ export interface TripSupplementaryView {
       time_hint: string | null
       role: 'OPTIONAL' | 'EXCLUDED'
       source_note_id?: string | null
+      source_alternative_id?: string | null
     }>
   }>
 }

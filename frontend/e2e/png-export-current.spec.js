@@ -185,6 +185,104 @@ test('PNG prints the same source note once without merging separate days, positi
   expect(text.lastIndexOf('跨日保留的同文安排')).toBeGreaterThan(text.indexOf('Day 2\n'))
 })
 
+test('PNG keeps alternative conditions once only for an exact same-day source link', async ({page}, info) => {
+  const result = fixture()
+  result.days[0].alternatives = [
+    {alternative_id: 'rain-museum', name: '深圳市当代艺术与城市规划馆', replacement_condition: '如果下雨', replaces_name: '莲花山公园'},
+    {alternative_id: 'same-place-a', name: '两次同名的备选点', branch_label: '方案 A', replacement_condition: '如果上午下雨'},
+    {alternative_id: 'same-place-b', name: '两次同名的备选点', branch_label: '方案 B', replacement_condition: '如果下午有空'},
+    {alternative_id: 'ambiguous', name: '来源歧义的备选点', replacement_condition: '如果晴天'},
+    {alternative_id: 'ambiguous', name: '来源歧义的备选点', replacement_condition: '如果雨停'},
+    {alternative_id: 'legacy', name: '缺少关联的备选点'},
+    {alternative_id: 'other-day', name: '另一天的同名备选点'},
+    {alternative_id: 'other-role', name: '角色不同的备选点'},
+    {alternative_id: 'changed', name: '当前完整备选点', replacement_condition: '如果还有空'},
+  ]
+  const supplementary = {status: 'AVAILABLE', days: [
+    {day_index: 1, day_label: 'Day 1', items: [
+      {source_alternative_id: 'rain-museum', name: '深圳市当代艺术与城市规划馆', role: 'OPTIONAL'},
+      {source_alternative_id: 'same-place-a', name: '两次同名的备选点', role: 'OPTIONAL'},
+      {source_alternative_id: 'same-place-b', name: '两次同名的备选点', role: 'OPTIONAL'},
+      {source_alternative_id: 'ambiguous', name: '来源歧义的备选点', role: 'OPTIONAL'},
+      {name: '缺少关联的备选点', role: 'OPTIONAL'},
+      {source_alternative_id: 'other-role', name: '角色不同的备选点', role: 'EXCLUDED'},
+      {source_alternative_id: 'changed', name: '旧快照完整备选点', role: 'OPTIONAL'},
+    ]},
+    {day_index: 2, day_label: 'Day 2', items: [
+      {source_alternative_id: 'other-day', name: '另一天的同名备选点', role: 'OPTIONAL'},
+    ]},
+  ]}
+  await show(page, {result, supplementary})
+  await page.getByTestId('export-itinerary-png').click()
+  const text = await capture(page, info, 'linked-alternatives-once.png')
+  const count = value => text.split(value).length - 1
+  expect(count('深圳市当代艺术与城市规划馆')).toBe(1)
+  expect(text).toContain('深圳市当代艺术与城市规划馆（如果下雨替换莲花山公园）')
+  expect(count('两次同名的备选点')).toBe(2)
+  expect(text).toContain('备选 · 方案 A：两次同名的备选点（如果上午下雨）')
+  expect(text).toContain('备选 · 方案 B：两次同名的备选点（如果下午有空）')
+  expect(count('来源歧义的备选点')).toBe(3)
+  expect(text).toContain('来源歧义的备选点（如果晴天）')
+  expect(text).toContain('来源歧义的备选点（如果雨停）')
+  expect(count('缺少关联的备选点')).toBe(2)
+  expect(count('另一天的同名备选点')).toBe(2)
+  expect(count('角色不同的备选点')).toBe(2)
+  expect(text).toContain('原文已取消：角色不同的备选点')
+  expect(text).toContain('当前完整备选点（如果还有空）')
+  expect(text).toContain('原文备选：旧快照完整备选点')
+  expect(text.lastIndexOf('另一天的同名备选点')).toBeGreaterThan(text.indexOf('Day 2\n'))
+})
+
+test('PNG prints an undated cancellation once only with a unique exact source note', async ({page}, info) => {
+  const result = fixture()
+  result.days[0].source_notes = [
+    {note_id: 'undated-window', position: 2, text: '已取消（原文未指定 Day）：世界之窗'},
+    {note_id: 'undated-legacy', position: 2, text: '已取消（原文未指定 Day）：旧记录取消点'},
+    {note_id: 'assigned', position: 2, text: '已取消：已有日序的取消点'},
+    {note_id: 'changed', position: 2, text: '已取消（原文未指定 Day）：当前取消点'},
+    {note_id: 'ambiguous', position: 2, text: '已取消（原文未指定 Day）：歧义取消点'},
+    {note_id: 'other-role', position: 2, text: '已取消（原文未指定 Day）：角色不同的取消点'},
+    {note_id: 'invalid-day', position: 2, text: '已取消（原文未指定 Day）：日序越界的取消点'},
+    {note_id: 'other-day', position: 2, text: '已取消（原文未指定 Day）：另一天的取消点'},
+  ]
+  result.days[1].source_notes = [
+    {note_id: 'ambiguous', position: 1, text: '已取消（原文未指定 Day）：歧义取消点'},
+  ]
+  const supplementary = {status: 'AVAILABLE', days: [
+    {day_index: null, day_label: '未指定日期', items: [
+      {source_note_id: 'undated-window', name: '世界之窗', role: 'EXCLUDED'},
+      {name: '旧记录取消点', role: 'EXCLUDED'},
+      {source_note_id: 'assigned', name: '已有日序的取消点', role: 'EXCLUDED'},
+      {source_note_id: 'changed', name: '旧快照取消点', role: 'EXCLUDED'},
+      {source_note_id: 'ambiguous', name: '歧义取消点', role: 'EXCLUDED'},
+      {source_note_id: 'other-role', name: '角色不同的取消点', role: 'OPTIONAL'},
+    ]},
+    {day_index: 9, day_label: 'Day 9', items: [
+      {source_note_id: 'invalid-day', name: '日序越界的取消点', role: 'EXCLUDED'},
+    ]},
+    {day_index: 2, day_label: 'Day 2', items: [
+      {source_note_id: 'other-day', name: '另一天的取消点', role: 'EXCLUDED'},
+    ]},
+  ]}
+  await show(page, {result, supplementary})
+  await page.getByTestId('export-itinerary-png').click()
+  const text = await capture(page, info, 'linked-undated-cancellation-once.png')
+  const count = value => text.split(value).length - 1
+  expect(count('世界之窗')).toBe(1)
+  expect(text).toContain('已取消（原文未指定 Day）：世界之窗')
+  expect(text.indexOf('世界之窗')).toBeLessThan(text.indexOf('Day 2\n'))
+  expect(count('旧记录取消点')).toBe(2)
+  expect(count('已有日序的取消点')).toBe(2)
+  expect(text).toContain('已取消（原文未指定 Day）：当前取消点')
+  expect(text).toContain('原文已取消：旧快照取消点')
+  expect(count('歧义取消点')).toBe(3)
+  expect(count('角色不同的取消点')).toBe(2)
+  expect(text).toContain('原文备选：角色不同的取消点')
+  expect(count('日序越界的取消点')).toBe(2)
+  expect(count('另一天的取消点')).toBe(2)
+  expect(text.lastIndexOf('另一天的取消点')).toBeGreaterThan(text.indexOf('Day 2\n'))
+})
+
 for (const stall of [false, true]) test(`all 160 visits and 14 days export with ${stall ? 'stalled' : 'working'} photographs`, async ({page}, info) => {
   const state = await show(page, {capacity: true, stall})
   if (stall) await page.clock.install()

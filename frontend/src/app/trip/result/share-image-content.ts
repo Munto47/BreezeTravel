@@ -65,6 +65,12 @@ function sourceNoteContainsSupplement(day: UserFacingTripResult['days'][number],
   })
 }
 
+function alternativeContainsSupplement(day: UserFacingTripResult['days'][number], item: TripSupplementaryView['days'][number]['items'][number]) {
+  if (item.role !== 'OPTIONAL' || !item.source_alternative_id) return false
+  const alternatives = (day.alternatives || []).filter(card => card.alternative_id === item.source_alternative_id)
+  return alternatives.length === 1 && alternatives[0].name === item.name
+}
+
 export function shareDayNotes(result: UserFacingTripResult, index: number, options: ShareImageContentOptions = {}) {
   const day = result.days[index]
   const notes: string[] = []
@@ -90,7 +96,7 @@ export function shareDayNotes(result: UserFacingTripResult, index: number, optio
   if (day.unprocessed_count) notes.push(`原文未整理：${day.unprocessed_count} 处`)
   if (options.supplementary?.status === 'AVAILABLE') {
     for (const group of options.supplementary.days.filter(group => group.day_index === index + 1))
-      notes.push(...group.items.filter(item => !sourceNoteContainsSupplement(day, item))
+      notes.push(...group.items.filter(item => !sourceNoteContainsSupplement(day, item) && !alternativeContainsSupplement(day, item))
         .map(item => `${item.role === 'EXCLUDED' ? '原文已取消' : '原文备选'}：${item.name}`))
   }
   if (options.mapView && day.activities.length > 1) {
@@ -110,5 +116,9 @@ export function shareDayNotes(result: UserFacingTripResult, index: number, optio
 export function unassignedShareNotes(result: UserFacingTripResult, supplementary?: TripSupplementaryView | null) {
   if (supplementary?.status !== 'AVAILABLE') return []
   return supplementary.days.filter(group => group.day_index == null || group.day_index < 1 || group.day_index > result.days.length)
-    .flatMap(group => group.items.map(item => `${item.role === 'EXCLUDED' ? '原文已取消' : '原文备选'}：${item.name}`))
+    .flatMap(group => group.items.filter(item => {
+      if (group.day_index != null || item.role !== 'EXCLUDED' || !item.source_note_id) return true
+      const notes = result.days.flatMap(day => day.source_notes || []).filter(note => note.note_id === item.source_note_id)
+      return notes.length !== 1 || notes[0].text !== `已取消（原文未指定 Day）：${item.name}`
+    }).map(item => `${item.role === 'EXCLUDED' ? '原文已取消' : '原文备选'}：${item.name}`))
 }
