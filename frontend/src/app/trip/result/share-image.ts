@@ -1,7 +1,12 @@
 import type {ActivityCardView, UserFacingTripResult} from '@/lib/trip-understanding-v3'
 import type {SourceLodgingCard} from '@/lib/confirmed-trip-view'
-import {allocatePlacePhotos, placePhotoKey, placeCoverPhoto} from '@/lib/place-type-photo'
 import {DAY_COLORS} from './result-presentation'
+import {lodgingExportLines} from './lodging-export'
+import {exportStatus, shareDayNotes, unassignedShareNotes, type ShareImageContentOptions} from './share-image-content'
+import {prepareShareFonts, prepareSharePhotos, throwIfExportAborted} from './share-image-photos'
+
+export type ShareImageStage = 'PHOTOS' | 'DRAWING' | 'ENCODING'
+type ShareImageOptions = ShareImageContentOptions & {signal?: AbortSignal; onStage?: (stage: ShareImageStage) => void}
 
 function lines(ctx: CanvasRenderingContext2D, text: string, width: number) {
   const output: string[] = []
@@ -14,80 +19,45 @@ function lines(ctx: CanvasRenderingContext2D, text: string, width: number) {
   return output
 }
 
-function loadPhoto(src: string): Promise<HTMLImageElement | null> {
-  return new Promise(resolve => {
-    const photo = new Image()
-    photo.crossOrigin = 'anonymous'
-    photo.referrerPolicy = 'no-referrer'
-    const finish = (value: HTMLImageElement | null) => {
-      clearTimeout(timer); photo.onload = null; photo.onerror = null; resolve(value)
-    }
-    const timer = setTimeout(() => finish(null), 8000)
-    photo.onload = () => finish(photo)
-    photo.onerror = () => finish(null)
-    photo.src = src
-  })
-}
-
-/** A shareable itinerary, independent from the editor and its check messages. */
-export async function renderShareImage(result: UserFacingTripResult, sourceLodgings: SourceLodgingCard[], resource?: string) {
-  await document.fonts.ready
+/** Share the current itinerary together with its unresolved arrangements. */
+export async function renderShareImage(result: UserFacingTripResult, sourceLodgings: SourceLodgingCard[], resource?: string, options: ShareImageOptions = {}) {
+  if (options.supplementary === null) throw new Error('SUPPLEMENTARY_NOT_READY')
+  throwIfExportAborted(options.signal)
   const cards = result.days.flatMap(day => day.activities)
-  const allocation = allocatePlacePhotos(cards)
-  const photos = new Map<string, {image: HTMLImageElement | null; illustration: boolean}>()
-  // Bound decoding/connections for the 160-place case; one fetch per unique photo.
-  const downloads = new Map<string, Promise<HTMLImageElement | null>>()
-  const load = (src: string) => {
-    if (!downloads.has(src)) downloads.set(src, loadPhoto(src))
-    return downloads.get(src)!
-  }
-  let next = 0
-  await Promise.all(Array.from({length: Math.min(6, cards.length)}, async () => {
-    while (next < cards.length) {
-      const card = cards[next++]
-      let image = card.photo_url ? await load(card.photo_url) : null
-      if(!image && card.photo_url && resource) image=await load(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/photo?activity_token=${encodeURIComponent(card.activity_token)}`)
-      const illustration = !image
-      const fallback = allocation.get(placePhotoKey(card)) || placeCoverPhoto(card)
-      if (!image && fallback) image = await load(fallback.src)
-      photos.set(card.activity_token, {image, illustration})
-    }
-  }))
+  options.onStage?.('PHOTOS')
+  const [photos] = await Promise.all([prepareSharePhotos(cards, resource, options.signal), prepareShareFonts(options.signal)])
+  throwIfExportAborted(options.signal)
+  options.onStage?.('DRAWING')
   const width = 1440, padding = 48, gap = 22, columns = 5
   const cardWidth = (width - padding * 2 - 48 - gap * (columns - 1)) / columns
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('CANVAS_UNAVAILABLE')
   ctx.font = '600 19px "Microsoft YaHei", sans-serif'
-  const days = result.days.map(day => {
+  const days = result.days.map((day, index) => {
     const visible = day.activities
     const names = visible.map(card => lines(ctx, card.name, cardWidth - 24))
     const cardHeight = 191 + Math.max(1, ...names.map(name => name.length)) * 26
-    const visitLabel = (card: ActivityCardView, index: number) =>
-      `${visible.filter(other => other.name === card.name).length > 1 ? `第 ${index + 1} 站 · ` : ''}${card.name}`
-    const notes = [
-      ...visible.flatMap((card, index) => card.note ? [`${visitLabel(card, index)}：${card.note}`] : []),
-      ...visible.flatMap((card, index) => card.source_details?.length
-        ? [`${visitLabel(card, index)}：${card.source_details.filter(detail => !detail.optional).map(detail => detail.name).join(' → ')}`] : []),
-      ...(day.source_notes || []).map(note => note.text),
-      ...(day.alternatives || []).map(card => `备选：${card.name}${card.replaces_name ? `（${card.replacement_condition || '条件满足时'}替换${card.replaces_name}）` : ''}${card.source_details?.length ? ` · ${card.source_details.map(detail => detail.name).join('、')}` : ''}`),
-      ...(day.meal_slots || []).filter(slot => slot.selection_status !== 'SELECTED' && slot.preference_text).map(slot => slot.preference_text!),
-    ].filter(Boolean)
+    const notes = shareDayNotes(result, index, options)
     ctx.font = '400 17px "Microsoft YaHei", sans-serif'
     const noteLines = notes.flatMap(note => lines(ctx, note, width - padding * 2 - 48))
     ctx.font = '600 19px "Microsoft YaHei", sans-serif'
     const rows = Math.ceil(visible.length / columns)
     return {visible, names, cardHeight, noteLines, height: 88 + rows * (cardHeight + gap) + noteLines.length * 27 + (noteLines.length ? 20 : 0)}
   })
-  const stays = new Set<string>()
-  sourceLodgings.filter(card => card.status === 'READY').forEach(card => stays.add(
-    `${card.name}${card.overnight_days?.length ? ` · ${card.overnight_days.map(n => `第 ${n} 晚`).join('、')}` : ''}`))
-  const staySegments = result.stay.segments?.length ? result.stay.segments : [{candidates: result.stay.candidates, overnight_days: []}]
-  staySegments.forEach(segment => segment.candidates.filter(card => card.selected).forEach(card => stays.add(
-    `${card.name}${segment.overnight_days?.length ? ` · ${segment.overnight_days.join('、')}` : ''}`)))
   ctx.font = '400 18px "Microsoft YaHei", sans-serif'
-  const stayLines = [...stays].flatMap(stay => lines(ctx, stay, width - padding * 2 - 48))
-  const height = 180 + days.reduce((sum, day) => sum + day.height + 24, 0) + (stayLines.length ? 85 + stayLines.length * 28 : 0) + 60
+  const sections = [
+    {title: '住宿', rows: lodgingExportLines(result, sourceLodgings).map(row => row.text)},
+    {title: '未指定日期 · 原文补充安排', rows: unassignedShareNotes(result, options.supplementary)},
+  ].map(section => ({...section, lines: section.rows.flatMap(row => lines(ctx, row, width - padding * 2 - 48))}))
+    .filter(section => section.lines.length)
+  ctx.font = '700 36px "Microsoft YaHei", sans-serif'
+  const titleLines = lines(ctx, (result.assumptions.find(item => item.key === 'destination')?.value || '我的旅行') + ` · ${days.length} 天`, width - padding * 2)
+  ctx.font = '400 18px "Microsoft YaHei", sans-serif'
+  const notices = exportStatus(result, options).flatMap(notice => lines(ctx, notice, width - padding * 2))
+  const summaryY = 141 + (titleLines.length - 1) * 44
+  const headerHeight = summaryY + 39 + notices.length * 27
+  const height = headerHeight + days.reduce((sum, day) => sum + day.height + 24, 0) + sections.reduce((sum, section) => sum + 85 + section.lines.length * 28, 0) + 60
   // Downscale only extreme long trips, keeping the entire itinerary exportable.
   const scale = Math.min(1, 28000 / height, Math.sqrt(32000000 / (width * height)))
   canvas.width = Math.floor(width * scale); canvas.height = Math.ceil(height * scale)
@@ -100,9 +70,11 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
     ctx.font = `${font} "Microsoft YaHei", sans-serif`; ctx.fillStyle = color; ctx.fillText(value, x, y)
   }
   text('行程查  /  TRIPCHECK', padding, 48, '600 16px', '#1594a8')
-  text((result.assumptions.find(item => item.key === 'destination')?.value || '我的旅行') + ` · ${days.length} 天`, padding, 104, '700 36px')
-  text(`${result.days.reduce((n, day) => n + day.activities.length, 0)} 个安排 · ${cards.length} 个已确认${result.days.some(day => day.activities.some(card => card.status !== 'READY')) ? ' · 含待确认地点' : ''}`, padding, 141, '400 18px', '#647c8b')
-  let y = 180
+  titleLines.forEach((line, index) => text(line, padding, 104 + index * 44, '700 36px'))
+  const confirmed = cards.filter(card => card.status === 'READY').length
+  text(`${cards.length} 个安排 · ${confirmed} 个已确认${confirmed < cards.length ? ' · 含待确认地点' : ''}`, padding, summaryY, '400 18px', '#647c8b')
+  notices.forEach((notice, index) => text(notice, padding, summaryY + 30 + index * 27, '400 18px', '#946015'))
+  let y = headerHeight
   days.forEach((day, dayIndex) => {
     box(padding, y, width - padding * 2, day.height, '#ffffff', 22)
     const color = DAY_COLORS[dayIndex % DAY_COLORS.length]
@@ -132,10 +104,12 @@ export async function renderShareImage(result: UserFacingTripResult, sourceLodgi
     day.noteLines.forEach((note, i) => text(note, padding + 24, noteY + i * 27, '400 17px', '#5e7381'))
     y += day.height + 24
   })
-  if (stayLines.length) {
-    box(padding, y, width - padding * 2, 65 + stayLines.length * 28, '#fff', 18)
-    text('住宿', padding + 24, y + 34, '600 21px')
-    stayLines.forEach((stay, i) => text(stay, padding + 24, y + 66 + i * 28, '400 18px'))
+  for (const section of sections) {
+    box(padding, y, width - padding * 2, 65 + section.lines.length * 28, '#fff', 18)
+    text(section.title, padding + 24, y + 34, '600 21px')
+    section.lines.forEach((line, i) => text(line, padding + 24, y + 66 + i * 28, '400 18px'))
+    y += 85 + section.lines.length * 28
   }
+  throwIfExportAborted(options.signal)
   return canvas
 }

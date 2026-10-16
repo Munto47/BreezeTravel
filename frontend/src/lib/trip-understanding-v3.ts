@@ -1,3 +1,5 @@
+import { fetchWithDeadline, runWithDeadline } from '@/lib/request-safety'
+
 export interface TripUnderstandingAcceptedView {
   public_resource_id: string
   status: 'PROCESSING'
@@ -1532,18 +1534,21 @@ export async function createTripShare(
   return view
 }
 
-export async function readMyShares(): Promise<ShareListItemView[]> {
-  const response = await fetch('/api/v3/me/shares', {
-    credentials: 'include',
-    cache: 'no-store',
-    headers: authorizationHeaders(),
-  })
-  if (!response.ok) throw new Error('SHARE_LIST_FAILED')
-  return response.json() as Promise<ShareListItemView[]>
+export async function readMyShares(signal?: AbortSignal): Promise<ShareListItemView[]> {
+  return runWithDeadline(async requestSignal => {
+    const response = await fetch('/api/v3/me/shares', {
+      credentials: 'include',
+      cache: 'no-store',
+      signal: requestSignal,
+      headers: authorizationHeaders(),
+    })
+    if (!response.ok) throw new Error('SHARE_LIST_FAILED')
+    return response.json() as Promise<ShareListItemView[]>
+  }, 15000, signal)
 }
 
 export async function revokeShare(shareRef: string): Promise<void> {
-  const response = await fetch(
+  const response = await fetchWithDeadline(
     `/api/v3/me/shares/${encodeURIComponent(shareRef)}`,
     {
       method: 'DELETE',

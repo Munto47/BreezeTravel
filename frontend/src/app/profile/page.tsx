@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 import MemorySettingsPanel from '@/components/profile/MemorySettingsPanel'
+import ShareSettingsPanel from '@/components/profile/ShareSettingsPanel'
 import '../experience.css'
 import './profile.css'
 import {
@@ -186,6 +187,7 @@ export default function ProfilePage() {
             </form>
 
             <MemorySettingsPanel key={memoryVersion} />
+            <ShareSettingsPanel key={`${profileUserId}:${memoryVersion}`} />
 
             <section className="profile-section" aria-labelledby="travel-data-privacy-title">
               <h2 id="travel-data-privacy-title">账号旅行数据</h2>

@@ -87,6 +87,7 @@ class MapRenderWorker:
             ControlledStayRouteProvider(),
         )
         self.lease_seconds = lease_seconds
+        self._prefer_stay = False
 
     async def _heartbeat(self, job, now_provider) -> None:
         interval_seconds = max(0.01, min(10.0, self.lease_seconds / 3))
@@ -163,12 +164,16 @@ class MapRenderWorker:
                 return datetime.now(timezone.utc)
             return observed_at + timedelta(seconds=time.perf_counter() - operation_started)
 
-        job = await self.repository.claim_next_map(
-            worker_id=worker_id,
-            now=observed_at,
-            lease_seconds=self.lease_seconds,
-        )
+        stay_job = None
+        if self._prefer_stay:
+            stay_job = await self.repository.claim_next_stay(
+                worker_id=worker_id, now=operation_now(), lease_seconds=self.lease_seconds)
+        job = None
+        if stay_job is None:
+            job = await self.repository.claim_next_map(
+                worker_id=worker_id, now=operation_now(), lease_seconds=self.lease_seconds)
         if job is not None:
+            self._prefer_stay = True
             try:
                 async def execute_render():
                     plan = await self.repository.load_map_plan(job)
@@ -214,13 +219,12 @@ class MapRenderWorker:
                 logger.warning("map render job failed safely")
             return True
 
-        stay_job = await self.repository.claim_next_stay(
-            worker_id=worker_id,
-            now=observed_at,
-            lease_seconds=self.lease_seconds,
-        )
+        if stay_job is None and not self._prefer_stay:
+            stay_job = await self.repository.claim_next_stay(
+                worker_id=worker_id, now=operation_now(), lease_seconds=self.lease_seconds)
         if stay_job is None:
             return False
+        self._prefer_stay = False
         try:
             async def execute_stay():
                 plan = await self.repository.load_stay_plan(stay_job)

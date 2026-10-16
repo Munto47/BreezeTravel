@@ -782,6 +782,9 @@ class PostgresMapRenderRepositoryMixin:
                 )
             if current["snapshot_id"] is not None:
                 return await self._snapshot_view(conn, current)
+            if current["job_status"] == "UNAVAILABLE":
+                return MapRenderView(status="UNAVAILABLE", message="路线准备未完成，可重新更新；地点卡片已保留",
+                    available_actions=["RENDER_MAP"])
         older_exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM trip_map_render_jobs WHERE understanding_id = $1)",
             understanding_id,
@@ -951,6 +954,18 @@ class PostgresMapRenderRepositoryMixin:
     ) -> MapRenderJobRecord | None:
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            now = await conn.fetchval("SELECT GREATEST($1::timestamptz,clock_timestamp())", now)
+            await conn.execute("""WITH expired AS (
+                SELECT map_job_id FROM trip_map_render_jobs
+                WHERE status='BUILDING' AND lease_until <= $1 AND attempt >= max_attempts
+                ORDER BY lease_until,map_job_id FOR UPDATE SKIP LOCKED LIMIT 16
+            ), finished AS (
+                UPDATE trip_map_render_jobs j SET status='UNAVAILABLE',lease_owner=NULL,lease_until=NULL,
+                    last_error_category='MAP_TAKEOVERS_EXHAUSTED',finished_at=$1,updated_at=$1
+                FROM expired e WHERE j.map_job_id=e.map_job_id RETURNING j.map_job_id
+            ) INSERT INTO trip_map_render_events (map_job_id,event_key,status,observed_at)
+                SELECT map_job_id,'terminal','UNAVAILABLE',$1 FROM finished
+                ON CONFLICT (map_job_id,event_key) DO NOTHING""", now)
             row = await conn.fetchrow(
                 """
                 WITH candidate AS (
@@ -1507,6 +1522,9 @@ class InMemoryMapRenderRepositoryMixin:
             output = self.map_snapshots.get(job["map_job_id"])
             if output is not None:
                 return self._memory_snapshot_view(output)
+            if job["status"] == "UNAVAILABLE":
+                return MapRenderView(status="UNAVAILABLE", message="路线准备未完成，可重新更新；地点卡片已保留",
+                    available_actions=["RENDER_MAP"])
         if any(
             item["understanding_id"] == understanding_id for item in self.map_jobs.values()
         ):
@@ -1604,6 +1622,12 @@ class InMemoryMapRenderRepositoryMixin:
         now: datetime,
         lease_seconds: int,
     ) -> MapRenderJobRecord | None:
+        exhausted = [item for item in self.map_jobs.values()
+            if item['status'] == 'BUILDING' and item['lease_until'] is not None
+            and item['lease_until'] <= now and item['attempt'] >= item['max_attempts']]
+        for item in sorted(exhausted, key=lambda row: (row['lease_until'], row['map_job_id']))[:16]:
+            item.update(status='UNAVAILABLE', lease_owner=None, lease_until=None,
+                last_error_category='MAP_TAKEOVERS_EXHAUSTED', finished_at=now)
         eligible = [
             item
             for item in self.map_jobs.values()

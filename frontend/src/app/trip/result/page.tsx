@@ -731,7 +731,7 @@ export default function TripResultPage() {
               <button className="e-button" disabled={disabled || dirty || !result.can_redo} onClick={() => void trip.command({command_type:'REDO'})}>重做</button>
               <button className="e-button" onClick={() => setMobileSource(true)}>查看原文</button>
               {accountSaved && <button className="e-button" disabled={disabled || dirty || sharing} onClick={() => void shareTrip()}>分享行程</button>}
-              <ItineraryPngExport resource={trip.resource} result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty}/>
+              <ItineraryPngExport resource={trip.resource} result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} stayView={displayStay} etag={trip.etag} disabled={disabled || dirty}/>
               <button className="e-button" disabled={disabled || dirty || sourceDeleted} onClick={() => openContext({kind:'privacy', target:'SOURCE'})}>删除导入文字</button>
               <button className="e-button" disabled={disabled || dirty} onClick={() => openContext({kind:'privacy', target:'TRIP'})}>删除行程</button>
             </div>
@@ -1005,7 +1005,7 @@ export default function TripResultPage() {
                     onSelect={narrow ? (token, index) => {setSelected(token); setDayIndex(index)} : undefined}
                     resource={trip.resource}
                     onRender={() => void trip.renderMap()}
-                    toolbar={<ItineraryPngExport resource={trip.resource} result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
+                    toolbar={<ItineraryPngExport resource={trip.resource} result={result} unresolvedDays={trip.unresolvedDays} sourceMealDescriptions={trip.sourceMealDescriptions} supplementary={trip.supplementary} sourceLodgings={trip.sourceLodgings} mapView={displayMap} stayView={displayStay} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
                     pendingCounts={trip.unresolvedDays.map(day => day.activities.length)}
                     unresolvedDays={trip.unresolvedDays}
@@ -1549,7 +1549,7 @@ export default function TripResultPage() {
                         <>
                           <p className="e-muted">
                             拥有链接的人可查看行程，链接默认 7
-                            天后失效。可在账号中撤销。
+                            天后失效。可在 <Link href="/profile#shares">账号的分享链接设置</Link> 中单独撤销。已下载的内容无法收回。
                           </p>
                           <label className="e-field">
                             分享链接

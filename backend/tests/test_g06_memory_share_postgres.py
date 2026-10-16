@@ -20,7 +20,7 @@ from app.trip_understanding.worker import TripUnderstandingWorker
 
 pytestmark = pytest.mark.integration
 MIGRATIONS = Path("app/db/migrations")
-NOW = datetime(2026, 8, 31, 4, 0, tzinfo=timezone.utc)
+NOW = datetime.now(timezone.utc)
 
 
 def _admin_dsn() -> str:

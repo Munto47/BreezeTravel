@@ -32,6 +32,7 @@ from app.trip_understanding.models import (
     PipelineOutput,
     PipelineProgressUpdate,
     PlaceResolutionOutcome,
+    ProposedMention,
     ResolutionStatus,
     ResolvedActivity,
     ResolvedPlace,
@@ -1198,6 +1199,37 @@ def _public_activity_city(activity: ResolvedActivity) -> str | None:
     return None
 
 
+def _is_optional_anonymous_meal(mention: ProposedMention) -> bool:
+    return bool(mention.role == ActivityRole.OPTIONAL and not mention.atomic_place_name
+                and (mention.meal_role or mention.category_hint == "餐饮"))
+
+
+def _optional_meal_note_text(mention: ProposedMention, source_text: str | None) -> str | None:
+    from app.trip_understanding.source_meal_context import source_meal_block
+
+    text = mention.raw_text
+    if source_text and source_text[mention.span_start:mention.span_end] == text:
+        text = source_meal_block(source_text, mention.span_start, mention.span_end) or text
+        start, end = mention.role_evidence_start, mention.role_evidence_end
+        if start is not None and end is not None and 0 <= start <= mention.span_start < mention.span_end <= end <= len(source_text):
+            evidence = source_text[start:end]
+            if text in evidence:
+                text = evidence
+            elif evidence not in text:
+                text = f"{evidence}；{text}"
+    text = " ".join(text.replace("**", "").split())
+    text = re.sub(r"\d+(?:\.\d+)?(?:\s*[-–~至]\s*\d+(?:\.\d+)?)?\s*(?:小时|分钟)", "", text)
+    text = re.sub(r"\d+\s*月\s*\d+\s*日|\d{1,2}[:：]\d{2}", "", text).strip()
+    label = f"{mention.branch_label} · " if mention.branch_label else ""
+    note = f"{label}备选用餐：{text}"
+    # An oversized preference remains unfinished instead of silently losing its tail.
+    return note if text and len(note) <= 600 else None
+
+
+def _optional_meal_note_key(mention: ProposedMention, text: str) -> tuple:
+    return (mention.day_index, mention.choice_group_id, mention.branch_id, mention.span_start, text)
+
+
 class PublicResultProjector:
     def project(
         self,
@@ -1227,7 +1259,8 @@ class PublicResultProjector:
         )
         alternatives = [activity.compiled for activity in activities
                         if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL
-                        and not _is_internal_detail(activity.compiled.mention)
+                        and (not _is_internal_detail(activity.compiled.mention)
+                             or _is_optional_anonymous_meal(activity.compiled.mention))
                         and activity.compiled.mention.mention_id not in unassigned_alternative_ids]
         details_by_parent: dict[str, list[SourceDetailView]] = {}
         for child in sorted((item.compiled.mention for item in activities), key=_source_detail_order):
@@ -1376,9 +1409,21 @@ class PublicResultProjector:
             choices = []
             seen_choices: set[tuple] = set()
             sequence_by_token = {item.compiled.public_activity_token: item.compiled.mention.sequence_index for item in daily}
+            seen_optional_meals: set[tuple] = set()
             for alternative in alternatives:
                 mention = alternative.mention
                 name = mention.atomic_place_name
+                if _is_optional_anonymous_meal(mention) and mention.day_index == day_index:
+                    from app.trip_understanding.models import SourceNoteView
+
+                    text = _optional_meal_note_text(mention, source_text)
+                    key = _optional_meal_note_key(mention, text) if text else None
+                    if key is not None and key not in seen_optional_meals:
+                        seen_optional_meals.add(key)
+                        position = sum(sequence_by_token[card.activity_token] < mention.sequence_index for card in cards)
+                        source_notes.append(SourceNoteView(note_id=alternative.public_activity_token,
+                            text=text, position=position))
+                    continue
                 if ((mention.day_index or 1) != day_index or not name
                     or atomic_place_rejection_reason(name) is not None):
                     continue
@@ -1421,6 +1466,8 @@ class PublicResultProjector:
                         label = '已取消' if mention.day_index is not None else '已取消（原文未指定 Day）'
                         source_notes.append(SourceNoteView(note_id=item.compiled.public_activity_token,
                             text=f"{label}：{mention.atomic_place_name or mention.raw_text}"[:600], position=len(cards)))
+            note_order = {item.compiled.public_activity_token: item.compiled.mention.sequence_index for item in activities}
+            source_notes.sort(key=lambda note: (note.position, note_order[note.note_id]))
             day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
                                         activities=cards, alternatives=choices, meal_slots=meal_slots,
                                         unprocessed_count=(unprocessed_by_day or {}).get(day_index, 0), source_notes=source_notes))
@@ -1479,6 +1526,7 @@ class PublicResultProjector:
 
 def _projection_omissions(
     plan: SourceSemanticPlan, compiled: list[CompiledActivity], result: UserFacingTripResult,
+    *, source_text: str | None = None,
 ) -> list[SemanticDiagnostic]:
     """A public result cannot certify source items that its views dropped.
 
@@ -1495,10 +1543,24 @@ def _projection_omissions(
     parent_tokens = {item.mention.mention_id: item.public_activity_token for item in compiled}
     visible_details = Counter((card.activity_token, detail.name, detail.optional)
         for day in result.days for card in (*day.activities, *day.alternatives) for detail in card.source_details)
+    notes = {(day_index, note.note_id): note.text
+        for day_index, day in enumerate(result.days, 1) for note in day.source_notes}
+    visible_meals = {_optional_meal_note_key(item.mention, text)
+        for item in compiled if _is_optional_anonymous_meal(item.mention)
+        if (text := notes.get((item.mention.day_index, item.public_activity_token))) is not None}
     issues = []
     missing_days = set(range(len(result.days) + 1, plan.day_count + 1))
     for item in compiled:
         mention = item.mention
+        if _is_optional_anonymous_meal(mention):
+            # Undated meals retain their existing supplementary-content exit.
+            if mention.day_index is None:
+                continue
+            text = _optional_meal_note_text(mention, source_text)
+            if text is None or _optional_meal_note_key(mention, text) not in visible_meals:
+                issues.append(SemanticDiagnostic(category="PUBLIC_PROJECTION_OMISSION", field="source_notes",
+                    span_start=mention.span_start, span_end=mention.span_end))
+            continue
         if _is_internal_detail(mention) and mention.atomic_place_name:
             view = _public_source_detail(mention)
             detail = (parent_tokens.get(mention.parent_mention_id), view.name, view.optional) if view else None
@@ -2186,7 +2248,7 @@ class TripUnderstandingPipeline:
             **projection_options,
         )
         if isinstance(proposal, SourceSemanticPlan):
-            projection_issues = _projection_omissions(proposal, compiled, public_result)
+            projection_issues = _projection_omissions(proposal, compiled, public_result, source_text=source_text)
             if projection_issues:
                 proposal = proposal.model_copy(update={
                     "diagnostics": [*proposal.diagnostics, *projection_issues],

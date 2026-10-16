@@ -762,6 +762,7 @@ class TripUnderstandingRepository(
         request_hash: str,
         now: datetime,
         interrupted_job: TripUnderstandingJobRecord | None = None,
+        _exhausted_lease: bool = False,
     ) -> TripUnderstandingCancelOutcome: ...
 
     async def recover_interrupted_progress(
@@ -4232,6 +4233,7 @@ class PostgresTripUnderstandingRepository(
         request_hash: str,
         now: datetime,
         interrupted_job: TripUnderstandingJobRecord | None = None,
+        _exhausted_lease: bool = False,
     ) -> TripUnderstandingCancelOutcome:
         if len(idempotency_key) > 200:
             raise ValueError("idempotency key is too long")
@@ -4267,9 +4269,12 @@ class PostgresTripUnderstandingRepository(
 
             if interrupted_job is not None:
                 checked_at = await conn.fetchval("SELECT GREATEST($1::timestamptz, clock_timestamp())", now)
+                lease_matches = (current_job is not None and current_job['lease_until'] is not None and
+                    (current_job['lease_until'] <= checked_at and current_job['attempt'] >= current_job['max_attempts']
+                     if _exhausted_lease else current_job['lease_until'] > checked_at))
                 if (current_job is None or current_job['job_id'] != interrupted_job.job_id
                     or current_job['status'] != 'RUNNING' or current_job['lease_owner'] != interrupted_job.lease_owner
-                    or current_job['attempt'] != interrupted_job.attempt or current_job['lease_until'] <= checked_at
+                    or current_job['attempt'] != interrupted_job.attempt or not lease_matches
                     or aggregate['state'] != 'PROCESSING' or aggregate['current_revision'] != interrupted_job.revision):
                     raise JobLeaseLostError('interrupted preview is no longer owned by this worker')
 
@@ -4591,6 +4596,22 @@ class PostgresTripUnderstandingRepository(
         lease_seconds: int,
     ) -> TripUnderstandingJobRecord | None:
         pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            now = await conn.fetchval("SELECT GREATEST($1::timestamptz,clock_timestamp())", now)
+            exhausted = await conn.fetch("""SELECT j.*,u.public_resource_id,u.state
+                FROM trip_understanding_jobs j JOIN trip_understandings u USING (understanding_id)
+                WHERE j.job_type='UNDERSTAND' AND j.status='RUNNING' AND j.lease_until <= $1
+                    AND j.attempt >= j.max_attempts AND u.state='PROCESSING' AND u.current_revision=j.revision
+                ORDER BY j.lease_until,j.job_id LIMIT 16""", now)
+        for row in exhausted:
+            job = TripUnderstandingJobRecord.model_validate({key: row[key] for key in TripUnderstandingJobRecord.model_fields})
+            try:
+                await self.cancel_understanding(PublicResourceRecord(understanding_id=job.understanding_id,
+                    public_resource_id=row['public_resource_id'], state=row['state']),
+                    idempotency_key=f"exhausted:{job.job_id}:{job.attempt}", request_hash=job.input_hash,
+                    now=now, interrupted_job=job, _exhausted_lease=True)
+            except (JobLeaseLostError, ResourceNotFoundError, ResourceGoneError, ResourceAccessDeniedError):
+                continue
         async with pool.acquire() as conn, conn.transaction():
             now = await conn.fetchval("SELECT GREATEST($1::timestamptz,clock_timestamp())", now)
             lease_until = now + timedelta(seconds=lease_seconds)
@@ -6824,6 +6845,7 @@ class InMemoryTripUnderstandingRepository(
         request_hash: str,
         now: datetime,
         interrupted_job: TripUnderstandingJobRecord | None = None,
+        _exhausted_lease: bool = False,
     ) -> TripUnderstandingCancelOutcome:
         if len(idempotency_key) > 200:
             raise ValueError("idempotency key is too long")
@@ -6837,10 +6859,13 @@ class InMemoryTripUnderstandingRepository(
             raise ResourceGoneError("trip resource is no longer available")
         if interrupted_job is not None:
             current_job = self.jobs.get(interrupted_job.job_id)
+            lease_matches = (current_job is not None and current_job['lease_until'] is not None and
+                (current_job['lease_until'] <= now and current_job['attempt'] >= current_job['max_attempts']
+                 if _exhausted_lease else current_job['lease_until'] > now))
             if (current_job is None or current_job['status'] != 'RUNNING'
                 or current_job['lease_owner'] != interrupted_job.lease_owner
                 or current_job['attempt'] != interrupted_job.attempt
-                or current_job['lease_until'] is None or current_job['lease_until'] <= now
+                or not lease_matches
                 or aggregate['state'] != 'PROCESSING' or aggregate['current_revision'] != interrupted_job.revision):
                 raise JobLeaseLostError('interrupted preview is no longer owned by this worker')
         scope = f"understanding:{resource.understanding_id}:cancel"
@@ -7014,6 +7039,22 @@ class InMemoryTripUnderstandingRepository(
         now: datetime,
         lease_seconds: int,
     ) -> TripUnderstandingJobRecord | None:
+        exhausted = [item for item in self.jobs.values()
+            if item.get('job_type', 'UNDERSTAND') == 'UNDERSTAND' and item['status'] == 'RUNNING'
+            and item['lease_until'] is not None and item['lease_until'] <= now and item['attempt'] >= item['max_attempts']]
+        for item in sorted(exhausted, key=lambda row: (row['lease_until'], row['job_id']))[:16]:
+            public_id = self.resources_by_understanding.get(item['understanding_id'])
+            aggregate = self.resources.get(public_id)
+            if aggregate is None or aggregate['state'] != 'PROCESSING' or aggregate['current_revision'] != item['revision']:
+                continue
+            job = TripUnderstandingJobRecord.model_validate({key: item[key] for key in TripUnderstandingJobRecord.model_fields if key in item})
+            try:
+                await self.cancel_understanding(PublicResourceRecord(understanding_id=job.understanding_id,
+                    public_resource_id=public_id, state=aggregate['state']),
+                    idempotency_key=f"exhausted:{job.job_id}:{job.attempt}", request_hash=job.input_hash,
+                    now=now, interrupted_job=job, _exhausted_lease=True)
+            except (JobLeaseLostError, ResourceNotFoundError, ResourceGoneError, ResourceAccessDeniedError):
+                continue
         eligible = [
             item
             for item in self.jobs.values()

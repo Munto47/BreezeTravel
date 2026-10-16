@@ -138,6 +138,12 @@ def _segmented_view(metadata: list[dict], candidates: list[tuple[StayCandidateVi
         available_actions=["CHOOSE_STAY"] if any(not c.selected for s in segments for c in s.candidates) and not stale else [])
 
 
+def _interrupted_refresh_view(view: StaySuggestionView) -> StaySuggestionView:
+    message = "住宿更新中断，已保留原有住宿内容，请重新更新"
+    return view.model_copy(update={"status": "NEEDS_UPDATE", "message": message, "available_actions": [],
+        "segments": [segment.model_copy(update={"status": "NEEDS_UPDATE", "message": message}) for segment in view.segments]})
+
+
 def _binding(row: Any) -> dict:
     return _json(row.get("provider_binding_json", {}))
 
@@ -426,19 +432,21 @@ class PostgresStayRecommendationRepositoryMixin:
         selections = await conn.fetch("""SELECT s.* FROM trip_stay_selections s JOIN trip_plan_revision_refs p
             ON p.plan_ref_id = s.target_plan_ref_id WHERE p.understanding_id = $1 AND p.revision = $2""", understanding_id, revision)
         selections = _current_selections(selections, map_plan)
-        current = await conn.fetchval("""SELECT j.status FROM trip_stay_recommendation_jobs j
+        current = await conn.fetchrow("""SELECT j.status,j.last_error_category FROM trip_stay_recommendation_jobs j
             JOIN trip_plan_revision_refs p ON p.plan_ref_id = j.plan_ref_id
             WHERE p.understanding_id=$1 AND p.revision=$2 AND j.policy_hash=$3
             ORDER BY j.refresh_generation DESC LIMIT 1""", understanding_id, revision, STAY_POLICY_SHA256)
-        if current in {"QUEUED", "BUILDING"}:
+        if current is not None and current['status'] in {"QUEUED", "BUILDING"}:
             return StaySuggestionView(status="PREPARING", message="正在按每晚返回和次日出发准备住宿候选")
+        interrupted = current is not None and current['last_error_category'] == 'STAY_TAKEOVERS_EXHAUSTED'
         snapshots = await conn.fetch("""SELECT s.*, p.revision FROM trip_stay_recommendation_snapshots s
             JOIN trip_plan_revision_refs p ON p.plan_ref_id = s.plan_ref_id
             WHERE p.understanding_id = $1 ORDER BY p.revision DESC, s.created_at DESC LIMIT 20""", understanding_id)
         for snapshot in snapshots:
             binding = _binding(snapshot)
             if binding.get("context_hash") == context or (not binding.get("context_hash") and snapshot["revision"] == revision):
-                return await self._snapshot_stay_view(conn, snapshot, selections)
+                view = await self._snapshot_stay_view(conn, snapshot, selections)
+                return _interrupted_refresh_view(view) if interrupted else view
         if snapshots or selections:
             pairs, metadata = [], _overnight_metadata(map_plan)
             for selection in selections:
@@ -446,6 +454,8 @@ class PostgresStayRecommendationRepositoryMixin:
                 if row:
                     pairs.append((_candidate_view(row, selected=True), _selection_binding(_binding(row), selection)))
             return _segmented_view(metadata, pairs, stale=True)
+        if interrupted:
+            return StaySuggestionView(status="UNAVAILABLE", message="住宿准备中断，可重新更新；行程地点已保留")
         plan = stay_plan_from_map(map_plan)
         if plan and (all(s.preserved_hotels or s.uncertain for s in plan.segments)
                 or any(len(s.preserved_place_ids) > 1 for s in plan.segments)):
@@ -478,6 +488,15 @@ class PostgresStayRecommendationRepositoryMixin:
     ) -> StayRecommendationJobRecord | None:
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            now = await conn.fetchval("SELECT GREATEST($1::timestamptz,clock_timestamp())", now)
+            await conn.execute("""WITH expired AS (
+                SELECT stay_job_id FROM trip_stay_recommendation_jobs
+                WHERE status='BUILDING' AND lease_until <= $1 AND attempt >= max_attempts
+                ORDER BY lease_until,stay_job_id FOR UPDATE SKIP LOCKED LIMIT 16
+            ) UPDATE trip_stay_recommendation_jobs j
+                SET status='UNAVAILABLE',lease_owner=NULL,lease_until=NULL,
+                    last_error_category='STAY_TAKEOVERS_EXHAUSTED',finished_at=$1,updated_at=$1
+                FROM expired e WHERE j.stay_job_id=e.stay_job_id""", now)
             row = await conn.fetchrow(
                 """
                 SELECT j.*, p.revision_kind, p.aggregate_id, p.revision, p.stop_set_hash
@@ -1214,10 +1233,13 @@ class InMemoryStayRecommendationRepositoryMixin:
         selections = _current_selections([primary, *primary.get("additional_selections", [])], plan) if primary else []
         matching = [j for j in self.stay_jobs.values() if j["understanding_id"] == understanding_id
                     and (j["plan"].context_hash == context or (not j["plan"].context_hash and j["plan"].plan_ref.revision == revision))]
+        interrupted = bool(matching and matching[-1].get('last_error_category') == 'STAY_TAKEOVERS_EXHAUSTED')
         if matching:
             job = matching[-1]
             if job["status"] in {"QUEUED", "BUILDING"}:
                 return StaySuggestionView(status="PREPARING", message="正在按每晚返回和次日出发准备住宿候选")
+            if interrupted and not job["output"]:
+                job = next((previous for previous in reversed(matching[:-1]) if previous['output']), job)
             if job["output"]:
                 output = job["output"]
                 metadata = [dict(x) for x in output.provider_binding.get("segments", [])]
@@ -1233,11 +1255,14 @@ class InMemoryStayRecommendationRepositoryMixin:
                                 info["status"] = "PARTIAL"
                 pairs.extend((_memory_selected_view(x, stale=x["scored"].candidate.provider_binding.get("context_hash") != context),
                     _selection_binding(x["scored"].candidate.provider_binding, x)) for x in selections)
-                return _segmented_view(metadata, pairs)
+                view = _segmented_view(metadata, pairs)
+                return _interrupted_refresh_view(view) if interrupted else view
         if selections:
             metadata = _overnight_metadata(plan)
             return _segmented_view(metadata, [(_memory_selected_view(x, stale=True),
                 _selection_binding(x["scored"].candidate.provider_binding, x)) for x in selections], stale=True)
+        if interrupted:
+            return StaySuggestionView(status="UNAVAILABLE", message="住宿准备中断，可重新更新；行程地点已保留")
         contexts = overnight_segments(plan)
         if any(len(x.preserved_place_ids) > 1 for x in contexts):
             return _segmented_view(_overnight_metadata(plan), [])
@@ -1261,6 +1286,12 @@ class InMemoryStayRecommendationRepositoryMixin:
         now: datetime,
         lease_seconds: int,
     ) -> StayRecommendationJobRecord | None:
+        exhausted = [item for item in self.stay_jobs.values()
+            if item['status'] == 'BUILDING' and item['lease_until'] is not None
+            and item['lease_until'] <= now and item['attempt'] >= item['max_attempts']]
+        for item in sorted(exhausted, key=lambda row: (row['lease_until'], row['stay_job_id']))[:16]:
+            item.update(status='UNAVAILABLE', lease_owner=None, lease_until=None,
+                last_error_category='STAY_TAKEOVERS_EXHAUSTED', finished_at=now)
         eligible = [
             item
             for item in self.stay_jobs.values()
